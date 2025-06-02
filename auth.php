@@ -1,17 +1,18 @@
 <?php
 // auth.php
 
-$allowed_ips = [
-    '137.226.140.241',
-    '137.226.141.200',
-    '137.226.141.203',
-    '137.226.141.204',
-    '134.130.0.99'
-];
+$config_path = '/etc/credentials/config.json';
+$credentials = json_decode(file_get_contents($config_path), true)['fitpw'];
 
-$client_ip = $_SERVER['REMOTE_ADDR'];
+$valid_user = $credentials['username'];
+$valid_pass = $credentials['password'];
 
-if (!in_array($client_ip, $allowed_ips)) {
-    http_response_code(404);
+$user = $_SERVER['PHP_AUTH_USER'] ?? '';
+$pass = $_SERVER['PHP_AUTH_PW'] ?? '';
+
+if ($user !== $valid_user || $pass !== $valid_pass) {
+    header('WWW-Authenticate: Basic realm="FitnessTracker Login"');
+    header('HTTP/1.0 401 Unauthorized');
+    echo 'Zugriff verweigert.';
     exit;
 }
