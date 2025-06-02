@@ -3,7 +3,8 @@ require_once 'template.php';
 require_once 'header.php';
 
 // Zeitfenster: letzte 3 Monate
-$startDate = (new DateTime('-3 months'))->format('Y-m-d');
+$monate = isset($_GET['monate']) ? max(1, min(12, (int)$_GET['monate'])) : 3;
+$startDate = (new DateTime("-{$monate} months"))->format('Y-m-d');
 
 // Brutto-Kalorien (nur Zufuhr)
 $stmt = $mysqli->prepare("
@@ -119,6 +120,24 @@ $gewichtJson = json_encode($gewichtWerte);
 </head>
 <body>
 
+<div class="zeitbereich-container">
+    <form method="get" id="zeitForm" class="zeitbereich-form">
+        <label for="monatRange" class="zeitbereich-label">
+            Zeitraum: <span id="monatWert"><?= $monate ?> Monate</span>
+        </label>
+        <input type="range"
+               id="monatRange"
+               name="monate"
+               min="1"
+               max="12"
+               value="<?= $monate ?>"
+               class="zeitbereich-slider"
+               oninput="updateMonat(this.value)"
+               onchange="document.getElementById('zeitForm').submit()">
+    </form>
+</div>
+
+
 <div class="chart-row">
     <div class="chart-half">
         <h2 class="ueberschrift">Kalorien</h2>
@@ -202,13 +221,15 @@ new Chart(document.getElementById('kalorienChart').getContext('2d'), {
                 time: {
                     unit: 'day',
                     tooltipFormat: 'dd.MM.yyyy',
-                },
+                },                
                 ticks: {
-                    callback: function(value, index, ticks) {
+                    source: 'auto',
+                    autoSkip: true,
+                    maxTicksLimit: 15,
+                    callback: function(value) {
                         const date = luxon.DateTime.fromMillis(value);
-                        return (date.day === 1 || date.day === 15) ? date.toFormat('dd.MM.') : '';
+                        return date.toFormat('dd.MM.');
                     },
-                    autoSkip: false,
                     maxRotation: 0,
                     minRotation: 0,
                 }
@@ -298,11 +319,13 @@ new Chart(document.getElementById('gewichtChart').getContext('2d'), {
                     tooltipFormat: 'dd.MM.yyyy',
                 },
                 ticks: {
+                    source: 'auto',
+                    autoSkip: true,
+                    maxTicksLimit: 15,
                     callback: function(value) {
                         const date = luxon.DateTime.fromMillis(value);
-                        return (date.day === 1 || date.day === 15) ? date.toFormat('dd.MM.') : '';
+                        return date.toFormat('dd.MM.');
                     },
-                    autoSkip: false,
                     maxRotation: 0,
                     minRotation: 0,
                 }
@@ -316,6 +339,11 @@ new Chart(document.getElementById('gewichtChart').getContext('2d'), {
 
 
 });
+
+
+function updateMonat(val) {
+    document.getElementById('monatWert').textContent = val;
+}
 
 </script>
 
