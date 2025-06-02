@@ -16,6 +16,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 }
+
+$rezepte = [
+    ['3 Eier, 100g Spinat, 3 Tomaten', 281],
+    ['Nissin Ramen Spicy mit 100g Kimchi', 495],
+    ['130g Thunfisch mit 100g Reis', 500],
+    ['400g Hähnchenbrust', 450],
+    ['450g Skyr + 1 Banane + 30g Haferflocken', 483],
+    ['K-Classic Bami Goreng', 697],
+];
 ?>
 
 <!DOCTYPE html>
@@ -39,6 +48,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <button type="submit">Eintragen</button>
     </form>
+</div>
+
+<div class="container">
+    <h2>📋 Beispielgerichte</h2>
+    <ul>
+        <?php foreach ($rezepte as [$name, $kcal]): ?>
+            <li><?= htmlspecialchars($name) ?> - <strong><?= $kcal ?> kcal</strong></li>
+        <?php endforeach; ?>
+    </ul>
 </div>
 
 </body>
