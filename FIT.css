@@ -1,0 +1,126 @@
+:root {
+    --primary: #ff6b00;
+    --primary-dark: #cc5500;
+    --accent: #ffc04d;
+    --bg-light: #fffaf5;
+    --text: #222;
+    --text-light: #fff;
+    --border-radius: 6px;
+    --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    --font: 'Segoe UI', sans-serif;
+
+    --success: #4caf50;
+    --error: #f44336;
+    --warning: #ff9800;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: var(--bg-light);
+    color: var(--text);
+    font-family: var(--font);
+}
+
+/* Navbar */
+.navbar {
+    background-color: var(--primary);
+    padding: 10px;
+    box-shadow: var(--shadow);
+}
+
+.nav-links {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    text-align: center;
+}
+
+.nav-links li {
+    display: inline-block;
+    margin: 0 15px;
+}
+
+.nav-links a {
+    color: var(--text-light);
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 1.1em;
+}
+
+.nav-links a:hover {
+    color: var(--accent);
+    text-decoration: underline;
+}
+
+/* Diagramm-Layout */
+.chart-row {
+    display: flex;
+    justify-content: center;
+    gap: 80px;
+    flex-wrap: wrap;
+    margin: 40px auto;
+    width: 95%;
+}
+
+.chart-half {
+    flex: 1 1 45%;
+    max-width: 750px;
+}
+
+.chart-half canvas {
+    width: 100%;
+    height: 600px !important;
+}
+
+/* Überschriften */
+.ueberschrift {
+    text-align: center;
+    margin-bottom: 20px;
+    color: var(--text);
+}
+
+/* Optional: Standardbutton */
+button {
+    background-color: var(--primary);
+    color: var(--text-light);
+    border: none;
+    padding: 10px 16px;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-weight: bold;
+    box-shadow: var(--shadow);
+    transition: background-color 0.2s ease;
+}
+
+button:hover {
+    background-color: var(--primary-dark);
+}
+
+/* Formulare (optional, wenn du sie einsetzt) */
+input, select, textarea {
+    font-family: var(--font);
+    font-size: 1em;
+    padding: 8px;
+    margin: 5px 0;
+    border: 1px solid #ccc;
+    border-radius: var(--border-radius);
+    width: 100%;
+    box-sizing: border-box;
+}
+
+
+.container {
+    max-width: 600px;
+    margin: 60px auto;
+    padding: 20px;
+    background-color: white;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+}
+
+.form-block {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
