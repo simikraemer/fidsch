@@ -113,6 +113,9 @@ $gewichtJson = json_encode($gewichtWerte);
     <meta charset="UTF-8">
     <title>Übersicht</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.3/build/global/luxon.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.2.1"></script>
 </head>
 <body>
 
@@ -142,8 +145,8 @@ new Chart(document.getElementById('kalorienChart').getContext('2d'), {
                 fill: true,
                 tension: 0.3,
                 borderWidth: 2,
-                borderColor: 'rgba(0, 123, 255, 1)',          // kräftiges Blau
-                backgroundColor: 'rgba(0, 123, 255, 0.3)'     // transparentes Blau
+                borderColor: '#333',
+                backgroundColor: 'rgba(51, 51, 51, 0.15)',
             },
             {
                 label: 'Brutto-Kalorien',
@@ -156,11 +159,63 @@ new Chart(document.getElementById('kalorienChart').getContext('2d'), {
             }
         ]
     },
+
     options: {
         responsive: true,
         maintainAspectRatio: false,
+        plugins: {
+            annotation: {
+                annotations: {                    
+                    ziel: {
+                        type: 'line',
+                        yMin: 300,
+                        yMax: 300,
+                        borderColor: 'green',
+                        borderWidth: 2,
+                        borderDash: [6, 4],
+                    },
+                    gruenZone: {
+                        type: 'box',
+                        yMax: 300,
+                        backgroundColor: 'rgba(0, 200, 0, 0.1)',
+                        borderWidth: 0
+                    },
+                    gelbZone: {
+                        type: 'box',
+                        yMin: 300,
+                        yMax: 1000,
+                        backgroundColor: 'rgba(255, 215, 0, 0.15)',
+                        borderWidth: 0
+                    },
+                    rotZone: {
+                        type: 'box',
+                        yMin: 1000,
+                        backgroundColor: 'rgba(255, 0, 0, 0.1)',
+                        borderWidth: 0
+                    }
+                }
+            }
+        },
         scales: {
-            y: { beginAtZero: true }
+            x: {
+                type: 'time',
+                time: {
+                    unit: 'day',
+                    tooltipFormat: 'dd.MM.yyyy',
+                },
+                ticks: {
+                    callback: function(value, index, ticks) {
+                        const date = luxon.DateTime.fromMillis(value);
+                        return (date.day === 1 || date.day === 15) ? date.toFormat('dd.MM.') : '';
+                    },
+                    autoSkip: false,
+                    maxRotation: 0,
+                    minRotation: 0,
+                }
+            },
+            y: {
+                beginAtZero: true
+            }
         }
     }
 });
@@ -171,27 +226,97 @@ new Chart(document.getElementById('gewichtChart').getContext('2d'), {
     type: 'line',
     data: {
         labels: labels,
-        datasets: [{
-            label: 'Gewicht (kg)',
-            data: <?= $gewichtJson ?>,
-            borderColor: 'orange',
-            backgroundColor: 'rgba(255,165,0,0.2)',
-            fill: false,
-            tension: 0.3,
-            borderWidth: 2,
-            spanGaps: true
-        }]
+        datasets: [
+            {
+                label: 'Gewicht (kg)',
+                data: <?= $gewichtJson ?>,
+                borderColor: '#333',
+                backgroundColor: 'rgba(51, 51, 51, 0.15)',
+                fill: false,
+                tension: 0.3,
+                borderWidth: 2,
+                spanGaps: true
+            }
+        ]
     },
     options: {
         responsive: true,
         maintainAspectRatio: false,
+        plugins: {
+            annotation: {
+                annotations: {
+                    ziel: {
+                        type: 'line',
+                        yMin: 90,
+                        yMax: 90,
+                        borderColor: 'green',
+                        borderWidth: 2,
+                        borderDash: [6, 4],
+                    },
+                    zielunten: {
+                        type: 'line',
+                        yMin: 85,
+                        yMax: 85,
+                        borderColor: 'green',
+                        borderWidth: 2,
+                        borderDash: [6, 4]
+                    },
+                    zielbereich: {
+                        type: 'box',
+                        yMin: 85,
+                        yMax: 90,
+                        backgroundColor: 'rgba(0, 200, 0, 0.15)',
+                        borderWidth: 0
+                    },
+                    ubergangszone: {
+                        type: 'box',
+                        yMin: 90,
+                        yMax: 100,
+                        backgroundColor: 'rgba(255, 215, 0, 0.15)', // Gelb
+                        borderWidth: 0
+                    },
+                    unakzeptabel: {
+                        type: 'box',
+                        yMin: 100,
+                        backgroundColor: 'rgba(255, 0, 0, 0.15)', // Rot
+                        borderWidth: 0
+                    },
+                    ubergangszone_unten: {
+                        type: 'box',
+                        yMax: 85,
+                        backgroundColor: 'rgba(255, 215, 0, 0.15)', // Gelb
+                        borderWidth: 0
+                    },
+                }
+            }
+        },
         scales: {
+            x: {
+                type: 'time',
+                time: {
+                    unit: 'day',
+                    tooltipFormat: 'dd.MM.yyyy',
+                },
+                ticks: {
+                    callback: function(value) {
+                        const date = luxon.DateTime.fromMillis(value);
+                        return (date.day === 1 || date.day === 15) ? date.toFormat('dd.MM.') : '';
+                    },
+                    autoSkip: false,
+                    maxRotation: 0,
+                    minRotation: 0,
+                }
+            },
             y: {
-                beginAtZero: false
+                beginAtZero: false,
+                min: 80
             }
         }
     }
+
+
 });
+
 </script>
 
 </body>

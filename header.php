@@ -8,6 +8,7 @@
     <meta charset="UTF-8">
     <title>Fitness Tracker</title>
     <link rel="stylesheet" href="FIT.css">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
 </head>
 <body>
 
