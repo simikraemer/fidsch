@@ -2,8 +2,8 @@
 require_once 'template.php';
 require_once 'header.php';
 
-// Zeitfenster: letzte 3 Monate
-$monate = isset($_GET['monate']) ? max(1, min(12, (int)$_GET['monate'])) : 3;
+// Zeitfenster
+$monate = isset($_GET['monate']) ? max(1, min(12, (int)$_GET['monate'])) : 1;
 $startDate = (new DateTime("-{$monate} months"))->format('Y-m-d');
 
 // Brutto-Kalorien (nur Zufuhr)
@@ -89,8 +89,8 @@ $gewichtWerte = [];
 $letztesGewicht = null;
 
 foreach ($alleTage as $tag) {
-    $nettoWerte[] = $nettoTage[$tag] ?? 0;
-    $bruttoWerte[] = $bruttoTage[$tag] ?? 0;
+    $nettoWerte[] = array_key_exists($tag, $nettoTage) ? $nettoTage[$tag] : null;
+    $bruttoWerte[] = array_key_exists($tag, $bruttoTage) ? $bruttoTage[$tag] : null;
 
     if (array_key_exists($tag, $gewichtTage)) {
         $letztesGewicht = $gewichtTage[$tag];
@@ -100,11 +100,43 @@ foreach ($alleTage as $tag) {
     }
 }
 
+// 7-Tage gleitender Durchschnitt für Gewicht
+$x = [];
+$y = [];
+for ($i = 0; $i < count($gewichtWerte); $i++) {
+    if ($gewichtWerte[$i] !== null) {
+        $x[] = $i;
+        $y[] = $gewichtWerte[$i];
+    }
+}
+$trendWerte = array_fill(0, count($gewichtWerte), null);
+if (count($x) > 1) {
+    $n = count($x);
+    $sumX = array_sum($x);
+    $sumY = array_sum($y);
+    $sumXY = 0;
+    $sumXX = 0;
+
+    for ($i = 0; $i < $n; $i++) {
+        $sumXY += $x[$i] * $y[$i];
+        $sumXX += $x[$i] * $x[$i];
+    }
+
+    $slope = ($n * $sumXY - $sumX * $sumY) / ($n * $sumXX - $sumX * $sumX);
+    $intercept = ($sumY - $slope * $sumX) / $n;
+
+    for ($i = 0; $i < count($trendWerte); $i++) {
+        $trendWerte[$i] = is_null($gewichtWerte[$i]) ? null : round($slope * $i + $intercept, 1);
+    }
+}
+
+
 // JSON für Chart.js
 $labels = json_encode($alleTage);
 $nettoJson = json_encode($nettoWerte);
 $bruttoJson = json_encode($bruttoWerte);
 $gewichtJson = json_encode($gewichtWerte);
+$trendJson = json_encode($trendWerte);
 
 ?>
 
@@ -187,28 +219,28 @@ new Chart(document.getElementById('kalorienChart').getContext('2d'), {
                 annotations: {                    
                     ziel: {
                         type: 'line',
-                        yMin: 300,
-                        yMax: 300,
+                        yMin: 600,
+                        yMax: 600,
                         borderColor: 'green',
                         borderWidth: 2,
                         borderDash: [6, 4],
                     },
                     gruenZone: {
                         type: 'box',
-                        yMax: 300,
+                        yMax: 600,
                         backgroundColor: 'rgba(0, 200, 0, 0.1)',
                         borderWidth: 0
                     },
                     gelbZone: {
                         type: 'box',
-                        yMin: 300,
-                        yMax: 1000,
+                        yMin: 600,
+                        yMax: 1200,
                         backgroundColor: 'rgba(255, 215, 0, 0.15)',
                         borderWidth: 0
                     },
                     rotZone: {
                         type: 'box',
-                        yMin: 1000,
+                        yMin: 1200,
                         backgroundColor: 'rgba(255, 0, 0, 0.1)',
                         borderWidth: 0
                     }
@@ -257,7 +289,18 @@ new Chart(document.getElementById('gewichtChart').getContext('2d'), {
                 tension: 0.3,
                 borderWidth: 2,
                 spanGaps: true
-            }
+            },
+            {
+                label: 'Trendlinie',
+                data: <?= $trendJson ?>,
+                borderColor: 'grey',
+                borderDash: [4, 2],
+                borderWidth: 2,
+                tension: 0,
+                fill: false,
+                pointRadius: 0,
+                spanGaps: true
+            },
         ]
     },
     options: {
