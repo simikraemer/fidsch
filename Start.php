@@ -222,32 +222,48 @@ new Chart(document.getElementById('kalorienChart').getContext('2d'), {
         plugins: {
             annotation: {
                 annotations: {                    
-                    ziel: {
-                        type: 'line',
-                        yMin: 600,
-                        yMax: 600,
-                        borderColor: 'green',
-                        borderWidth: 2,
-                        borderDash: [6, 4],
-                    },
+                    // ziel: {
+                    //     type: 'line',
+                    //     yMin: 1000,
+                    //     yMax: 1000,
+                    //     borderColor: 'green',
+                    //     borderWidth: 2,
+                    //     borderDash: [6, 4],
+                    // },
                     gruenZone: {
                         type: 'box',
-                        yMax: 600,
+                        yMax: 1000,
                         backgroundColor: 'rgba(0, 200, 0, 0.1)',
                         borderWidth: 0
                     },
                     gelbZone: {
                         type: 'box',
-                        yMin: 600,
-                        yMax: 1200,
+                        yMin: 1000,
+                        yMax: 2200,
                         backgroundColor: 'rgba(255, 215, 0, 0.15)',
                         borderWidth: 0
                     },
                     rotZone: {
                         type: 'box',
-                        yMin: 1200,
+                        yMin: 2200,
                         backgroundColor: 'rgba(255, 0, 0, 0.1)',
                         borderWidth: 0
+                    },
+                    grundbedarf: {
+                        type: 'line',
+                        yMin: 2200,
+                        yMax: 2200,
+                        borderColor: 'red',
+                        borderWidth: 2,
+                        borderDash: [4, 2],
+                        label: {
+                            display: true,
+                            content: 'Grundbedarf',
+                            position: 'start',
+                            yAdjust: -10,
+                            backgroundColor: 'rgba(0, 0, 0, 0)',
+                            color: 'red'
+                        }
                     }
                 }
             }
