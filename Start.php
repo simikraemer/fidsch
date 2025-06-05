@@ -239,20 +239,20 @@ new Chart(document.getElementById('kalorienChart').getContext('2d'), {
                     gelbZone: {
                         type: 'box',
                         yMin: 1000,
-                        yMax: 2200,
+                        yMax: 2000,
                         backgroundColor: 'rgba(255, 215, 0, 0.15)',
                         borderWidth: 0
                     },
                     rotZone: {
                         type: 'box',
-                        yMin: 2200,
+                        yMin: 2000,
                         backgroundColor: 'rgba(255, 0, 0, 0.1)',
                         borderWidth: 0
                     },
                     grundbedarf: {
                         type: 'line',
-                        yMin: 2200,
-                        yMax: 2200,
+                        yMin: 2000,
+                        yMax: 2000,
                         borderColor: 'red',
                         borderWidth: 2,
                         borderDash: [4, 2],
@@ -337,6 +337,14 @@ new Chart(document.getElementById('gewichtChart').getContext('2d'), {
                         borderColor: 'green',
                         borderWidth: 2,
                         borderDash: [6, 4],
+                        label: {
+                            display: true,
+                            content: 'Zielgewicht',
+                            position: 'start',
+                            yAdjust: -10,
+                            backgroundColor: 'rgba(0, 0, 0, 0)',
+                            color: 'green'
+                        }
                     },
                     zielunten: {
                         type: 'line',
