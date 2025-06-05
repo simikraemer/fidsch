@@ -23,6 +23,11 @@ while ($row = $result->fetch_assoc()) {
 }
 $stmt->close();
 
+$bruttoSumme = array_sum($bruttoTage);
+$tageMitWerten = count($bruttoTage);
+$bruttoDurchschnitt = $tageMitWerten > 0 ? round($bruttoSumme / $tageMitWerten) : 0;
+
+
 // Netto-Kalorien (Zufuhr - Verbrauch)
 $stmt = $mysqli->prepare("
     SELECT DATE(tstamp) AS tag,
@@ -172,7 +177,7 @@ $trendJson = json_encode($trendWerte);
 
 <div class="chart-row">
     <div class="chart-half">
-        <h2 class="ueberschrift">Kalorien</h2>
+        <h2 class="ueberschrift">Kalorien (Ø <?= $bruttoDurchschnitt ?> kcal/Tag)</h2>
         <canvas id="kalorienChart"></canvas>
     </div>
     <div class="chart-half">
