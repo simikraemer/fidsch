@@ -93,6 +93,7 @@ foreach ($periode as $datum) {
 
 // Chart-Daten erzeugen
 $nettoWerte = [];
+$supernettoWerte = [];
 $bruttoWerte = [];
 $gewichtWerte = [];
 $letztesGewicht = null;
@@ -100,6 +101,7 @@ $letztesGewicht = null;
 foreach ($alleTage as $tag) {
     $nettoWerte[] = array_key_exists($tag, $nettoTage) ? $nettoTage[$tag] : null;
     $bruttoWerte[] = array_key_exists($tag, $bruttoTage) ? $bruttoTage[$tag] : null;
+    $supernettoWerte[] = array_key_exists($tag, $nettoTage) ? $nettoTage[$tag] - 2000 : null;
 
     if (array_key_exists($tag, $gewichtTage)) {
         $letztesGewicht = $gewichtTage[$tag];
@@ -143,6 +145,7 @@ if (count($x) > 1) {
 // JSON für Chart.js
 $labels = json_encode($alleTage);
 $nettoJson = json_encode($nettoWerte);
+$supernettoJson = json_encode($supernettoWerte);
 $bruttoJson = json_encode($bruttoWerte);
 $gewichtJson = json_encode($gewichtWerte);
 $trendJson = json_encode($trendWerte);
@@ -181,11 +184,11 @@ $trendJson = json_encode($trendWerte);
 
 <div class="chart-row">
     <div class="chart-half">
-        <h2 class="ueberschrift">Kalorien (Ø <?= $nettoDurchschnitt ?> kcal/Tag)</h2>
+        <h2 class="ueberschrift">Kalorien | Ø<?= $nettoDurchschnitt ?> kcal/Tag</h2>
         <canvas id="kalorienChart"></canvas>
     </div>
     <div class="chart-half">
-        <h2 class="ueberschrift">Gewicht</h2>
+        <h2 class="ueberschrift">Gewicht | <?= $letztesGewicht ?>kg</h2>
         <canvas id="gewichtChart"></canvas>
     </div>
 </div>
