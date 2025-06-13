@@ -58,6 +58,10 @@ while ($row = $result->fetch_assoc()) {
 }
 $stmt->close();
 
+$nettoSumme = array_sum($nettoTage);
+$tageMitNettoWerten = count($nettoTage);
+$nettoDurchschnitt = $tageMitNettoWerten > 0 ? round($nettoSumme / $tageMitNettoWerten) : 0;
+
 // Gewichtsdaten sammeln
 $gewichtQuery = "
     SELECT DATE(tstamp) AS tag, AVG(gewicht) AS gewicht
@@ -177,7 +181,7 @@ $trendJson = json_encode($trendWerte);
 
 <div class="chart-row">
     <div class="chart-half">
-        <h2 class="ueberschrift">Kalorien (Ø <?= $bruttoDurchschnitt ?> kcal/Tag)</h2>
+        <h2 class="ueberschrift">Kalorien (Ø <?= $nettoDurchschnitt ?> kcal/Tag)</h2>
         <canvas id="kalorienChart"></canvas>
     </div>
     <div class="chart-half">
