@@ -97,6 +97,7 @@ $supernettoWerte = [];
 $bruttoWerte = [];
 $gewichtWerte = [];
 $letztesGewicht = null;
+$erstesGewicht = null;
 
 foreach ($alleTage as $tag) {
     $nettoWerte[] = array_key_exists($tag, $nettoTage) ? $nettoTage[$tag] : null;
@@ -105,6 +106,9 @@ foreach ($alleTage as $tag) {
 
     if (array_key_exists($tag, $gewichtTage)) {
         $letztesGewicht = $gewichtTage[$tag];
+        if ($erstesGewicht === null) {
+            $erstesGewicht = $letztesGewicht;
+        }
         $gewichtWerte[] = $letztesGewicht;
     } else {
         $gewichtWerte[] = null;
@@ -188,7 +192,7 @@ $trendJson = json_encode($trendWerte);
         <canvas id="kalorienChart"></canvas>
     </div>
     <div class="chart-half">
-        <h2 class="ueberschrift">Gewicht | <?= $letztesGewicht ?>kg</h2>
+        <h2 class="ueberschrift">Gewicht | <?= $erstesGewicht . " kg -> " . $letztesGewicht ?> kg</h2>
         <canvas id="gewichtChart"></canvas>
     </div>
 </div>

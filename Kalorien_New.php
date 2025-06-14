@@ -33,8 +33,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-// Letzte 20 Einträge aus der DB holen
-$result = $mysqli->query("SELECT id, beschreibung, kalorien, tstamp FROM kalorien ORDER BY tstamp DESC LIMIT 20");
+// Letzte 10 Einträge aus der DB holen
+$result = $mysqli->query("SELECT id, beschreibung, kalorien, tstamp FROM kalorien ORDER BY tstamp DESC LIMIT 10");
 $eintraege = $result->fetch_all(MYSQLI_ASSOC);
 $result->close();
 
@@ -63,7 +63,7 @@ $result->close();
     </form>
 </div>
 <div class="container">
-    <h2>🍽️ Letzte 20 Einträge</h2>
+    <h2>🍽️ Letzte 10 Einträge</h2>
     <table class="food-table">
         <thead>
             <tr>
