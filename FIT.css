@@ -190,3 +190,35 @@ input, select, textarea {
 .zeitbereich-slider::-moz-range-thumb:hover {
     background: var(--primary-dark);
 }
+
+.food-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    font-family: var(--font);
+    background-color: white;
+    box-shadow: var(--shadow);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+}
+
+.food-table th,
+.food-table td {
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+}
+
+.food-table th {
+    background-color: var(--accent);
+    color: var(--text);
+    font-weight: bold;
+}
+
+.food-table tr:hover {
+    background-color: #fff2e5;
+}
+
+.food-table td form {
+    display: inline;
+}
