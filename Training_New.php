@@ -3,10 +3,10 @@ require_once 'template.php';
 require_once 'header.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $beschreibung = trim($_POST['beschreibung'] ?? '');
+    $beschreibung = 'Kardio'; // Feste Beschreibung
     $kalorien = intval($_POST['kalorien'] ?? 0);
 
-    if ($beschreibung !== '' && $kalorien > 0) {
+    if ($kalorien > 0) {
         $stmt = $mysqli->prepare("INSERT INTO training (beschreibung, kalorien) VALUES (?, ?)");
         $stmt->bind_param('si', $beschreibung, $kalorien);
         $stmt->execute();
@@ -31,9 +31,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <h1 class="ueberschrift">Neue Kardio-Übung eintragen</h1>
 
     <form method="post" class="form-block">
-        <label for="beschreibung">Beschreibung:</label><br>
-        <input type="text" id="beschreibung" name="beschreibung" required><br><br>
-
         <label for="kalorien">Verbrannte Kalorien:</label><br>
         <input type="number" id="kalorien" name="kalorien" required><br><br>
 

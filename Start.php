@@ -243,17 +243,17 @@ new Chart(document.getElementById('kalorienChart').getContext('2d'), {
                     // },
                     gruenZone: {
                         type: 'box',
-                        yMax: 1000,
+                        yMax: 2000,
                         backgroundColor: 'rgba(0, 200, 0, 0.1)',
                         borderWidth: 0
                     },
-                    gelbZone: {
-                        type: 'box',
-                        yMin: 1000,
-                        yMax: 2000,
-                        backgroundColor: 'rgba(255, 215, 0, 0.15)',
-                        borderWidth: 0
-                    },
+                    // gelbZone: {
+                    //     type: 'box',
+                    //     yMin: 1000,
+                    //     yMax: 2000,
+                    //     backgroundColor: 'rgba(255, 215, 0, 0.15)',
+                    //     borderWidth: 0
+                    // },
                     rotZone: {
                         type: 'box',
                         yMin: 2000,
