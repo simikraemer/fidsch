@@ -22,7 +22,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <title>Gewicht eintragen</title>
-    <link rel="stylesheet" href="FIT.css">
 </head>
 <body>
 

@@ -45,7 +45,6 @@ $result->close();
 <head>
     <meta charset="UTF-8">
     <title>Kalorienzufuhr eintragen</title>
-    <link rel="stylesheet" href="FIT.css">
 </head>
 <body>
 

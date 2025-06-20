@@ -27,8 +27,9 @@ body {
     background-color: var(--primary);
     padding: 10px;
     box-shadow: var(--shadow);
-    display: flex; /* hinzugefügt */
-    justify-content: center; /* zentriert Inhalt */
+    /*display: flex;
+    justify-content: center;*/
+    padding-left: 41vw;
 }
 
 .nav-icon {
@@ -39,7 +40,7 @@ body {
 }
 
 .nav-icon:hover {
-    filter: sepia(1) saturate(4) hue-rotate(10deg) brightness(1.1);
+  filter: brightness(0) saturate(100%) invert(86%) sepia(82%) saturate(5000%) hue-rotate(1deg);
 }
 
 .nav-links {
