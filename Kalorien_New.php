@@ -33,8 +33,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-// Letzte 10 Einträge aus der DB holen
-$result = $mysqli->query("SELECT id, beschreibung, kalorien, tstamp FROM kalorien ORDER BY tstamp DESC LIMIT 10");
+// Letzte Einträge aus der DB holen
+$result = $mysqli->query("
+    SELECT 
+        MIN(id) AS id,
+        beschreibung,
+        kalorien,
+        COUNT(*) AS anzahl
+    FROM kalorien
+    GROUP BY beschreibung, kalorien
+    ORDER BY anzahl DESC
+");
+
 $eintraege = $result->fetch_all(MYSQLI_ASSOC);
 $result->close();
 
@@ -53,7 +63,9 @@ $result->close();
 
     <form method="post" class="form-block">
         <label for="beschreibung">Beschreibung:</label>
-        <input type="text" id="beschreibung" name="beschreibung" required>
+        <input type="text" id="beschreibung" name="beschreibung" required autocomplete="off">
+        <ul id="vorschlaege" class="autocomplete-list"></ul>
+
 
         <label for="kalorien">Zugeführte Kalorien:</label>
         <input type="number" id="kalorien" name="kalorien" required>
@@ -61,6 +73,8 @@ $result->close();
         <button type="submit">Eintragen</button>
     </form>
 </div>
+
+<?php /*
 <div class="container">
     <h2>🍽️ Letzte 10 Einträge</h2>
     <table class="food-table">
@@ -89,6 +103,50 @@ $result->close();
         </tbody>
     </table>
 </div>
+*/ ?>
+
+
+<script>
+    const daten = <?= json_encode(is_array($eintraege) ? $eintraege : []) ?>;
+    const beschreibungsInput = document.getElementById('beschreibung');
+    const kalorienInput = document.getElementById('kalorien');
+    const vorschlaegeList = document.getElementById('vorschlaege');
+
+    beschreibungsInput.addEventListener('input', () => {
+        const eingabe = beschreibungsInput.value.toLowerCase();
+        vorschlaegeList.innerHTML = '';
+
+        if (eingabe.length === 0) return;
+
+        const passende = daten.filter(e =>
+            e.beschreibung.toLowerCase().includes(eingabe)
+        );
+
+        passende.forEach(e => {
+            const li = document.createElement('li');
+            li.textContent = e.beschreibung + ' (' + e.kalorien + ' kcal)';
+            li.dataset.beschreibung = e.beschreibung;
+            li.dataset.kalorien = e.kalorien;
+            li.classList.add('autocomplete-item'); // eigene CSS-Klasse
+            vorschlaegeList.appendChild(li);
+        });
+    });
+
+    vorschlaegeList.addEventListener('click', (e) => {
+        if (e.target.tagName === 'LI') {
+            beschreibungsInput.value = e.target.dataset.beschreibung;
+            kalorienInput.value = e.target.dataset.kalorien;
+            vorschlaegeList.innerHTML = '';
+        }
+    });
+
+    // Optional: Vorschläge verschwinden lassen bei Klick außerhalb
+    document.addEventListener('click', (e) => {
+        if (!vorschlaegeList.contains(e.target) && e.target !== beschreibungsInput) {
+            vorschlaegeList.innerHTML = '';
+        }
+    });
+</script>
 
 
 </body>

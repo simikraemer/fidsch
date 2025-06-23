@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body>
 
 <div class="container">
-    <h1 class="ueberschrift">Neue Kardio-Übung eintragen</h1>
+    <h1 class="ueberschrift">Kardiotraining eintragen</h1>
 
     <form method="post" class="form-block">
         <label for="kalorien">Verbrannte Kalorien:</label><br>

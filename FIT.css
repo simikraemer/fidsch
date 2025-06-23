@@ -132,6 +132,7 @@ input, select, textarea {
 .form-block {
     display: flex;
     flex-direction: column;
+    position: relative;
     gap: 15px;
 }
 
@@ -231,4 +232,34 @@ input, select, textarea {
 
 .food-table td form {
     display: inline;
+}
+
+
+.autocomplete-list {
+    list-style: none;
+    margin-top: -157px;
+    padding: 0;
+    background-color: white;
+    border: 1px solid #ccc;
+    border-top: none;
+    border-radius: 0 0 var(--border-radius) var(--border-radius);
+    box-shadow: var(--shadow);
+    max-height: 200px;
+    overflow-y: auto;
+    position: absolute;
+    top: 100%; /* direkt unter dem input */
+    left: 0;
+    right: 0;
+    z-index: 10;
+}
+
+.autocomplete-item {
+    padding: 10px 16px;
+    cursor: pointer;
+    font-family: var(--font);
+    font-size: 1em;
+}
+
+.autocomplete-item:hover {
+    background-color: var(--accent);
 }
