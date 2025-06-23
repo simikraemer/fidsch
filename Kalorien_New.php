@@ -63,7 +63,7 @@ $result->close();
 
     <form method="post" class="form-block">
         <label for="beschreibung">Beschreibung:</label>
-        <input type="text" id="beschreibung" name="beschreibung" required autocomplete="off">
+        <input type="text" id="beschreibung" name="beschreibung" autocomplete="off">
         <ul id="vorschlaege" class="autocomplete-list"></ul>
 
 
