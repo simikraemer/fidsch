@@ -2,6 +2,9 @@
 require_once 'template.php';
 require_once 'header.php';
 
+// VAR
+$grundbedarf = 2000;
+
 // Zeitfenster
 $monate = isset($_GET['monate']) ? max(1, min(12, (int)$_GET['monate'])) : 1;
 $startDate = (new DateTime("-{$monate} months"))->format('Y-m-d');
@@ -98,18 +101,23 @@ $bruttoWerte = [];
 $gewichtWerte = [];
 $letztesGewicht = null;
 $erstesGewicht = null;
+$maxGewicht = null;
 
 foreach ($alleTage as $tag) {
     $nettoWerte[] = array_key_exists($tag, $nettoTage) ? $nettoTage[$tag] : null;
     $bruttoWerte[] = array_key_exists($tag, $bruttoTage) ? $bruttoTage[$tag] : null;
-    $supernettoWerte[] = array_key_exists($tag, $nettoTage) ? $nettoTage[$tag] - 2000 : null;
+    $supernettoWerte[] = array_key_exists($tag, $nettoTage) ? $nettoTage[$tag] - $grundbedarf : null;
 
     if (array_key_exists($tag, $gewichtTage)) {
-        $letztesGewicht = $gewichtTage[$tag];
+        $tagesGewicht = $gewichtTage[$tag];
         if ($erstesGewicht === null) {
-            $erstesGewicht = $letztesGewicht;
+            $erstesGewicht = $tagesGewicht;
         }
-        $gewichtWerte[] = $letztesGewicht;
+        if ($maxGewicht === null || $maxGewicht < $tagesGewicht) {
+            $maxGewicht = $tagesGewicht;
+        }
+        $gewichtWerte[] = $tagesGewicht;
+        $letztesGewicht = $tagesGewicht;
     } else {
         $gewichtWerte[] = null;
     }
@@ -192,13 +200,14 @@ $trendJson = json_encode($trendWerte);
         <canvas id="kalorienChart"></canvas>
     </div>
     <div class="chart-half">
-        <h2 class="ueberschrift">Gewicht | <?= $erstesGewicht . " kg -> " . $letztesGewicht ?> kg</h2>
+        <h2 class="ueberschrift">Gewicht | <?= $maxGewicht . " kg -> " . $letztesGewicht ?> kg</h2>
         <canvas id="gewichtChart"></canvas>
     </div>
 </div>
 
 <script>
 const labels = <?= $labels ?>;
+const grundbedarf = <?= $grundbedarf ?>;
 
 // Kalorien-Diagramm mit Brutto/Netto
 new Chart(document.getElementById('kalorienChart').getContext('2d'), {
@@ -243,27 +252,27 @@ new Chart(document.getElementById('kalorienChart').getContext('2d'), {
                     // },
                     gruenZone: {
                         type: 'box',
-                        yMax: 2000,
+                        yMax: grundbedarf,
                         backgroundColor: 'rgba(0, 200, 0, 0.1)',
                         borderWidth: 0
                     },
                     // gelbZone: {
                     //     type: 'box',
                     //     yMin: 1000,
-                    //     yMax: 2000,
+                    //     yMax: grundbedarf,
                     //     backgroundColor: 'rgba(255, 215, 0, 0.15)',
                     //     borderWidth: 0
                     // },
                     rotZone: {
                         type: 'box',
-                        yMin: 2000,
+                        yMin: grundbedarf,
                         backgroundColor: 'rgba(255, 0, 0, 0.1)',
                         borderWidth: 0
                     },
-                    grundbedarf: {
+                    grundbedarfline: {
                         type: 'line',
-                        yMin: 2000,
-                        yMax: 2000,
+                        yMin: grundbedarf,
+                        yMax: grundbedarf,
                         borderColor: 'red',
                         borderWidth: 2,
                         borderDash: [4, 2],
