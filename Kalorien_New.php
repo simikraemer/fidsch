@@ -2,6 +2,8 @@
 require_once 'template.php';
 require_once 'header.php';
 
+$mysqli->set_charset('utf8mb4');
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['repeat_id'])) {
         // Wiederholung eines bestehenden Eintrags
