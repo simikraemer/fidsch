@@ -12,8 +12,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($stmt->fetch()) {
             $stmt->close();
 
-            $stmt = $mysqli->prepare("INSERT INTO kalorien (beschreibung, kalorien) VALUES (?, ?)");
-            $stmt->bind_param('si', $beschreibung, $kalorien);
+            // Zeitlogik für repeat
+            $jetzt = new DateTime();
+            if ((int)$jetzt->format('H') < 5) {
+                $jetzt->modify('-1 day')->setTime(23, 59);
+            }
+            $tstamp = $jetzt->format('Y-m-d H:i:s');
+
+            $stmt = $mysqli->prepare("INSERT INTO kalorien (beschreibung, kalorien, tstamp) VALUES (?, ?, ?)");
+            $stmt->bind_param('sis', $beschreibung, $kalorien, $tstamp);
             $stmt->execute();
             $stmt->close();
         }
@@ -21,8 +28,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $beschreibung = trim($_POST['beschreibung'] ?? '');
         $kalorien = intval($_POST['kalorien'] ?? 0);
 
-        $stmt = $mysqli->prepare("INSERT INTO kalorien (beschreibung, kalorien) VALUES (?, ?)");
-        $stmt->bind_param('si', $beschreibung, $kalorien);
+        // Zeitlogik für normalen Insert
+        $jetzt = new DateTime();
+        if ((int)$jetzt->format('H') < 5) {
+            $jetzt->modify('-1 day')->setTime(23, 59);
+        }
+        $tstamp = $jetzt->format('Y-m-d H:i:s');
+
+        $stmt = $mysqli->prepare("INSERT INTO kalorien (beschreibung, kalorien, tstamp) VALUES (?, ?, ?)");
+        $stmt->bind_param('sis', $beschreibung, $kalorien, $tstamp);
         $stmt->execute();
         $stmt->close();
     }
