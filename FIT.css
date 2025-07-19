@@ -27,9 +27,8 @@ body {
     background-color: var(--primary);
     padding: 10px;
     box-shadow: var(--shadow);
-    /*display: flex;
-    justify-content: center;*/
-    padding-left: 41vw;
+    display: flex;
+    justify-content: center;
 }
 
 .nav-icon {
@@ -262,4 +261,28 @@ input, select, textarea {
 
 .autocomplete-item:hover {
     background-color: var(--accent);
+}
+
+
+
+/* Pizza */
+.input-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.input-group {
+    flex: 1 1 45%;
+    display: flex;
+    flex-direction: column;
+}
+
+.kalorien-output {
+    text-align: center;
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: var(--primary-dark);
+    margin-top: 20px;
 }

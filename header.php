@@ -25,5 +25,7 @@
         <li><a href="Gewicht_New.php"><img loading="eager" src="img/waage.png" alt="Gewicht" class="nav-icon"></a></li>
         <li><a href="Kalorien_New.php"><img loading="eager" src="img/burger.png" alt="Kalorien" class="nav-icon"></a></li>
         <li><a href="Training_New.php"><img loading="eager" src="img/cardio.png" alt="Training" class="nav-icon"></a></li>
+        <li class="nav-divider"></li>
+        <li><a href="Pizza.php"><img loading="eager" src="img/pizza.png" alt="Pizza" class="nav-icon"></a></li>
     </ul>
 </nav>
