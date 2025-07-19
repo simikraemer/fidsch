@@ -12,13 +12,25 @@ $allowed_ips = [
     '137.226.141.200',
     '137.226.141.203',
     '137.226.141.204',
-    '137.226.141.233'
+    '137.226.141.233',
+    '10.2.10.1'
 ];
 
 $client_ip = $_SERVER['REMOTE_ADDR'] ?? '';
 
-// Auth via IP oder Basic Auth
-if (!in_array($client_ip, $allowed_ips)) {
+// IP innerhalb von 10.2.10.0/24 erlauben
+function ip_in_subnet($ip, $subnet) {
+    list($subnet_ip, $mask_bits) = explode('/', $subnet);
+    $ip_dec = ip2long($ip);
+    $subnet_dec = ip2long($subnet_ip);
+    $mask = -1 << (32 - $mask_bits);
+    return ($ip_dec & $mask) === ($subnet_dec & $mask);
+}
+
+if (
+    !in_array($client_ip, $allowed_ips) &&
+    !ip_in_subnet($client_ip, '10.2.10.0/24')
+) {
     $user = $_SERVER['PHP_AUTH_USER'] ?? '';
     $pass = $_SERVER['PHP_AUTH_PW'] ?? '';
 
