@@ -5,27 +5,7 @@ require_once 'header.php';
 $mysqli->set_charset('utf8mb4');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['repeat_id'])) {
-        // Wiederholung eines bestehenden Eintrags
-        $stmt = $mysqli->prepare("SELECT beschreibung, kalorien FROM kalorien WHERE id = ?");
-        $stmt->bind_param('i', $_POST['repeat_id']);
-        $stmt->execute();
-        $stmt->bind_result($beschreibung, $kalorien);
-        if ($stmt->fetch()) {
-            $stmt->close();
-
-            $jetzt = new DateTime();
-            if ((int)$jetzt->format('H') < 5) {
-                $jetzt->modify('-1 day')->setTime(23, 59);
-            }
-            $tstamp = $jetzt->format('Y-m-d H:i:s');
-
-            $stmt = $mysqli->prepare("INSERT INTO kalorien (beschreibung, kalorien, tstamp) VALUES (?, ?, ?)");
-            $stmt->bind_param('sis', $beschreibung, $kalorien, $tstamp);
-            $stmt->execute();
-            $stmt->close();
-        }
-    } elseif (isset($_POST['move_to_previous_day'])) {
+    if (isset($_POST['move_to_previous_day'])) {
         // Timestamp eines bestehenden Eintrags auf Vortag 23:59 setzen
         $id = intval($_POST['move_to_previous_day']);
         $stmt = $mysqli->prepare("SELECT tstamp FROM kalorien WHERE id = ?");
@@ -52,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Zeitlogik für normalen Insert
         $jetzt = new DateTime();
-        if ((int)$jetzt->format('H') < 5) {
+        if ((int)$jetzt->format('H') < 3) {
             $jetzt->modify('-1 day')->setTime(23, 59);
         }
         $tstamp = $jetzt->format('Y-m-d H:i:s');
