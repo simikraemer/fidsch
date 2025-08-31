@@ -1,7 +1,7 @@
 <?php
 // db.php
 
-$config_path = '/etc/credentials/config.json';
+$config_path = '/work/credentials.json';
 
 if (!file_exists($config_path)) {
     die('Konfigurationsdatei nicht gefunden.');

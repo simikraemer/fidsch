@@ -2,7 +2,7 @@
 require_once 'template.php';
 require_once 'header.php';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' ) {
     $gewicht = floatval($_POST['gewicht'] ?? 0);
 
     if ($gewicht > 0) {
@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute();
         $stmt->close();
 
-        header('Location: ' . $_SERVER['PHP_SELF']);
+        header("Location: /fit/gewicht");
         exit;
     }
 }
@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <div class="container">
     <h1 class="ueberschrift">Gewicht eintragen</h1>
 
-    <form method="post" class="form-block">
+    <form method="post" class="form-block" action="/fit/gewicht">
         <label for="gewicht">Gewicht (kg):</label>
         <input type="number" id="gewicht" name="gewicht" step="0.1" required>
 

@@ -20,12 +20,12 @@
 
 <nav class="navbar">
     <ul class="nav-links">
-        <li><a href="Start.php"><img loading="eager" src="img/graph.png" alt="Übersicht" class="nav-icon"></a></li>
+        <li><a href="start"><img loading="eager" src="img/graph.png" alt="Übersicht" class="nav-icon"></a></li>
         <li class="nav-divider"></li>
-        <li><a href="Gewicht_New.php"><img loading="eager" src="img/waage.png" alt="Gewicht" class="nav-icon"></a></li>
-        <li><a href="Kalorien_New.php"><img loading="eager" src="img/burger.png" alt="Kalorien" class="nav-icon"></a></li>
-        <li><a href="Training_New.php"><img loading="eager" src="img/cardio.png" alt="Training" class="nav-icon"></a></li>
+        <li><a href="gewicht"><img loading="eager" src="img/waage.png" alt="Gewicht" class="nav-icon"></a></li>
+        <li><a href="kalorien"><img loading="eager" src="img/burger.png" alt="Kalorien" class="nav-icon"></a></li>
+        <li><a href="training"><img loading="eager" src="img/cardio.png" alt="Training" class="nav-icon"></a></li>
         <li class="nav-divider"></li>
-        <li><a href="Pizza.php"><img loading="eager" src="img/pizza.png" alt="Pizza" class="nav-icon"></a></li>
+        <li><a href="pizza"><img loading="eager" src="img/pizza.png" alt="Pizza" class="nav-icon"></a></li>
     </ul>
 </nav>

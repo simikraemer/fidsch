@@ -12,7 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute();
         $stmt->close();
 
-        header('Location: ' . $_SERVER['PHP_SELF']);
+        header("Location: /fit/training");
         exit;
     }
 }
@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <div class="container">
     <h1 class="ueberschrift">Kardiotraining eintragen</h1>
 
-    <form method="post" class="form-block">
+    <form method="post" class="form-block" action="/fit/training">
         <label for="kalorien">Verbrannte Kalorien:</label><br>
         <input type="number" id="kalorien" name="kalorien" required><br><br>
 

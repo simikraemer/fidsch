@@ -43,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->close();
     }
 
-    header('Location: ' . $_SERVER['PHP_SELF']);
+    header("Location: /fit/kalorien");
     exit;
 }
 
@@ -87,7 +87,7 @@ $stmt->close();
 <div class="container">
     <h1 class="ueberschrift">Kalorienzufuhr eintragen</h1>
 
-    <form method="post" class="form-block">
+    <form method="post" class="form-block" action="/fit/kalorien">
         <label for="beschreibung">Beschreibung:</label>
         <input type="text" id="beschreibung" name="beschreibung" autocomplete="off">
         <ul id="vorschlaege" class="autocomplete-list"></ul>
