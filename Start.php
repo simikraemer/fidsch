@@ -3,7 +3,8 @@ require_once 'template.php';
 require_once 'header.php';
 
 // VAR
-$grundbedarf = 2000;
+$grundbedarf = 2200;
+$kalorienziel = 3000;
 
 // Zeitfenster
 $monate = isset($_GET['monate']) ? max(1, min(12, (int)$_GET['monate'])) : 3;
@@ -123,6 +124,43 @@ foreach ($alleTage as $tag) {
     }
 }
 
+// Wochenmittelwerte berechnen (nach Kalenderwoche, nur 1. und 7. Tag mit Wert)
+$nettoKWavg = array_fill(0, count($alleTage), null);
+
+$kwSammler = [];
+foreach ($alleTage as $i => $tag) {
+    $kw = date('o-W', strtotime($tag));
+    if (!isset($kwSammler[$kw])) {
+        $kwSammler[$kw] = [];
+    }
+    if (isset($nettoTage[$tag])) {
+        $kwSammler[$kw][] = $nettoTage[$tag];
+    }
+}
+
+foreach ($kwSammler as $kw => $werte) {
+    if (count($werte) === 0) continue;
+    $avg = round(array_sum($werte) / count($werte));
+
+    // alle Tage dieser KW (wirklich die Datumsstrings)
+    $tageInKW = array_values(array_filter($alleTage, function($t) use ($kw) {
+        return date('o-W', strtotime($t)) === $kw;
+    }));
+
+    if (empty($tageInKW)) continue;
+
+    $firstDay = $tageInKW[0];
+    $lastDay  = $tageInKW[count($tageInKW) - 1];
+
+    $firstIndex = array_search($firstDay, $alleTage);
+    $lastIndex  = array_search($lastDay, $alleTage);
+
+    if ($firstIndex !== false) $nettoKWavg[$firstIndex] = $avg;
+    if ($lastIndex  !== false && $lastIndex !== $firstIndex) $nettoKWavg[$lastIndex] = $avg;
+}
+
+
+
 // 7-Tage gleitender Durchschnitt für Gewicht
 $x = [];
 $y = [];
@@ -161,6 +199,9 @@ $supernettoJson = json_encode($supernettoWerte);
 $bruttoJson = json_encode($bruttoWerte);
 $gewichtJson = json_encode($gewichtWerte);
 $trendJson = json_encode($trendWerte);
+
+$nettoKWJson = json_encode($nettoKWavg);
+
 
 ?>
 
@@ -208,6 +249,7 @@ $trendJson = json_encode($trendWerte);
 <script>
 const labels = <?= $labels ?>;
 const grundbedarf = <?= $grundbedarf ?>;
+const kalorienziel = <?= $kalorienziel ?>;
 
 // Kalorien-Diagramm mit Brutto/Netto
 new Chart(document.getElementById('kalorienChart').getContext('2d'), {
@@ -218,11 +260,13 @@ new Chart(document.getElementById('kalorienChart').getContext('2d'), {
             {
                 label: 'Netto-Kalorien',
                 data: <?= $nettoJson ?>,
-                fill: true,
-                tension: 0.3,
-                borderWidth: 2,
-                borderColor: '#333',
-                backgroundColor: 'rgba(51, 51, 51, 0.15)',
+                fill: false,
+                showLine: false,        
+                pointRadius: 4,                  // Größe
+                pointStyle: 'crossRot',             // oder 'crossRot'
+                pointBorderColor:'rgba(0, 0, 0, 0.4)',        // Farbe der Kreuze
+                pointBorderWidth: 2,             // Strichdicke der Kreuze
+                pointBackgroundColor: 'transparent' // egal, wird nicht genutzt
             },
             {
                 label: 'Brutto-Kalorien',
@@ -231,7 +275,19 @@ new Chart(document.getElementById('kalorienChart').getContext('2d'), {
                 tension: 0.2,
                 borderWidth: 2,
                 borderDash: [5, 5],
-                borderColor: '#888'
+                borderColor: '#888',
+                hidden: true
+            },            
+            {
+                label: 'Netto-Kalorien (Ø pro KW)',
+                data: <?= $nettoKWJson ?>,
+                fill: false,
+                tension: 0,
+                borderWidth: 3,
+                borderColor: 'black',
+                pointRadius: 0,
+                spanGaps: true,
+                yAxisID: 'y'
             }
         ]
     },
@@ -256,16 +312,16 @@ new Chart(document.getElementById('kalorienChart').getContext('2d'), {
                         backgroundColor: 'rgba(0, 200, 0, 0.1)',
                         borderWidth: 0
                     },
-                    // gelbZone: {
-                    //     type: 'box',
-                    //     yMin: 1000,
-                    //     yMax: grundbedarf,
-                    //     backgroundColor: 'rgba(255, 215, 0, 0.15)',
-                    //     borderWidth: 0
-                    // },
-                    rotZone: {
+                    gelbZone: {
                         type: 'box',
                         yMin: grundbedarf,
+                        yMax: kalorienziel,
+                        backgroundColor: 'rgba(255, 215, 0, 0.15)',
+                        borderWidth: 0
+                    },
+                    rotZone: {
+                        type: 'box',
+                        yMin: kalorienziel,
                         backgroundColor: 'rgba(255, 0, 0, 0.1)',
                         borderWidth: 0
                     },
@@ -273,12 +329,28 @@ new Chart(document.getElementById('kalorienChart').getContext('2d'), {
                         type: 'line',
                         yMin: grundbedarf,
                         yMax: grundbedarf,
-                        borderColor: 'red',
+                        borderColor: 'green',
                         borderWidth: 2,
                         borderDash: [4, 2],
                         label: {
                             display: true,
                             content: 'Grundbedarf',
+                            position: 'start',
+                            yAdjust: -10,
+                            backgroundColor: 'rgba(0, 0, 0, 0)',
+                            color: 'green'
+                        }
+                    },
+                    kalorienzielfline: {
+                        type: 'line',
+                        yMin: kalorienziel,
+                        yMax: kalorienziel,
+                        borderColor: 'red',
+                        borderWidth: 2,
+                        borderDash: [4, 2],
+                        label: {
+                            display: true,
+                            content: 'Kalorienlimit',
                             position: 'start',
                             yAdjust: -10,
                             backgroundColor: 'rgba(0, 0, 0, 0)',
@@ -328,8 +400,12 @@ new Chart(document.getElementById('gewichtChart').getContext('2d'), {
                 backgroundColor: 'rgba(51, 51, 51, 0.15)',
                 fill: false,
                 tension: 0.3,
-                borderWidth: 2,
-                spanGaps: true
+                borderWidth: 3,
+                spanGaps: true,
+                pointBackgroundColor: '#333',             // Füllung der Punkte
+                pointBorderColor: 'transparent',          // Rand unsichtbar
+                pointBorderWidth: 0,                      // kein Rand
+                pointRadius: 4                            // Größe der Punkte
             },
             {
                 label: 'Trendlinie',

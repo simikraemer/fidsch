@@ -14,7 +14,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($stmt->fetch()) {
             $stmt->close();
 
-            // Zeitlogik für repeat
             $jetzt = new DateTime();
             if ((int)$jetzt->format('H') < 5) {
                 $jetzt->modify('-1 day')->setTime(23, 59);
@@ -24,6 +23,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $mysqli->prepare("INSERT INTO kalorien (beschreibung, kalorien, tstamp) VALUES (?, ?, ?)");
             $stmt->bind_param('sis', $beschreibung, $kalorien, $tstamp);
             $stmt->execute();
+            $stmt->close();
+        }
+    } elseif (isset($_POST['move_to_previous_day'])) {
+        // Timestamp eines bestehenden Eintrags auf Vortag 23:59 setzen
+        $id = intval($_POST['move_to_previous_day']);
+        $stmt = $mysqli->prepare("SELECT tstamp FROM kalorien WHERE id = ?");
+        $stmt->bind_param('i', $id);
+        $stmt->execute();
+        $stmt->bind_result($tstamp_alt);
+        if ($stmt->fetch()) {
+            $stmt->close();
+
+            $dt = new DateTime($tstamp_alt);
+            $dt->modify('-1 day')->setTime(23, 59);
+            $newTstamp = $dt->format('Y-m-d H:i:s');
+
+            $stmt = $mysqli->prepare("UPDATE kalorien SET tstamp = ? WHERE id = ?");
+            $stmt->bind_param('si', $newTstamp, $id);
+            $stmt->execute();
+            $stmt->close();
+        } else {
             $stmt->close();
         }
     } else {
@@ -74,10 +94,23 @@ $stmt->execute();
 $heuteEintraege = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 
+// Gestern ermitteln und Einträge holen
+$gestern = date('Y-m-d', strtotime('-1 day'));
+$stmt = $mysqli->prepare("
+    SELECT id, beschreibung, kalorien, tstamp
+    FROM kalorien
+    WHERE DATE(tstamp) = ?
+    ORDER BY tstamp ASC
+");
+$stmt->bind_param('s', $gestern);
+$stmt->execute();
+$gesternEintraege = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
 ?>
 
+
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de">    
 <head>
     <meta charset="UTF-8">
     <title>Kalorienzufuhr eintragen</title>
@@ -100,45 +133,93 @@ $stmt->close();
     </form>
 </div>
 
-<div class="container">
-    <h2>📅 Heute</h2>
-    <table class="food-table">
-        <thead>
-            <tr>
-                <th>Zeitpunkt</th>
-                <th>Beschreibung</th>
-                <th>Kalorien</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php
-            $kalorienSumme = 0;
-            foreach ($heuteEintraege as $eintrag):
-                $kalorienSumme += intval($eintrag['kalorien']);
-            ?>
+<div class="container" style="display:flex; gap:20px; align-items:flex-start; max-width: 1200px;">
+
+    <!-- Gestern -->
+    <div style="flex:1;">
+        <h2>📅 Gestern</h2>
+        <table class="food-table">
+            <thead>
                 <tr>
-                    <td><?= date('H:i', strtotime($eintrag['tstamp'])) ?></td>
-                    <td><?= htmlspecialchars($eintrag['beschreibung']) ?></td>
-                    <td><?= intval($eintrag['kalorien']) ?> kcal</td>
-                    <td>
-                        <?php /*
-                        <form method="post" style="margin:0;">
-                            <input type="hidden" name="repeat_id" value="<?= intval($eintrag['id']) ?>">
-                            <button type="submit">Erneut gegessen</button>
-                        </form>
-                        */ ?>
-                    </td>
+                    <th>Zeitpunkt</th>
+                    <th>Beschreibung</th>
+                    <th>Kalorien</th>
+                    <th></th>
                 </tr>
-            <?php endforeach; ?>
-            <tr style="border-top: 3px solid black; font-weight: bold;">
-                <td></td>
-                <td>SUMME</td>
-                <td><?= $kalorienSumme ?> kcal</td>
-                <td></td>
-            </tr>
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                <?php
+                $kalorienSummeGestern = 0;
+                foreach ($gesternEintraege as $eintrag) {
+                    $kalorienSummeGestern += intval($eintrag['kalorien']);
+                }
+                ?>
+                <tr style="border-bottom: 3px solid black; font-weight: bold;">
+                    <td></td>
+                    <td style="white-space:nowrap;">SUMME</td>
+                    <td style="white-space:nowrap;"><?= $kalorienSummeGestern ?> kcal</td>
+                    <td></td>
+                </tr>
+                <?php foreach ($gesternEintraege as $eintrag): ?>
+                    <tr>
+                        <td><?= date('H:i', strtotime($eintrag['tstamp'])) ?></td>
+                        <td><?= htmlspecialchars($eintrag['beschreibung']) ?></td>
+                        <td><?= intval($eintrag['kalorien']) ?> kcal</td>
+                        <td>
+                            <form method="post" style="margin:0; display:inline;">
+                                <input type="hidden" name="move_to_previous_day" value="<?= intval($eintrag['id']) ?>">
+                                <button type="submit">Auf Vortag setzen</button>
+                            </form>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Heute -->
+    <div style="flex:1;">
+        <h2>📅 Heute</h2>
+        <table class="food-table">
+            <thead>
+                <tr>
+                    <th>Zeitpunkt</th>
+                    <th>Beschreibung</th>
+                    <th>Kalorien</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php
+                $kalorienSummeHeute = 0;
+                foreach ($heuteEintraege as $eintrag) {
+                    $kalorienSummeHeute += intval($eintrag['kalorien']);
+                }
+                ?>
+                <tr style="border-bottom: 3px solid black; font-weight: bold;">
+                    <td></td>
+                    <td style="white-space:nowrap;">SUMME</td>
+                    <td style="white-space:nowrap;"><?= $kalorienSummeHeute ?> kcal</td>
+                    <td></td>
+                </tr>
+                <?php foreach ($heuteEintraege as $eintrag): ?>
+                    <tr>
+                        <td><?= date('H:i', strtotime($eintrag['tstamp'])) ?></td>
+                        <td><?= htmlspecialchars($eintrag['beschreibung']) ?></td>
+                        <td><?= intval($eintrag['kalorien']) ?> kcal</td>
+                        <td>
+                            <form method="post" style="margin:0; display:inline;">
+                                <input type="hidden" name="move_to_previous_day" value="<?= intval($eintrag['id']) ?>">
+                                <button type="submit">Auf Vortag setzen</button>
+                            </form>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+
+
 </div>
 
 
