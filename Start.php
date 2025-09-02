@@ -7,7 +7,7 @@ $grundbedarf = 2200;
 $kalorienziel = 3000;
 
 // Zeitfenster
-$monate = isset($_GET['monate']) ? max(1, min(12, (int)$_GET['monate'])) : 3;
+$monate = isset($_GET['monate']) ? max(1, min(12, (int)$_GET['monate'])) : 6;
 $startDate = (new DateTime("-{$monate} months"))->format('Y-m-d');
 
 // Brutto-Kalorien (nur Zufuhr)
