@@ -50,10 +50,6 @@ if (str_starts_with($path, 'fit')) {
                 Diese Seite dient ausschließlich privaten Zwecken. Alle weiteren Inhalte sind zugangsbeschränkt 
                 und nur für den persönlichen Gebrauch vorgesehen.
             </p>
-
-            <p>
-                Falls du dich hierher verirrt hast: keine Sorge, hier gibt's nichts zu sehen :^)
-            </p>
         </div>
     </main>
 
