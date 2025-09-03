@@ -2,7 +2,7 @@
 // Mapping: schöne URL => echte Datei
 $routes = [
     ''         => 'Start.php',          // /fit/ → Start.php
-    'start'    => 'Start.php',
+    'stats'    => 'Start.php',
     'kalorien' => 'Kalorien_New.php',
     'gewicht'  => 'Gewicht_New.php',
     'pizza'    => 'Pizza.php',

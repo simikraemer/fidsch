@@ -22,6 +22,63 @@ body {
     font-family: var(--font);
 }
 
+.nav-item {
+    position: relative;
+}
+
+.has-submenu .submenu {
+    opacity: 0;
+    visibility: hidden;
+    position: absolute;
+    top: 58px; /* unter Icon */
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--primary);
+    padding: 10px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    list-style: none;
+    margin: 0;
+    gap: 1rem;
+    flex-direction: column;
+    z-index: 100; /* Basis */
+    transition: opacity 0.2s ease 0.3s, visibility 0s linear 0.5s;
+
+}
+
+.has-submenu:hover .submenu {
+    opacity: 1;
+    visibility: visible;
+    transition-delay: 0s; /* sofort erscheinen */
+    z-index: 999; /* über alles andere */
+}
+
+.submenu li a {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    padding: 6px 10px;
+    border-radius: var(--border-radius);
+}
+
+.submenu li a:hover {
+    background-color: var(--primary-dark);
+}
+
+.submenu .submenu-text {
+    color: var(--text-light);
+    font-size: 0.95rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+
+.submenu .nav-icon {
+    width: 32px;
+    height: 32px;
+}
+
 /* Navbar */
 .navbar {
     background-color: var(--primary);

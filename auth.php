@@ -1,8 +1,8 @@
 <?php
 // auth.php
 
-$config_path = '/etc/credentials.json';
-$credentials = json_decode(file_get_contents($config_path), true)['fitpw'];
+$config_path = '/work/credentials.json';
+$credentials = json_decode(file_get_contents($config_path), true)['webpw'];
 
 $valid_user = $credentials['username'];
 $valid_pass = $credentials['password'];
