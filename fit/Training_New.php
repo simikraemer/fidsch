@@ -1,6 +1,6 @@
 <?php
-require_once '../template.php';
-require_once '../auth.php';
+require_once 'template.php';
+require_once 'auth.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $beschreibung = 'Kardio'; // Feste Beschreibung

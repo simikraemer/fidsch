@@ -1,4 +1,4 @@
-# www.fidsch.de
+# fidsch.de
 
 Dieses Repository enthält den Quellcode für meine persönliche Webseite.  
 Die Seite ist in mehrere Bereiche gegliedert:

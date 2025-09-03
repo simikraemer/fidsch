@@ -34,6 +34,7 @@ if (
     $user = $_SERVER['PHP_AUTH_USER'] ?? '';
     $pass = $_SERVER['PHP_AUTH_PW'] ?? '';
 
+    // Mit fail2ban Logüberwachung wird BruteForcing verhindert
     if ($user !== $valid_user || $pass !== $valid_pass) {
         header('WWW-Authenticate: Basic realm="FitnessTracker Login"');
         header('HTTP/1.0 401 Unauthorized');
