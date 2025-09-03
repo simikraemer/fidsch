@@ -1,5 +1,16 @@
-# FitPHP
+# www.fidsch.de
 
-📊 PHP-Tool zur Erfassung von Gewicht, Kalorien und Training.
-➡️ Visualisierung über Chart.js.
-🚫 Keine Benutzerverwaltung, nur für Eigengebrauch.
+Dieses Repository enthält den Quellcode für meine persönliche Webseite.  
+Die Seite ist in mehrere Bereiche gegliedert:
+
+- **Startseite (öffentlich)**  
+  Übersicht und allgemeine Informationen.
+
+- **Fitnessbereich (privat)**  
+  - Kalorien zählen  
+  - Cardio  
+  - Gewicht tracken  
+
+- **Businessbereich (privat)**  
+  - Kontotransfers tracken  
+  - Diagramme und Übersichten  

@@ -1,6 +1,5 @@
 <?php
-require_once 'template.php';
-require_once 'header.php';
+require_once '../template.php';
 
 $mysqli->set_charset('utf8mb4');
 
