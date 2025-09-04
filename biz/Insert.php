@@ -83,20 +83,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv'])) {
             )");
 
             $insert->bind_param(
-                'issssssssds',
-                $kategorie_id,
-                $auftragskonto,
-                $buchungstag,
-                $valutadatum,
-                $buchungstext,
-                $verwendungszweck,
-                $zahlungspartner,
-                $iban,
-                $bic,
-                $betrag,
-                $waehrung,
-                $info
+                'issssssssdds',
+                $kategorie_id,     // i
+                $auftragskonto,    // s
+                $buchungstag,      // s
+                $valutadatum,      // s
+                $buchungstext,     // s
+                $verwendungszweck, // s
+                $zahlungspartner,  // s
+                $iban,             // s
+                $bic,              // s
+                $betrag,           // d
+                $waehrung,         // s
+                $info              // s
             );
+
 
             $insert->execute();
             $inserted++;
