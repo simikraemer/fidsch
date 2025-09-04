@@ -20,6 +20,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv'])) {
     $inserted = 0;
     while (($row = fgetcsv($handle, 0, ';')) !== false) {
         $row = array_map(fn($v) => mb_convert_encoding($v, 'UTF-8', 'ISO-8859-1'), $row);
+        // Zeile überspringen, wenn "Umsatz vorgemerkt" im Info-Feld steht (Groß-/Kleinschreibung egal)
+        if (stripos($row[10] ?? '', 'Umsatz vorgemerkt') !== false) {
+            continue;
+        }
+
         [
             $auftragskonto,
             $buchungstag,
@@ -34,8 +39,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv'])) {
             $info
         ] = $row;
 
-        // Datum von DD.MM.YYYY → YYYY-MM-DD
-        $buchungstag = date('Y-m-d', strtotime(str_replace('.', '-', $buchungstag)));
+        $originalBuchungstag = $buchungstag;
+
+        // Formatieren (mit zweistelligem Jahr!)
+        $dt = DateTime::createFromFormat('d.m.y', $buchungstag);
+        $errors = DateTime::getLastErrors();
+
+        if ($dt === false || $errors['warning_count'] > 0 || $errors['error_count'] > 0) {
+            echo "<p style='color:red;'>⚠️ Ungültiges Buchungsdatum in CSV: '$originalBuchungstag'</p>";
+            continue;
+        }
+
+        $buchungstag = $dt->format('Y-m-d');
+
+
         $valutadatum = date('Y-m-d', strtotime(str_replace('.', '-', $valutadatum)));
 
         // Betrag mit Komma → Punkt

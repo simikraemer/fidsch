@@ -163,7 +163,7 @@ $expenseValuesJson = json_encode(array_map(fn($v)=>round($v,2), $expenseValues),
 function euro($v) { return number_format((float)$v, 2, ',', '.')." €"; }
 ?>
 <body>
-    <div class="container" style="max-width: 1100px;">
+    <div class="container" style="max-width: 1200px;">
         <h1 class="ueberschrift">Statistik <?= htmlspecialchars((string)$jahr) ?></h1>
 
         <!-- Jahr-Auswahl -->
@@ -196,10 +196,10 @@ function euro($v) { return number_format((float)$v, 2, ',', '.')." €"; }
 
     </div>
 
-    <div class="container" style="max-width: 1100px;">
+    <div class="container" style="max-width: 1200px;">
 
         <!-- Einnahmen / Ausgaben Pies -->
-        <h2 class="ueberschrift" style="margin-top: 30px;">Einnahmen / Ausgaben</h2>
+        <h2 class="ueberschrift" style="margin-top: 30px;">Einnahmen / Ausgaben <?= htmlspecialchars((string)$jahr) ?></h2>
         <div style="text-align:center; margin-bottom:10px;">
             <strong>Einnahmen:</strong> <?= euro($sumIncome) ?> &nbsp; | &nbsp;
             <strong>Ausgaben:</strong> <?= euro($sumExpense) ?>
