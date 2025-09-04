@@ -7,6 +7,10 @@ $bizconn->set_charset('utf8mb4');
 // Monat und Jahr aus GET oder Default = aktueller Monat
 $monat = $_GET['monat'] ?? date('m');
 $jahr  = $_GET['jahr']  ?? date('Y');
+if ($monat === '') $monat = null;
+if ($jahr === '')  $jahr  = null;
+
+$katFilter = $_GET['kat'] ?? '';
 
 // Alle Zeiträume (Monat+Jahr), in denen es Buchungen gibt
 $zeitStmt = $bizconn->query("
@@ -39,26 +43,46 @@ while ($r = $res->fetch_assoc()) {
 }
 
 // Einträge für den gewählten Zeitraum laden
-$stmt = $bizconn->prepare("
-    SELECT t.id, valutadatum, verwendungszweck, zahlungspartner, betrag, kategorie_id
-    FROM transfers t
-    WHERE MONTH(valutadatum) = ? AND YEAR(valutadatum) = ?
-    ORDER BY valutadatum ASC
-");
-$stmt->bind_param('ii', $monat, $jahr);
+$query = "SELECT t.id, valutadatum, verwendungszweck, zahlungspartner, betrag, kategorie_id FROM transfers t WHERE 1=1";
+$params = [];
+$types  = "";
+
+if (!is_null($monat)) {
+    $query .= " AND MONTH(valutadatum) = ?";
+    $params[] = $monat;
+    $types   .= "i";
+}
+if (!is_null($jahr)) {
+    $query .= " AND YEAR(valutadatum) = ?";
+    $params[] = $jahr;
+    $types   .= "i";
+}
+if ($katFilter !== '') {
+    $query .= " AND kategorie_id = ?";
+    $params[] = $katFilter;
+    $types   .= "i";
+}
+$query .= " ORDER BY valutadatum ASC";
+
+$stmt = $bizconn->prepare($query);
+if ($params) {
+    $stmt->bind_param($types, ...$params);
+}
+
 $stmt->execute();
 $entries = $stmt->get_result();
 ?>
 
 <body>
-    <main class="container" style="width: 1200px;">
-        <h1 class="ueberschrift">Transaktionen <?= "$monat.$jahr" ?></h1>
+    <main class="container" style="max-width: 1000px;"">
+        <h1 class="ueberschrift">Transaktionen</h1>
 
         <form method="get" class="zeitbereich-form" style="margin-bottom: 2rem;">
-            <div class="input-row">
+            <div class="input-row" style="flex-wrap: wrap; gap: 1rem;">
                 <div class="input-group">
                     <label for="monat">Monat</label>
                         <select name="monat" id="monat" onchange="this.form.submit()">
+                            <option value="">Alle Monate</option>
                             <?php for ($m = 1; $m <= 12; $m++): ?>
                                 <option value="<?= $m ?>" <?= ($m == $monat) ? 'selected' : '' ?>>
                                     <?= str_pad($m, 2, '0', STR_PAD_LEFT) ?> - <?= $monatNamen[$m] ?>
@@ -70,6 +94,7 @@ $entries = $stmt->get_result();
                 <div class="input-group">
                     <label for="jahr">Jahr</label>
                     <select name="jahr" id="jahr" onchange="this.form.submit()">
+                        <option value="">Alle Jahre</option>
                         <?php foreach ($jahre as $j): ?>
                             <?php if ($j <= 2023) continue; ?>
                             <option value="<?= $j ?>" <?= ($j == $jahr) ? 'selected' : '' ?>>
@@ -78,6 +103,19 @@ $entries = $stmt->get_result();
                         <?php endforeach; ?>
                     </select>
                 </div>
+
+                <div class="input-group">
+                    <label for="kat">Kategorie</label>
+                    <select name="kat" id="kat" onchange="this.form.submit()">
+                        <option value="">Alle Kategorien</option>
+                        <?php foreach ($kats as $id => $name): ?>
+                            <option value="<?= $id ?>" <?= ($_GET['kat'] ?? '') == $id ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($name) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
             </div>
         </form>
 

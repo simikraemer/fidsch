@@ -6,7 +6,7 @@
     --text: #222;
     --text-light: #fff;
     --border-radius: 6px;
-    --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    --shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     --font: 'Segoe UI', sans-serif;
 
     --success: #4caf50;
@@ -30,7 +30,7 @@ body {
     opacity: 0;
     visibility: hidden;
     position: absolute;
-    top: 58px;
+    top: 65px;
     left: 50%;
     transform: translateX(-50%);
     background: var(--primary);
@@ -44,7 +44,6 @@ body {
     z-index: 100;
     transition: opacity 0.2s ease 0.3s, visibility 0s linear 0.5s;
     border: white double 10px;
-
 }
 
 .has-submenu:hover .submenu {
@@ -134,7 +133,7 @@ body {
     gap: 80px;
     flex-wrap: wrap;
     margin: 40px auto;
-    width: 95%;
+    width: 100%;
 }
 
 .chart-half {

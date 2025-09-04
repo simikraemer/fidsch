@@ -34,7 +34,7 @@
                     <li><a href="/fit/kalorien"><img src="/img/burger.png" alt="Kalorien" class="nav-icon"><span class="submenu-text">Kalorien</span></a></li>
                     <li><a href="/fit/gewicht"><img src="/img/waage.png" alt="Gewicht" class="nav-icon"><span class="submenu-text">Gewicht</span></a></li>
                     <li><a href="/fit/training"><img src="/img/cardio.png" alt="Training" class="nav-icon"><span class="submenu-text">Training</span></a></li>
-                    <li><a href="/fit/pizza"><img src="/img/pizza.png" alt="Pizza" class="nav-icon"><span class="submenu-text">Pizza</span></a></li>
+                    <li><a href="/fit/pizza"><img src="/img/pizza.png" alt="Pizza-Rechner" class="nav-icon"><span class="submenu-text">Pizza-Rechner</span></a></li>
                 </ul>
             </li>
 
@@ -44,11 +44,21 @@
             <li class="nav-item has-submenu">
                 <a href="/biz/start"><img src="/img/biz.png" alt="Biz" class="nav-icon"></a>
                 <ul class="submenu">
-                    <li><a href="/biz/stats"><img src="/img/graph.png" alt="Stats" class="nav-icon"><span class="submenu-text">Stats</span></a></li>
-                    <li><a href="/biz/data"><img src="/img/table.png" alt="Data" class="nav-icon"><span class="submenu-text">Data</span></a></li>
-                    <li><a href="/biz/insert"><img src="/img/upload.png" alt="Insert" class="nav-icon"><span class="submenu-text">Insert</span></a></li>
+                    <li><a href="/biz/stats"><img src="/img/graph.png" alt="Übersicht" class="nav-icon"><span class="submenu-text">Übersicht</span></a></li>
+                    <li><a href="/biz/data"><img src="/img/table.png" alt="Daten" class="nav-icon"><span class="submenu-text">Daten</span></a></li>
+                    <li><a href="/biz/insert"><img src="/img/upload.png" alt="Hochladen" class="nav-icon"><span class="submenu-text">Hochladen</span></a></li>
                 </ul>
             </li>
+
+            <div class="nav-divider"></div>
+
+            <!-- Vault -->
+            <li class="nav-item">
+                <a href="https://vault.fidsch.de" target="_blank" rel="noopener">
+                    <img src="/img/tresor.png" alt="Tresor" class="nav-icon">
+                </a>
+            </li>
+
         </ul>
     </nav>
 </body>

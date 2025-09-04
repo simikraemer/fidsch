@@ -33,8 +33,7 @@ $katRes = $bizconn->query("SELECT id, name FROM kategorien");
 while ($k = $katRes->fetch_assoc()) { $kats[(int)$k['id']] = $k['name']; }
 $labelUnk = 'Unkategorisiert';
 
-$incomeByCat = []; // betrag > 0
-$expenseByCat = []; // betrag < 0 (als positive Werte aufsummieren)
+$kategorieSummen = [];
 
 while ($row = $res->fetch_assoc()) {
     $betrag = (float)$row['betrag'];
@@ -49,14 +48,20 @@ while ($row = $res->fetch_assoc()) {
         if (isset($kats[$katId])) $katName = $kats[$katId];
     }
 
-    if ($betrag > 0) {
-        if (!isset($incomeByCat[$katName])) $incomeByCat[$katName] = 0.0;
-        $incomeByCat[$katName] += $betrag;
-    } elseif ($betrag < 0) {
-        if (!isset($expenseByCat[$katName])) $expenseByCat[$katName] = 0.0;
-        $expenseByCat[$katName] += abs($betrag);
+    if (!isset($kategorieSummen[$katName])) $kategorieSummen[$katName] = 0.0;
+    $kategorieSummen[$katName] += $betrag;
+}
+
+$incomeByCat = [];
+$expenseByCat = [];
+foreach ($kategorieSummen as $kat => $summe) {
+    if ($summe > 0) {
+        $incomeByCat[$kat] = $summe;
+    } elseif ($summe < 0) {
+        $expenseByCat[$kat] = abs($summe);
     }
 }
+
 
 // Anfangsbestand aus Vorjahren holen
 $startRes = $bizconn->prepare("
@@ -79,6 +84,11 @@ $cumSeries = [];
 $validXs = [];
 $validYs = [];
 
+
+$cumSeries[] = round($anfangsbestand, 2);
+$validXs[] = 0;
+$validYs[] = round($anfangsbestand, 2);
+
 for ($m = 1; $m <= 12; $m++) {
     if ((int)$jahr === (int)$heute->format('Y') && $m > (int)$heute->format('n')) {
         $cumSeries[] = null; // Lücke im Chart
@@ -92,7 +102,14 @@ for ($m = 1; $m <= 12; $m++) {
 }
 
 
-$kontostandJahr = end($cumSeries);
+$kontostandJahr = 0.0;
+foreach (array_reverse($cumSeries, true) as $val) {
+    if (!is_null($val)) {
+        $kontostandJahr = $val;
+        break;
+    }
+}
+
 
 $n = count($validXs);
 $sumX = array_sum($validXs);
@@ -108,7 +125,7 @@ if ($den == 0) { $m = 0; $b = $validYs[0] ?? 0; } else {
     $m = ($n * $sumXY - $sumX * $sumY) / $den;
     $b = ($sumY - $m * $sumX) / $n;
 }
-$trend = [];
+$trend = [round($m * 0 + $b, 2)];
 for ($i = 1; $i <= 12; $i++) {
     if ((int)$jahr === (int)$heute->format('Y') && $i > (int)$heute->format('n')) {
         $trend[] = null;
@@ -118,17 +135,22 @@ for ($i = 1; $i <= 12; $i++) {
 }
 
 
-// Pie-Daten vorbereiten (Labels + Werte)
+arsort($incomeByCat);
+arsort($expenseByCat);
+
 $incomeLabels = array_keys($incomeByCat);
 $incomeValues = array_values($incomeByCat);
 $expenseLabels = array_keys($expenseByCat);
 $expenseValues = array_values($expenseByCat);
 
+
+
+
 $sumIncome = array_sum($incomeValues);
 $sumExpense = array_sum($expenseValues);
 
 // JSON für JS
-$labelsJson = json_encode($monatNamenKurz, JSON_UNESCAPED_UNICODE);
+$labelsJson = json_encode(array_merge([''], $monatNamenKurz), JSON_UNESCAPED_UNICODE);
 $cumJson    = json_encode($cumSeries, JSON_UNESCAPED_UNICODE);
 $trendJson  = json_encode($trend, JSON_UNESCAPED_UNICODE);
 
@@ -141,7 +163,7 @@ $expenseValuesJson = json_encode(array_map(fn($v)=>round($v,2), $expenseValues),
 function euro($v) { return number_format((float)$v, 2, ',', '.')." €"; }
 ?>
 <body>
-    <main class="container" style="max-width: 1100px;">
+    <div class="container" style="max-width: 1100px;">
         <h1 class="ueberschrift">Statistik <?= htmlspecialchars((string)$jahr) ?></h1>
 
         <!-- Jahr-Auswahl -->
@@ -172,6 +194,10 @@ function euro($v) { return number_format((float)$v, 2, ',', '.')." €"; }
             </div>
         </div>
 
+    </div>
+
+    <div class="container" style="max-width: 1100px;">
+
         <!-- Einnahmen / Ausgaben Pies -->
         <h2 class="ueberschrift" style="margin-top: 30px;">Einnahmen / Ausgaben</h2>
         <div style="text-align:center; margin-bottom:10px;">
@@ -186,7 +212,7 @@ function euro($v) { return number_format((float)$v, 2, ',', '.')." €"; }
                 <canvas id="expensePie"></canvas>
             </div>
         </div>
-    </main>
+    </div>
 
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
