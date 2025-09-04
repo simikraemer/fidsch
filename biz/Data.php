@@ -62,7 +62,7 @@ if ($katFilter !== '') {
     $params[] = $katFilter;
     $types   .= "i";
 }
-$query .= " ORDER BY valutadatum ASC";
+$query .= " ORDER BY valutadatum DESC";
 
 $stmt = $bizconn->prepare($query);
 if ($params) {
@@ -79,7 +79,7 @@ $entries = $stmt->get_result();
 
         <form method="get" class="zeitbereich-form" style="margin-bottom: 2rem;">
             <div class="input-row" style="flex-wrap: wrap; gap: 1rem;">
-                <div class="input-group">
+                <div class="input-group-dropdown">
                     <label for="monat">Monat</label>
                         <select name="monat" id="monat" onchange="this.form.submit()">
                             <option value="">Alle Monate</option>
@@ -91,12 +91,12 @@ $entries = $stmt->get_result();
                         </select>
                 </div>
 
-                <div class="input-group">
+                <div class="input-group-dropdown">
                     <label for="jahr">Jahr</label>
                     <select name="jahr" id="jahr" onchange="this.form.submit()">
                         <option value="">Alle Jahre</option>
                         <?php foreach ($jahre as $j): ?>
-                            <?php if ($j <= 2023) continue; ?>
+                            <?php if ($j <= 2021) continue; ?>
                             <option value="<?= $j ?>" <?= ($j == $jahr) ? 'selected' : '' ?>>
                                 <?= $j ?>
                             </option>
@@ -104,7 +104,7 @@ $entries = $stmt->get_result();
                     </select>
                 </div>
 
-                <div class="input-group">
+                <div class="input-group-dropdown">
                     <label for="kat">Kategorie</label>
                     <select name="kat" id="kat" onchange="this.form.submit()">
                         <option value="">Alle Kategorien</option>

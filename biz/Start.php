@@ -172,7 +172,7 @@ function euro($v) { return number_format((float)$v, 2, ',', '.')." €"; }
                 <div class="input-group" style="max-width: 220px;">
                     <select name="jahr" id="jahr" onchange="this.form.submit()">
                         <?php foreach ($jahre as $j): ?>
-                            <?php if ($j <= 2023) continue; ?>
+                            <?php if ($j <= 2021) continue; ?>
                             <option value="<?= $j ?>" <?= ($j === $jahr) ? 'selected' : '' ?>><?= $j ?></option>
                         <?php endforeach; ?>
                     </select>

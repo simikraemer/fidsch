@@ -409,3 +409,8 @@ input, select, textarea {
     cursor: pointer;
 }
 
+.input-group-dropdown {
+    flex: 1 1 30%;
+    display: flex;
+    flex-direction: column;
+}
