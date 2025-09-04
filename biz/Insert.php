@@ -40,6 +40,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv'])) {
 
         // Betrag mit Komma → Punkt
         $betrag = str_replace(',', '.', $betrag);
+        $betrag_float = (float)$betrag;
+
+        // Kategorie automatisch zuweisen
+        $kategorie_id = null;
+        $zp = strtolower($zahlungspartner);
+        $vwz = strtolower($verwendungszweck);
+
+        if (str_contains($zp, 'spotify')) $kategorie_id = 21;
+        elseif (str_contains($zp, 'nobis printen')) $kategorie_id = 8;
+        elseif (str_contains($zp, 'baeckerei')) $kategorie_id = 8;
+        elseif (str_contains($zp, 'sb tank')) $kategorie_id = 13;
+        elseif (str_contains($zp, 'parken')) $kategorie_id = 13;
+        elseif (str_contains($zp, 'bernhard') && str_contains($zp, 'inga')) $kategorie_id = 25;
+        elseif (str_contains($zp, 'landeshauptkasse nordrhein-westfalen') && str_contains($zp, 'lbv')) $kategorie_id = 1;
+        elseif (str_contains($zp, 'westdeutscher rundfunk') || str_contains($zp, 'wdr')) $kategorie_id = 4;
+        elseif (str_contains($zp, 'studierendenwerk aachen')) $kategorie_id = $betrag_float > 0 ? 22 : 2;
+        elseif (str_contains($zp, 'weh e.v.')) $kategorie_id = 22;
+        elseif (str_contains($zp, 'lidl')) $kategorie_id = 7;
+        elseif (str_contains($zp, 'kaufland')) $kategorie_id = 7;
+        elseif (str_contains($zp, 'rewe')) $kategorie_id = 7;
+        elseif (str_contains($zp, 'techniker krankenkasse')) $kategorie_id = 3;
+        elseif (str_contains($vwz, 'entgeltabrechnung')) $kategorie_id = 6;
+        elseif (str_contains($vwz, 'takeaway.com')) $kategorie_id = 9;
+        elseif (str_contains($vwz, 'lieferando')) $kategorie_id = 9;
+        elseif (str_contains($vwz, 'google')) $kategorie_id = 20;
 
         // Doppelte prüfen
         $stmt = $bizconn->prepare("SELECT id FROM transfers WHERE buchungstag = ? AND betrag = ? AND verwendungszweck = ? AND zahlungspartner = ?");
@@ -54,11 +79,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv'])) {
                 kategorie_id, auftragskonto, buchungstag, valutadatum, buchungstext,
                 verwendungszweck, zahlungspartner, iban, bic, betrag, waehrung, info
             ) VALUES (
-                NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             )");
 
             $insert->bind_param(
-                'ssssssssdds',
+                'issssssssds',
+                $kategorie_id,
                 $auftragskonto,
                 $buchungstag,
                 $valutadatum,
@@ -83,6 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv'])) {
     fclose($handle);
     echo "<p style='text-align: center; color: var(--success); font-weight: bold;'>$inserted neue Einträge importiert.</p>";
 }
+
 ?>
 
 <body>
