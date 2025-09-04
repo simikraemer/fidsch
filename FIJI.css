@@ -15,7 +15,7 @@
 }
 
 body {
-    margin: 0;
+    margin-top: 90px;
     padding: 0;
     background-color: var(--bg-light);
     color: var(--text);
@@ -30,7 +30,7 @@ body {
     opacity: 0;
     visibility: hidden;
     position: absolute;
-    top: 58px; /* unter Icon */
+    top: 58px;
     left: 50%;
     transform: translateX(-50%);
     background: var(--primary);
@@ -41,16 +41,17 @@ body {
     margin: 0;
     gap: 1rem;
     flex-direction: column;
-    z-index: 100; /* Basis */
+    z-index: 100;
     transition: opacity 0.2s ease 0.3s, visibility 0s linear 0.5s;
+    border: white double 10px;
 
 }
 
 .has-submenu:hover .submenu {
     opacity: 1;
     visibility: visible;
-    transition-delay: 0s; /* sofort erscheinen */
-    z-index: 999; /* über alles andere */
+    transition-delay: 0s;
+    z-index: 999;
 }
 
 .submenu li a {
@@ -84,9 +85,14 @@ body {
     background-color: var(--primary);
     padding: 10px;
     box-shadow: var(--shadow);
-    display: flex;
-    justify-content: center;
+    position: fixed;            /* <- macht die Navbar fixiert */
+    top: 0;                     /* oben am Viewport */
+    left: 0;
+    right: 0;
+    z-index: 9999;
+    height: 50px;
 }
+
 
 .nav-icon {
     width: 48px;
@@ -100,12 +106,16 @@ body {
 }
 
 .nav-links {
-    list-style: none;
+    position: fixed;
+    left: 50vw;
+    transform: translateX(-50%);
+    top: 0;
     display: flex;
     align-items: center;
-    padding: 0;
-    margin: 0;
     gap: 2rem;
+    list-style: none;
+    padding: 10px 0;
+    margin: 0;
 }
 
 .nav-divider {
@@ -163,7 +173,6 @@ button:hover {
     background-color: var(--primary-dark);
 }
 
-/* Formulare (optional, wenn du sie einsetzt) */
 input, select, textarea {
     font-family: var(--font);
     font-size: 1em;
@@ -303,7 +312,7 @@ input, select, textarea {
     max-height: 200px;
     overflow-y: auto;
     position: absolute;
-    top: 100%; /* direkt unter dem input */
+    top: 100%;
     left: 0;
     right: 0;
     z-index: 10;
@@ -343,3 +352,61 @@ input, select, textarea {
     color: var(--primary-dark);
     margin-top: 20px;
 }
+
+
+
+/*biz*/
+
+.kategorie-select {
+    padding: 6px;
+    border-radius: var(--border-radius);
+    border: 1px solid #ccc;
+    background-color: white;
+    font-family: var(--font);
+    font-size: 0.95rem;
+}
+
+.modal {
+    position: fixed;
+    z-index: 1000;
+    inset: 0;
+    background-color: rgba(0,0,0,0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background-color: white;
+    padding: 30px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    width: 500px;
+    max-width: 90%;
+    position: relative;
+    z-index: 1001;
+}
+
+.modal select {
+    background-color: white;
+    color: var(--text);
+    border: 1px solid #ccc;
+    border-radius: var(--border-radius);
+    font-family: var(--font);
+    font-size: 1rem;
+    padding: 8px;
+    width: 100%;
+    box-sizing: border-box;
+    appearance: auto;
+}
+
+.close-button {
+    position: absolute;
+    right: 16px;
+    top: 10px;
+    font-size: 24px;
+    font-weight: bold;
+    color: #999;
+    cursor: pointer;
+}
+

@@ -7,7 +7,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $kalorien = intval($_POST['kalorien'] ?? 0);
 
     if ($kalorien > 0) {
-        $stmt = $mysqli->prepare("INSERT INTO training (beschreibung, kalorien) VALUES (?, ?)");
+        $stmt = $fitconn->prepare("INSERT INTO training (beschreibung, kalorien) VALUES (?, ?)");
         $stmt->bind_param('si', $beschreibung, $kalorien);
         $stmt->execute();
         $stmt->close();

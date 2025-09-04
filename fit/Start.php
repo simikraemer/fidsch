@@ -11,7 +11,7 @@ $monate = isset($_GET['monate']) ? max(1, min(12, (int)$_GET['monate'])) : 6;
 $startDate = (new DateTime("-{$monate} months"))->format('Y-m-d');
 
 // Brutto-Kalorien (nur Zufuhr)
-$stmt = $mysqli->prepare("
+$stmt = $fitconn->prepare("
     SELECT DATE(tstamp) AS tag, SUM(kalorien) AS kalorien
     FROM kalorien
     WHERE tstamp >= ?
@@ -33,7 +33,7 @@ $bruttoDurchschnitt = $tageMitWerten > 0 ? round($bruttoSumme / $tageMitWerten) 
 
 
 // Netto-Kalorien (Zufuhr - Verbrauch)
-$stmt = $mysqli->prepare("
+$stmt = $fitconn->prepare("
     SELECT DATE(tstamp) AS tag,
            SUM(kalorien) AS gesamt
     FROM kalorien
@@ -74,7 +74,7 @@ $gewichtQuery = "
     GROUP BY DATE(tstamp)
 ";
 
-$stmt = $mysqli->prepare($gewichtQuery);
+$stmt = $fitconn->prepare($gewichtQuery);
 $stmt->bind_param('s', $startDate);
 $stmt->execute();
 $result = $stmt->get_result();

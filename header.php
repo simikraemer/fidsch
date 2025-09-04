@@ -5,7 +5,7 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <title>FIJI Web</title>
+    <title>Fidsch</title>
     <link rel="stylesheet" href="/FIJI.css">
 
     <!-- Preload Images -->

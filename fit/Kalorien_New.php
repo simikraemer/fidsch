@@ -2,13 +2,13 @@
 require_once 'auth.php';
 require_once 'template.php';
 
-$mysqli->set_charset('utf8mb4');
+$fitconn->set_charset('utf8mb4');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['move_to_previous_day'])) {
         // Timestamp eines bestehenden Eintrags auf Vortag 23:59 setzen
         $id = intval($_POST['move_to_previous_day']);
-        $stmt = $mysqli->prepare("SELECT tstamp FROM kalorien WHERE id = ?");
+        $stmt = $fitconn->prepare("SELECT tstamp FROM kalorien WHERE id = ?");
         $stmt->bind_param('i', $id);
         $stmt->execute();
         $stmt->bind_result($tstamp_alt);
@@ -19,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $dt->modify('-1 day')->setTime(23, 59);
             $newTstamp = $dt->format('Y-m-d H:i:s');
 
-            $stmt = $mysqli->prepare("UPDATE kalorien SET tstamp = ? WHERE id = ?");
+            $stmt = $fitconn->prepare("UPDATE kalorien SET tstamp = ? WHERE id = ?");
             $stmt->bind_param('si', $newTstamp, $id);
             $stmt->execute();
             $stmt->close();
@@ -37,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $tstamp = $jetzt->format('Y-m-d H:i:s');
 
-        $stmt = $mysqli->prepare("INSERT INTO kalorien (beschreibung, kalorien, tstamp) VALUES (?, ?, ?)");
+        $stmt = $fitconn->prepare("INSERT INTO kalorien (beschreibung, kalorien, tstamp) VALUES (?, ?, ?)");
         $stmt->bind_param('sis', $beschreibung, $kalorien, $tstamp);
         $stmt->execute();
         $stmt->close();
@@ -48,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Einträge aus der DB holen
-$result = $mysqli->query("
+$result = $fitconn->query("
     SELECT 
         MIN(id) AS id,
         beschreibung,
@@ -63,7 +63,7 @@ $result->close();
 
 // Heutige Einträge holen
 $heute = date('Y-m-d');
-$stmt = $mysqli->prepare("
+$stmt = $fitconn->prepare("
     SELECT id, beschreibung, kalorien, tstamp
     FROM kalorien
     WHERE DATE(tstamp) = ?
@@ -76,7 +76,7 @@ $stmt->close();
 
 // Gestern ermitteln und Einträge holen
 $gestern = date('Y-m-d', strtotime('-1 day'));
-$stmt = $mysqli->prepare("
+$stmt = $fitconn->prepare("
     SELECT id, beschreibung, kalorien, tstamp
     FROM kalorien
     WHERE DATE(tstamp) = ?

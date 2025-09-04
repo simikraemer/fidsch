@@ -6,7 +6,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' ) {
     $gewicht = floatval($_POST['gewicht'] ?? 0);
 
     if ($gewicht > 0) {
-        $stmt = $mysqli->prepare("INSERT INTO gewicht (gewicht) VALUES (?)");
+        $stmt = $fitconn->prepare("INSERT INTO gewicht (gewicht) VALUES (?)");
         $stmt->bind_param('d', $gewicht);
         $stmt->execute();
         $stmt->close();
