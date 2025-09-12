@@ -15,6 +15,8 @@
     <link rel="preload" href="/img/graph.png" as="image">
     <link rel="preload" href="/img/table.png" as="image">
     <link rel="preload" href="/img/upload.png" as="image">
+    <link rel="preload" href="/img/audiobook.png" as="image">
+    <link rel="preload" href="/img/vinyl.png" as="image">
 </head>
 <body>
     <nav class="navbar">
@@ -52,10 +54,28 @@
 
             <div class="nav-divider"></div>
 
+            <!-- Audibook -->
+            <li class="nav-item">
+                <a href="https://fidsch.de/audiobookshelf/" target="_blank" rel="noopener">
+                    <img src="/img/audiobook.png" alt="" class="nav-icon">
+                </a>
+            </li>
+
+            <div class="nav-divider"></div>
+
+            <!-- Navidrome -->
+            <li class="nav-item">
+                <a href="https://fidsch.de/navidrome/" target="_blank" rel="noopener">
+                    <img src="/img/vinyl.png" alt="" class="nav-icon">
+                </a>
+            </li>
+
+            <div class="nav-divider"></div>
+
             <!-- Vault -->
             <li class="nav-item">
                 <a href="https://vault.fidsch.de" target="_blank" rel="noopener">
-                    <img src="/img/tresor.png" alt="Tresor" class="nav-icon">
+                    <img src="/img/tresor.png" alt="" class="nav-icon">
                 </a>
             </li>
 
