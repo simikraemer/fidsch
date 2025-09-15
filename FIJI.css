@@ -42,8 +42,20 @@ body {
     gap: 1rem;
     flex-direction: column;
     z-index: 100;
-    transition: opacity 0.2s ease 0.3s, visibility 0s linear 0.5s;
     border: white double 10px;
+    transition: none;
+}
+
+.has-submenu:hover .submenu {
+    opacity: 1;
+    visibility: visible;
+    transition: none; /* sofort sichtbar */
+}
+
+.has-submenu:not(:hover) .submenu {
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.5s ease, visibility 0.5s linear 0.5s; /* langsam weg */
 }
 
 .has-submenu:hover .submenu {

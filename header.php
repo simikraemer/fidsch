@@ -17,6 +17,7 @@
     <link rel="preload" href="/img/upload.png" as="image">
     <link rel="preload" href="/img/audiobook.png" as="image">
     <link rel="preload" href="/img/vinyl.png" as="image">
+    <link rel="preload" href="/img/image.png" as="image">
 </head>
 <body>
     <nav class="navbar">
@@ -40,7 +41,6 @@
                 </ul>
             </li>
 
-            <div class="nav-divider"></div>
 
             <!-- Biz -->
             <li class="nav-item has-submenu">
@@ -61,12 +61,19 @@
                 </a>
             </li>
 
-            <div class="nav-divider"></div>
 
             <!-- Navidrome -->
             <li class="nav-item">
                 <a href="https://fidsch.de/navidrome/" target="_blank" rel="noopener">
                     <img src="/img/vinyl.png" alt="" class="nav-icon">
+                </a>
+            </li>
+
+
+            <!-- Photoprism -->
+            <li class="nav-item">
+                <a href="https://9.fidsch.de/photoprism/" target="_blank" rel="noopener">
+                    <img src="/img/image.png" alt="" class="nav-icon">
                 </a>
             </li>
 
