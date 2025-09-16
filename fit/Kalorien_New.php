@@ -29,6 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $beschreibung = trim($_POST['beschreibung'] ?? '');
         $kalorien = intval($_POST['kalorien'] ?? 0);
+        $anzahl = max(1, intval($_POST['anzahl'] ?? 1)); // Standard = 1
 
         // Zeitlogik für normalen Insert
         $jetzt = new DateTime();
@@ -39,7 +40,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $stmt = $fitconn->prepare("INSERT INTO kalorien (beschreibung, kalorien, tstamp) VALUES (?, ?, ?)");
         $stmt->bind_param('sis', $beschreibung, $kalorien, $tstamp);
-        $stmt->execute();
+
+        for ($i = 0; $i < $anzahl; $i++) {
+            $stmt->execute();
+        }
+
         $stmt->close();
     }
 
@@ -105,9 +110,11 @@ $stmt->close();
         <input type="text" id="beschreibung" name="beschreibung" autocomplete="off">
         <ul id="vorschlaege" class="autocomplete-list"></ul>
 
-
         <label for="kalorien">Zugeführte Kalorien:</label>
         <input type="number" id="kalorien" name="kalorien" required>
+
+        <label for="anzahl">Anzahl:</label>
+        <input type="number" id="anzahl" name="anzahl" value="1" min="1" required>
 
         <button type="submit">Eintragen</button>
     </form>

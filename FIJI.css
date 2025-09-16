@@ -313,10 +313,9 @@ input, select, textarea {
 
 .autocomplete-list {
     list-style: none;
-    margin-top: -157px;
+    margin-top: -257px;
     padding: 0;
     background-color: white;
-    border: 1px solid #ccc;
     border-top: none;
     border-radius: 0 0 var(--border-radius) var(--border-radius);
     box-shadow: var(--shadow);
