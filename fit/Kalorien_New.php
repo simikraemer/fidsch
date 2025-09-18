@@ -26,6 +26,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $stmt->close();
         }
+    } elseif (isset($_POST['delete_entry'])) {
+        $id = intval($_POST['delete_entry']);
+        $stmt = $fitconn->prepare("DELETE FROM kalorien WHERE id = ?");
+        $stmt->bind_param('i', $id);
+        $stmt->execute();
+        $stmt->close();
+
+        header("Location: /fit/kalorien");
+        exit;
     } else {
         $beschreibung = trim($_POST['beschreibung'] ?? '');
         $kalorien = intval($_POST['kalorien'] ?? 0);
@@ -153,10 +162,17 @@ $stmt->close();
                         <td><?= htmlspecialchars($eintrag['beschreibung']) ?></td>
                         <td><?= intval($eintrag['kalorien']) ?> kcal</td>
                         <td>
-                            <form method="post" style="margin:0; display:inline;">
-                                <input type="hidden" name="move_to_previous_day" value="<?= intval($eintrag['id']) ?>">
-                                <button type="submit">Auf Vortag setzen</button>
-                            </form>
+                            <div style="display: flex; gap: 6px; align-items: stretch;">
+                                <form method="post" style="margin:0;">
+                                    <input type="hidden" name="move_to_previous_day" value="<?= intval($eintrag['id']) ?>">
+                                    <button type="submit" style="height: 100%;">Auf Vortag</button>
+                                </form>
+
+                                <form method="post" style="margin:0;">
+                                    <input type="hidden" name="delete_entry" value="<?= intval($eintrag['id']) ?>">
+                                    <button type="submit" onclick="return confirm('Eintrag wirklich löschen?');" style="height: 100%;">Löschen</button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                 <?php endforeach; ?>
@@ -195,10 +211,17 @@ $stmt->close();
                         <td><?= htmlspecialchars($eintrag['beschreibung']) ?></td>
                         <td><?= intval($eintrag['kalorien']) ?> kcal</td>
                         <td>
-                            <form method="post" style="margin:0; display:inline;">
-                                <input type="hidden" name="move_to_previous_day" value="<?= intval($eintrag['id']) ?>">
-                                <button type="submit">Auf Vortag setzen</button>
-                            </form>
+                            <div style="display: flex; gap: 6px; align-items: stretch;">
+                                <form method="post" style="margin:0;">
+                                    <input type="hidden" name="move_to_previous_day" value="<?= intval($eintrag['id']) ?>">
+                                    <button type="submit" style="height: 100%;">Auf Vortag</button>
+                                </form>
+
+                                <form method="post" style="margin:0;">
+                                    <input type="hidden" name="delete_entry" value="<?= intval($eintrag['id']) ?>">
+                                    <button type="submit" onclick="return confirm('Eintrag wirklich löschen?');" style="height: 100%;">Löschen</button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                 <?php endforeach; ?>
