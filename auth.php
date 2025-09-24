@@ -6,15 +6,7 @@ $credentials = json_decode(file_get_contents($config_path), true)['webpw'];
 
 $valid_user = $credentials['username'];
 $valid_pass = $credentials['password'];
-
-$allowed_ips = [
-    '137.226.140.241',
-    '137.226.141.200',
-    '137.226.141.203',
-    '137.226.141.204',
-    '137.226.141.233',
-    '134.130.0.99'
-];
+$allowed_ips = $credentials['allowed_ips'] ?? [];
 
 $client_ip = $_SERVER['REMOTE_ADDR'] ?? '';
 
