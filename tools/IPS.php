@@ -1,5 +1,7 @@
 <?php
-require_once 'template.php';
+$page_title = 'IPv4-Konverter';
+require_once __DIR__ . '/../head.php';
+require_once __DIR__ . '/../navbar.php';
 ?>
 
 <div class="container">
@@ -25,7 +27,7 @@ require_once 'template.php';
 
             <tr>
                 <td style="vertical-align:middle;">
-                    <label for="prefix"><strong>Präfix (/0–/32)</strong></label>
+                    <label for="prefix"><strong>Präfix (/0-/32)</strong></label>
                     <span id="warn_prefix" style="display:none; color:var(--warning); font-weight:bold; margin-left:8px;">⚠️</span>
                 </td>
                 <td><input type="number" id="prefix" min="0" max="32" placeholder="23"></td>

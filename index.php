@@ -1,5 +1,5 @@
 <?php
-// Pfad ermitteln (ohne Query-String)
+// index.php
 $path = trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/');
 
 // --- Routing-Tabellen ---
@@ -57,7 +57,12 @@ if (str_starts_with($path, 'fit')) {
 
 } elseif ($path === '' || $path === 'index.php') {
     // --- Startseite ---
-    require_once 'template.php';
+    require_once __DIR__ . '/db.php';        // (kein POST hier, aber ok für Konsistenz)
+
+    // Rendering starten
+    $page_title = 'Fidsch';
+    require_once __DIR__ . '/head.php';      // <!DOCTYPE html> … <body>
+    require_once __DIR__ . '/navbar.php';    // nur die Navbar
     ?>
     <main class="container">
         <div style="text-align: center;">
@@ -74,6 +79,7 @@ if (str_starts_with($path, 'fit')) {
         <p>Dies ist eine rein private, nicht-kommerzielle Webseite.</p>
         <p>Simon Fiji Krämer<br>Aachen</p>
     </footer>
+    </body>
+    </html>
     <?php
-
 }

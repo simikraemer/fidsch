@@ -1,5 +1,7 @@
 <?php
-require_once 'template.php';
+$page_title = 'Path-Konverter';
+require_once __DIR__ . '/../head.php';
+require_once __DIR__ . '/../navbar.php';
 
 $win_standard   = $_POST['win_standard']   ?? '';
 $win_escaped    = $_POST['win_escaped']    ?? '';

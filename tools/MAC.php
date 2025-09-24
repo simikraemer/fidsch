@@ -1,12 +1,11 @@
 <?php
-require_once 'template.php';
-
+// ---- POST-Verarbeitung (kein Output davor!) ----
 $mac_colons = $_POST['mac_colons'] ?? '';
-$mac_dots   = $_POST['mac_dots'] ?? '';
-$mac_minus  = $_POST['mac_minus'] ?? '';
-$mac_upper  = $_POST['mac_upper'] ?? '';
-$mac_lower  = $_POST['mac_lower'] ?? '';
-$mac_raw    = $_POST['mac_raw'] ?? '';
+$mac_dots   = $_POST['mac_dots']   ?? '';
+$mac_minus  = $_POST['mac_minus']  ?? '';
+$mac_upper  = $_POST['mac_upper']  ?? '';
+$mac_lower  = $_POST['mac_lower']  ?? '';
+$mac_raw    = $_POST['mac_raw']    ?? '';
 
 function mac_clean_12($s) {
     return preg_replace('/[^a-f0-9]/i', '', $s ?? '');
@@ -19,17 +18,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (strlen($c) === 12) { $base = $c; break; }
     }
     if ($base) {
-        $pairs = implode(':', str_split($base, 2));
-        $mac_colons = $pairs;                         // Standard (case-insensitiv)
-        $mac_dots   = implode('.', str_split($base, 4)); // Cisco
-        $mac_minus  = implode('-', str_split($base, 2)); // Minus
-        $mac_upper  = strtoupper($pairs);             // Colons UPPER
-        $mac_lower  = strtolower($pairs);             // Colons lower
-        $mac_raw    = $base;                          // Raw
+        $pairs       = implode(':', str_split($base, 2));
+        $mac_colons  = $pairs;                          // Standard (case-insensitiv)
+        $mac_dots    = implode('.', str_split($base, 4)); // Cisco
+        $mac_minus   = implode('-', str_split($base, 2)); // Minus
+        $mac_upper   = strtoupper($pairs);              // Colons UPPER
+        $mac_lower   = strtolower($pairs);              // Colons lower
+        $mac_raw     = $base;                           // Raw
     }
 }
-?>
 
+// ---- Rendering starten ----
+$page_title = 'MAC-Konverter';
+require_once __DIR__ . '/../head.php';     // <!DOCTYPE html> … <body>
+require_once __DIR__ . '/../navbar.php';   // nur die Navbar
+?>
 <div class="container">
     <h2 class="ueberschrift">MAC-Adressen-Konverter</h2>
     <form method="post" action="">

@@ -1,15 +1,24 @@
 <?php
+// biz/update_transfer.php
 require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../db.php';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $id = intval($_POST['id']);
-    $kat = is_numeric($_POST['kategorie_id']) ? intval($_POST['kategorie_id']) : null;
-
-    $stmt = $bizconn->prepare("UPDATE transfers SET kategorie_id = ? WHERE id = ?");
-    $stmt->bind_param('ii', $kat, $id);
-    $stmt->execute();
-    http_response_code(200);
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    header('Allow: POST');
     exit;
 }
-http_response_code(400);
+
+$id  = isset($_POST['id']) ? (int)$_POST['id'] : 0;
+$kat = (isset($_POST['kategorie_id']) && $_POST['kategorie_id'] !== '') ? (int)$_POST['kategorie_id'] : null;
+
+if ($id <= 0) {
+    http_response_code(400);
+    exit;
+}
+
+$stmt = $bizconn->prepare("UPDATE transfers SET kategorie_id = ? WHERE id = ?");
+$stmt->bind_param('ii', $kat, $id);
+$stmt->execute();
+
+http_response_code(204);
