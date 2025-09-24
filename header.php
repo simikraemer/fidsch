@@ -27,6 +27,15 @@
                 <a href="/"><img src="/img/odal.png" alt="Start" class="nav-icon"></a>
             </li>
 
+            <!-- Tools -->
+            <li class="nav-item has-submenu">
+                <a href="/tools/mac"><img src="/img/tool.png" alt="Tool" class="nav-icon"></a>
+                <ul class="submenu">
+                    <li><a href="/tools/mac"><img src="/img/mac.png" alt="Übersicht" class="nav-icon"><span class="submenu-text">MAC Translate</span></a></li>
+                    <li><a href="/tools/path"><img src="/img/path.png" alt="Übersicht" class="nav-icon"><span class="submenu-text">Path Translate</span></a></li>
+                </ul>
+            </li>
+
             <div class="nav-divider"></div>
 
             <!-- Fit -->

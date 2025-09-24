@@ -19,6 +19,11 @@ $routesBiz = [
     'insert'   => 'Insert.php',
 ];
 
+$routestool = [
+    'mac'         => 'MAC.php',
+    'path'    => 'PATH.php',
+];
+
 // --- Routing-Logik ---
 if (str_starts_with($path, 'fit')) {
     $slug = trim(preg_replace('#^fit/?#', '', $path), '/');
@@ -33,6 +38,15 @@ if (str_starts_with($path, 'fit')) {
     $slug = trim(preg_replace('#^biz/?#', '', $path), '/');
     if (array_key_exists($slug, $routesBiz)) {
         require __DIR__ . '/biz/' . $routesBiz[$slug];
+    } else {
+        http_response_code(404);
+        echo "Seite nicht gefunden.";
+    }
+
+} elseif (str_starts_with($path, 'tools')) {
+    $slug = trim(preg_replace('#^tools/?#', '', $path), '/');
+    if (array_key_exists($slug, $routestool)) {
+        require __DIR__ . '/tools/' . $routestool[$slug];
     } else {
         http_response_code(404);
         echo "Seite nicht gefunden.";
