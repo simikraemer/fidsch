@@ -22,6 +22,9 @@ $routesBiz = [
 $routestool = [
     'mac'         => 'MAC.php',
     'path'    => 'PATH.php',
+    'bit'     => 'BYTES.php',
+    'ips'     => 'IPS.php',
+    'unixtime'     => 'UNIXTIME.php',
 ];
 
 // --- Routing-Logik ---
@@ -58,18 +61,18 @@ if (str_starts_with($path, 'fit')) {
     ?>
     <main class="container">
         <div style="text-align: center;">
-            <h1 class="ueberschrift">Willkommen auf meiner Webseite</h1>
+            <h1 class="ueberschrift">Willkommen :^)</h1>
 
             <p>
-                Diese Seite dient ausschließlich privaten Zwecken. Alle weiteren Inhalte sind zugangsbeschränkt 
-                und nur für den persönlichen Gebrauch vorgesehen.
+                Die Konverter-Tools speichern keine Eingaben.<br>
+                Alle weiteren Inhalte sind zugangsbeschränkt und nur für den persönlichen Gebrauch vorgesehen.
             </p>
         </div>
     </main>
 
     <footer style="text-align: center; font-size: 0.8rem; margin-top: 2rem; color: #777;">
         <p>Dies ist eine rein private, nicht-kommerzielle Webseite.</p>
-        <p>Verantwortlich gemäß § 55 Abs. 1 RStV:<br>Simon Fiji Krämer<br>Aachen</p>
+        <p>Simon Fiji Krämer<br>Aachen</p>
     </footer>
     <?php
 

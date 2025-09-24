@@ -80,7 +80,6 @@ $isAuthed = !empty($_SESSION['is_authed']);
     <link rel="preload" href="/img/image.png" as="image">
     <link rel="preload" href="/img/tresor.png" as="image">
     <link rel="preload" href="/img/dots.png" as="image">
-    <!-- Missing before: Fit submenu icons -->
     <link rel="preload" href="/img/burger.png" as="image">
     <link rel="preload" href="/img/waage.png" as="image">
     <link rel="preload" href="/img/cardio.png" as="image">
@@ -100,6 +99,9 @@ $isAuthed = !empty($_SESSION['is_authed']);
                 <ul class="submenu">
                     <li><a href="/tools/mac"><img src="/img/mac.png" alt="MAC" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">MAC-Konverter</span></a></li>
                     <li><a href="/tools/path"><img src="/img/path.png" alt="Path" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Path-Konverter</span></a></li>
+                    <li><a href="/tools/bit"><img src="/img/bit.png" alt="Path" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Bit-Konverter</span></a></li>
+                    <li><a href="/tools/unixtime"><img src="/img/hourglass.png" alt="Path" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Unixtime-Konverter</span></a></li>
+                    <li><a href="/tools/ips"><img src="/img/network.png" alt="Path" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">IPv4-Konverter</span></a></li>
                 </ul>
             </li>
 

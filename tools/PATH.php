@@ -11,7 +11,7 @@ $bash_single    = $_POST['bash_single']    ?? '';
 $url_encoded    = $_POST['url_encoded']    ?? '';
 ?>
 <div class="container">
-    <h2 class="ueberschrift">Pfad-Konverter</h2>
+    <h2 class="ueberschrift">Path-Konverter</h2>
     <form method="post" action="">
         <table style="width:100%; border-collapse:collapse;">
             <tr>
