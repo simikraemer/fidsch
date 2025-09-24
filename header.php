@@ -55,9 +55,10 @@ $isAuthed = !empty($_SESSION['is_authed']);
                     <li><a href="/tools/path"><img src="/img/path.png" alt="Path" class="nav-icon"><span class="submenu-text">Path-Konverter</span></a></li>
                 </ul>
             </li>
+                
+            <div class="nav-divider"></div>
 
             <?php if ($isAuthed): ?>
-                <div class="nav-divider"></div>
 
                 <!-- Fit -->
                 <li class="nav-item has-submenu">
@@ -114,7 +115,6 @@ $isAuthed = !empty($_SESSION['is_authed']);
                 </li>
             <?php else: ?>
                 <!-- Not authed: show clickable "dots" login button -->
-                <div class="nav-divider"></div>
                 <li class="nav-item">
                     <a href="?login=1" title="Login">
                         <img src="/img/dots.png" alt="Login" class="nav-icon">
