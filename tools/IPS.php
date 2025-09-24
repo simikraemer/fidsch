@@ -110,6 +110,14 @@ require_once 'template.php';
                 <td><input type="text" id="usable_hosts" readonly placeholder="510"></td>
             </tr>
 
+            <!-- NEW: Reverse Lookup Name -->
+            <tr>
+                <td style="vertical-align:middle;">
+                    <label><strong>DNS-Name (Reverse Lookup)</strong></label>
+                </td>
+                <td><input type="text" id="ptr_name" readonly placeholder="host.example.org"></td>
+            </tr>
+
             <tr>
                 <td style="vertical-align:middle;">
                     <label><strong>Reverse DNS (PTR-Zone)</strong></label>
@@ -159,10 +167,8 @@ function maskFromPrefix(p){
 function prefixFromMask(maskStr){
     const v = ipToInt(maskStr);
     if (v === null) return null;
-    // contiguous 1s?
     const inv = (~v) >>> 0;
-    if (((inv + 1) & inv) !== 0) return null; // not power-of-two pattern -> not contiguous zeros
-    // count ones
+    if (((inv + 1) & inv) !== 0) return null; // not contiguous zeros
     let p = 0; for (let i=31;i>=0;i--) { if ((v>>>i)&1) p++; else break; }
     if (v !== maskFromPrefix(p)) return null;
     return p;
@@ -184,13 +190,10 @@ function log2(x){ return Math.log(x)/Math.log(2); }
 function classify(ipInt){
     const first = ipInt>>>24;
     let cls = (first<=127?'A':first<=191?'B':first<=223?'C':first<=239?'D':'E');
-
-    // private ranges
     const priv =
       (first===10) ||
       (first===172 && ((ipInt>>>16)&0xF0)===16) || // 172.16.0.0/12
       (first===192 && ((ipInt>>>16)&255)===168);
-
     return `Class ${cls}, ${priv?'privat':'öffentlich'}`;
 }
 function ipBinary(ipInt){
@@ -198,15 +201,45 @@ function ipBinary(ipInt){
         .map(n => n.toString(2).padStart(8,'0'));
     return parts.join('.');
 }
-function ptrZone(ipInt){
+function ptrZone24(ipInt){
+    // PTR-Zone für /24 Delegation: c.b.a.in-addr.arpa.
     const a = (ipInt>>>24)&255, b=(ipInt>>>16)&255, c=(ipInt>>>8)&255;
     return `${c}.${b}.${a}.in-addr.arpa.`;
+}
+function ptrNameFull(ipInt){
+    // Vollständiger PTR-Name: d.c.b.a.in-addr.arpa.
+    const a = (ipInt>>>24)&255, b=(ipInt>>>16)&255, c=(ipInt>>>8)&255, d=(ipInt)&255;
+    return `${d}.${c}.${b}.${a}.in-addr.arpa.`;
 }
 
 function setVal(id, val, fromId){
     if (id===fromId) return;
     const el = document.getElementById(id);
     if (el && el.value !== val) el.value = val;
+}
+
+// ---------- DNS over HTTPS (Reverse PTR) ----------
+let lastPtrQuery = 0;
+async function resolvePtrForIpInt(ipInt){
+    const ptr = ptrNameFull(ipInt);
+    const url = 'https://dns.google/resolve?name=' + encodeURIComponent(ptr) + '&type=PTR';
+    const myQueryId = ++lastPtrQuery;
+
+    try {
+        const res = await fetch(url, {mode: 'cors'});
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        // discard stale result if a newer query was sent
+        if (myQueryId !== lastPtrQuery) return;
+
+        const ans = Array.isArray(data.Answer) ? data.Answer : [];
+        const firstPtr = ans.find(a => a.type === 12) || ans[0];
+        const name = firstPtr ? (firstPtr.data || '').replace(/\.$/, '') : '';
+        setVal('ptr_name', name || '(kein PTR gefunden)', null);
+    } catch (e) {
+        if (myQueryId !== lastPtrQuery) return;
+        setVal('ptr_name', '(Lookup fehlgeschlagen)', null);
+    }
 }
 
 // ---------- Core recompute ----------
@@ -218,7 +251,6 @@ function recomputeFromIpPrefix(ipInt, prefix, fromId){
     const net = networkOf(ipInt, prefix);
     const bc  = broadcastOf(ipInt, prefix);
 
-    // Hosts
     const total = 2 ** (32 - prefix);
     let usable;
     if (prefix === 32) usable = 1;
@@ -228,7 +260,6 @@ function recomputeFromIpPrefix(ipInt, prefix, fromId){
     const first = (prefix>=31) ? net : (net + 1) >>> 0;
     const last  = (prefix>=31) ? bc  : (bc  - 1) >>> 0;
 
-    // Range (Netz .. Broadcast)
     setVal('cidr', `${intToIp(ipInt)}/${prefix}`, fromId);
     setVal('ip', intToIp(ipInt), fromId);
     setVal('prefix', String(prefix), fromId);
@@ -245,14 +276,17 @@ function recomputeFromIpPrefix(ipInt, prefix, fromId){
     setVal('usable_hosts', String(usable), null);
     setVal('ip_class', classify(ipInt), null);
     setVal('ip_binary', ipBinary(ipInt), null);
-    setVal('ptr_zone', ptrZone(ipInt), null);
+    setVal('ptr_zone', ptrZone24(ipInt), null);
 
-    // clear warns
+    // kick off async PTR lookup for the specific IP
+    setVal('ptr_name', '… auflösen …', null);
+    resolvePtrForIpInt(ipInt);
+
     ['cidr','ip','prefix','mask','wildcard','network','broadcast','first_host','last_host','range_start','range_end']
         .forEach(id => showWarn(id, false));
 }
 
-// Try build from various inputs
+// ---------- Builders from inputs ----------
 function fromCIDR(fromId){
     const v = document.getElementById('cidr').value.trim();
     const m = v.match(/^(\d{1,3}(?:\.\d{1,3}){3})\/(\d{1,2})$/);
@@ -284,10 +318,8 @@ function fromIPPrefixOrMask(fromId){
     if (ipInt!==null && p!==null) recomputeFromIpPrefix(ipInt, p, fromId);
 }
 
-function fromMask(fromId){
-    // simply delegate to IP+Mask handler
-    fromIPPrefixOrMask(fromId);
-}
+function fromMask(fromId){ fromIPPrefixOrMask(fromId); }
+
 function fromWildcard(fromId){
     const wStr = document.getElementById('wildcard').value.trim();
     const wInt = ipToInt(wStr);
@@ -313,10 +345,9 @@ function fromNetworkBroadcast(fromId){
     const size = (bInt - nInt + 1) >>> 0;
     if (!isPowerOfTwo(size)){ showWarn('network', true); showWarn('broadcast', true); return; }
     const p = 32 - Math.round(log2(size));
-    // validate aligned
     const mask = maskFromPrefix(p);
     if ((nInt & mask) !== nInt){ showWarn('network', true); return; }
-    const ipInt = nInt; // choose first address as "ip"
+    const ipInt = nInt;
     recomputeFromIpPrefix(ipInt, p, fromId);
 }
 
