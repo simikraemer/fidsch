@@ -1,26 +1,31 @@
 <?php
 require_once 'template.php';
 
-$mac_dots = $_POST['mac_dots'] ?? '';
 $mac_colons = $_POST['mac_colons'] ?? '';
-$mac_minus = $_POST['mac_minus'] ?? '';
+$mac_dots   = $_POST['mac_dots'] ?? '';
+$mac_minus  = $_POST['mac_minus'] ?? '';
+$mac_upper  = $_POST['mac_upper'] ?? '';
+$mac_lower  = $_POST['mac_lower'] ?? '';
+$mac_raw    = $_POST['mac_raw'] ?? '';
 
+function mac_clean_12($s) {
+    return preg_replace('/[^a-f0-9]/i', '', $s ?? '');
+}
+
+$base = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!empty($mac_dots)) {
-        $mac_clean = strtolower(str_replace('.', '', $mac_dots));
-    } elseif (!empty($mac_colons)) {
-        $mac_clean = strtolower(str_replace(':', '', $mac_colons));
-    } elseif (!empty($mac_minus)) {
-        $mac_clean = strtolower(str_replace('-', '', $mac_minus));
+    foreach ([$mac_colons, $mac_dots, $mac_minus, $mac_upper, $mac_lower, $mac_raw] as $candidate) {
+        $c = strtolower(mac_clean_12($candidate));
+        if (strlen($c) === 12) { $base = $c; break; }
     }
-
-    if (!empty($mac_clean) && strlen($mac_clean) === 12) {
-        $mac_colons = strtolower(rtrim(chunk_split($mac_clean, 2, ':'), ':'));
-        $mac_colons_upper = strtoupper($mac_colons);
-        $mac_colons_lower = strtolower($mac_colons);
-        $mac_minus = strtolower(rtrim(chunk_split($mac_clean, 2, '-'), '-'));
-        $mac_dots = strtolower(rtrim(chunk_split($mac_clean, 4, '.'), '.'));
-        $mac_raw = strtolower($mac_clean);
+    if ($base) {
+        $pairs = implode(':', str_split($base, 2));
+        $mac_colons = $pairs;                         // Standard (case-insensitiv)
+        $mac_dots   = implode('.', str_split($base, 4)); // Cisco
+        $mac_minus  = implode('-', str_split($base, 2)); // Minus
+        $mac_upper  = strtoupper($pairs);             // Colons UPPER
+        $mac_lower  = strtolower($pairs);             // Colons lower
+        $mac_raw    = $base;                          // Raw
     }
 }
 ?>
@@ -28,12 +33,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <div class="container">
     <h2 class="ueberschrift">MAC-Adressen-Konverter</h2>
     <form method="post" action="">
-        <table style="width: 100%; border-collapse: collapse;">
+        <table style="width:100%; border-collapse:collapse;">
             <tr>
-                <td style="vertical-align: middle; width: 50%;">
+                <td style="vertical-align: middle; width:50%;">
                     <label for="mac_colons">
-                        <strong>Standardformat</strong> (z.B. 2c:52:2d:d2:d5:3f)
-                        <span id="warn_colons" style="display:none; color: var(--warning); font-weight: bold;">⚠️ Ungültiges Format</span>
+                        <strong>Standardformat</strong> (z.B. a1:b2:c3:d4:e5:f6)
+                        <span id="warn_colons" style="display:none; color: var(--warning); font-weight: bold;">⚠️ Ungültig</span>
                     </label>
                 </td>
                 <td>
@@ -41,22 +46,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </td>
             </tr>
             <tr>
-                <td><label><strong>Mit Großbuchstaben</strong></label></td>
-                <td><input type="text" id="mac_colons_upper" readonly value="<?php echo htmlspecialchars($mac_colons_upper ?? ''); ?>"></td>
-            </tr>
-            <tr>
-                <td><label><strong>Mit Kleinbuchstaben</strong></label></td>
-                <td><input type="text" id="mac_colons_lower" readonly value="<?php echo htmlspecialchars($mac_colons_lower ?? ''); ?>"></td>
-            </tr>
-            <tr>
-                <td><label><strong>Ohne Trennzeichen</strong></label></td>
-                <td><input type="text" id="mac_raw" readonly value="<?php echo htmlspecialchars($mac_raw ?? ''); ?>"></td>
-            </tr>
-            <tr>
                 <td style="vertical-align: middle;">
                     <label for="mac_dots">
-                        <strong>Cisco-Format</strong> (z.B. 2c52.2dd2.d53f)
-                        <span id="warn_dots" style="display:none; color: var(--warning); font-weight: bold;">⚠️ Ungültiges Format</span>
+                        <strong>Cisco-Format</strong> (z.B. a1b2.c3d4.e5f6)
+                        <span id="warn_dots" style="display:none; color: var(--warning); font-weight: bold;">⚠️ Ungültig</span>
                     </label>
                 </td>
                 <td>
@@ -66,12 +59,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <tr>
                 <td style="vertical-align: middle;">
                     <label for="mac_minus">
-                        <strong>Minus-Format</strong> (z.B. 2c-52-2d-d2-d5-3f)
-                        <span id="warn_minus" style="display:none; color: var(--warning); font-weight: bold;">⚠️ Ungültiges Format</span>
+                        <strong>Minus-Format</strong> (z.B. a1-b2-c3-d4-e5-f6)
+                        <span id="warn_minus" style="display:none; color: var(--warning); font-weight: bold;">⚠️ Ungültig</span>
                     </label>
                 </td>
                 <td>
                     <input type="text" id="mac_minus" name="mac_minus" value="<?php echo htmlspecialchars($mac_minus); ?>">
+                </td>
+            </tr>
+            <tr>
+                <td style="vertical-align: middle;">
+                    <label for="mac_upper">
+                        <strong>Großbuchstaben</strong> (z.B. A1:B2:C3:D4:E5:F6)
+                        <span id="warn_upper" style="display:none; color: var(--warning); font-weight: bold;">⚠️ Ungültig</span>
+                    </label>
+                </td>
+                <td>
+                    <input type="text" id="mac_upper" name="mac_upper" value="<?php echo htmlspecialchars($mac_upper); ?>">
+                </td>
+            </tr>
+            <tr>
+                <td style="vertical-align: middle;">
+                    <label for="mac_lower">
+                        <strong>Kleinbuchstaben</strong> (z.B. a1:b2:c3:d4:e5:f6)
+                        <span id="warn_lower" style="display:none; color: var(--warning); font-weight: bold;">⚠️ Ungültig</span>
+                    </label>
+                </td>
+                <td>
+                    <input type="text" id="mac_lower" name="mac_lower" value="<?php echo htmlspecialchars($mac_lower); ?>">
+                </td>
+            </tr>
+            <tr>
+                <td style="vertical-align: middle;">
+                    <label for="mac_raw">
+                        <strong>Ohne Trennzeichen</strong> (z.B. a1b2c3d4e5f6)
+                        <span id="warn_raw" style="display:none; color: var(--warning); font-weight: bold;">⚠️ Ungültig</span>
+                    </label>
+                </td>
+                <td>
+                    <input type="text" id="mac_raw" name="mac_raw" value="<?php echo htmlspecialchars($mac_raw); ?>">
                 </td>
             </tr>
         </table>
@@ -79,54 +105,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 
 <script>
-    const regexes = {
-        mac_dots: /^[a-f0-9]{4}\.[a-f0-9]{4}\.[a-f0-9]{4}$/i,
-        mac_colons: /^([a-f0-9]{2}:){5}[a-f0-9]{2}$/i,
-        mac_minus: /^([a-f0-9]{2}-){5}[a-f0-9]{2}$/i
-    };
+/* Regex pro Feld */
+const regexes = {
+    mac_colons: /^([A-Fa-f0-9]{2}:){5}[A-Fa-f0-9]{2}$/,              // Standard, case-insensitiv
+    mac_dots:   /^[A-Fa-f0-9]{4}\.[A-Fa-f0-9]{4}\.[A-Fa-f0-9]{4}$/,  // Cisco
+    mac_minus:  /^([A-Fa-f0-9]{2}-){5}[A-Fa-f0-9]{2}$/,              // Minus
+    mac_upper:  /^([0-9A-F]{2}:){5}[0-9A-F]{2}$/,                    // Colons UPPER only
+    mac_lower:  /^([0-9a-f]{2}:){5}[0-9a-f]{2}$/,                    // Colons lower only
+    mac_raw:    /^[A-Fa-f0-9]{12}$/                                  // 12 hex, keine Trennzeichen
+};
 
-    function formatMAC(mac) {
-        return mac.toLowerCase().replace(/[^a-f0-9]/gi, '');
+function onlyHex12(value) {
+    return value.toLowerCase().replace(/[^a-f0-9]/g, '').slice(0, 12);
+}
+
+function setVal(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.value = val;
+}
+
+function validate(id) {
+    const el = document.getElementById(id);
+    const warn = document.getElementById('warn_' + id.split('_')[1]);
+    const ok = regexes[id].test((el.value || '').trim());
+    warn.style.display = (el.value && !ok) ? 'inline-block' : 'none';
+}
+
+/* Füllt ALLE Felder anhand einer 12-hex Basis */
+function fillAllFromBase(base12) {
+    const pairs = base12.match(/.{1,2}/g);
+    setVal('mac_colons', pairs.join(':'));
+    setVal('mac_dots',   base12.match(/.{1,4}/g).join('.'));
+    setVal('mac_minus',  pairs.join('-'));
+    setVal('mac_upper',  pairs.join(':').toUpperCase());
+    setVal('mac_lower',  pairs.join(':').toLowerCase());
+    setVal('mac_raw',    base12.toLowerCase());
+
+    ['mac_colons','mac_dots','mac_minus','mac_upper','mac_lower','mac_raw'].forEach(validate);
+}
+
+/* Liest Eingabe aus irgendeinem Feld, normalisiert zu 12-hex und füllt die anderen */
+function handleInput(fromId, val) {
+    let base = onlyHex12(val);
+    if (base.length !== 12) {
+        // Nur Validierungsanzeige für dieses Feld
+        validate(fromId);
+        return;
     }
+    fillAllFromBase(base);
+}
 
-    function validate(id) {
-        const input = document.getElementById(id);
-        const warn = document.getElementById("warn_" + id.split('_')[1]);
-        const regex = regexes[id];
-        const val = input.value.trim();
-        warn.style.display = (val && !regex.test(val)) ? "inline-block" : "none";
-    }
-
-    function fillFields(from, value) {
-        const clean = formatMAC(value);
-        if (clean.length !== 12) return;
-
-        if (from !== 'mac_dots') {
-            document.getElementById('mac_dots').value = clean.match(/.{1,4}/g).join('.');
-            validate('mac_dots');
-        }
-        if (from !== 'mac_colons') {
-            const colons = clean.match(/.{1,2}/g).join(':');
-            document.getElementById('mac_colons').value = colons;
-            validate('mac_colons');
-
-            document.getElementById('mac_colons_upper').value = colons.toUpperCase();
-            document.getElementById('mac_colons_lower').value = colons.toLowerCase();
-        }
-        if (from !== 'mac_minus') {
-            document.getElementById('mac_minus').value = clean.match(/.{1,2}/g).join('-');
-            validate('mac_minus');
-        }
-
-        document.getElementById('mac_raw').value = clean;
-    }
-
-    ['mac_dots', 'mac_colons', 'mac_minus'].forEach(id => {
-        const input = document.getElementById(id);
-        input.addEventListener('input', function () {
-            fillFields(id, this.value);
-            validate(id);
-        });
-        validate(id);
+/* Event-Listener für alle Eingabefelder */
+['mac_colons','mac_dots','mac_minus','mac_upper','mac_lower','mac_raw'].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener('input', function() {
+        handleInput(id, this.value);
     });
+    // Initiale Validierung auf vorhandenen Serverwerten
+    validate(id);
+});
 </script>
