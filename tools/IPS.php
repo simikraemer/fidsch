@@ -33,6 +33,13 @@ require_once 'template.php';
 
             <tr>
                 <td style="vertical-align:middle;">
+                    <label><strong>DNS-Name (Reverse Lookup)</strong></label>
+                </td>
+                <td><input type="text" id="ptr_name" readonly placeholder="host.example.org"></td>
+            </tr>
+
+            <tr>
+                <td style="vertical-align:middle;">
                     <label for="mask"><strong>Subnetzmaske</strong></label>
                     <span id="warn_mask" style="display:none; color:var(--warning); font-weight:bold; margin-left:8px;">⚠️</span>
                 </td>
@@ -108,14 +115,6 @@ require_once 'template.php';
                     <label><strong>Nutzbare Hosts</strong></label>
                 </td>
                 <td><input type="text" id="usable_hosts" readonly placeholder="510"></td>
-            </tr>
-
-            <!-- NEW: Reverse Lookup Name -->
-            <tr>
-                <td style="vertical-align:middle;">
-                    <label><strong>DNS-Name (Reverse Lookup)</strong></label>
-                </td>
-                <td><input type="text" id="ptr_name" readonly placeholder="host.example.org"></td>
             </tr>
 
             <tr>
