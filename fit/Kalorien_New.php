@@ -119,7 +119,7 @@ $gesternEintraege = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 
 // ---------------------- RENDERING START ----------------------
-$page_title = 'Kalorienzufuhr eintragen';
+$page_title = 'Kalorien eintragen';
 require_once __DIR__ . '/../head.php';     // <!DOCTYPE html> … <body>
 require_once __DIR__ . '/../navbar.php';   // Navbar
 ?>
