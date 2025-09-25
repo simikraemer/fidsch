@@ -1,12 +1,11 @@
 <?php
-// biz/Insert.php — CSV-Import
+// biz/Insert.php — CSV-Import (fixed)
 
 // 1) Auth (Seite geschützt)
 require_once __DIR__ . '/../auth.php';
 
 // 2) DB
 require_once __DIR__ . '/../db.php';
-
 $bizconn->set_charset('utf8mb4');
 
 // 3) POST-Verarbeitung (kein Output davor!)
@@ -21,13 +20,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv'])) {
         if (!$handle) {
             $importMessage = 'Konnte Datei nicht lesen.';
         } else {
-            // Header überspringen
+            // Header überspringen (Sparkasse trennt mit ;)
             fgetcsv($handle, 0, ';');
 
             $inserted = 0;
             while (($row = fgetcsv($handle, 0, ';')) !== false) {
+                // Leerzeilen überspringen
+                if ($row === null || $row === [] || (count($row) === 1 && trim((string)$row[0]) === '')) {
+                    continue;
+                }
+
+                // Erwartet 11 Spalten
+                if (count($row) < 11) {
+                    // unvollständige Zeile überspringen
+                    continue;
+                }
+
                 // Sparkasse-CSV ist oft Latin-1 → nach UTF-8 konvertieren
-                $row = array_map(fn($v) => mb_convert_encoding($v, 'UTF-8', 'ISO-8859-1'), $row);
+                $row = array_map(
+                    fn($v) => mb_convert_encoding($v, 'UTF-8', 'ISO-8859-1'),
+                    $row
+                );
 
                 // Zeile überspringen, wenn "Umsatz vorgemerkt" im Info-Feld steht
                 if (stripos($row[10] ?? '', 'Umsatz vorgemerkt') !== false) {
@@ -48,24 +61,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv'])) {
                     $info
                 ] = $row;
 
-                // Buchungstag robust mit zweistelligem Jahr parsen
-                $originalBuchungstag = $buchungstag;
+                // Buchungstag robust mit zweistelligem Jahr parsen (dd.mm.yy)
                 $dt = DateTime::createFromFormat('d.m.y', $buchungstag);
                 $errors = DateTime::getLastErrors();
                 if ($dt === false || $errors['warning_count'] > 0 || $errors['error_count'] > 0) {
-                    // ungültige Zeile überspringen
+                    // ungültiges Datum → Zeile überspringen
                     continue;
                 }
                 $buchungstag = $dt->format('Y-m-d');
 
-                // Valutadatum (ggf. dd.mm.yyyy)
+                // Valutadatum (ggf. dd.mm.yyyy) → Y-m-d
                 $valutadatum = date('Y-m-d', strtotime(str_replace('.', '-', $valutadatum)));
 
-                // Betrag normalisieren (Komma → Punkt)
-                $betrag = str_replace(',', '.', $betrag);
-                $betrag_float = (float)$betrag;
+                // Betrag normalisieren (Komma → Punkt) und in Float umwandeln
+                $betrag_float = (float)str_replace(',', '.', $betrag);
 
-                // Kategorie automatisch zuweisen (ein paar Heuristiken)
+                // Kategorie automatisch zuweisen (Heuristik)
                 $kategorie_id = null;
                 $zp  = strtolower((string)$zahlungspartner);
                 $vwz = strtolower((string)$verwendungszweck);
@@ -110,8 +121,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv'])) {
                         )
                     ");
 
+                    // WICHTIG: Typen-String muss exakt 12 Platzhaltern entsprechen:
+                    // i (kategorie_id), 8×s, d, s, s  → 'issssssssdss'
                     $insert->bind_param(
-                        'isssssssssdss',
+                        'issssssssdss',
                         $kategorie_id,      // i
                         $auftragskonto,     // s
                         $buchungstag,       // s
