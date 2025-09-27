@@ -53,12 +53,24 @@ body {
 }
 
 .has-submenu:not(:hover) .submenu {
-    opacity: 0;
-    visibility: hidden;
-    transition:
-        opacity 0.3s ease 0.2s,   /* Dauer 0.3s, delay 0.2s */
-        visibility 0.1s linear 0.35s; /* z. B. visibility erst nach 0.5s umschalten */
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.3s ease 0.2s,
+    visibility 0.1s linear 0.35s;
 }
+
+/* Beim Wechsel (hover auf anderes Icon): vorheriges Submenü schließt SOFORT */
+.navbar.submenu-switch .has-submenu:not(:hover) .submenu {
+  transition: none !important;
+}
+
+/* Icon gelb, solange sein Submenü sichtbar ist (Hover auf li oder Fokus innerhalb) */
+.has-submenu:hover > a .nav-icon,
+.has-submenu:focus-within > a .nav-icon {
+  filter: brightness(0) saturate(100%) invert(86%) sepia(82%) saturate(5000%) hue-rotate(1deg);
+}
+
 
 .has-submenu:hover .submenu {
     opacity: 1;
@@ -78,6 +90,13 @@ body {
 
 .submenu li a:hover {
     background-color: var(--primary-dark);
+}
+
+/* Submenü: Icon wird gelb, wenn die GANZE Zeile (Link) oder der Text gehovt/fokussiert ist */
+.submenu li a:hover .nav-icon,
+.submenu li a:focus .nav-icon,
+.submenu li a:focus-visible .nav-icon {
+  filter: brightness(0) saturate(100%) invert(86%) sepia(82%) saturate(5000%) hue-rotate(1deg);
 }
 
 .submenu .submenu-text {
@@ -117,6 +136,7 @@ body {
 .nav-icon:hover {
   filter: brightness(0) saturate(100%) invert(86%) sepia(82%) saturate(5000%) hue-rotate(1deg);
 }
+
 
 .nav-links {
     position: fixed;

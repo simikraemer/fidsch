@@ -102,3 +102,27 @@ $isAuthed = !empty($_SESSION['is_authed']);
         <?php endif; ?>
     </ul>
 </nav>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const navbar = document.querySelector('.navbar');
+  const items = document.querySelectorAll('.nav-item.has-submenu');
+  let r1, r2;
+
+  const pulseInstantClose = () => {
+    if (!navbar) return;
+    navbar.classList.add('submenu-switch');
+    cancelAnimationFrame(r1); cancelAnimationFrame(r2);
+    r1 = requestAnimationFrame(() => {
+      r2 = requestAnimationFrame(() => {
+        navbar.classList.remove('submenu-switch');
+      });
+    });
+  };
+
+  items.forEach(item => {
+    item.addEventListener('mouseenter', pulseInstantClose);
+    item.addEventListener('touchstart', pulseInstantClose, { passive: true });
+  });
+});
+</script>
