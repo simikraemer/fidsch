@@ -1,23 +1,50 @@
 <?php
-// header.php  (nur Session/Auth + Menü; KEIN Doctype/Head/Body)
+// navbar.php  (nur Session/Auth + Menü; KEIN Doctype/Head/Body)
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
 
-// Basic-Auth nur beim Klick auf die "dots"
+// ===== IP-Whitelist: UI-Auth ohne 401 erzwingen =====
+$authMode = $_SESSION['auth_mode'] ?? 'guest';
+$isAuthed = !empty($_SESSION['is_authed']);
+
+if (!$isAuthed) {
+    $config_path = '/work/credentials.json';
+    $cfg = is_readable($config_path) ? json_decode(file_get_contents($config_path), true) : [];
+    $webpw = $cfg['webpw'] ?? [];
+    $allowed_ips = $webpw['allowed_ips'] ?? [];
+
+    $client_ip = $_SERVER['REMOTE_ADDR'] ?? '';
+
+    $ip_in_subnet = static function (string $ip, string $cidr): bool {
+        [$subnet_ip, $mask_bits] = explode('/', $cidr);
+        $ip_dec = ip2long($ip);
+        $subnet_dec = ip2long($subnet_ip);
+        $mask = -1 << (32 - (int)$mask_bits);
+        return ($ip_dec & $mask) === ($subnet_dec & $mask);
+    };
+
+    if (in_array($client_ip, $allowed_ips, true) || $ip_in_subnet($client_ip, '10.2.10.0/24')) {
+        $isAuthed = true;
+        $authMode = 'ip';
+        $_SESSION['is_authed'] = true;
+        $_SESSION['auth_mode'] = 'ip';
+    }
+}
+
+// ===== Basic-Auth nur beim Klick auf die "dots" =====
 if (isset($_GET['login']) && $_GET['login'] === '1') {
-    require_once __DIR__ . '/auth.php'; // triggert 401-Challenge
+    require_once __DIR__ . '/auth.php'; // triggert 401-Challenge (setzt Session)
     $_SESSION['is_authed'] = true;
+    $_SESSION['auth_mode'] = 'pw';
     // sauberer Redirect (303 nach POST/GET)
     $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
     header('Location: ' . $uri, true, 303);
     exit;
 }
-
-$isAuthed = !empty($_SESSION['is_authed']);
 ?>
-<nav class="navbar">
+<nav class="navbar" data-auth="<?= htmlspecialchars($authMode, ENT_QUOTES) ?>">
     <ul class="nav-links">
         <!-- Start -->
         <li class="nav-item">
