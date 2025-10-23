@@ -11,7 +11,7 @@ require_once __DIR__ . '/../db.php';
 $grundbedarf  = 2200;
 $kalorienziel = 3000;
 
-$monate    = isset($_GET['monate']) ? max(1, min(12, (int)$_GET['monate'])) : 4;
+$monate    = isset($_GET['monate']) ? max(1, min(12, (int)$_GET['monate'])) : 6;
 $startDate = (new DateTime("-{$monate} months"))->format('Y-m-d');
 
 // 4) Brutto-Kalorien (nur Zufuhr)
