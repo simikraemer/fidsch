@@ -182,6 +182,18 @@ body {
 
 
 
+.chart-third {
+    flex: 1 1 28%;
+    max-width: 500px;
+}
+
+.chart-third canvas {
+    width: 100%;
+    height: 550px !important;
+}
+
+
+
 /* Überschriften */
 .ueberschrift {
     text-align: center;
@@ -335,7 +347,7 @@ input, select, textarea {
 
 .autocomplete-list {
     list-style: none;
-    margin-top: -257px;
+    margin-top: -431px;
     padding: 0;
     background-color: white;
     border-top: none;

@@ -10,8 +10,9 @@ require_once __DIR__ . '/../db.php';
 // 3) Variablen + Zeitraum bestimmen (POST-Verarbeitung gibt es hier nicht)
 $grundbedarf  = 2200;
 $kalorienziel = 3000;
+$standard_Monatsanzeige = 3;
 
-$monate    = isset($_GET['monate']) ? max(1, min(12, (int)$_GET['monate'])) : 6;
+$monate    = isset($_GET['monate']) ? max(1, min(12, (int)$_GET['monate'])) : $standard_Monatsanzeige;
 $startDate = (new DateTime("-{$monate} months"))->format('Y-m-d');
 
 // 4) Brutto-Kalorien (nur Zufuhr)
@@ -34,6 +35,35 @@ $stmt->close();
 $bruttoSumme        = array_sum($bruttoTage);
 $tageMitWerten      = count($bruttoTage);
 $bruttoDurchschnitt = $tageMitWerten > 0 ? round($bruttoSumme / $tageMitWerten) : 0;
+
+// 4b) Nährwerte (Tageswerte aus kalorien: Gramm-Summen je Tag)
+$stmt = $fitconn->prepare("
+    SELECT
+        DATE(tstamp) AS tag,
+        SUM(`eiweiß`)        AS eiweiss,
+        SUM(`fett`)          AS fett,
+        SUM(`kohlenhydrate`) AS kh,
+        SUM(`alkohol`)       AS alk
+    FROM kalorien
+    WHERE tstamp >= ?
+    GROUP BY DATE(tstamp)
+");
+$stmt->bind_param('s', $startDate);
+$stmt->execute();
+$result = $stmt->get_result();
+
+$eiweissTage = [];
+$fettTage    = [];
+$khTage      = [];
+$alkTage     = [];
+while ($row = $result->fetch_assoc()) {
+    $tag = $row['tag'];
+    $eiweissTage[$tag] = (float)$row['eiweiss'];
+    $fettTage[$tag]    = (float)$row['fett'];
+    $khTage[$tag]      = (float)$row['kh'];
+    $alkTage[$tag]     = (float)$row['alk'];
+}
+$stmt->close();
 
 // 5) Netto-Kalorien (Zufuhr - Verbrauch)
 $stmt = $fitconn->prepare("
@@ -93,6 +123,12 @@ $nettoWerte      = [];
 $supernettoWerte = [];
 $bruttoWerte     = [];
 $gewichtWerte    = [];
+// Nährwerte (Tageswerte) vorbereitet auf $alleTage
+$eiweissWerte = [];
+$fettWerte    = [];
+$khWerte      = [];
+$alkWerte     = [];
+
 $letztesGewicht  = null;
 $erstesGewicht   = null;
 $maxGewicht      = null;
@@ -102,6 +138,7 @@ foreach ($alleTage as $tag) {
     $bruttoWerte[]     = array_key_exists($tag, $bruttoTage) ? $bruttoTage[$tag]              : null;
     $supernettoWerte[] = array_key_exists($tag, $nettoTage)  ? $nettoTage[$tag] - $grundbedarf : null;
 
+    // Gewicht
     if (array_key_exists($tag, $gewichtTage)) {
         $tagesGewicht = $gewichtTage[$tag];
         if ($erstesGewicht === null) $erstesGewicht = $tagesGewicht;
@@ -111,6 +148,12 @@ foreach ($alleTage as $tag) {
     } else {
         $gewichtWerte[] = null;
     }
+
+    // Nährwert-Tageswerte (Gramm)
+    $eiweissWerte[] = array_key_exists($tag, $eiweissTage) ? round($eiweissTage[$tag], 2) : null;
+    $fettWerte[]    = array_key_exists($tag, $fettTage)    ? round($fettTage[$tag], 2)    : null;
+    $khWerte[]      = array_key_exists($tag, $khTage)      ? round($khTage[$tag], 2)      : null;
+    $alkWerte[]     = array_key_exists($tag, $alkTage)     ? round($alkTage[$tag], 2)     : null;
 }
 
 // 9) Wochenmittel Netto (nur 1. und letzter Tag der KW beschriften)
@@ -131,6 +174,33 @@ foreach ($kwSammler as $kw => $werte) {
     if ($firstIndex !== false) $nettoKWavg[$firstIndex] = $avg;
     if ($lastIndex  !== false && $lastIndex !== $firstIndex) $nettoKWavg[$lastIndex] = $avg;
 }
+
+// 9b) Wochenmittel für Nährwerte (Gramm)
+function kwAvgSerie(array $alleTage, array $tageMap): array {
+    $out       = array_fill(0, count($alleTage), null);
+    $sammlerKW = [];
+    foreach ($alleTage as $i => $tag) {
+        $kw = date('o-W', strtotime($tag));
+        if (!isset($sammlerKW[$kw])) $sammlerKW[$kw] = [];
+        if (isset($tageMap[$tag])) $sammlerKW[$kw][] = $tageMap[$tag];
+    }
+    foreach ($sammlerKW as $kw => $werte) {
+        if (!count($werte)) continue;
+        $avg      = round(array_sum($werte) / count($werte), 2);
+        $tageInKW = array_values(array_filter($alleTage, fn($t) => date('o-W', strtotime($t)) === $kw));
+        if (!$tageInKW) continue;
+        $firstIndex = array_search($tageInKW[0], $alleTage);
+        $lastIndex  = array_search(end($tageInKW), $alleTage);
+        if ($firstIndex !== false) $out[$firstIndex] = $avg;
+        if ($lastIndex  !== false && $lastIndex !== $firstIndex) $out[$lastIndex] = $avg;
+    }
+    return $out;
+}
+
+$eiweissKWavg = kwAvgSerie($alleTage, $eiweissTage);
+$fettKWavg    = kwAvgSerie($alleTage, $fettTage);
+$khKWavg      = kwAvgSerie($alleTage, $khTage);
+$alkKWavg     = kwAvgSerie($alleTage, $alkTage);
 
 // 10) einfache Trendlinie über vorhandene Gewichtswerte
 $x = $y = [];
@@ -154,13 +224,24 @@ if (count($x) > 1) {
 }
 
 // 11) JSON für Charts
-$labels        = json_encode($alleTage);
-$nettoJson     = json_encode($nettoWerte);
-$supernettoJson= json_encode($supernettoWerte);
-$bruttoJson    = json_encode($bruttoWerte);
-$gewichtJson   = json_encode($gewichtWerte);
-$trendJson     = json_encode($trendWerte);
-$nettoKWJson   = json_encode($nettoKWavg);
+$labels         = json_encode($alleTage);
+$nettoJson      = json_encode($nettoWerte);
+$supernettoJson = json_encode($supernettoWerte);
+$bruttoJson     = json_encode($bruttoWerte);
+$gewichtJson    = json_encode($gewichtWerte);
+$trendJson      = json_encode($trendWerte);
+$nettoKWJson    = json_encode($nettoKWavg);
+
+// Nährwerte JSON (Tageswerte + KW-Durchschnitt)
+$eiweissJson  = json_encode($eiweissWerte);
+$fettJson     = json_encode($fettWerte);
+$khJson       = json_encode($khWerte);
+$alkJson      = json_encode($alkWerte);
+
+$eiweissKWJson = json_encode($eiweissKWavg);
+$fettKWJson    = json_encode($fettKWavg);
+$khKWJson      = json_encode($khKWavg);
+$alkKWJson     = json_encode($alkKWavg);
 
 // 12) Rendering starten (kein Output davor!)
 $page_title = 'Fitness';
@@ -186,11 +267,18 @@ require_once __DIR__ . '/../navbar.php';
 </div>
 
 <div class="chart-row">
-    <div class="chart-half">
+    <div class="chart-third">
         <h2 class="ueberschrift">Kalorien | Ø<?= (int)$nettoDurchschnitt ?> kcal/Tag</h2>
         <canvas id="kalorienChart"></canvas>
     </div>
-    <div class="chart-half">
+
+    <!-- NEU: Drittes Diagramm (Nährwerte) -->
+    <div class="chart-third">
+        <h2 class="ueberschrift ueberschrift--on-dark">Nährwerte</h2>
+        <canvas id="macroChart"></canvas>
+    </div>
+
+    <div class="chart-third">
         <h2 class="ueberschrift">Gewicht | <?= ($maxGewicht !== null ? $maxGewicht : '—') . " kg -> " . ($letztesGewicht !== null ? $letztesGewicht : '—') ?> kg</h2>
         <canvas id="gewichtChart"></canvas>
     </div>
@@ -206,7 +294,24 @@ const labels        = <?= $labels ?>;
 const grundbedarf   = <?= (int)$grundbedarf ?>;
 const kalorienziel  = <?= (int)$kalorienziel ?>;
 
-// Kalorien-Diagramm
+// zusätzliche Daten (Nährwerte)
+const eiweissTage   = <?= $eiweissJson ?>;
+const fettTage      = <?= $fettJson ?>;
+const khTage        = <?= $khJson ?>;
+const alkTage       = <?= $alkJson ?>;
+
+const eiweissKW     = <?= $eiweissKWJson ?>;
+const fettKW        = <?= $fettKWJson ?>;
+const khKW          = <?= $khKWJson ?>;
+const alkKW         = <?= $alkKWJson ?>;
+
+// Farbpalette für Nährwerte (neu & gut sichtbar auf dunklem Hintergrund)
+const colorProtein = '#007bb4ff';   // hellblau
+const colorFat     = '#ff9900ff';   // orange
+const colorCarb    = '#008f07ff';   // grün
+const colorAlc     = '#d60303ff';   // violett
+
+// Kalorien-Diagramm (unverändert ohne Nährwerte)
 new Chart(document.getElementById('kalorienChart').getContext('2d'), {
     type: 'line',
     data: {
@@ -221,7 +326,8 @@ new Chart(document.getElementById('kalorienChart').getContext('2d'), {
                 pointStyle: 'crossRot',
                 pointBorderColor: 'rgba(0,0,0,0.4)',
                 pointBorderWidth: 2,
-                pointBackgroundColor: 'transparent'
+                pointBackgroundColor: 'transparent',
+                hidden: true
             },
             {
                 label: 'Brutto-Kalorien',
@@ -277,6 +383,138 @@ new Chart(document.getElementById('kalorienChart').getContext('2d'), {
                 }
             },
             y: { beginAtZero: true }
+        }
+    }
+});
+
+// NEU: Nährwerte-Diagramm (3. Chart)
+new Chart(document.getElementById('macroChart').getContext('2d'), {
+    type: 'line',
+    data: {
+        labels: labels,
+        datasets: [
+            // {
+            //     label: 'Eiweiß (g) - Tageswerte',
+            //     data: eiweissTage,
+            //     showLine: false,
+            //     pointRadius: 4,
+            //     pointStyle: 'crossRot',
+            //     pointBorderColor: colorProtein,
+            //     pointBackgroundColor: 'transparent',
+            //     borderColor: colorProtein,
+            //     fill: false,
+            //     hidden: true,
+            // },
+            {
+                label: 'Eiweiß',
+                data: <?= $eiweissKWJson ?>,
+                fill: false,
+                tension: 0,
+                borderWidth: 3,
+                borderColor: colorProtein,
+                pointRadius: 0,
+                spanGaps: true,
+                hidden: false
+            },
+            // {
+            //     label: 'Fett (g) - Tageswerte',
+            //     data: fettTage,
+            //     showLine: false,
+            //     pointRadius: 4,
+            //     pointStyle: 'crossRot',
+            //     pointBorderColor: colorFat,
+            //     pointBackgroundColor: 'transparent',
+            //     borderColor: colorFat,
+            //     fill: false,
+            //     hidden: true,
+            // },
+            {
+                label: 'Fett',
+                data: <?= $fettKWJson ?>,
+                fill: false,
+                tension: 0,
+                borderWidth: 3,
+                borderColor: colorFat,
+                pointRadius: 0,
+                spanGaps: true,
+                hidden: false
+            },
+            // {
+            //     label: 'Kohlenhydrate (g) - Tageswerte',
+            //     data: khTage,
+            //     showLine: false,
+            //     pointRadius: 4,
+            //     pointStyle: 'crossRot',
+            //     pointBorderColor: colorCarb,
+            //     pointBackgroundColor: 'transparent',
+            //     borderColor: colorCarb,
+            //     fill: false,
+            //     hidden: true,
+            // },
+            {
+                label: 'Kohlenhydrate',
+                data: <?= $khKWJson ?>,
+                fill: false,
+                tension: 0,
+                borderWidth: 3,
+                borderColor: colorCarb,
+                pointRadius: 0,
+                spanGaps: true,
+                hidden: false
+            },
+            // {
+            //     label: 'Alkohol (g) - Tageswerte',
+            //     data: alkTage,
+            //     showLine: false,
+            //     pointRadius: 4,
+            //     pointStyle: 'crossRot',
+            //     pointBorderColor: colorAlc,
+            //     pointBackgroundColor: 'transparent',
+            //     borderColor: colorAlc,
+            //     fill: false,
+            //     hidden: true,
+            // },
+            {
+                label: 'Alkohol',
+                data: <?= $alkKWJson ?>,
+                fill: false,
+                tension: 0,
+                borderWidth: 3,
+                borderColor: colorAlc,
+                pointRadius: 0,
+                spanGaps: true,
+                hidden: false
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            annotation: {
+                annotations: {
+                    blackZone: {
+                        type: 'box',
+                        yMin: 0,
+                        yMax: 'max', // <- ganze Höhe des Diagramms
+                        backgroundColor: 'rgba(0, 0, 0, 0.05)',
+                        borderWidth: 0
+                    }
+                }
+            }
+        },
+        scales: {
+            x: {
+                type: 'time',
+                time: { unit: 'day', tooltipFormat: 'dd.MM.yyyy' },
+                ticks: { source: 'auto', autoSkip: true, maxTicksLimit: 15,
+                         callback: (value) => luxon.DateTime.fromMillis(value).toFormat('dd.MM.'),
+                         maxRotation: 0, minRotation: 0 },
+            },
+            y: {
+                beginAtZero: true,
+                title: { display: true, text: 'Gramm'},
+            }
         }
     }
 });
