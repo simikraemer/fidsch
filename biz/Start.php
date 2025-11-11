@@ -213,7 +213,7 @@ require_once __DIR__ . '/../navbar.php';  // Navbar
 
     <!-- Liniendiagramm Kontostand -->
     <div class="chart-row" style="margin-top: 20px;">
-        <div class="chart-half" style="flex:1 1 100%; max-width:100%;">
+        <div class="chart-half-finance" style="flex:1 1 100%; max-width:100%;">
             <canvas id="saldoChart"></canvas>
         </div>
     </div>
@@ -227,10 +227,10 @@ require_once __DIR__ . '/../navbar.php';  // Navbar
         <strong>Ausgaben:</strong> <?= euro(array_sum($expenseByCat)) ?>
     </div>
     <div class="chart-row">
-        <div class="chart-half">
+        <div class="chart-half-finance">
             <canvas id="incomePie"></canvas>
         </div>
-        <div class="chart-half">
+        <div class="chart-half-finance">
             <canvas id="expensePie"></canvas>
         </div>
     </div>

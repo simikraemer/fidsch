@@ -143,10 +143,17 @@ require_once __DIR__ . '/../navbar.php';   // Navbar
 
         <ul id="vorschlaege" class="autocomplete-list"></ul>
 
-        <label for="kalorien">Zugeführte Kalorien:</label>
-        <input type="number" id="kalorien" name="kalorien" required>
+        <div class="input-row">
+            <div class="input-group">
+                <label for="kalorien">Kalorien (kcal):</label>
+                <input type="number" id="kalorien" name="kalorien" required>
+            </div>            
+            <div class="input-group">
+                <label for="anzahl">Anzahl:</label>
+                <input type="number" id="anzahl" name="anzahl" value="1" min="1" required>
+            </div>
+        </div>
 
-        <!-- NEU: Nährwerte in g -->
         <div class="input-row">
             <div class="input-group">
                 <label for="eiweiss">Eiweiß (g):</label>
@@ -166,8 +173,6 @@ require_once __DIR__ . '/../navbar.php';   // Navbar
             </div>
         </div>
 
-        <label for="anzahl">Anzahl:</label>
-        <input type="number" id="anzahl" name="anzahl" value="1" min="1" required>
 
         <button type="submit">Eintragen</button>
     </form>

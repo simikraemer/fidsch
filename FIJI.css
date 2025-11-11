@@ -177,9 +177,18 @@ body {
 
 .chart-half canvas {
     width: 100%;
-    height: 550px !important;
+    height: 300px !important;
 }
 
+.chart-half-finance {
+    flex: 1 1 45%;
+    max-width: 750px;
+}
+
+.chart-half-finance canvas {
+    width: 100%;
+    height: 600px !important;
+}
 
 
 .chart-third {
@@ -190,6 +199,17 @@ body {
 .chart-third canvas {
     width: 100%;
     height: 550px !important;
+}
+
+
+.chart-quarter {
+    flex: 1 1 20%;
+    max-width: 333px;
+}
+
+.chart-quarter canvas {
+    width: 100%;
+    height: 300px !important;
 }
 
 
@@ -249,12 +269,17 @@ input, select, textarea {
 /* Slider */
 
 .zeitbereich-container {
+    position: fixed;
+    top: 80px;         /* ggf. an Navbar-Höhe anpassen */
+    right: 20px;       /* oder: left: 50%; transform: translateX(-50%); für zentriert */
+    margin: 0;
+    z-index: 1000;
+
     padding: 20px;
     background-color: white;
     border-radius: var(--border-radius);
     box-shadow: var(--shadow);
     max-width: 350px;
-    margin: 20px auto;
 }
 
 .zeitbereich-form {
@@ -347,7 +372,7 @@ input, select, textarea {
 
 .autocomplete-list {
     list-style: none;
-    margin-top: -431px;
+    margin-top: -315px;
     padding: 0;
     background-color: white;
     border-top: none;

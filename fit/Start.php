@@ -267,21 +267,33 @@ require_once __DIR__ . '/../navbar.php';
 </div>
 
 <div class="chart-row">
-    <div class="chart-third">
-        <h2 class="ueberschrift">Kalorien | Ø<?= (int)$nettoDurchschnitt ?> kcal/Tag</h2>
-        <canvas id="kalorienChart"></canvas>
-    </div>
+  <div class="chart-half">
+    <h2 class="ueberschrift">Kalorien | Ø<?= (int)$nettoDurchschnitt ?> kcal/Tag</h2>
+    <canvas id="kalorienChart"></canvas>
+  </div>
+  <div class="chart-half">
+    <h2 class="ueberschrift">Gewicht | <?= ($maxGewicht !== null ? $maxGewicht : '—') . " kg -> " . ($letztesGewicht !== null ? $letztesGewicht : '—') ?> kg</h2>
+    <canvas id="gewichtChart"></canvas>
+  </div>
+</div>
 
-    <!-- NEU: Drittes Diagramm (Nährwerte) -->
-    <div class="chart-third">
-        <h2 class="ueberschrift ueberschrift--on-dark">Nährwerte</h2>
-        <canvas id="macroChart"></canvas>
-    </div>
-
-    <div class="chart-third">
-        <h2 class="ueberschrift">Gewicht | <?= ($maxGewicht !== null ? $maxGewicht : '—') . " kg -> " . ($letztesGewicht !== null ? $letztesGewicht : '—') ?> kg</h2>
-        <canvas id="gewichtChart"></canvas>
-    </div>
+<div class="chart-row">
+  <div class="chart-quarter">
+    <h2 class="ueberschrift">Eiweiß</h2>
+    <canvas id="eiweissChart"></canvas>
+  </div>
+  <div class="chart-quarter">
+    <h2 class="ueberschrift">Fett</h2>
+    <canvas id="fettChart"></canvas>
+  </div>
+  <div class="chart-quarter">
+    <h2 class="ueberschrift">Kohlenhydrate</h2>
+    <canvas id="khChart"></canvas>
+  </div>
+  <div class="chart-quarter">
+    <h2 class="ueberschrift">Alkohol</h2>
+    <canvas id="alkChart"></canvas>
+  </div>
 </div>
 
 <!-- Scripts am Ende des Body -->
@@ -326,8 +338,7 @@ new Chart(document.getElementById('kalorienChart').getContext('2d'), {
                 pointStyle: 'crossRot',
                 pointBorderColor: 'rgba(0,0,0,0.4)',
                 pointBorderWidth: 2,
-                pointBackgroundColor: 'transparent',
-                hidden: true
+                pointBackgroundColor: 'transparent'
             },
             {
                 label: 'Brutto-Kalorien',
@@ -383,138 +394,6 @@ new Chart(document.getElementById('kalorienChart').getContext('2d'), {
                 }
             },
             y: { beginAtZero: true }
-        }
-    }
-});
-
-// NEU: Nährwerte-Diagramm (3. Chart)
-new Chart(document.getElementById('macroChart').getContext('2d'), {
-    type: 'line',
-    data: {
-        labels: labels,
-        datasets: [
-            // {
-            //     label: 'Eiweiß (g) - Tageswerte',
-            //     data: eiweissTage,
-            //     showLine: false,
-            //     pointRadius: 4,
-            //     pointStyle: 'crossRot',
-            //     pointBorderColor: colorProtein,
-            //     pointBackgroundColor: 'transparent',
-            //     borderColor: colorProtein,
-            //     fill: false,
-            //     hidden: true,
-            // },
-            {
-                label: 'Eiweiß',
-                data: <?= $eiweissKWJson ?>,
-                fill: false,
-                tension: 0,
-                borderWidth: 3,
-                borderColor: colorProtein,
-                pointRadius: 0,
-                spanGaps: true,
-                hidden: false
-            },
-            // {
-            //     label: 'Fett (g) - Tageswerte',
-            //     data: fettTage,
-            //     showLine: false,
-            //     pointRadius: 4,
-            //     pointStyle: 'crossRot',
-            //     pointBorderColor: colorFat,
-            //     pointBackgroundColor: 'transparent',
-            //     borderColor: colorFat,
-            //     fill: false,
-            //     hidden: true,
-            // },
-            {
-                label: 'Fett',
-                data: <?= $fettKWJson ?>,
-                fill: false,
-                tension: 0,
-                borderWidth: 3,
-                borderColor: colorFat,
-                pointRadius: 0,
-                spanGaps: true,
-                hidden: false
-            },
-            // {
-            //     label: 'Kohlenhydrate (g) - Tageswerte',
-            //     data: khTage,
-            //     showLine: false,
-            //     pointRadius: 4,
-            //     pointStyle: 'crossRot',
-            //     pointBorderColor: colorCarb,
-            //     pointBackgroundColor: 'transparent',
-            //     borderColor: colorCarb,
-            //     fill: false,
-            //     hidden: true,
-            // },
-            {
-                label: 'Kohlenhydrate',
-                data: <?= $khKWJson ?>,
-                fill: false,
-                tension: 0,
-                borderWidth: 3,
-                borderColor: colorCarb,
-                pointRadius: 0,
-                spanGaps: true,
-                hidden: false
-            },
-            // {
-            //     label: 'Alkohol (g) - Tageswerte',
-            //     data: alkTage,
-            //     showLine: false,
-            //     pointRadius: 4,
-            //     pointStyle: 'crossRot',
-            //     pointBorderColor: colorAlc,
-            //     pointBackgroundColor: 'transparent',
-            //     borderColor: colorAlc,
-            //     fill: false,
-            //     hidden: true,
-            // },
-            {
-                label: 'Alkohol',
-                data: <?= $alkKWJson ?>,
-                fill: false,
-                tension: 0,
-                borderWidth: 3,
-                borderColor: colorAlc,
-                pointRadius: 0,
-                spanGaps: true,
-                hidden: false
-            }
-        ]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            annotation: {
-                annotations: {
-                    blackZone: {
-                        type: 'box',
-                        yMin: 0,
-                        yMax: 'max', // <- ganze Höhe des Diagramms
-                        backgroundColor: 'rgba(0, 0, 0, 0.05)',
-                        borderWidth: 0
-                    }
-                }
-            }
-        },
-        scales: {
-            x: {
-                type: 'time',
-                time: { unit: 'day', tooltipFormat: 'dd.MM.yyyy' },
-                ticks: { source: 'auto', autoSkip: true, maxTicksLimit: 15,
-                         callback: (value) => luxon.DateTime.fromMillis(value).toFormat('dd.MM.'),
-                         maxRotation: 0, minRotation: 0 },
-            },
-            y: {
-                beginAtZero: true,
-                title: { display: true, text: 'Gramm'},
-            }
         }
     }
 });
@@ -582,6 +461,88 @@ new Chart(document.getElementById('gewichtChart').getContext('2d'), {
         }
     }
 });
+
+function withAlpha(color, alpha = 0.5) {
+  if (typeof color !== 'string') return color;
+  // Hex -> rgba
+  if (color.startsWith('#')) {
+    let hex = color.slice(1);
+    if (hex.length === 8) hex = hex.slice(0, 6);       // #RRGGBBAA -> #RRGGBB
+    if (hex.length === 3) hex = hex.split('').map(c => c + c).join(''); // #RGB -> #RRGGBB
+    const num = parseInt(hex, 16);
+    const r = (num >> 16) & 255, g = (num >> 8) & 255, b = num & 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  // rgb() -> rgba()
+  if (color.startsWith('rgb(')) {
+    const comps = color.slice(4, -1); // "r, g, b"
+    return `rgba(${comps}, ${alpha})`;
+  }
+  // rgba() -> rgba() mit neuer Alpha
+  if (color.startsWith('rgba(')) {
+    const parts = color.slice(5, -1).split(',').map(s => s.trim()); // [r,g,b,a]
+    return `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${alpha})`;
+  }
+  return color;
+}
+
+// Hilfsfunktion: erzeugt ein Nährwert-Chart mit Tageskreuzen + durchgehender KW-Linie
+function makeMacroChart(canvasId, dailyData, weeklyData, color, label) {
+  new Chart(document.getElementById(canvasId).getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: `Tageswerte`,
+          data: dailyData,
+          showLine: false,
+          pointRadius: 4,
+          pointStyle: 'crossRot',
+          pointBorderColor: withAlpha(color, 0.5),
+          pointBackgroundColor: 'transparent',
+          borderColor: color,
+          fill: false
+        },
+        {
+          label: `Ø pro KW`,
+          data: weeklyData,
+          fill: false,
+          tension: 0,
+          borderWidth: 3,
+          borderColor: color,
+          pointRadius: 0,
+          spanGaps: true
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          type: 'time',
+          time: { unit: 'day', tooltipFormat: 'dd.MM.yyyy' },
+          ticks: {
+            source: 'auto', autoSkip: true, maxTicksLimit: 15,
+            callback: (value) => luxon.DateTime.fromMillis(value).toFormat('dd.MM.'),
+            maxRotation: 0, minRotation: 0
+          }
+        },
+        y: {
+          beginAtZero: true,
+          title: { display: true, text: 'Gramm' }
+        }
+      }
+    }
+  });
+}
+
+// Aufrufe für die vier Nährwert-Diagramme (NICHT hidden)
+makeMacroChart('eiweissChart', eiweissTage, eiweissKW, colorProtein, 'Eiweiß');
+makeMacroChart('fettChart',    fettTage,    fettKW,    colorFat,     'Fett');
+makeMacroChart('khChart',      khTage,      khKW,      colorCarb,    'Kohlenhydrate');
+makeMacroChart('alkChart',     alkTage,     alkKW,     colorAlc,     'Alkohol');
 
 function updateMonat(val){ document.getElementById('monatWert').textContent = val; }
 </script>
