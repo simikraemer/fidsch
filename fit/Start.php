@@ -303,7 +303,11 @@ require_once __DIR__ . '/../navbar.php';
     <canvas id="khChart"></canvas>
   </div>
   <div class="chart-quarter">
-    <h2 class="ueberschrift">Alkohol | Ø<?= (int)$alkDurchschnitt ?> g/Tag</h2>
+    <h2 class="ueberschrift">
+      Alkohol | Ø <span class="censor">
+        <span class="value"><?= (int)$alkDurchschnitt ?></span>
+      </span> g/Tag
+    </h2>
     <canvas id="alkChart"></canvas>
   </div>
 </div>

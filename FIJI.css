@@ -190,6 +190,11 @@ body {
     height: 600px !important;
 }
 
+.chart-half-finance-pie canvas {
+    width: 100%;
+    height: 500px !important;
+}
+
 
 .chart-third {
     flex: 1 1 28%;
@@ -484,3 +489,12 @@ input, select, textarea {
     display: flex;
     flex-direction: column;
 }
+
+  .censor { cursor: help; }
+  .censor .value {
+    filter: blur(7px);
+    transition: filter .18s ease-in-out;
+  }
+  .censor:hover .value {
+    filter: none;
+  }

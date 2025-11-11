@@ -227,10 +227,10 @@ require_once __DIR__ . '/../navbar.php';  // Navbar
         <strong>Ausgaben:</strong> <?= euro(array_sum($expenseByCat)) ?>
     </div>
     <div class="chart-row">
-        <div class="chart-half-finance">
+        <div class="chart-half-finance-pie">
             <canvas id="incomePie"></canvas>
         </div>
-        <div class="chart-half-finance">
+        <div class="chart-half-finance-pie">
             <canvas id="expensePie"></canvas>
         </div>
     </div>
