@@ -490,11 +490,13 @@ input, select, textarea {
     flex-direction: column;
 }
 
-  .censor { cursor: help; }
-  .censor .value {
-    filter: blur(7px);
-    transition: filter .18s ease-in-out;
-  }
-  .censor:hover .value {
-    filter: none;
-  }
+.censor { cursor: none; }
+.censor .value,
+.censor canvas {
+  filter: blur(7px);
+  transition: filter .18s ease-in-out;
+}
+.censor:hover .value,
+.censor:hover canvas {
+  filter: none;
+}

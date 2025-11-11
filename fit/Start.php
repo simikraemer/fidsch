@@ -308,7 +308,9 @@ require_once __DIR__ . '/../navbar.php';
         <span class="value"><?= (int)$alkDurchschnitt ?></span>
       </span> g/Tag
     </h2>
-    <canvas id="alkChart"></canvas>
+    <div class="censor">
+      <canvas id="alkChart"></canvas>
+    </div>
   </div>
 </div>
 
