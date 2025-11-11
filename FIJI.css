@@ -500,3 +500,171 @@ input, select, textarea {
 .censor:hover canvas {
   filter: none;
 }
+
+
+
+
+
+/* === Additions for FIJI.css === */
+
+.content-wrap {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 16px 40px;
+}
+
+.toolbar {
+  position: sticky;
+  top: 70px; /* unter Navbar (50px + etwas Abstand) */
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: white;
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow);
+  padding: 12px 14px;
+  margin: 0 0 16px 0;
+}
+
+.search-input {
+  width: 340px;
+  max-width: 60vw;
+  padding: 10px 12px;
+  border-radius: var(--border-radius);
+  border: 1px solid #ddd;
+  outline: none;
+}
+
+.search-input:focus {
+  border-color: var(--primary);
+}
+
+.badge {
+  display: inline-block;
+  background: var(--primary-dark);
+  color: var(--text-light);
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+}
+
+.food-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.food-card {
+  text-align: center;
+  background: white;
+  border: 1px solid #eee;
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow);
+  padding: 12px 14px;
+  cursor: pointer;
+}
+
+.food-card:hover {
+  background: #fff7ee;
+  border-color: var(--accent);
+}
+
+.card-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.title-text {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  justify-content: center;  /* horizontal mittig */
+  text-align: center;
+}
+
+.pill {
+  background: var(--primary);
+  color: var(--text-light);
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+  /*! font-size: 0.9rem; */
+  box-shadow: var(--shadow);
+  white-space: nowrap;
+}
+
+.meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;  /* horizontal mittig */
+  gap: 10px;
+  flex-wrap: wrap;
+  color: #444;
+  font-size: 0.95rem;
+  margin-bottom: 6px;
+  margin-top: 6px;
+}
+
+.nutri {
+  background: #fafafa;
+  border: 1px solid #eee;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 1em;
+  min-width: 90px;
+  text-align: center;
+}
+
+.subtle {
+  font-size: 0.85rem;
+  color: #777;
+}
+
+.loadmore-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.loadmore-btn {
+  background: var(--accent);
+  color: var(--text);
+}
+
+.status-msg {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 24px;
+  background: white;
+  padding: 10px 14px;
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow);
+  border-left: 6px solid var(--primary);
+  font-weight: 600;
+}
+
+.status-msg.is-ok { border-left-color: var(--success); }
+.status-msg.is-err { border-left-color: var(--error); }
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.btn-secondary {
+  background: #eee;
+  color: #333;
+}

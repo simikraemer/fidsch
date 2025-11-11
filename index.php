@@ -7,6 +7,7 @@ $routesFit = [
     'start'         => 'Start.php',          // /fit/ → Start.php
     'stats'    => 'Start.php',
     'kalorien' => 'Kalorien_New.php',
+    'kalorien_data' => 'Kalorien_Data.php',
     'gewicht'  => 'Gewicht_New.php',
     'pizza'    => 'Pizza.php',
     'training' => 'Training_New.php',
