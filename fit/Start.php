@@ -118,7 +118,7 @@ $heute    = new DateTime();
 $periode  = new DatePeriod(new DateTime($startDate), new DateInterval('P1D'), $heute);
 foreach ($periode as $datum) $alleTage[] = $datum->format('Y-m-d');
 
-// 8) Serien für Charts vorbereiten
+// 8a) Serien für Charts vorbereiten
 $nettoWerte      = [];
 $supernettoWerte = [];
 $bruttoWerte     = [];
@@ -155,6 +155,18 @@ foreach ($alleTage as $tag) {
     $khWerte[]      = array_key_exists($tag, $khTage)      ? round($khTage[$tag], 2)      : null;
     $alkWerte[]     = array_key_exists($tag, $alkTage)     ? round($alkTage[$tag], 2)     : null;
 }
+
+// 8b) Durchschnitte Nährwerte (g/Tag)
+$avgNonNull = function(array $arr): int {
+    $vals = array_values(array_filter($arr, fn($v) => $v !== null));
+    $n = count($vals);
+    return $n > 0 ? (int)round(array_sum($vals) / $n) : 0;
+};
+
+$eiweissDurchschnitt = $avgNonNull($eiweissWerte);
+$fettDurchschnitt    = $avgNonNull($fettWerte);
+$khDurchschnitt      = $avgNonNull($khWerte);
+$alkDurchschnitt     = $avgNonNull($alkWerte);
 
 // 9) Wochenmittel Netto (nur 1. und letzter Tag der KW beschriften)
 $nettoKWavg = array_fill(0, count($alleTage), null);
@@ -279,19 +291,19 @@ require_once __DIR__ . '/../navbar.php';
 
 <div class="chart-row">
   <div class="chart-quarter">
-    <h2 class="ueberschrift">Eiweiß</h2>
+    <h2 class="ueberschrift">Eiweiß | Ø<?= (int)$eiweissDurchschnitt ?> g/Tag</h2>
     <canvas id="eiweissChart"></canvas>
   </div>
   <div class="chart-quarter">
-    <h2 class="ueberschrift">Fett</h2>
+    <h2 class="ueberschrift">Fett | Ø<?= (int)$fettDurchschnitt ?> g/Tag</h2>
     <canvas id="fettChart"></canvas>
   </div>
   <div class="chart-quarter">
-    <h2 class="ueberschrift">Kohlenhydrate</h2>
+    <h2 class="ueberschrift">Kohlenhydrate | Ø<?= (int)$khDurchschnitt ?> g/Tag</h2>
     <canvas id="khChart"></canvas>
   </div>
   <div class="chart-quarter">
-    <h2 class="ueberschrift">Alkohol</h2>
+    <h2 class="ueberschrift">Alkohol | Ø<?= (int)$alkDurchschnitt ?> g/Tag</h2>
     <canvas id="alkChart"></canvas>
   </div>
 </div>
@@ -486,8 +498,35 @@ function withAlpha(color, alpha = 0.5) {
   return color;
 }
 
+function computeTrend(values) {
+  const x = [], y = [];
+  for (let i = 0; i < values.length; i++) {
+    const v = values[i];
+    if (v !== null && !Number.isNaN(v)) { x.push(i); y.push(Number(v)); }
+  }
+  const out = Array(values.length).fill(null);
+  if (x.length < 2) return out;
+
+  const n = x.length;
+  const sumX = x.reduce((a,b)=>a+b,0);
+  const sumY = y.reduce((a,b)=>a+b,0);
+  const sumXY = x.reduce((a,xi,idx)=>a + xi*y[idx], 0);
+  const sumXX = x.reduce((a,xi)=>a + xi*xi, 0);
+  const den = (n*sumXX - sumX*sumX);
+  if (den === 0) return out;
+
+  const slope = (n*sumXY - sumX*sumY) / den;
+  const intercept = (sumY - slope*sumX) / n;
+
+  for (let i = 0; i < values.length; i++) {
+    out[i] = (values[i] === null) ? null : +(slope*i + intercept).toFixed(2);
+  }
+  return out;
+}
+
 // Hilfsfunktion: erzeugt ein Nährwert-Chart mit Tageskreuzen + durchgehender KW-Linie
 function makeMacroChart(canvasId, dailyData, weeklyData, color, label) {
+  const trend = computeTrend(dailyData);
   new Chart(document.getElementById(canvasId).getContext('2d'), {
     type: 'line',
     data: {
@@ -513,6 +552,17 @@ function makeMacroChart(canvasId, dailyData, weeklyData, color, label) {
           borderColor: color,
           pointRadius: 0,
           spanGaps: true
+        },
+        {
+          label: `Trend`,
+          data: trend,
+          fill: false,
+          tension: 0,
+          borderWidth: 2,
+          borderColor: color,
+          borderDash: [4, 2],
+          pointRadius: 0,
+          spanGaps: true
         }
       ]
     },
@@ -531,7 +581,7 @@ function makeMacroChart(canvasId, dailyData, weeklyData, color, label) {
         },
         y: {
           beginAtZero: true,
-          title: { display: true, text: 'Gramm' }
+          title: { display: false, text: 'Gramm' }
         }
       }
     }
