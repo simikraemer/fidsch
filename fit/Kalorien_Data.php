@@ -156,14 +156,17 @@ require_once __DIR__ . '/../navbar.php';
     <h2 style="margin-top:0;">Gruppe bearbeiten</h2>
 
     <div class="input-row">
-      <div class="input-group">
-        <label>Beschreibung</label>
-        <input type="text" id="m_beschreibung" maxlength="255" />
-      </div>
-      <div class="input-group">
-        <label>Kalorien</label>
-        <input type="number" id="m_kalorien" min="0" max="5000" step="1" />
-      </div>
+        <div class="input-group">
+            <label>Beschreibung</label>
+            <input type="text" id="m_beschreibung" maxlength="255" />
+        </div>
+        <div class="input-group">
+            <label>Kalorien</label>
+            <input type="number" id="m_kalorien" min="0" max="5000" step="1" />
+            <div id="m_kcal-pruefsumme" style="margin-top:6px; font-size:0.9em; opacity:0.8;">
+            Prüfsumme: <span id="m_kcal-check">0</span> kcal
+            </div>
+        </div>
     </div>
 
     <div class="input-row">
@@ -221,6 +224,8 @@ require_once __DIR__ . '/../navbar.php';
   const m_alkohol       = document.getElementById('m_alkohol');
   const m_orig_beschreibung = document.getElementById('m_orig_beschreibung');
   const m_orig_kalorien     = document.getElementById('m_orig_kalorien');
+
+  const m_kcalCheckSpan = document.getElementById('m_kcal-check');
 
   let ALL = [];
   let FILTERED = [];
@@ -315,6 +320,24 @@ require_once __DIR__ . '/../navbar.php';
     applyFilter();
   }
 
+  function numOrZeroModal(v) {
+    v = (v ?? '').toString().replace(',', '.').trim();
+    if (v === '') return 0;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function recomputeModalChecksum() {
+    const eiw = numOrZeroModal(m_eiweiss.value);
+    const fett = numOrZeroModal(m_fett.value);
+    const kh   = numOrZeroModal(m_kohlenhydrate.value);
+    const alk  = numOrZeroModal(m_alkohol.value);
+    const kcal = (eiw * 4) + (kh * 4) + (fett * 9) + (alk * 7);
+    if (m_kcalCheckSpan) {
+      m_kcalCheckSpan.textContent = String(Math.round(kcal));
+    }
+  }
+
   function openModal(item) {
     m_orig_beschreibung.value = item.beschreibung || '';
     m_orig_kalorien.value     = String(item.kalorien);
@@ -327,6 +350,9 @@ require_once __DIR__ . '/../navbar.php';
     m_alkohol.value       = (item.alkohol ?? 0).toString();
 
     modal.style.display = 'flex';
+
+    // Prüfsumme initial berechnen
+    recomputeModalChecksum();
   }
 
   function closeModal() {
@@ -382,6 +408,11 @@ require_once __DIR__ . '/../navbar.php';
     if (e.key === 'Escape' && modal.style.display !== 'none') closeModal();
   });
   saveBtn.addEventListener('click', saveAll);
+
+  // Live-Update der Prüfsumme im Modal
+  [m_eiweiss, m_fett, m_kohlenhydrate, m_alkohol].forEach(el => {
+    el.addEventListener('input', recomputeModalChecksum);
+  });
 
   // Init
   fetchList().catch(err => showStatus('Fehler beim Laden: ' + err.message, 'err', 8000));

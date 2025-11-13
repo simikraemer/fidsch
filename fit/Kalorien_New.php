@@ -147,7 +147,10 @@ require_once __DIR__ . '/../navbar.php';   // Navbar
             <div class="input-group">
                 <label for="kalorien">Kalorien (kcal):</label>
                 <input type="number" id="kalorien" name="kalorien" required>
-            </div>            
+                <div id="kcal-pruefsumme" style="margin-top:6px; font-size:0.9em; opacity:0.8;">
+                Prüfsumme: <span id="kcal-check">0</span> kcal
+                </div>
+            </div>
             <div class="input-group">
                 <label for="anzahl">Anzahl:</label>
                 <input type="number" id="anzahl" name="anzahl" value="1" min="1" required>
@@ -338,6 +341,26 @@ require_once __DIR__ . '/../navbar.php';   // Navbar
             vorschlaegeList.innerHTML = '';
         }
     });
+
+    const kcalCheckSpan = document.getElementById('kcal-check');
+
+    function recomputeChecksum() {
+        const eiw = numberOrZero(eiweissInput.value);
+        const fett = numberOrZero(fettInput.value);
+        const kh   = numberOrZero(khInput.value);
+        const alk  = numberOrZero(alkoholInput.value);
+        const kcal = (eiw * 4) + (kh * 4) + (fett * 9) + (alk * 7);
+        if (kcalCheckSpan) kcalCheckSpan.textContent = String(Math.round(kcal));
+    }
+
+    // Live-Update bei Änderungen der Nährwerte
+    [eiweissInput, fettInput, khInput, alkoholInput].forEach(el =>
+        el.addEventListener('input', recomputeChecksum)
+    );
+
+    // Beim Klick auf einen Vorschlag nach dem Befüllen ebenfalls berechnen
+    // (füge diese Zeile in deinen bestehenden Klick-Handler direkt NACH dem Setzen der Werte ein)
+    recomputeChecksum();
 </script>
 
 </body>
