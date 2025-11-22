@@ -299,7 +299,7 @@ require_once __DIR__ . '/../navbar.php';
     <canvas id="fettChart"></canvas>
   </div>
   <div class="chart-quarter">
-    <h2 class="ueberschrift">Carbs | Ø<?= (int)$khDurchschnitt ?> g/Tag</h2>
+    <h2 class="ueberschrift">Carbss | Ø<?= (int)$khDurchschnitt ?> g/Tag</h2>
     <canvas id="khChart"></canvas>
   </div>
   <div class="chart-quarter">
