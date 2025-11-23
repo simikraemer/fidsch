@@ -23,6 +23,11 @@ require_once __DIR__ . '/../navbar.php';  // nur die Navbar
                     <option value="funghi">Funghi</option>
                     <option value="hawaii">Hawaii</option>
                     <option value="quatroformaggi">Quattro Formaggi</option>
+                    <option value="diavolo">Diavolo</option>
+                    <option value="tonno">Tonno</option>
+                    <option value="prosciutto">Prosciutto</option>
+                    <option value="vegetarisch">Vegetarisch</option>
+                    <option value="bbqchicken">BBQ Chicken</option>
                 </select>
             </div>
             <div class="input-group">
@@ -46,8 +51,14 @@ document.addEventListener('DOMContentLoaded', function () {
         salami: 2.5,
         funghi: 2.2,
         hawaii: 2.3,
-        quatroformaggi: 2.8
+        quatroformaggi: 2.8,
+        diavolo: 2.6,
+        tonno: 2.4,
+        prosciutto: 2.4,
+        vegetarisch: 2.1,
+        bbqchicken: 2.7
     };
+
 
     function berechneKalorien() {
         const sorte = pizzaSelect.value;
