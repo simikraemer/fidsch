@@ -237,9 +237,8 @@ require_once __DIR__ . '/../navbar.php';  // Navbar
                 <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
                     <input type="file" id="modal-document" accept="application/pdf,image/*" style="display: none;">
                     <button type="button" id="modal-document-button">Dokument hochladen</button>
-                    <a id="modal-document-view" href="#" target="_blank" rel="noopener" style="display: none; padding: 10px 14px; border-radius: 8px; border: 1px solid #ccc; background: #f7f7f7; color: #000; text-decoration: none;">Zur Rechnung</a>
-                    <span id="modal-document-status" style="font-size: 0.9rem; color: #666;"></span>
-                    <button type="submit" style="margin-left: auto;">Speichern</button>
+                    <button type="button" id="modal-document-view" style="display: none;">Zur Rechnung</button>
+                    <button type="submit">Speichern</button>
                 </div>
             </div>
         </form>
@@ -273,17 +272,22 @@ document.querySelectorAll('.kategorie-select').forEach(select => {
 const documentInput = document.getElementById('modal-document');
 const documentUploadButton = document.getElementById('modal-document-button');
 const documentViewButton = document.getElementById('modal-document-view');
-const documentStatus = document.getElementById('modal-document-status');
+
+// Button "Zur Rechnung" klickbar machen
+documentViewButton.addEventListener('click', () => {
+    const url = documentViewButton.dataset.url;
+    if (url) {
+        window.open(url, '_blank');
+    }
+});
 
 function setDocumentButton(url) {
     if (url) {
-        documentViewButton.href = url;
+        documentViewButton.dataset.url = url;
         documentViewButton.style.display = 'inline-flex';
-        documentStatus.textContent = 'Dokument hinterlegt.';
     } else {
         documentViewButton.style.display = 'none';
-        documentViewButton.removeAttribute('href');
-        documentStatus.textContent = '';
+        delete documentViewButton.dataset.url;
     }
 }
 
@@ -308,7 +312,6 @@ documentInput.addEventListener('change', async (e) => {
 
     documentUploadButton.disabled = true;
     documentUploadButton.textContent = 'Lade hoch...';
-    documentStatus.textContent = '';
 
     try {
         const res = await fetch('upload_transfer_document.php', {
@@ -321,7 +324,6 @@ documentInput.addEventListener('change', async (e) => {
         }
         const url = json.url || `transfer_document.php?id=${encodeURIComponent(transferId)}`;
         setDocumentButton(url);
-        documentStatus.textContent = 'Upload abgeschlossen.';
     } catch (err) {
         alert(err.message || 'Upload fehlgeschlagen.');
     } finally {
@@ -368,7 +370,6 @@ function closeModal() {
     documentUploadButton.disabled = false;
     documentUploadButton.textContent = 'Dokument hochladen';
     documentInput.value = '';
-    documentStatus.textContent = '';
 }
 document.getElementById('modal').addEventListener('click', function (e) {
     if (e.target === this) closeModal();
