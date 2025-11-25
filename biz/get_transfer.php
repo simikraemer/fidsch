@@ -30,4 +30,19 @@ if (!$row) {
     exit;
 }
 
+// Dokument-Verf�gbarkeit ermitteln (Datei benannt nach transfer_ID)
+$docUrl = null;
+$uploadDir = __DIR__ . '/../uploads/transfers';
+$allowedExts = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp'];
+foreach ($allowedExts as $ext) {
+    $candidate = $uploadDir . "/transfer_{$id}.{$ext}";
+    if (is_file($candidate)) {
+        $docUrl = "transfer_document.php?id={$id}";
+        break;
+    }
+}
+
+$row['document_url'] = $docUrl;
+$row['has_document'] = ($docUrl !== null);
+
 echo json_encode($row, JSON_UNESCAPED_UNICODE);

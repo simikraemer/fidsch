@@ -233,7 +233,15 @@ require_once __DIR__ . '/../navbar.php';  // Navbar
                 <textarea id="modal-verwendungszweck" rows="3" readonly></textarea>
             </div>
 
-            <button type="submit">Speichern</button>
+            <div class="input-group">
+                <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                    <input type="file" id="modal-document" accept="application/pdf,image/*" style="display: none;">
+                    <button type="button" id="modal-document-button">Dokument hochladen</button>
+                    <a id="modal-document-view" href="#" target="_blank" rel="noopener" style="display: none; padding: 10px 14px; border-radius: 8px; border: 1px solid #ccc; background: #f7f7f7; color: #000; text-decoration: none;">Zur Rechnung</a>
+                    <span id="modal-document-status" style="font-size: 0.9rem; color: #666;"></span>
+                    <button type="submit" style="margin-left: auto;">Speichern</button>
+                </div>
+            </div>
         </form>
     </div>
 </div>
@@ -262,6 +270,67 @@ document.querySelectorAll('.kategorie-select').forEach(select => {
     });
 });
 
+const documentInput = document.getElementById('modal-document');
+const documentUploadButton = document.getElementById('modal-document-button');
+const documentViewButton = document.getElementById('modal-document-view');
+const documentStatus = document.getElementById('modal-document-status');
+
+function setDocumentButton(url) {
+    if (url) {
+        documentViewButton.href = url;
+        documentViewButton.style.display = 'inline-flex';
+        documentStatus.textContent = 'Dokument hinterlegt.';
+    } else {
+        documentViewButton.style.display = 'none';
+        documentViewButton.removeAttribute('href');
+        documentStatus.textContent = '';
+    }
+}
+
+documentUploadButton.addEventListener('click', () => {
+    if (!document.getElementById('modal-id').value) return;
+    documentInput.click();
+});
+
+documentInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const transferId = document.getElementById('modal-id').value;
+    if (!transferId) {
+        alert('Kein Transfer ausgewählt.');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('id', transferId);
+    formData.append('document', file);
+
+    documentUploadButton.disabled = true;
+    documentUploadButton.textContent = 'Lade hoch...';
+    documentStatus.textContent = '';
+
+    try {
+        const res = await fetch('upload_transfer_document.php', {
+            method: 'POST',
+            body: formData
+        });
+        const json = await res.json().catch(() => null);
+        if (!res.ok || !json?.success) {
+            throw new Error(json?.error || 'Upload fehlgeschlagen.');
+        }
+        const url = json.url || `transfer_document.php?id=${encodeURIComponent(transferId)}`;
+        setDocumentButton(url);
+        documentStatus.textContent = 'Upload abgeschlossen.';
+    } catch (err) {
+        alert(err.message || 'Upload fehlgeschlagen.');
+    } finally {
+        documentUploadButton.disabled = false;
+        documentUploadButton.textContent = 'Dokument hochladen';
+        documentInput.value = '';
+    }
+});
+
 // Modal öffnen mit Row-Klick (Kategorie-Dropdown ausgenommen)
 document.querySelectorAll('tbody tr').forEach(row => {
     row.addEventListener('click', async (e) => {
@@ -286,6 +355,7 @@ document.querySelectorAll('tbody tr').forEach(row => {
         document.getElementById('modal-betrag').value            = (parseFloat(data.betrag || 0).toFixed(2) + " €");
         document.getElementById('modal-waehrung').value          = data.waehrung ?? "";
         document.getElementById('modal-kategorie').value         = data.kategorie_id ?? "";
+        setDocumentButton(data.document_url ?? null);
 
         document.getElementById('modal').style.display = 'flex';
     });
@@ -294,6 +364,11 @@ document.querySelectorAll('tbody tr').forEach(row => {
 // Modal schließen
 function closeModal() {
     document.getElementById('modal').style.display = 'none';
+    setDocumentButton(null);
+    documentUploadButton.disabled = false;
+    documentUploadButton.textContent = 'Dokument hochladen';
+    documentInput.value = '';
+    documentStatus.textContent = '';
 }
 document.getElementById('modal').addEventListener('click', function (e) {
     if (e.target === this) closeModal();
