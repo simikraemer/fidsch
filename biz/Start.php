@@ -11,6 +11,11 @@ $bizconn->set_charset('utf8mb4');
 // 3) Input + Datenbeschaffung (kein Output davor!)
 $jahr = isset($_GET['jahr']) ? (int)$_GET['jahr'] : (int)date('Y');
 
+$selectedKat = $_GET['kategorie'] ?? 'all';
+if ($selectedKat !== 'all' && $selectedKat !== 'unk') {
+    $selectedKat = (int)$selectedKat;
+}
+
 // verfügbare Jahre (nur vorhandene Daten)
 $yearsRes = $bizconn->query("
     SELECT DISTINCT YEAR(valutadatum) AS jahr
@@ -52,6 +57,14 @@ while ($row = $res->fetch_assoc()) {
     $kategorieSummen[$katName] += $betrag;
 }
 
+// Label für aktuell ausgewählte Kategorie
+$selectedKatLabel = 'Alle Kategorien';
+if ($selectedKat === 'unk') {
+    $selectedKatLabel = $labelUnk;
+} elseif ($selectedKat !== 'all' && isset($kats[(int)$selectedKat])) {
+    $selectedKatLabel = $kats[(int)$selectedKat];
+}
+
 // Einnahmen/Ausgaben trennen
 $incomeByCat  = [];
 $expenseByCat = [];
@@ -76,7 +89,7 @@ $anfangsbestand = (float)$anfangsbestand;
 
 // Transfers erneut für Zeitreihe (Cursor benötigt)
 $stmt2 = $bizconn->prepare("
-    SELECT valutadatum, betrag
+    SELECT valutadatum, betrag, kategorie_id
     FROM transfers
     WHERE YEAR(valutadatum) = ?
     ORDER BY valutadatum ASC
@@ -85,16 +98,33 @@ $stmt2->bind_param('i', $jahr);
 $stmt2->execute();
 $res2 = $stmt2->get_result();
 
-// Transfers pro Datum gruppieren
-$transfersByDate = [];
+// Transfers pro Datum gruppieren (gesamt + ausgewählte Kategorie)
+$transfersByDate    = [];
+$catTransfersByDate = [];
+
 while ($row = $res2->fetch_assoc()) {
-    $d = $row['valutadatum'];
+    $d      = $row['valutadatum'];
+    $betrag = (float)$row['betrag'];
+
     if (!isset($transfersByDate[$d])) $transfersByDate[$d] = 0.0;
-    $transfersByDate[$d] += (float)$row['betrag'];
+    $transfersByDate[$d] += $betrag;
+
+    if ($selectedKat !== 'all') {
+        $match = false;
+        if ($selectedKat === 'unk') {
+            $match = ($row['kategorie_id'] === null);
+        } else {
+            $match = ((int)$row['kategorie_id'] === (int)$selectedKat);
+        }
+        if ($match) {
+            if (!isset($catTransfersByDate[$d])) $catTransfersByDate[$d] = 0.0;
+            $catTransfersByDate[$d] += $betrag;
+        }
+    }
 }
 $stmt2->close();
 
-// letztes Valutadatum in diesem Jahr
+// letztes Valutadatum in diesem Jahr (unverändert)
 $lastDateRow = $bizconn->query("
     SELECT MAX(valutadatum) AS lastdate
     FROM transfers
@@ -102,7 +132,7 @@ $lastDateRow = $bizconn->query("
 ")->fetch_assoc();
 $lastDate = $lastDateRow['lastdate'] ? new DateTime($lastDateRow['lastdate']) : new DateTime("$jahr-01-01");
 
-// tägliche kumulierte Serie
+// tägliche kumulierte Serie (gesamt, unverändert)
 $dailySeries = [];
 $cumDaily   = $anfangsbestand;
 $start      = new DateTime("$jahr-01-01");
@@ -115,15 +145,36 @@ while ($cursor <= $end) {
         if (isset($transfersByDate[$dstr])) $cumDaily += $transfersByDate[$dstr];
         $dailySeries[$dstr] = round($cumDaily, 2);
     } else {
-        $dailySeries[$dstr] = null; // zukünftige Tage leer
+        $dailySeries[$dstr] = null;
     }
     $cursor->modify('+1 day');
+}
+
+// tägliche kumulierte Serie für ausgewählte Kategorie
+$catDailySeries = [];
+if ($selectedKat !== 'all') {
+    $catCum  = 0.0;
+    $cursor2 = clone $start;
+    while ($cursor2 <= $end) {
+        $dstr = $cursor2->format('Y-m-d');
+        if ($cursor2 <= $lastDate) {
+            if (isset($catTransfersByDate[$dstr])) {
+                $catCum += $catTransfersByDate[$dstr];
+            }
+            $catDailySeries[$dstr] = round($catCum, 2);
+        } else {
+            $catDailySeries[$dstr] = null;
+        }
+        $cursor2->modify('+1 day');
+    }
 }
 
 // Monats-Punkte (01.01., jeder 1., ggf. 31.12. falls vergangen)
 $monthlyPoints = [];
 $firstOfYear = sprintf('%04d-01-01', $jahr);
 $monthlyPoints[$firstOfYear] = $dailySeries[$firstOfYear] ?? $anfangsbestand;
+
+
 
 for ($m = 2; $m <= 12; $m++) {
     $d = sprintf('%04d-%02d-01', $jahr, $m);
@@ -154,6 +205,10 @@ $dailyJson = json_encode(
 );
 $monthlyJson = json_encode(
     array_map(fn($d,$v)=>['x'=>$d,'y'=>$v], array_keys($monthlyPoints), $monthlyPoints),
+    JSON_UNESCAPED_UNICODE
+);
+$catDailyJson = json_encode(
+    array_map(fn($d,$v)=>['x'=>$d,'y'=>$v], array_keys($catDailySeries), $catDailySeries),
     JSON_UNESCAPED_UNICODE
 );
 
@@ -192,13 +247,30 @@ require_once __DIR__ . '/../navbar.php';  // Navbar
 
     <!-- Jahr-Auswahl -->
     <form method="get" class="zeitbereich-form" style="margin-bottom: 1rem;">
-        <div style="display: flex; justify-content: center;">
+        <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
             <div class="input-group" style="max-width: 220px;">
                 <select name="jahr" id="jahr" onchange="this.form.submit()">
                     <?php foreach ($jahre as $j): ?>
                         <?php if ((int)$j <= 2021) continue; ?>
                         <option value="<?= (int)$j ?>" <?= ((int)$j === (int)$jahr) ? 'selected' : '' ?>>
                             <?= (int)$j ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <!-- NEU: Kategorie-Auswahl (nur Einfluss auf Graph) -->
+            <div class="input-group" style="max-width: 260px;">
+                <select name="kategorie" id="kategorie" onchange="this.form.submit()">
+                    <option value="all" <?= ($selectedKat === 'all') ? 'selected' : '' ?>>
+                        Kontostand
+                    </option>
+                    <option value="unk" <?= ($selectedKat === 'unk') ? 'selected' : '' ?>>
+                        <?= htmlspecialchars($labelUnk, ENT_QUOTES) ?>
+                    </option>
+                    <?php foreach ($kats as $id => $name): ?>
+                        <option value="<?= (int)$id ?>" <?= ((string)$selectedKat === (string)$id) ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($name, ENT_QUOTES) ?>
                         </option>
                     <?php endforeach; ?>
                 </select>
@@ -242,33 +314,55 @@ require_once __DIR__ . '/../navbar.php';  // Navbar
 <script>
 const dailyData   = <?= $dailyJson ?>;
 const monthlyData = <?= $monthlyJson ?>;
+const catDailyData = <?= $catDailyJson ?>;
+const selectedCategory       = <?= json_encode($selectedKat) ?>;
+const selectedCategoryLabel  = <?= json_encode($selectedKatLabel, JSON_UNESCAPED_UNICODE) ?>;
 
 const fmtEuro = (v) => new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'}).format(Number(v||0));
+
+// <<< HIER ANPASSEN: Datensätze je nach Auswahl bauen >>>
+const datasets = [];
+
+if (!selectedCategory || selectedCategory === 'all') {
+  // Standard: alle Kategorien -> Kontostand-Gesamt anzeigen
+  datasets.push(
+    {
+      label: 'Kontostand (Monatsbeginn)',
+      data: monthlyData,
+      showLine: false,
+      pointRadius: 8,
+      pointBackgroundColor: '#ff6b00',
+      pointBorderColor: '#000',
+      pointBorderWidth: 2
+    },
+    {
+      label: 'Verlauf Kontostand',
+      data: dailyData,
+      borderColor: '#000',
+      borderWidth: 3,
+      pointRadius: 0,
+      fill: false,
+      tension: 0
+    }
+  );
+} else if (Array.isArray(catDailyData) && catDailyData.length > 0) {
+  // Spezifische Kategorie gewählt -> nur deren Verlauf anzeigen
+  datasets.push({
+    label: 'Kategorie-Verlauf: ' + selectedCategoryLabel,
+    data: catDailyData,
+    borderColor: '#007bff',
+    borderWidth: 2,
+    pointRadius: 0,
+    fill: false,
+    tension: 0
+  });
+}
 
 const saldoCtx = document.getElementById('saldoChart').getContext('2d');
 new Chart(saldoCtx, {
   type: 'line',
   data: {
-    datasets: [
-      {
-        label: 'Kontostand (Monatsbeginn)',
-        data: monthlyData,
-        showLine: false,
-        pointRadius: 8,
-        pointBackgroundColor: '#ff6b00',
-        pointBorderColor: '#000',
-        pointBorderWidth: 2
-      },
-      {
-        label: 'Verlauf Kontostand',
-        data: dailyData,
-        borderColor: '#000',
-        borderWidth: 3,
-        pointRadius: 0,
-        fill: false,
-        tension: 0
-      }
-    ]
+    datasets: datasets
   },
   options: {
     responsive: true,
