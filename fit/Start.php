@@ -284,7 +284,7 @@ require_once __DIR__ . '/../navbar.php';
     <canvas id="kalorienChart"></canvas>
   </div>
   <div class="chart-half">
-    <h2 class="ueberschrift">Gewicht | <?= ($maxGewicht !== null ? $maxGewicht : '—') . " kg -> " . ($letztesGewicht !== null ? $letztesGewicht : '—') ?> kg</h2>
+    <h2 class="ueberschrift">Gewicht | <?= ($erstesGewicht !== null ? $erstesGewicht : '—') . " kg -> " . ($letztesGewicht !== null ? $letztesGewicht : '—') ?> kg</h2>
     <canvas id="gewichtChart"></canvas>
   </div>
 </div>
@@ -302,7 +302,7 @@ require_once __DIR__ . '/../navbar.php';
     <h2 class="ueberschrift">Carbs | Ø<?= (int)$khDurchschnitt ?> g/Tag</h2>
     <canvas id="khChart"></canvas>
   </div>
-  <div class="chart-quarter">
+  <!-- <div class="chart-quarter">
     <h2 class="ueberschrift">
       Alkohol | Ø <span class="censor">
         <span class="value"><?= (int)$alkDurchschnitt ?></span>
@@ -311,7 +311,7 @@ require_once __DIR__ . '/../navbar.php';
     <div class="censor">
       <canvas id="alkChart"></canvas>
     </div>
-  </div>
+  </div> -->
 </div>
 
 <!-- Scripts am Ende des Body -->
