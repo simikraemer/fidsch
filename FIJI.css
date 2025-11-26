@@ -507,7 +507,6 @@ input, select, textarea {
     flex-direction: column;
 }
 
-.censor { cursor: none; }
 .censor .value,
 .censor canvas {
   filter: blur(7px);
