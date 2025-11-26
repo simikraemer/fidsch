@@ -11,6 +11,12 @@ $fitconn->set_charset('utf8mb4');
 // ---------------------- POST-VERARBEITUNG (kein Output davor!) ----------------------
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
+    $currentDateParam = $_POST['current_date'] ?? null;
+    $redirectUrl = '/fit/kalorien';
+    if ($currentDateParam) {
+        $redirectUrl .= '?date=' . urlencode($currentDateParam);
+    }
+
     if (isset($_POST['move_to_previous_day'])) {
         // Timestamp eines bestehenden Eintrags auf Vortag 23:59 setzen
         $id = (int)$_POST['move_to_previous_day'];
@@ -35,7 +41,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->close();
         }
 
-        header('Location: /fit/kalorien', true, 303);
+        header('Location: ' . $redirectUrl, true, 303);
+        exit;
+    }
+
+    if (isset($_POST['move_to_next_day'])) {
+        // Timestamp eines bestehenden Eintrags auf Folgetag 00:01 setzen
+        $id = (int)$_POST['move_to_next_day'];
+
+        $stmt = $fitconn->prepare("SELECT tstamp FROM kalorien WHERE id = ?");
+        $stmt->bind_param('i', $id);
+        $stmt->execute();
+        $stmt->bind_result($tstamp_alt);
+
+        if ($stmt->fetch()) {
+            $stmt->close();
+
+            $dt = new DateTime($tstamp_alt);
+            $dt->modify('+1 day')->setTime(0, 1);
+            $newTstamp = $dt->format('Y-m-d H:i:s');
+
+            $stmt = $fitconn->prepare("UPDATE kalorien SET tstamp = ? WHERE id = ?");
+            $stmt->bind_param('si', $newTstamp, $id);
+            $stmt->execute();
+            $stmt->close();
+        } else {
+            $stmt->close();
+        }
+
+        header('Location: ' . $redirectUrl, true, 303);
         exit;
     }
 
@@ -47,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute();
         $stmt->close();
 
-        header('Location: /fit/kalorien', true, 303);
+        header('Location: ' . $redirectUrl, true, 303);
         exit;
     }
 
@@ -103,31 +137,37 @@ $result = $fitconn->query("
 $eintraege = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 if ($result) $result->close();
 
-// Heutige Einträge
-$heute = date('Y-m-d');
+$heute   = date('Y-m-d');
+$gestern = date('Y-m-d', strtotime('-1 day'));
+$selected = $_GET['date'] ?? $heute;
+
+// Einträge der letzten 30 Tage (für Tages-Navigation)
 $stmt = $fitconn->prepare("
     SELECT id, beschreibung, kalorien, tstamp
     FROM kalorien
-    WHERE DATE(tstamp) = ?
+    WHERE tstamp >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
     ORDER BY tstamp ASC
 ");
-$stmt->bind_param('s', $heute);
 $stmt->execute();
-$heuteEintraege = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$alleEintraege = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 
-// Gestern
-$gestern = date('Y-m-d', strtotime('-1 day'));
-$stmt = $fitconn->prepare("
-    SELECT id, beschreibung, kalorien, tstamp
-    FROM kalorien
-    WHERE DATE(tstamp) = ?
-    ORDER BY tstamp ASC
-");
-$stmt->bind_param('s', $gestern);
-$stmt->execute();
-$gesternEintraege = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-$stmt->close();
+$tageGruppiert = [];
+foreach ($alleEintraege as $row) {
+    $datum = substr($row['tstamp'], 0, 10); // YYYY-MM-DD
+    if (!isset($tageGruppiert[$datum])) {
+        $tageGruppiert[$datum] = [];
+    }
+    $tageGruppiert[$datum][] = $row;
+}
+
+if (!isset($tageGruppiert[$heute])) {
+    $tageGruppiert[$heute] = [];
+}
+if (!isset($tageGruppiert[$selected])) {
+    $tageGruppiert[$selected] = [];
+}
+ksort($tageGruppiert);
 
 // ---------------------- RENDERING START ----------------------
 $page_title = 'Kalorien eintragen';
@@ -176,111 +216,34 @@ require_once __DIR__ . '/../navbar.php';   // Navbar
             </div>
         </div>
 
-
         <button type="submit">Eintragen</button>
     </form>
 </div>
 
-<div class="container" style="display:flex; gap:20px; align-items:flex-start; max-width: 1200px;">
+<div class="container" style="max-width: 800px; margin-top: 25px;">
 
-    <!-- Gestern -->
-    <div style="flex:1;">
-        <h2>📅 Gestern</h2>
-        <table class="food-table">
-            <thead>
-            <tr>
-                <th>Zeitpunkt</th>
-                <th>Beschreibung</th>
-                <th>Kalorien</th>
-                <th></th>
-            </tr>
-            </thead>
-            <tbody>
-            <?php
-            $kalorienSummeGestern = 0;
-            foreach ($gesternEintraege as $eintrag) {
-                $kalorienSummeGestern += (int)$eintrag['kalorien'];
-            }
-            ?>
-            <tr style="border-bottom: 3px solid black; font-weight: bold;">
-                <td></td>
-                <td style="white-space:nowrap;">SUMME</td>
-                <td style="white-space:nowrap;"><?= (int)$kalorienSummeGestern ?> kcal</td>
-                <td></td>
-            </tr>
-            <?php foreach ($gesternEintraege as $eintrag): ?>
-                <tr>
-                    <td><?= htmlspecialchars(date('H:i', strtotime($eintrag['tstamp'])), ENT_QUOTES) ?></td>
-                    <td><?= htmlspecialchars($eintrag['beschreibung'] ?? '', ENT_QUOTES) ?></td>
-                    <td><?= (int)$eintrag['kalorien'] ?> kcal</td>
-                    <td>
-                        <div style="display: flex; gap: 6px; align-items: stretch;">
-                            <form method="post" style="margin:0;">
-                                <input type="hidden" name="move_to_previous_day" value="<?= (int)$eintrag['id'] ?>">
-                                <button type="submit" style="height: 100%;">Auf Vortag</button>
-                            </form>
-
-                            <form method="post" style="margin:0;">
-                                <input type="hidden" name="delete_entry" value="<?= (int)$eintrag['id'] ?>">
-                                <button type="submit" onclick="return confirm('Eintrag wirklich löschen?');" style="height: 100%;">Löschen</button>
-                            </form>
-                        </div>
-                    </td>
-                </tr>
-            <?php endforeach; ?>
-            </tbody>
-        </table>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <div style="display:flex; justify-content:center; align-items:center; gap:12px;">
+            <button type="button" id="tag-zurueck" style="padding:4px 8px;">&laquo;</button>
+            <h2 id="tage-ueberschrift" style="margin:0;"><?= htmlspecialchars(date('d.m.Y'), ENT_QUOTES) ?></h2>
+            <button type="button" id="tag-vor" style="padding:4px 8px;">&raquo;</button>
+        </div>
+        <button type="button" id="tag-heute" style="padding:4px 8px;">Heute</button>
     </div>
 
-    <!-- Heute -->
-    <div style="flex:1;">
-        <h2>📅 Heute</h2>
-        <table class="food-table">
-            <thead>
-            <tr>
-                <th>Zeitpunkt</th>
-                <th>Beschreibung</th>
-                <th>Kalorien</th>
-                <th></th>
-            </tr>
-            </thead>
-            <tbody>
-            <?php
-            $kalorienSummeHeute = 0;
-            foreach ($heuteEintraege as $eintrag) {
-                $kalorienSummeHeute += (int)$eintrag['kalorien'];
-            }
-            ?>
-            <tr style="border-bottom: 3px solid black; font-weight: bold;">
-                <td></td>
-                <td style="white-space:nowrap;">SUMME</td>
-                <td style="white-space:nowrap;"><?= (int)$kalorienSummeHeute ?> kcal</td>
-                <td></td>
-            </tr>
-            <?php foreach ($heuteEintraege as $eintrag): ?>
-                <tr>
-                    <td><?= htmlspecialchars(date('H:i', strtotime($eintrag['tstamp'])), ENT_QUOTES) ?></td>
-                    <td><?= htmlspecialchars($eintrag['beschreibung'] ?? '', ENT_QUOTES) ?></td>
-                    <td><?= (int)$eintrag['kalorien'] ?> kcal</td>
-                    <td>
-                        <div style="display: flex; gap: 6px; align-items: stretch;">
-                            <form method="post" style="margin:0;">
-                                <input type="hidden" name="move_to_previous_day" value="<?= (int)$eintrag['id'] ?>">
-                                <button type="submit" style="height: 100%;">Auf Vortag</button>
-                            </form>
-
-                            <form method="post" style="margin:0;">
-                                <input type="hidden" name="delete_entry" value="<?= (int)$eintrag['id'] ?>">
-                                <button type="submit" onclick="return confirm('Eintrag wirklich löschen?');" style="height: 100%;">Löschen</button>
-                            </form>
-                        </div>
-                    </td>
-                </tr>
-            <?php endforeach; ?>
-            </tbody>
-        </table>
-    </div>
-
+    <table class="food-table">
+        <thead>
+        <tr>
+            <th>Zeitpunkt</th>
+            <th>Beschreibung</th>
+            <th>Kalorien</th>
+            <th></th>
+        </tr>
+        </thead>
+        <tbody id="tage-tbody">
+            <!-- wird per JavaScript befüllt -->
+        </tbody>
+    </table>
 </div>
 
 <script>
@@ -333,6 +296,7 @@ require_once __DIR__ . '/../navbar.php';   // Navbar
             alkoholInput.value  = numberOrZero(e.target.dataset.alk).toString();
 
             vorschlaegeList.innerHTML = '';
+            recomputeChecksum();
         }
     });
 
@@ -358,9 +322,149 @@ require_once __DIR__ . '/../navbar.php';   // Navbar
         el.addEventListener('input', recomputeChecksum)
     );
 
-    // Beim Klick auf einen Vorschlag nach dem Befüllen ebenfalls berechnen
-    // (füge diese Zeile in deinen bestehenden Klick-Handler direkt NACH dem Setzen der Werte ein)
+    // Initiale Berechnung
     recomputeChecksum();
+
+    // -------------------- Tagesansicht mit Navigation --------------------
+    const tageDaten = <?= json_encode($tageGruppiert, JSON_UNESCAPED_UNICODE) ?>;
+    const sortierteTage = Object.keys(tageDaten).sort();
+    const tageTbody = document.getElementById('tage-tbody');
+    const btnTagZurueck = document.getElementById('tag-zurueck');
+    const btnTagVor = document.getElementById('tag-vor');
+    const btnTagHeute = document.getElementById('tag-heute');
+    const tageUeberschrift = document.getElementById('tage-ueberschrift');
+    const heuteStr = '<?= $heute ?>';
+    const gesternStr = '<?= $gestern ?>';
+    const initialDatum = '<?= $selected ?>';
+
+    let aktuellesDatum = initialDatum;
+    let aktuellerIndex = sortierteTage.indexOf(aktuellesDatum);
+    if (aktuellerIndex === -1) {
+        sortierteTage.push(aktuellesDatum);
+        sortierteTage.sort();
+        aktuellerIndex = sortierteTage.indexOf(aktuellesDatum);
+    }
+
+    function escHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function formatDatum(d) {
+        const parts = d.split('-'); // YYYY-MM-DD
+        if (parts.length !== 3) return d;
+        return parts[2] + '.' + parts[1] + '.' + parts[0];
+    }
+
+    function updateButtons() {
+        if (!btnTagZurueck || !btnTagVor) return;
+        btnTagZurueck.disabled = (aktuellerIndex <= 0);
+        btnTagVor.disabled = (aktuellerIndex >= sortierteTage.length - 1);
+    }
+
+    function updateHeadline() {
+        if (!tageUeberschrift) return;
+        let text = formatDatum(aktuellesDatum);
+        if (aktuellesDatum === heuteStr) {
+            text += ' (Heute)';
+        } else if (aktuellesDatum === gesternStr) {
+            text += ' (Gestern)';
+        }
+        tageUeberschrift.textContent = text;
+    }
+
+    function renderTag(datum) {
+        const eintraegeTag = tageDaten[datum] || [];
+        let summe = 0;
+        eintraegeTag.forEach(e => {
+            summe += Number(e.kalorien) || 0;
+        });
+
+        let html = '';
+        html += '<tr style="border-bottom: 3px solid black; font-weight: bold;">';
+        html += '<td></td>';
+        html += '<td style="white-space:nowrap;">SUMME</td>';
+        html += '<td style="white-space:nowrap;">' + summe + ' kcal</td>';
+        html += '<td></td>';
+        html += '</tr>';
+
+        eintraegeTag.forEach(e => {
+            const zeit = (e.tstamp || '').substr(11, 5);
+            const id = Number(e.id) || 0;
+            const kcal = Number(e.kalorien) || 0;
+            html += '<tr>';
+            html += '<td>' + escHtml(zeit) + '</td>';
+            html += '<td>' + escHtml(e.beschreibung || '') + '</td>';
+            html += '<td>' + kcal + ' kcal</td>';
+            html += '<td>';
+            html += '<div style="display: flex; gap: 6px; align-items: stretch;">';
+
+            html += '<form method="post" style="margin:0;">'
+                 +  '<input type="hidden" name="current_date" value="' + escHtml(datum) + '">'
+                 +  '<input type="hidden" name="move_to_previous_day" value="' + id + '">'
+                 +  '<button type="submit" style="height: 100%;">Auf Vortag</button>'
+                 +  '</form>';
+
+            html += '<form method="post" style="margin:0;">'
+                 +  '<input type="hidden" name="current_date" value="' + escHtml(datum) + '">'
+                 +  '<input type="hidden" name="move_to_next_day" value="' + id + '">'
+                 +  '<button type="submit" style="height: 100%;">Auf Folgetag</button>'
+                 +  '</form>';
+
+            html += '<form method="post" style="margin:0;">'
+                 +  '<input type="hidden" name="current_date" value="' + escHtml(datum) + '">'
+                 +  '<input type="hidden" name="delete_entry" value="' + id + '">'
+                 +  '<button type="submit" onclick="return confirm(\'Eintrag wirklich löschen?\');" style="height: 100%;">Löschen</button>'
+                 +  '</form>';
+
+            html += '</div>';
+            html += '</td>';
+            html += '</tr>';
+        });
+
+        if (tageTbody) {
+            tageTbody.innerHTML = html;
+        }
+        updateHeadline();
+        updateButtons();
+    }
+
+    if (btnTagZurueck && btnTagVor) {
+        btnTagZurueck.addEventListener('click', () => {
+            if (aktuellerIndex > 0) {
+                aktuellerIndex--;
+                aktuellesDatum = sortierteTage[aktuellerIndex];
+                renderTag(aktuellesDatum);
+            }
+        });
+
+        btnTagVor.addEventListener('click', () => {
+            if (aktuellerIndex < sortierteTage.length - 1) {
+                aktuellerIndex++;
+                aktuellesDatum = sortierteTage[aktuellerIndex];
+                renderTag(aktuellesDatum);
+            }
+        });
+    }
+
+    if (btnTagHeute) {
+        btnTagHeute.addEventListener('click', () => {
+            aktuellesDatum = heuteStr;
+            if (!sortierteTage.includes(heuteStr)) {
+                sortierteTage.push(heuteStr);
+                sortierteTage.sort();
+            }
+            aktuellerIndex = sortierteTage.indexOf(heuteStr);
+            renderTag(aktuellesDatum);
+        });
+    }
+
+    // Initialer Render
+    renderTag(aktuellesDatum);
 </script>
 
 </body>
