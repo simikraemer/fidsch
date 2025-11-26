@@ -392,6 +392,23 @@ input, select, textarea {
     z-index: 10;
 }
 
+.autocomplete-list-tr {
+    list-style: none;
+    margin-top: -180px;
+    padding: 0;
+    background-color: white;
+    border-top: none;
+    border-radius: 0 0 var(--border-radius) var(--border-radius);
+    box-shadow: var(--shadow);
+    max-height: 200px;
+    overflow-y: auto;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 10;
+}
+
 .autocomplete-item {
     padding: 10px 16px;
     cursor: pointer;
