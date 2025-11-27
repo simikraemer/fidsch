@@ -87,7 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv'])) {
                 elseif (str_contains($zp, 'sb tank')) $kategorie_id = 13;
                 elseif (str_contains($zp, 'parken')) $kategorie_id = 13;
                 elseif (str_contains($zp, 'bernhard') && str_contains($zp, 'inga')) $kategorie_id = 25;
-                elseif (str_contains($zp, 'landeshauptkasse nordrhein-westfalen') && str_contains($zp, 'lbv')) $kategorie_id = 1;
+                elseif (str_contains($zp, 'landeshauptkasse nrw')) $kategorie_id = 1;
                 elseif (str_contains($zp, 'westdeutscher rundfunk') || str_contains($zp, 'wdr')) $kategorie_id = 4;
                 elseif (str_contains($zp, 'studierendenwerk aachen')) $kategorie_id = $betrag_float > 0 ? 22 : 2;
                 elseif (str_contains($zp, 'weh e.v.')) $kategorie_id = 22;
