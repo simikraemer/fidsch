@@ -102,6 +102,80 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+// ---------------------- AJAX-ENDPOINT FÜR EINEN TAG ----------------------
+if (isset($_GET['ajax']) && $_GET['ajax'] === 'tag') {
+    $datum = $_GET['date'] ?? date('Y-m-d');
+
+    $d = DateTime::createFromFormat('Y-m-d', $datum);
+    if (!$d || $d->format('Y-m-d') !== $datum) {
+        http_response_code(400);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => 'Ungültiges Datum']);
+        exit;
+    }
+
+    // Einträge an diesem Tag
+    $stmt = $fitconn->prepare("
+        SELECT id, beschreibung, kalorien, tstamp
+        FROM training
+        WHERE DATE(tstamp) = ?
+        ORDER BY tstamp ASC
+    ");
+    $stmt->bind_param('s', $datum);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $eintraegeTag = $result->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+
+    // Vorheriger Tag mit Einträgen
+    $prev = null;
+    $stmt = $fitconn->prepare("
+        SELECT DATE(tstamp) AS tag
+        FROM training
+        WHERE DATE(tstamp) < ?
+        ORDER BY tstamp DESC
+        LIMIT 1
+    ");
+    $stmt->bind_param('s', $datum);
+    $stmt->execute();
+    $stmt->bind_result($prevDate);
+    if ($stmt->fetch()) {
+        $prev = $prevDate;
+    }
+    $stmt->close();
+
+    // Nächster Tag mit Einträgen
+    $next = null;
+    $stmt = $fitconn->prepare("
+        SELECT DATE(tstamp) AS tag
+        FROM training
+        WHERE DATE(tstamp) > ?
+        ORDER BY tstamp ASC
+        LIMIT 1
+    ");
+    $stmt->bind_param('s', $datum);
+    $stmt->execute();
+    $stmt->bind_result($nextDate);
+    if ($stmt->fetch()) {
+        $next = $nextDate;
+    }
+    $stmt->close();
+
+    $heute   = date('Y-m-d');
+    $gestern = date('Y-m-d', strtotime('-1 day'));
+
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode([
+        'date'    => $datum,
+        'heute'   => $heute,
+        'gestern' => $gestern,
+        'entries' => $eintraegeTag,
+        'prev'    => $prev,
+        'next'    => $next,
+    ]);
+    exit;
+}
+
 // ---------------------- DATEN FÜR GET-RENDERING ----------------------
 
 // Vorschlagsliste (aggregiert nach Beschreibung/Kalorien)
@@ -121,46 +195,6 @@ if ($result) $result->close();
 $heute   = date('Y-m-d');
 $gestern = date('Y-m-d', strtotime('-1 day'));
 $selected = $_GET['date'] ?? $heute;
-
-// Einträge der letzten 30 Tage (für Tages-Navigation)
-$stmt = $fitconn->prepare("
-    SELECT id, beschreibung, kalorien, tstamp
-    FROM training
-    WHERE tstamp >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-    ORDER BY tstamp ASC
-");
-$stmt->execute();
-$alleEintraege = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-$stmt->close();
-
-$tageGruppiert = [];
-foreach ($alleEintraege as $row) {
-    $datum = substr($row['tstamp'], 0, 10); // YYYY-MM-DD
-    if (!isset($tageGruppiert[$datum])) {
-        $tageGruppiert[$datum] = [];
-    }
-    $tageGruppiert[$datum][] = $row;
-}
-
-// Kontinuierlichen Datumsbereich (inkl. leerer Tage) für die letzten 30 Tage aufbauen
-$daysBack = 30;
-$start = new DateTime('-' . $daysBack . ' days');
-$end   = new DateTime($heute); // inkl. heute
-
-while ($start <= $end) {
-    $d = $start->format('Y-m-d');
-    if (!isset($tageGruppiert[$d])) {
-        $tageGruppiert[$d] = [];
-    }
-    $start->modify('+1 day');
-}
-
-// Sicherstellen, dass der ausgewählte Tag existiert (falls außerhalb der 30-Tage-Spanne)
-if (!isset($tageGruppiert[$selected])) {
-    $tageGruppiert[$selected] = [];
-}
-
-ksort($tageGruppiert);
 
 // Rendering starten
 $page_title = 'Training eintragen';
@@ -189,7 +223,8 @@ require_once __DIR__ . '/../navbar.php'; // nur die Navbar
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
         <div style="display:flex; justify-content:center; align-items:center; gap:12px;">
             <button type="button" id="tag-zurueck" style="padding:4px 8px;">&laquo;</button>
-            <h2 id="tage-ueberschrift" style="margin:0;"><?= htmlspecialchars(date('d.m.Y'), ENT_QUOTES) ?></h2>
+            <input type="date" id="tag-date" style="padding:4px 6px;">
+            <!-- <h2 id="tage-ueberschrift" style="margin:0;"><?= htmlspecialchars(date('d.m.Y'), ENT_QUOTES) ?></h2> -->
             <button type="button" id="tag-vor" style="padding:4px 8px;">&raquo;</button>
         </div>
         <button type="button" id="tag-heute" style="padding:4px 8px;">Heute</button>
@@ -250,25 +285,19 @@ require_once __DIR__ . '/../navbar.php'; // nur die Navbar
         }
     });
 
-    // -------------------- Tagesansicht mit Navigation --------------------
-    const tageDaten = <?= json_encode($tageGruppiert, JSON_UNESCAPED_UNICODE) ?>;
-    const sortierteTage = Object.keys(tageDaten).sort();
-    const tageTbody = document.getElementById('tage-tbody');
-    const btnTagZurueck = document.getElementById('tag-zurueck');
-    const btnTagVor = document.getElementById('tag-vor');
-    const btnTagHeute = document.getElementById('tag-heute');
+    // -------------------- Tagesansicht mit Navigation (AJAX) --------------------
+    const tageTbody       = document.getElementById('tage-tbody');
+    const btnTagZurueck   = document.getElementById('tag-zurueck');
+    const btnTagVor       = document.getElementById('tag-vor');
+    const btnTagHeute     = document.getElementById('tag-heute');
     const tageUeberschrift = document.getElementById('tage-ueberschrift');
-    const heuteStr = '<?= $heute ?>';
-    const gesternStr = '<?= $gestern ?>';
-    const initialDatum = '<?= $selected ?>';
+    const dateInput       = document.getElementById('tag-date');
 
-    let aktuellesDatum = initialDatum;
-    let aktuellerIndex = sortierteTage.indexOf(aktuellesDatum);
-    if (aktuellerIndex === -1) {
-        sortierteTage.push(aktuellesDatum);
-        sortierteTage.sort();
-        aktuellerIndex = sortierteTage.indexOf(aktuellesDatum);
-    }
+    const heuteStr   = '<?= $heute ?>';
+    const gesternStr = '<?= $gestern ?>';
+    let   aktuellesDatum = '<?= $selected ?>';
+    let   prevDate = null;
+    let   nextDate = null;
 
     function escHtml(str) {
         return String(str)
@@ -286,9 +315,8 @@ require_once __DIR__ . '/../navbar.php'; // nur die Navbar
     }
 
     function updateButtons() {
-        if (!btnTagZurueck || !btnTagVor) return;
-        btnTagZurueck.disabled = (aktuellerIndex <= 0);
-        btnTagVor.disabled = (aktuellerIndex >= sortierteTage.length - 1);
+        if (btnTagZurueck) btnTagZurueck.disabled = !prevDate;
+        if (btnTagVor)     btnTagVor.disabled     = !nextDate;
     }
 
     function updateHeadline() {
@@ -302,8 +330,9 @@ require_once __DIR__ . '/../navbar.php'; // nur die Navbar
         tageUeberschrift.textContent = text;
     }
 
-    function renderTag(datum) {
-        const eintraegeTag = tageDaten[datum] || [];
+    function renderTagData(data) {
+        const datum        = data.date;
+        const eintraegeTag = data.entries || [];
         let summe = 0;
         eintraegeTag.forEach(e => {
             summe += Number(e.kalorien) || 0;
@@ -319,8 +348,9 @@ require_once __DIR__ . '/../navbar.php'; // nur die Navbar
 
         eintraegeTag.forEach(e => {
             const zeit = (e.tstamp || '').substr(11, 5);
-            const id = Number(e.id) || 0;
+            const id   = Number(e.id) || 0;
             const kcal = Number(e.kalorien) || 0;
+
             html += '<tr>';
             html += '<td>' + escHtml(zeit) + '</td>';
             html += '<td>' + escHtml(e.beschreibung || '') + '</td>';
@@ -354,42 +384,77 @@ require_once __DIR__ . '/../navbar.php'; // nur die Navbar
         if (tageTbody) {
             tageTbody.innerHTML = html;
         }
+
+        aktuellesDatum = datum;
+        prevDate       = data.prev || null;
+        nextDate       = data.next || null;
+
+        if (dateInput) {
+            dateInput.value = datum;
+        }
+
         updateHeadline();
         updateButtons();
     }
 
-    if (btnTagZurueck && btnTagVor) {
-        btnTagZurueck.addEventListener('click', () => {
-            if (aktuellerIndex > 0) {
-                aktuellerIndex--;
-                aktuellesDatum = sortierteTage[aktuellerIndex];
-                renderTag(aktuellesDatum);
+    async function loadDay(dateStr) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('ajax', 'tag');
+        url.searchParams.set('date', dateStr);
+
+        try {
+            const res = await fetch(url.toString(), {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            if (!res.ok) {
+                console.error('Fehler beim Laden des Tages', res.status);
+                return;
+            }
+            const data = await res.json();
+            if (data && !data.error) {
+                renderTagData(data);
+            } else {
+                console.error('Antwort-Fehler:', data.error);
+            }
+        } catch (err) {
+            console.error('AJAX-Fehler:', err);
+        }
+    }
+
+    if (dateInput) {
+        dateInput.value = aktuellesDatum;
+        dateInput.addEventListener('change', () => {
+            const val = dateInput.value;
+            if (val) {
+                loadDay(val);
             }
         });
+    }
 
+    if (btnTagZurueck) {
+        btnTagZurueck.addEventListener('click', () => {
+            if (prevDate) {
+                loadDay(prevDate);
+            }
+        });
+    }
+
+    if (btnTagVor) {
         btnTagVor.addEventListener('click', () => {
-            if (aktuellerIndex < sortierteTage.length - 1) {
-                aktuellerIndex++;
-                aktuellesDatum = sortierteTage[aktuellerIndex];
-                renderTag(aktuellesDatum);
+            if (nextDate) {
+                loadDay(nextDate);
             }
         });
     }
 
     if (btnTagHeute) {
         btnTagHeute.addEventListener('click', () => {
-            aktuellesDatum = heuteStr;
-            if (!sortierteTage.includes(heuteStr)) {
-                sortierteTage.push(heuteStr);
-                sortierteTage.sort();
-            }
-            aktuellerIndex = sortierteTage.indexOf(heuteStr);
-            renderTag(aktuellesDatum);
+            loadDay(heuteStr);
         });
     }
 
-    // Initialer Render
-    renderTag(aktuellesDatum);
+    // Initialer Render: ausgewähltes Datum (Standard: heute)
+    loadDay(aktuellesDatum);
 </script>
 
 </body>
