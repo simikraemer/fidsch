@@ -30,7 +30,7 @@ if (!$row) {
     exit;
 }
 
-// Dokument-Verf�gbarkeit ermitteln (Datei benannt nach transfer_ID)
+// Dokument-Verfügbarkeit ermitteln (Datei benannt nach transfer_ID)
 $docUrl = null;
 $uploadDir = __DIR__ . '/../uploads/transfers';
 $allowedExts = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp'];

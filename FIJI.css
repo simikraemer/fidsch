@@ -697,3 +697,241 @@ input, select, textarea {
   background: #eee;
   color: #333;
 }
+
+
+
+/* Lernkarten – Fragen (neue Klassen) */
+
+.frage-bild-thumb {
+    max-width: 80px;
+    max-height: 80px;
+    border-radius: var(--border-radius);
+    border: 1px solid #ddd;
+    object-fit: cover;
+    box-shadow: var(--shadow);
+}
+
+.frage-bild-preview {
+    max-width: 140px;
+    max-height: 140px;
+    border-radius: var(--border-radius);
+    border: 1px solid #ddd;
+    object-fit: contain;
+    box-shadow: var(--shadow);
+    background-color: #fafafa;
+}
+
+#bildPreviewWrapper {
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed #ddd;
+    border-radius: var(--border-radius);
+    padding: 6px;
+    background-color: #fffdf8;
+}
+
+.antwort-row {
+    border: 1px solid #eee;
+    border-radius: var(--border-radius);
+    padding: 8px 10px;
+    margin-top: 6px;
+    background-color: #fffaf5;
+}
+
+.antwort-row-main {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.antwort-row-main input[type="text"] {
+    flex: 1;
+}
+
+.antwort-korrekt-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    font-size: 0.9rem;
+}
+
+.antwort-row-meta {
+    margin-top: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.antwort-row-meta input[type="text"] {
+    flex: 1;
+}
+
+.antwort-remove-btn {
+    padding: 6px 10px;
+    font-size: 0.9rem;
+}
+
+/* Sci-Lernkarten: zusätzliche Styles */
+
+.content-wrap-sci {
+    max-width: 1000px;
+}
+
+/* Modal über Navbar + scrollbarer Inhalt */
+.modal.modal-sci {
+    z-index: 10000;
+}
+
+.modal-content-sci {
+    width: 900px;
+    max-width: 95vw;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+/* Filterleiste kompakter */
+.fragen-filter {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    flex: 1;
+}
+
+/* Checkbox/Radio nicht full-width */
+input[type="checkbox"],
+input[type="radio"] {
+    width: auto;
+    margin: 0 4px 0 0;
+}
+
+/* Inline Checkbox oben rechts im Modal */
+.input-group-inline-checkbox {
+    flex: 0 0 auto;
+    align-self: flex-end;
+    padding-bottom: 4px;
+}
+
+.inline-checkbox-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+/* Fragebild in Karten + Modal */
+.frage-bild-thumb {
+    max-width: 80px;
+    max-height: 80px;
+    border-radius: var(--border-radius);
+    border: 1px solid #ddd;
+    object-fit: cover;
+    box-shadow: var(--shadow);
+}
+
+.frage-bild-preview {
+    max-width: 140px;
+    max-height: 140px;
+    border-radius: var(--border-radius);
+    border: 1px solid #ddd;
+    object-fit: contain;
+    box-shadow: var(--shadow);
+    background-color: #fafafa;
+}
+
+#bildPreviewWrapper {
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed #ddd;
+    border-radius: var(--border-radius);
+    padding: 6px;
+    background-color: #fffdf8;
+}
+
+/* Antwortoptionen-Container */
+#antwortOptionenContainer {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Einzelne Antwort */
+.antwort-row {
+    border-radius: var(--border-radius);
+    padding: 10px 12px;
+    background-color: #fffaf5;
+    box-shadow: var(--shadow);
+}
+
+.antwort-row-main {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.antwort-row-main input[type="text"] {
+    flex: 1;
+}
+
+.antwort-korrekt-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    font-size: 0.9rem;
+}
+
+.antwort-row-meta {
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.antwort-row-meta input[type="text"] {
+    flex: 1;
+}
+
+.antwort-remove-btn {
+    padding: 6px 10px;
+    font-size: 0.9rem;
+}
+
+/* Bild als Antwort */
+.antwort-row-bild {
+    margin-top: 8px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+}
+
+.antwort-bild-upload {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.antwort-bild-preview-wrapper {
+    width: 80px;
+    min-height: 60px;
+    border-radius: var(--border-radius);
+    border: 1px dashed #ddd;
+    background-color: #fffdf8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.antwort-bild-preview {
+    max-width: 70px;
+    max-height: 70px;
+    object-fit: contain;
+    display: block;
+}

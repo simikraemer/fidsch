@@ -4,7 +4,7 @@ $path = trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/');
 
 // --- Routing-Tabellen ---
 $routesFit = [
-    'start'         => 'Start.php',          // /fit/ → Start.php
+    'start'    => 'Start.php',          // /fit/ → Start.php
     'stats'    => 'Start.php',
     'kalorien' => 'Kalorien_New.php',
     'kalorien_data' => 'Kalorien_Data.php',
@@ -14,8 +14,15 @@ $routesFit = [
 ];
 
 $routesBiz = [
-    'start'         => 'Start.php',
+    'start'    => 'Start.php',
     'stats'    => 'Start.php',
+    'data'     => 'Data.php',
+    'insert'   => 'Insert.php',
+];
+
+$routesSci = [
+    'start'    => 'Fragen.php',
+    'fragen'   => 'Fragen.php',
     'data'     => 'Data.php',
     'insert'   => 'Insert.php',
 ];
@@ -46,6 +53,16 @@ if (str_starts_with($path, 'fit')) {
         http_response_code(404);
         echo "Seite nicht gefunden.";
     }
+
+} elseif (str_starts_with($path, 'sci')) {
+    $slug = trim(preg_replace('#^sci/?#', '', $path), '/');
+    if (array_key_exists($slug, $routesSci)) {
+        require __DIR__ . '/sci/' . $routesSci[$slug];
+    } else {
+        http_response_code(404);
+        echo "Seite nicht gefunden.";
+    }
+
 
 } elseif (str_starts_with($path, 'tools')) {
     $slug = trim(preg_replace('#^tools/?#', '', $path), '/');
