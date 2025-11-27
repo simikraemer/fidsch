@@ -276,6 +276,14 @@ require_once __DIR__ . '/../navbar.php';
                oninput="updateMonat(this.value)"
                onchange="document.getElementById('zeitForm').submit()">
     </form>
+
+    <!-- NEU: Alkohol-Checkbox -->
+    <div class="zeitbereich-toggle">
+        <label for="toggleAlk">
+            Alkohol anzeigen
+            <input type="checkbox" id="toggleAlk">
+        </label>
+    </div>
 </div>
 
 <div class="chart-row">
@@ -284,25 +292,26 @@ require_once __DIR__ . '/../navbar.php';
     <canvas id="kalorienChart"></canvas>
   </div>
   <div class="chart-half">
-    <h2 class="ueberschrift">Gewicht | <?= ($erstesGewicht !== null ? $erstesGewicht : '—') . " kg -> " . ($letztesGewicht !== null ? $letztesGewicht : '—') ?> kg</h2>
+    <h2 class="ueberschrift">Körpergewicht | <?= ($erstesGewicht !== null ? $erstesGewicht : '—') . " kg -> " . ($letztesGewicht !== null ? $letztesGewicht : '—') ?> kg</h2>
     <canvas id="gewichtChart"></canvas>
   </div>
 </div>
 
-<div class="chart-row">
-  <div class="chart-quarter">
-    <h2 class="ueberschrift">Eiweiß | Ø<?= (int)$eiweissDurchschnitt ?> g/Tag</h2>
+<!-- MAKRO-CHARTS: IDs + Alkohol-Block wieder aktivieren -->
+<div class="chart-row" id="macroChartRow">
+  <div class="chart-third" id="macroProtein">
+    <h2 class="ueberschrift">Protein | Ø<?= (int)$eiweissDurchschnitt ?> g/Tag</h2>
     <canvas id="eiweissChart"></canvas>
   </div>
-  <div class="chart-quarter">
+  <div class="chart-third" id="macroFat">
     <h2 class="ueberschrift">Fett | Ø<?= (int)$fettDurchschnitt ?> g/Tag</h2>
     <canvas id="fettChart"></canvas>
   </div>
-  <div class="chart-quarter">
+  <div class="chart-third" id="macroCarb">
     <h2 class="ueberschrift">Carbs | Ø<?= (int)$khDurchschnitt ?> g/Tag</h2>
     <canvas id="khChart"></canvas>
   </div>
-  <!-- <div class="chart-quarter">
+  <!-- <div class="chart-quarter" id="macroAlc" style="display:none;">
     <h2 class="ueberschrift">
       Alkohol | Ø <span class="censor">
         <span class="value"><?= (int)$alkDurchschnitt ?></span>
@@ -312,6 +321,12 @@ require_once __DIR__ . '/../navbar.php';
       <canvas id="alkChart"></canvas>
     </div>
   </div> -->
+  <div class="chart-quarter" id="macroAlc" style="display:none;">
+    <h2 class="ueberschrift">
+      Alkohol | Ø <span class="value"><?= (int)$alkDurchschnitt ?></span>g/Tag
+    </h2>
+    <canvas id="alkChart"></canvas>
+  </div>
 </div>
 
 <!-- Scripts am Ende des Body -->
@@ -531,9 +546,13 @@ function computeTrend(values) {
 }
 
 // Hilfsfunktion: erzeugt ein Nährwert-Chart mit Tageskreuzen + durchgehender KW-Linie
+
 function makeMacroChart(canvasId, dailyData, weeklyData, color, label) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+
   const trend = computeTrend(dailyData);
-  new Chart(document.getElementById(canvasId).getContext('2d'), {
+  new Chart(canvas.getContext('2d'), {
     type: 'line',
     data: {
       labels: labels,
@@ -594,11 +613,55 @@ function makeMacroChart(canvasId, dailyData, weeklyData, color, label) {
   });
 }
 
-// Aufrufe für die vier Nährwert-Diagramme (NICHT hidden)
+// Aufrufe für die vier Nährwert-Diagramme (wie gehabt)
 makeMacroChart('eiweissChart', eiweissTage, eiweissKW, colorProtein, 'Eiweiß');
 makeMacroChart('fettChart',    fettTage,    fettKW,    colorFat,     'Fett');
 makeMacroChart('khChart',      khTage,      khKW,      colorCarb,    'Kohlenhydrate');
 makeMacroChart('alkChart',     alkTage,     alkKW,     colorAlc,     'Alkohol');
+
+function applyAlcoholToggle() {
+  const checkbox   = document.getElementById('toggleAlk');
+  const enabled    = checkbox && checkbox.checked;
+
+  const proteinDiv = document.getElementById('macroProtein');
+  const fatDiv     = document.getElementById('macroFat');
+  const carbDiv    = document.getElementById('macroCarb');
+  const alcDiv     = document.getElementById('macroAlc');
+
+  const baseDivs   = [proteinDiv, fatDiv, carbDiv];
+
+  if (alcDiv) {
+    alcDiv.style.display = enabled ? '' : 'none';
+  }
+
+  if (enabled) {
+    // alle vier auf chart-quarter
+    [...baseDivs, alcDiv].forEach(div => {
+      if (!div) return;
+      div.classList.remove('chart-third');
+      if (!div.classList.contains('chart-quarter')) {
+        div.classList.add('chart-quarter');
+      }
+    });
+  } else {
+    // nur drei sichtbar, auf chart-third
+    baseDivs.forEach(div => {
+      if (!div) return;
+      div.classList.remove('chart-quarter');
+      if (!div.classList.contains('chart-third')) {
+        div.classList.add('chart-third');
+      }
+    });
+  }
+}
+
+// Initialisierung nach Laden des Scripts
+const toggleAlkElement = document.getElementById('toggleAlk');
+if (toggleAlkElement) {
+  toggleAlkElement.checked = false; // Standard: deaktiviert
+  applyAlcoholToggle();
+  toggleAlkElement.addEventListener('change', applyAlcoholToggle);
+}
 
 function updateMonat(val){ document.getElementById('monatWert').textContent = val; }
 </script>
