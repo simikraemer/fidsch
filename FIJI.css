@@ -351,10 +351,6 @@ input, select, textarea {
     font-size: 1rem;
 }
 
-.zeitbereich-toggle input[type="checkbox"] {
-    margin-left: -3rem;
-}
-
 .food-table {
     width: 100%;
     border-collapse: collapse;
