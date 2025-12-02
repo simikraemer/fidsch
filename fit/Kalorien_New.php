@@ -94,11 +94,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $alkohol      = (float)($_POST['alkohol'] ?? 0);
     $anzahl       = max(1, (int)($_POST['anzahl'] ?? 1)); // Standard = 1
 
-    // Zeitlogik: bis 03:00 Uhr der Vortag (23:59)
     $jetzt = new DateTime();
-    if ((int)$jetzt->format('H') < 3) {
-        $jetzt->modify('-1 day')->setTime(23, 59);
-    }
+    #// Zeitlogik: bis 03:00 Uhr der Vortag (23:59)
+    #if ((int)$jetzt->format('H') < 3) {
+    #    $jetzt->modify('-1 day')->setTime(23, 59);
+    #}
     $tstamp = $jetzt->format('Y-m-d H:i:s');
 
     if ($beschreibung !== '' && $kalorien > 0) {

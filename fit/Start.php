@@ -10,7 +10,7 @@ require_once __DIR__ . '/../db.php';
 // 3) Variablen + Zeitraum bestimmen (POST-Verarbeitung gibt es hier nicht)
 $grundbedarf  = 2200;
 $kalorienziel = 3000;
-$standard_Monatsanzeige = 12;
+$standard_Monatsanzeige = 7;
 
 $monate    = isset($_GET['monate']) ? max(1, min(12, (int)$_GET['monate'])) : $standard_Monatsanzeige;
 $startDate = (new DateTime("-{$monate} months"))->format('Y-m-d');
