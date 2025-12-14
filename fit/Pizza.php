@@ -28,6 +28,7 @@ require_once __DIR__ . '/../navbar.php';  // nur die Navbar
                     <option value="prosciutto">Prosciutto</option>
                     <option value="vegetarisch">Vegetarisch</option>
                     <option value="bbqchicken">BBQ Chicken</option>
+                    <option value="spianata">Spianata Picante</option>
                 </select>
             </div>
             <div class="input-group">
@@ -118,7 +119,8 @@ document.addEventListener('DOMContentLoaded', function () {
         tonno: 2.4,
         prosciutto: 2.4,
         vegetarisch: 2.1,
-        bbqchicken: 2.7
+        bbqchicken: 2.7,
+        spianata: 2.6
     };
 
     // Makroverteilung pro Sorte (Anteil der kcal)
@@ -132,7 +134,8 @@ document.addEventListener('DOMContentLoaded', function () {
         tonno:          { protein: 0.22, fat: 0.34, carbs: 0.44 },
         prosciutto:     { protein: 0.18, fat: 0.36, carbs: 0.46 },
         vegetarisch:    { protein: 0.15, fat: 0.30, carbs: 0.55 },
-        bbqchicken:     { protein: 0.20, fat: 0.40, carbs: 0.40 }
+        bbqchicken:     { protein: 0.20, fat: 0.40, carbs: 0.40 },
+        spianata:       { protein: 0.18, fat: 0.45, carbs: 0.37 }
     };
 
     function berechneKalorien() {
