@@ -10,19 +10,46 @@ require_once __DIR__ . '/../db.php';
 // 3) Variablen + Zeitraum bestimmen (POST-Verarbeitung gibt es hier nicht)
 $grundbedarf  = 2200;
 $kalorienziel = 3000;
-$standard_Monatsanzeige = 7;
 
-$monate    = isset($_GET['monate']) ? max(1, min(12, (int)$_GET['monate'])) : $standard_Monatsanzeige;
-$startDate = (new DateTime("-{$monate} months"))->format('Y-m-d');
+$aktJahr = (int)(new DateTime())->format('Y');
+
+// verfügbare Jahre (nur Jahre, in denen irgendeine Tabelle Daten hat)
+$verfuegbareJahre = [];
+$yearsSql = "
+    SELECT DISTINCT y FROM (
+        SELECT YEAR(tstamp) AS y FROM kalorien
+        UNION
+        SELECT YEAR(tstamp) AS y FROM training
+        UNION
+        SELECT YEAR(tstamp) AS y FROM gewicht
+    ) t
+    WHERE y IS NOT NULL
+    ORDER BY y DESC
+";
+if ($res = $fitconn->query($yearsSql)) {
+    while ($r = $res->fetch_assoc()) $verfuegbareJahre[] = (int)$r['y'];
+    $res->free();
+}
+if (!$verfuegbareJahre) $verfuegbareJahre = [$aktJahr]; // Fallback, falls DB leer
+
+$jahr = isset($_GET['jahr']) ? (int)$_GET['jahr'] : $aktJahr;
+
+// Default: aktuelles Jahr, aber nur wenn vorhanden; sonst neuestes Jahr mit Daten
+if (!in_array($jahr, $verfuegbareJahre, true)) {
+    $jahr = in_array($aktJahr, $verfuegbareJahre, true) ? $aktJahr : $verfuegbareJahre[0];
+}
+
+$startDate = sprintf('%04d-01-01', $jahr);
+$endDate   = sprintf('%04d-01-01', $jahr + 1); // exklusives Ende
 
 // 4) Brutto-Kalorien (nur Zufuhr)
 $stmt = $fitconn->prepare("
     SELECT DATE(tstamp) AS tag, SUM(kalorien) AS kalorien
     FROM kalorien
-    WHERE tstamp >= ?
+    WHERE tstamp >= ? AND tstamp < ?
     GROUP BY DATE(tstamp)
 ");
-$stmt->bind_param('s', $startDate);
+$stmt->bind_param('ss', $startDate, $endDate);
 $stmt->execute();
 $result = $stmt->get_result();
 
@@ -45,10 +72,10 @@ $stmt = $fitconn->prepare("
         SUM(`kohlenhydrate`) AS kh,
         SUM(`alkohol`)       AS alk
     FROM kalorien
-    WHERE tstamp >= ?
+    WHERE tstamp >= ? AND tstamp < ?
     GROUP BY DATE(tstamp)
 ");
-$stmt->bind_param('s', $startDate);
+$stmt->bind_param('ss', $startDate, $endDate);
 $stmt->execute();
 $result = $stmt->get_result();
 
@@ -69,16 +96,16 @@ $stmt->close();
 $stmt = $fitconn->prepare("
     SELECT DATE(tstamp) AS tag, SUM(kalorien) AS gesamt
     FROM kalorien
-    WHERE tstamp >= ?
+    WHERE tstamp >= ? AND tstamp < ?
     GROUP BY DATE(tstamp)
     UNION ALL
     SELECT DATE(tstamp) AS tag, -SUM(kalorien) AS gesamt
     FROM training
-    WHERE tstamp >= ?
+    WHERE tstamp >= ? AND tstamp < ?
     GROUP BY DATE(tstamp)
     ORDER BY tag
 ");
-$stmt->bind_param('ss', $startDate, $startDate);
+$stmt->bind_param('ssss', $startDate, $endDate, $startDate, $endDate);
 $stmt->execute();
 $result = $stmt->get_result();
 
@@ -99,10 +126,10 @@ $nettoDurchschnitt    = $tageMitNettoWerten > 0 ? round($nettoSumme / $tageMitNe
 $stmt = $fitconn->prepare("
     SELECT DATE(tstamp) AS tag, AVG(gewicht) AS gewicht
     FROM gewicht
-    WHERE tstamp >= ?
+    WHERE tstamp >= ? AND tstamp < ?
     GROUP BY DATE(tstamp)
 ");
-$stmt->bind_param('s', $startDate);
+$stmt->bind_param('ss', $startDate, $endDate);
 $stmt->execute();
 $result = $stmt->get_result();
 
@@ -114,8 +141,11 @@ $stmt->close();
 
 // 7) Alle Tage im Zeitraum
 $alleTage = [];
-$heute    = new DateTime();
-$periode  = new DatePeriod(new DateTime($startDate), new DateInterval('P1D'), $heute);
+$periode  = new DatePeriod(
+    new DateTime($startDate),
+    new DateInterval('P1D'),
+    new DateTime($endDate) // exklusiv
+);
 foreach ($periode as $datum) $alleTage[] = $datum->format('Y-m-d');
 
 // 8a) Serien für Charts vorbereiten
@@ -262,28 +292,22 @@ require_once __DIR__ . '/../navbar.php';
 ?>
 <!-- Seiteninhalt -->
 <div class="zeitbereich-container">
-    <form method="get" id="zeitForm" class="zeitbereich-form">
-        <label for="monatRange" class="zeitbereich-label">
-            Zeitraum: <span id="monatWert"><?= htmlspecialchars((string)$monate, ENT_QUOTES) ?> Monate</span>
-        </label>
-        <input type="range"
-               id="monatRange"
-               name="monate"
-               min="1"
-               max="12"
-               value="<?= htmlspecialchars((string)$monate, ENT_QUOTES) ?>"
-               class="zeitbereich-slider"
-               oninput="updateMonat(this.value)"
-               onchange="document.getElementById('zeitForm').submit()">
-    </form>
-
-    <!-- NEU: Alkohol-Checkbox -->
-    <div class="zeitbereich-toggle">
-        <label for="toggleAlk">
-            Alkohol anzeigen
-            <input type="checkbox" id="toggleAlk">
-        </label>
-    </div>
+  <form method="get" id="zeitForm" class="zeitbereich-form">
+    <select id="jahrSelect" name="jahr" class="zeitbereich-select"
+            onchange="document.getElementById('zeitForm').submit()">
+      <?php foreach ($verfuegbareJahre as $y): ?>
+        <option value="<?= (int)$y ?>" <?= ((int)$y === (int)$jahr ? 'selected' : '') ?>>
+          <?= (int)$y ?>
+        </option>
+      <?php endforeach; ?>
+    </select>
+  </form>
+  <div class="zeitbereich-toggle">
+    <label for="toggleAlk">
+      Alkohol anzeigen
+      <input type="checkbox" id="toggleAlk">
+    </label>
+  </div>
 </div>
 
 <div class="chart-row">
@@ -663,7 +687,6 @@ if (toggleAlkElement) {
   toggleAlkElement.addEventListener('change', applyAlcoholToggle);
 }
 
-function updateMonat(val){ document.getElementById('monatWert').textContent = val; }
 </script>
 
 </body>
