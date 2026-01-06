@@ -243,7 +243,7 @@ require_once __DIR__ . '/../head.php';    // <!DOCTYPE html> … <body>
 require_once __DIR__ . '/../navbar.php';  // Navbar
 ?>
 <div class="container" style="max-width: 1200px;">
-    <h1 class="ueberschrift">Statistik <?= htmlspecialchars((string)$jahr, ENT_QUOTES) ?></h1>
+    <!-- <h1 class="ueberschrift">Statistik <?= htmlspecialchars((string)$jahr, ENT_QUOTES) ?></h1> -->
 
     <!-- Jahr-Auswahl -->
     <form method="get" class="zeitbereich-form" style="margin-bottom: 1rem;">
