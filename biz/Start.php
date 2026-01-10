@@ -311,20 +311,83 @@ require_once __DIR__ . '/../navbar.php';  // Navbar
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+
 <script>
 const dailyData   = <?= $dailyJson ?>;
 const monthlyData = <?= $monthlyJson ?>;
 const catDailyData = <?= $catDailyJson ?>;
 const selectedCategory       = <?= json_encode($selectedKat) ?>;
 const selectedCategoryLabel  = <?= json_encode($selectedKatLabel, JSON_UNESCAPED_UNICODE) ?>;
+const chartYear              = <?= (int)$jahr ?>;
 
 const fmtEuro = (v) => new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'}).format(Number(v||0));
 
-// <<< HIER ANPASSEN: Datensätze je nach Auswahl bauen >>>
+/* --- NEU: Monats-Gitterlinien am Monatsanfang, Labels in Monatsmitte (deutsche Monatsabkürzung) --- */
+function daysInMonthUTC(year, monthIndex0) {
+  return new Date(Date.UTC(year, monthIndex0 + 1, 0)).getUTCDate();
+}
+function monthStartMsUTC(year, monthIndex0) {
+  return Date.UTC(year, monthIndex0, 1, 0, 0, 0);
+}
+function monthMidMsUTC(year, monthIndex0) {
+  const dim = daysInMonthUTC(year, monthIndex0);
+  const start = monthStartMsUTC(year, monthIndex0);
+  const midDayOffset = Math.floor(dim / 2);
+  return start + (midDayOffset * 86400000) + (12 * 3600000); // +12:00 UTC
+}
+function fmtMonthDE(ms) {
+  return new Intl.DateTimeFormat('de-DE', { month: 'short' })
+    .format(new Date(ms))
+    .replace('.', ''); // "Jan." -> "Jan"
+}
+
+const midMonthLabelsPlugin = {
+  id: 'midMonthLabelsPlugin',
+  afterDraw(chart) {
+    const scale = chart?.scales?.x;
+    if (!scale || scale.type !== 'time') return;
+
+    const xOpts = scale.options || {};
+    if (!xOpts.midMonthLabels) return;
+
+    const year = (typeof xOpts.midMonthLabelYear === 'number') ? xOpts.midMonthLabelYear : chartYear;
+    const compactW = xOpts.midMonthLabelCompactWidth ?? 420;
+    const step = (typeof scale.width === 'number' && scale.width < compactW) ? 2 : 1; // 12 oder 6 Labels
+
+    // Tick-Font/Farbe übernehmen
+    let fontStr = '12px sans-serif';
+    try {
+      if (Chart?.helpers?.toFont) fontStr = Chart.helpers.toFont(xOpts.ticks?.font).string;
+    } catch (_) {}
+    const color = xOpts.ticks?.color ?? Chart.defaults.color ?? '#666';
+
+    const ctx = chart.ctx;
+    ctx.save();
+    ctx.font = fontStr;
+    ctx.fillStyle = color;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+
+    const y = scale.bottom - 2;
+
+    for (let m = 0; m < 12; m++) {
+      if (step === 2 && (m % 2 === 1)) continue;
+      const midMs = monthMidMsUTC(year, m);
+      const x = scale.getPixelForValue(midMs);
+      ctx.fillText(fmtMonthDE(midMs), x, y);
+    }
+
+    ctx.restore();
+  }
+};
+
+// einmalig registrieren (vor dem ersten Chart)
+Chart.register(midMonthLabelsPlugin);
+
+/* <<< HIER ANPASSEN: Datensätze je nach Auswahl bauen >>> */
 const datasets = [];
 
 if (!selectedCategory || selectedCategory === 'all') {
-  // Standard: alle Kategorien -> Kontostand-Gesamt anzeigen
   datasets.push(
     {
       label: 'Kontostand (Monatsbeginn)',
@@ -346,7 +409,6 @@ if (!selectedCategory || selectedCategory === 'all') {
     }
   );
 } else if (Array.isArray(catDailyData) && catDailyData.length > 0) {
-  // Spezifische Kategorie gewählt -> nur deren Verlauf anzeigen
   datasets.push({
     label: 'Kategorie-Verlauf: ' + selectedCategoryLabel,
     data: catDailyData,
@@ -361,9 +423,7 @@ if (!selectedCategory || selectedCategory === 'all') {
 const saldoCtx = document.getElementById('saldoChart').getContext('2d');
 new Chart(saldoCtx, {
   type: 'line',
-  data: {
-    datasets: datasets
-  },
+  data: { datasets },
   options: {
     responsive: true,
     interaction: { mode: 'index', intersect: false },
@@ -379,7 +439,19 @@ new Chart(saldoCtx, {
       x: {
         type: 'time',
         time: { unit: 'month', tooltipFormat: 'dd.MM.yyyy' },
-        ticks: { maxRotation: 0, autoSkip: true }
+
+        // Plugin-Flags
+        midMonthLabels: true,
+        midMonthLabelYear: chartYear,
+        midMonthLabelCompactWidth: 420,
+
+        // Gridlines bleiben an Monatsanfängen, Tick-Text verstecken (Labels malt Plugin)
+        ticks: {
+          autoSkip: false,
+          maxRotation: 0,
+          minRotation: 0,
+          callback: () => ' '
+        }
       },
       y: {
         beginAtZero: false,

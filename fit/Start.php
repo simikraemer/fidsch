@@ -358,6 +358,8 @@ require_once __DIR__ . '/../navbar.php';
 <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.3/build/global/luxon.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.2.1"></script>
+
+
 <script>
 const labels        = <?= $labels ?>;
 const grundbedarf   = <?= (int)$grundbedarf ?>;
@@ -380,7 +382,93 @@ const colorFat     = '#ff9900ff';   // orange
 const colorCarb    = '#008f07ff';   // grün
 const colorAlc     = '#d60303ff';   // violett
 
-// Kalorien-Diagramm (unverändert ohne Nährwerte)
+// Luxon: deutsche Monatsnamen
+luxon.Settings.defaultLocale = 'de';
+
+// Monats-Starts aus dem labels-Array ableiten (ISO-Strings)
+function monthStartsFromLabels(allLabels) {
+  if (!Array.isArray(allLabels) || allLabels.length === 0) return [];
+  const first = luxon.DateTime.fromISO(allLabels[0]).startOf('month');
+  const last  = luxon.DateTime.fromISO(allLabels[allLabels.length - 1]).startOf('month');
+  const out = [];
+  for (let cur = first; cur <= last; cur = cur.plus({ months: 1 })) out.push(cur);
+  return out;
+}
+
+// Plugin: Labels in die Monatsmitte zeichnen (Gridlines bleiben an Monatsanfängen!)
+const midMonthLabelsPlugin = {
+  id: 'midMonthLabelsPlugin',
+  afterDraw(chart) {
+    const scale = chart.scales?.x;
+    if (!scale || scale.type !== 'time') return;
+
+    const xOpts = scale.options || {};
+    if (!xOpts.midMonthLabels) return;
+
+    const ctx = chart.ctx;
+    const starts = monthStartsFromLabels(labels);
+    if (!starts.length) return;
+
+    const compactW = xOpts.midMonthLabelCompactWidth ?? 300;
+    const step = (typeof scale.width === 'number' && scale.width < compactW) ? 2 : 1;
+
+    // Font/Color wie Ticks
+    let fontStr = '12px sans-serif';
+    try {
+      if (Chart?.helpers?.toFont) fontStr = Chart.helpers.toFont(xOpts.ticks?.font).string;
+    } catch (_) {}
+    const color = xOpts.ticks?.color ?? Chart.defaults.color ?? '#666';
+
+    ctx.save();
+    ctx.font = fontStr;
+    ctx.fillStyle = color;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+
+    // innerhalb der Achsenbox zeichnen (nicht außerhalb -> kein Clipping)
+    const y = scale.bottom - 2;
+
+    for (let i = 0; i < starts.length; i++) {
+      if (step === 2 && (i % 2 === 1)) continue;
+
+      const start = starts[i];
+      const mid = start.plus({ days: Math.floor(start.daysInMonth / 2), hours: 12 });
+      const x = scale.getPixelForValue(mid.toMillis());
+
+      ctx.fillText(mid.setLocale('de').toFormat('MMM'), x, y);
+    }
+
+    ctx.restore();
+  }
+};
+
+// einmalig registrieren (vor den Chart() Konstruktoren)
+Chart.register(midMonthLabelsPlugin);
+
+// X-Achse: Ticks (und damit Gridlines) bleiben an Monatsanfängen, Labels kommen aus Plugin
+function monthXAxisScale() {
+  return {
+    type: 'time',
+    time: {
+      unit: 'month',
+      tooltipFormat: 'dd.MM.yyyy'
+    },
+
+    // custom flags für das Plugin
+    midMonthLabels: true,
+    midMonthLabelCompactWidth: 300,
+
+    ticks: {
+      autoSkip: false,           // Gridlines an jedem Monat
+      maxRotation: 0,
+      minRotation: 0,
+      callback: () => ' '        // built-in Label unsichtbar (Platz bleibt, Gridlines bleiben)
+    }
+  };
+}
+
+
+// Kalorien-Diagramm
 new Chart(document.getElementById('kalorienChart').getContext('2d'), {
     type: 'line',
     data: {
@@ -441,15 +529,7 @@ new Chart(document.getElementById('kalorienChart').getContext('2d'), {
             }
         },
         scales: {
-            x: {
-                type: 'time',
-                time: { unit: 'day', tooltipFormat: 'dd.MM.yyyy' },
-                ticks: {
-                    source: 'auto', autoSkip: true, maxTicksLimit: 15,
-                    callback: (value) => luxon.DateTime.fromMillis(value).toFormat('dd.MM.'),
-                    maxRotation: 0, minRotation: 0
-                }
-            },
+            x: monthXAxisScale(),
             y: { beginAtZero: true }
         }
     }
@@ -505,15 +585,7 @@ new Chart(document.getElementById('gewichtChart').getContext('2d'), {
             }
         },
         scales: {
-            x: {
-                type: 'time',
-                time: { unit: 'day', tooltipFormat: 'dd.MM.yyyy' },
-                ticks: {
-                    source: 'auto', autoSkip: true, maxTicksLimit: 15,
-                    callback: (value) => luxon.DateTime.fromMillis(value).toFormat('dd.MM.'),
-                    maxRotation: 0, minRotation: 0
-                }
-            },
+            x: monthXAxisScale(),
             y: { beginAtZero: false, min: 80 }
         }
     }
@@ -521,23 +593,20 @@ new Chart(document.getElementById('gewichtChart').getContext('2d'), {
 
 function withAlpha(color, alpha = 0.5) {
   if (typeof color !== 'string') return color;
-  // Hex -> rgba
   if (color.startsWith('#')) {
     let hex = color.slice(1);
-    if (hex.length === 8) hex = hex.slice(0, 6);       // #RRGGBBAA -> #RRGGBB
-    if (hex.length === 3) hex = hex.split('').map(c => c + c).join(''); // #RGB -> #RRGGBB
+    if (hex.length === 8) hex = hex.slice(0, 6);
+    if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
     const num = parseInt(hex, 16);
     const r = (num >> 16) & 255, g = (num >> 8) & 255, b = num & 255;
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
-  // rgb() -> rgba()
   if (color.startsWith('rgb(')) {
-    const comps = color.slice(4, -1); // "r, g, b"
+    const comps = color.slice(4, -1);
     return `rgba(${comps}, ${alpha})`;
   }
-  // rgba() -> rgba() mit neuer Alpha
   if (color.startsWith('rgba(')) {
-    const parts = color.slice(5, -1).split(',').map(s => s.trim()); // [r,g,b,a]
+    const parts = color.slice(5, -1).split(',').map(s => s.trim());
     return `rgba(${parts[0]}, ${parts[1]}, ${parts[2]}, ${alpha})`;
   }
   return color;
@@ -568,8 +637,6 @@ function computeTrend(values) {
   }
   return out;
 }
-
-// Hilfsfunktion: erzeugt ein Nährwert-Chart mit Tageskreuzen + durchgehender KW-Linie
 
 function makeMacroChart(canvasId, dailyData, weeklyData, color, label) {
   const canvas = document.getElementById(canvasId);
@@ -619,15 +686,7 @@ function makeMacroChart(canvasId, dailyData, weeklyData, color, label) {
       responsive: true,
       maintainAspectRatio: false,
       scales: {
-        x: {
-          type: 'time',
-          time: { unit: 'day', tooltipFormat: 'dd.MM.yyyy' },
-          ticks: {
-            source: 'auto', autoSkip: true, maxTicksLimit: 15,
-            callback: (value) => luxon.DateTime.fromMillis(value).toFormat('dd.MM.'),
-            maxRotation: 0, minRotation: 0
-          }
-        },
+        x: monthXAxisScale(),
         y: {
           beginAtZero: true,
           title: { display: false, text: 'Gramm' }
@@ -637,7 +696,6 @@ function makeMacroChart(canvasId, dailyData, weeklyData, color, label) {
   });
 }
 
-// Aufrufe für die vier Nährwert-Diagramme (wie gehabt)
 makeMacroChart('eiweissChart', eiweissTage, eiweissKW, colorProtein, 'Eiweiß');
 makeMacroChart('fettChart',    fettTage,    fettKW,    colorFat,     'Fett');
 makeMacroChart('khChart',      khTage,      khKW,      colorCarb,    'Kohlenhydrate');
@@ -654,40 +712,31 @@ function applyAlcoholToggle() {
 
   const baseDivs   = [proteinDiv, fatDiv, carbDiv];
 
-  if (alcDiv) {
-    alcDiv.style.display = enabled ? '' : 'none';
-  }
+  if (alcDiv) alcDiv.style.display = enabled ? '' : 'none';
 
   if (enabled) {
-    // alle vier auf chart-quarter
     [...baseDivs, alcDiv].forEach(div => {
       if (!div) return;
       div.classList.remove('chart-third');
-      if (!div.classList.contains('chart-quarter')) {
-        div.classList.add('chart-quarter');
-      }
+      if (!div.classList.contains('chart-quarter')) div.classList.add('chart-quarter');
     });
   } else {
-    // nur drei sichtbar, auf chart-third
     baseDivs.forEach(div => {
       if (!div) return;
       div.classList.remove('chart-quarter');
-      if (!div.classList.contains('chart-third')) {
-        div.classList.add('chart-third');
-      }
+      if (!div.classList.contains('chart-third')) div.classList.add('chart-third');
     });
   }
 }
 
-// Initialisierung nach Laden des Scripts
 const toggleAlkElement = document.getElementById('toggleAlk');
 if (toggleAlkElement) {
-  toggleAlkElement.checked = false; // Standard: deaktiviert
+  toggleAlkElement.checked = false;
   applyAlcoholToggle();
   toggleAlkElement.addEventListener('change', applyAlcoholToggle);
 }
-
 </script>
+
 
 </body>
 </html>
