@@ -252,8 +252,8 @@ $fettKWavg    = kwAvgSerie($alleTage, $fettTage);
 $khKWavg      = kwAvgSerie($alleTage, $khTage);
 $alkKWavg     = kwAvgSerie($alleTage, $alkTage);
 
-// 10) einfache Trendlinie über vorhandene Gewichtswerte
-$x = $y = [];
+// 10a) einfache Trendlinie über vorhandene Gewichtswerte
+/* $x = $y = [];
 for ($i = 0; $i < count($gewichtWerte); $i++) {
     if ($gewichtWerte[$i] !== null) { $x[] = $i; $y[] = $gewichtWerte[$i]; }
 }
@@ -269,6 +269,50 @@ if (count($x) > 1) {
         $intercept = ($sumY - $slope*$sumX) / $n;
         for ($i = 0; $i < count($trendWerte); $i++) {
             $trendWerte[$i] = round($slope*$i + $intercept, 1);
+        }
+    }
+} */
+
+// 10b) exponentielle Trendlinie (y = a * e^(b*x)) über vorhandene Gewichtswerte
+$trendWerte = array_fill(0, count($gewichtWerte), null);
+
+$x = [];
+$lny = [];
+
+for ($i = 0; $i < count($gewichtWerte); $i++) {
+    $v = $gewichtWerte[$i];
+    if ($v === null) continue;
+    if ($v <= 0) continue;                 // log() braucht > 0
+
+    $x[]   = (float)$i;
+    $lny[] = log((float)$v);
+}
+
+if (count($x) > 1) {
+    $n = count($x);
+
+    $sumX  = array_sum($x);
+    $sumY  = array_sum($lny);
+
+    $sumXY = 0.0;
+    $sumXX = 0.0;
+    for ($k = 0; $k < $n; $k++) {
+        $sumXY += $x[$k] * $lny[$k];
+        $sumXX += $x[$k] * $x[$k];
+    }
+
+    $den = ($n * $sumXX - $sumX * $sumX);
+    if ($den != 0.0) {
+        $b   = ($n * $sumXY - $sumX * $sumY) / $den;
+        $lnA = ($sumY - $b * $sumX) / $n;
+        $a   = exp($lnA);
+
+        for ($i = 0; $i < count($trendWerte); $i++) {
+            // Variante A: Trendlinie über das komplette Jahr (wie Excel "vorwärts projizieren")
+            $trendWerte[$i] = round($a * exp($b * $i), 1);
+
+            // Variante B: nur da Trend, wo Messwert existiert (falls du es so willst)
+            // $trendWerte[$i] = ($gewichtWerte[$i] === null) ? null : round($a * exp($b * $i), 1);
         }
     }
 }
@@ -546,11 +590,11 @@ new Chart(document.getElementById('kalorienChart').getContext('2d'), {
                     gelbZone:  { type: 'box', yMin: grundbedarf, yMax: kalorienziel, backgroundColor: 'rgba(255,215,0,0.15)', borderWidth: 0 },
                     rotZone:   { type: 'box', yMin: kalorienziel, backgroundColor: 'rgba(255,0,0,0.1)', borderWidth: 0 },
                     grundbedarfline: {
-                        type: 'line', yMin: grundbedarf, yMax: grundbedarf, borderColor: 'green', borderWidth: 2, borderDash: [4,2],
+                        type: 'line', yMin: grundbedarf, yMax: grundbedarf, borderColor: 'green', borderWidth: 2, borderDash: [10,3],
                         label: { display: true, content: 'Grundbedarf', position: 'start', yAdjust: -10, backgroundColor: 'rgba(0,0,0,0)', color: 'green' }
                     },
                     kalorienzielfline: {
-                        type: 'line', yMin: kalorienziel, yMax: kalorienziel, borderColor: 'red', borderWidth: 2, borderDash: [4,2],
+                        type: 'line', yMin: kalorienziel, yMax: kalorienziel, borderColor: 'red', borderWidth: 2, borderDash: [10,3],
                         label: { display: true, content: 'Kalorienlimit', position: 'start', yAdjust: -10, backgroundColor: 'rgba(0,0,0,0)', color: 'red' }
                     }
                 }
@@ -605,9 +649,9 @@ new Chart(document.getElementById('gewichtChart').getContext('2d'), {
             legend: { display: false },
             annotation: {
                 annotations: {
-                    ziel:        { type: 'line', yMin: 90,  yMax: 90,  borderColor: 'green', borderWidth: 2, borderDash: [6,4],
+                    ziel:        { type: 'line', yMin: 90,  yMax: 90,  borderColor: 'green', borderWidth: 2, borderDash: [10,3],
                                    label: { display: true, content: 'Zielgewicht', position: 'start', yAdjust: -10, backgroundColor: 'rgba(0,0,0,0)', color: 'green' } },
-                    zielunten:   { type: 'line', yMin: 85,  yMax: 85,  borderColor: 'green', borderWidth: 2, borderDash: [6,4] },
+                    zielunten:   { type: 'line', yMin: 85,  yMax: 85,  borderColor: 'green', borderWidth: 2, borderDash: [10,3] },
                     zielbereich: { type: 'box',  yMin: 85,  yMax: 90,  backgroundColor: 'rgba(0,200,0,0.15)', borderWidth: 0 },
                     ubergangszone:       { type: 'box', yMin: 90,  yMax: 100, backgroundColor: 'rgba(255,215,0,0.15)', borderWidth: 0 },
                     unakzeptabel:        { type: 'box', yMin: 100,                  backgroundColor: 'rgba(255,0,0,0.15)', borderWidth: 0 },
