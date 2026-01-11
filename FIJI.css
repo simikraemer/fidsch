@@ -1306,3 +1306,173 @@ input[type="radio"] {
 .lt-row:active {
     transform: scale(0.999);
 }
+
+/* =========================
+   Konto-Seite: Header / Filter
+   ========================= */
+
+/* Titel: "Konto 2025" fett, "| Betrag" softer */
+.lt-page-konto .konto-title{
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.lt-page-konto .konto-title-soft{
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+/* Dropdowns rechts in der Topbar */
+.lt-page-konto .konto-filterform{
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+
+/* =========================
+   Konto-Seite: Pie-Cards Grid (2er / 3er)
+   ========================= */
+
+.lt-page-konto .konto-pies{
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+/* 3 Cards nebeneinander (Override) */
+.lt-page-konto .konto-pies.konto-pies-3{
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+
+/* =========================
+   Konto-Seite: Pie-Card Styling
+   ========================= */
+
+.lt-page-konto .konto-pie-card{
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 12px;
+  padding: 14px 14px 12px;
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.lt-page-konto .konto-pie-kpi{
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.lt-page-konto .konto-pie-kpi-label{
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+
+.lt-page-konto .konto-pie-kpi-value{
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+/* Pie Wrapper (quadratisch, kein Stretch) */
+.lt-page-konto .konto-pie-wrap{
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-height: 360px;
+}
+
+.lt-page-konto .konto-pie-wrap > canvas{
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+
+/* =========================
+   Fitness-Seite: Split-Charts im lt-chart-wrap
+   ========================= */
+
+.lt-page-konto .lt-chart-split{
+  --split-gap: 36px;
+  --split-divider-w: 1px;
+  --split-divider: rgba(0,0,0,0.30);
+
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--split-gap);
+  align-items: start;
+  position: relative;
+}
+
+.lt-page-konto .lt-chart-split-item{
+  position: relative;
+  min-width: 0;
+
+  /* verhindert Resize-Loop / "wächst nach unten" */
+  height: 315px;
+  min-height: 260px;
+}
+
+.lt-page-konto .lt-chart-split-item > canvas{
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Vertikaler Trenner mittig im Gap */
+.lt-page-konto .lt-chart-split::after{
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: var(--split-divider-w);
+  background: var(--split-divider);
+  pointer-events: none;
+
+  left: calc(
+    ((100% - var(--split-gap)) / 2) + (var(--split-gap) / 2) - (var(--split-divider-w) / 2)
+  );
+}
+
+
+/* =========================
+   Responsive
+   ========================= */
+
+@media (max-width: 1100px){
+  /* 3er Grid -> 2er Grid */
+  .lt-page-konto .konto-pies.konto-pies-3{
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 820px){
+  /* Pie Grids: 1 Spalte */
+  .lt-page-konto .konto-pies{
+    grid-template-columns: 1fr;
+  }
+
+  .lt-page-konto .konto-pies.konto-pies-3{
+    grid-template-columns: 1fr;
+  }
+
+  /* Split Charts: 1 Spalte + Divider aus */
+  .lt-page-konto .lt-chart-split{
+    grid-template-columns: 1fr;
+  }
+
+  .lt-page-konto .lt-chart-split-item{
+    height: 300px;
+  }
+
+  .lt-page-konto .lt-chart-split::after{
+    display: none;
+  }
+}

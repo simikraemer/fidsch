@@ -269,6 +269,31 @@ function semester_start_ts(string $key): int {
     if ($typ === 'wise') return (new DateTimeImmutable(sprintf('%04d-10-01 00:00:00', $y)))->getTimestamp();
     return (new DateTimeImmutable(sprintf('%04d-04-01 00:00:00', $y)))->getTimestamp();
 }
+function semester_sql_range(string $key): array {
+    if (!preg_match('/^(wise|sose)_(\d{4})$/', $key, $m)) {
+        // Fallback: aktuelles Jahr
+        $y = (int)date('Y');
+        $start = new DateTimeImmutable(sprintf('%04d-01-01 00:00:00', $y));
+        $end   = new DateTimeImmutable(sprintf('%04d-01-01 00:00:00', $y + 1));
+        return [$start->format('Y-m-d H:i:s'), $end->format('Y-m-d H:i:s')];
+    }
+
+    $typ = $m[1];
+    $y   = (int)$m[2];
+
+    if ($typ === 'wise') {
+        // WiSe: 01.10.Y bis 01.04.(Y+1)
+        $start = new DateTimeImmutable(sprintf('%04d-10-01 00:00:00', $y));
+        $end   = new DateTimeImmutable(sprintf('%04d-04-01 00:00:00', $y + 1));
+        return [$start->format('Y-m-d H:i:s'), $end->format('Y-m-d H:i:s')];
+    }
+
+    // SoSe: 01.04.Y bis 01.10.Y
+    $start = new DateTimeImmutable(sprintf('%04d-04-01 00:00:00', $y));
+    $end   = new DateTimeImmutable(sprintf('%04d-10-01 00:00:00', $y));
+    return [$start->format('Y-m-d H:i:s'), $end->format('Y-m-d H:i:s')];
+}
+
 
 $semesterSet = [];
 $curKey = semester_key_for_date(new DateTimeImmutable('now'));
@@ -296,6 +321,28 @@ usort($semesterKeys, fn($a, $b) => semester_start_ts($b) <=> semester_start_ts($
 
 $semester = isset($_GET['semester']) ? (string)$_GET['semester'] : $curKey;
 if (!isset($semesterSet[$semester])) $semester = $semesterKeys[0] ?? $curKey;
+
+[$semStartSql, $semEndSql] = semester_sql_range($semester);
+
+$stmt = $sciconn->prepare("
+    SELECT COALESCE(SUM(COALESCE(dauer_sekunden, 0)), 0) AS sum_sec
+    FROM lerntime
+    WHERE erledigt_am IS NOT NULL
+      AND erledigt_am >= ?
+      AND erledigt_am < ?
+");
+$stmt->bind_param('ss', $semStartSql, $semEndSql);
+$stmt->execute();
+$res = $stmt->get_result();
+$row = $res ? $res->fetch_assoc() : null;
+$stmt->close();
+
+$semesterLernzeitSekunden = (int)($row['sum_sec'] ?? 0);
+
+/* Anzeige-Wert (du kannst hier wählen)
+   - als ganze Stunden:
+*/
+$semesterLernzeitStunden = (int)round($semesterLernzeitSekunden / 3600);
 
 /* ---------------------- Klausurtermine for JS ---------------------- */
 $klausuren = [];
@@ -325,9 +372,13 @@ require_once __DIR__ . '/../head.php';
 require_once __DIR__ . '/../navbar.php';
 ?>
 
-<div id="ltPage" class="lt-page">
+<div id="ltPage" class="lt-page lt-page-konto">
     <div class="lt-topbar">
-        <h1 class="ueberschrift">Lerntime</h1>
+
+        <h1 class="ueberschrift konto-title">
+        <span class="konto-title-main">Lernzeit <?= htmlspecialchars((string)semester_label($semester), ENT_QUOTES, 'UTF-8') ?></span>
+        <span class="konto-title-soft">| <?= htmlspecialchars((string)$semesterLernzeitStunden, ENT_QUOTES, 'UTF-8') ?> Stunden</span>
+        </h1>
 
         <div class="lt-yearwrap">
             <label for="ltSemester" class="lt-label">Semester</label>

@@ -242,14 +242,36 @@ $page_title = 'Finanzen';
 require_once __DIR__ . '/../head.php';    // <!DOCTYPE html> … <body>
 require_once __DIR__ . '/../navbar.php';  // Navbar
 ?>
-<div class="container" style="max-width: 1200px;">
-    <!-- <h1 class="ueberschrift">Statistik <?= htmlspecialchars((string)$jahr, ENT_QUOTES) ?></h1> -->
 
-    <!-- Jahr-Auswahl -->
-    <form method="get" class="zeitbereich-form" style="margin-bottom: 1rem;">
-        <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
-            <div class="input-group" style="max-width: 220px;">
-                <select name="jahr" id="jahr" onchange="this.form.submit()">
+
+<div id="statsPage" class="lt-page lt-page-konto">
+    <div class="lt-topbar">
+        <h1 class="ueberschrift konto-title">
+            <span class="konto-title-main">Konto <?= htmlspecialchars((string)$jahr, ENT_QUOTES, 'UTF-8') ?></span>
+            <span class="konto-title-soft">| <?= euro($kontostandBisEndeDesJahres) ?></span>
+        </h1>
+
+        <form method="get" class="konto-filterform">
+            <div class="lt-yearwrap">
+                <label for="kategorie" class="lt-label">Kategorie</label>
+                <select name="kategorie" id="kategorie" class="kategorie-select" onchange="this.form.submit()">
+                    <option value="all" <?= ($selectedKat === 'all') ? 'selected' : '' ?>>
+                        Kontostand
+                    </option>
+                    <option value="unk" <?= ($selectedKat === 'unk') ? 'selected' : '' ?>>
+                        <?= htmlspecialchars($labelUnk, ENT_QUOTES, 'UTF-8') ?>
+                    </option>
+                    <?php foreach ($kats as $id => $name): ?>
+                        <option value="<?= (int)$id ?>" <?= ((string)$selectedKat === (string)$id) ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            
+            <div class="lt-yearwrap">
+                <label for="jahr" class="lt-label">Jahr</label>
+                <select name="jahr" id="jahr" class="kategorie-select" onchange="this.form.submit()">
                     <?php foreach ($jahre as $j): ?>
                         <?php if ((int)$j <= 2021) continue; ?>
                         <option value="<?= (int)$j ?>" <?= ((int)$j === (int)$jahr) ? 'selected' : '' ?>>
@@ -258,55 +280,40 @@ require_once __DIR__ . '/../navbar.php';  // Navbar
                     <?php endforeach; ?>
                 </select>
             </div>
+        </form>
+    </div>
 
-            <!-- NEU: Kategorie-Auswahl (nur Einfluss auf Graph) -->
-            <div class="input-group" style="max-width: 260px;">
-                <select name="kategorie" id="kategorie" onchange="this.form.submit()">
-                    <option value="all" <?= ($selectedKat === 'all') ? 'selected' : '' ?>>
-                        Kontostand
-                    </option>
-                    <option value="unk" <?= ($selectedKat === 'unk') ? 'selected' : '' ?>>
-                        <?= htmlspecialchars($labelUnk, ENT_QUOTES) ?>
-                    </option>
-                    <?php foreach ($kats as $id => $name): ?>
-                        <option value="<?= (int)$id ?>" <?= ((string)$selectedKat === (string)$id) ? 'selected' : '' ?>>
-                            <?= htmlspecialchars($name, ENT_QUOTES) ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
+    <div class="lt-chart-wrap">
+        <canvas id="saldoChart"></canvas>
+    </div>
+
+    <hr class="lt-hr">
+
+    <div class="konto-pies">
+        <div class="konto-pie-card">
+            <div class="konto-pie-kpi">
+                <span class="konto-pie-kpi-label">Einnahmen</span>
+                <span class="konto-pie-kpi-value"><?= euro(array_sum($incomeByCat)) ?></span>
+            </div>
+            <div class="konto-pie-wrap">
+                <canvas id="incomePie"></canvas>
             </div>
         </div>
-    </form>
 
-    <!-- Kontostand Gesamt -->
-    <div style="text-align:center; font-size:1.6rem; font-weight:700; color:#000; margin-top:10px;">
-        Kontostand: <?= euro($kontostandBisEndeDesJahres) ?>
-    </div>
-
-    <!-- Liniendiagramm Kontostand -->
-    <div class="chart-row" style="margin-top: 20px;">
-        <div class="chart-half-finance" style="flex:1 1 100%; max-width:100%;">
-            <canvas id="saldoChart"></canvas>
+        <div class="konto-pie-card">
+            <div class="konto-pie-kpi">
+                <span class="konto-pie-kpi-label">Ausgaben</span>
+                <span class="konto-pie-kpi-value"><?= euro(array_sum($expenseByCat)) ?></span>
+            </div>
+            <div class="konto-pie-wrap">
+                <canvas id="expensePie"></canvas>
+            </div>
         </div>
     </div>
 </div>
 
-<div class="container" style="max-width: 1200px;">
-    <!-- Einnahmen / Ausgaben Pies -->
-    <h2 class="ueberschrift" style="margin-top: 30px;">Einnahmen / Ausgaben <?= htmlspecialchars((string)$jahr, ENT_QUOTES) ?></h2>
-    <div style="text-align:center; margin-bottom:10px;">
-        <strong>Einnahmen:</strong> <?= euro(array_sum($incomeByCat)) ?> &nbsp; | &nbsp;
-        <strong>Ausgaben:</strong> <?= euro(array_sum($expenseByCat)) ?>
-    </div>
-    <div class="chart-row">
-        <div class="chart-half-finance-pie">
-            <canvas id="incomePie"></canvas>
-        </div>
-        <div class="chart-half-finance-pie">
-            <canvas id="expensePie"></canvas>
-        </div>
-    </div>
-</div>
+
+
 
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -426,9 +433,10 @@ new Chart(saldoCtx, {
   data: { datasets },
   options: {
     responsive: true,
+    maintainAspectRatio: false,
     interaction: { mode: 'index', intersect: false },
     plugins: {
-      legend: { display: true },
+      legend: { display: false },
       tooltip: {
         callbacks: {
           label: (ctx) => `${ctx.dataset.label}: ${fmtEuro(ctx.parsed.y)}`
@@ -470,6 +478,7 @@ const sum = (arr) => arr.reduce((a,b)=>a+Number(b||0),0);
 
 const pieOpts = (total) => ({
   responsive: true,
+  maintainAspectRatio: false,
   plugins: {
     legend: { display: false },
     tooltip: {

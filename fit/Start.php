@@ -186,6 +186,14 @@ foreach ($alleTage as $tag) {
     $alkWerte[]     = array_key_exists($tag, $alkTage)     ? round($alkTage[$tag], 2)     : null;
 }
 
+$gewichtsDiffText = '—';
+
+if ($erstesGewicht !== null && $letztesGewicht !== null) {
+    $diff = $letztesGewicht - $erstesGewicht;   // letzter - erster
+    $sign = ($diff > 0) ? '+' : (($diff < 0) ? '−' : '±'); // oder '0' ohne Vorzeichen, wenn du willst
+    $gewichtsDiffText = $sign . number_format(abs($diff), 1, ',', '') . ' kg';
+}
+
 // 8b) Durchschnitte Nährwerte (g/Tag)
 $avgNonNull = function(array $arr): int {
     $vals = array_values(array_filter($arr, fn($v) => $v !== null));
@@ -260,7 +268,7 @@ if (count($x) > 1) {
         $slope = ($n*$sumXY - $sumX*$sumY) / $den;
         $intercept = ($sumY - $slope*$sumX) / $n;
         for ($i = 0; $i < count($trendWerte); $i++) {
-            $trendWerte[$i] = is_null($gewichtWerte[$i]) ? null : round($slope*$i + $intercept, 1);
+            $trendWerte[$i] = round($slope*$i + $intercept, 1);
         }
     }
 }
@@ -290,68 +298,87 @@ $page_title = 'Fitness';
 require_once __DIR__ . '/../head.php';
 require_once __DIR__ . '/../navbar.php';
 ?>
-<!-- Seiteninhalt -->
-<div class="zeitbereich-container">
-  <form method="get" id="zeitForm" class="zeitbereich-form">
-    <select id="jahrSelect" name="jahr" class="zeitbereich-select"
-            onchange="document.getElementById('zeitForm').submit()">
-      <?php foreach ($verfuegbareJahre as $y): ?>
-        <option value="<?= (int)$y ?>" <?= ((int)$y === (int)$jahr ? 'selected' : '') ?>>
-          <?= (int)$y ?>
-        </option>
-      <?php endforeach; ?>
-    </select>
-  </form>
-  <!-- <div class="zeitbereich-toggle">
-    <label for="toggleAlk">
-      Alkohol anzeigen
-      <input type="checkbox" id="toggleAlk">
-    </label>
-  </div> -->
-</div>
 
-<div class="chart-row">
-  <div class="chart-half">
-    <h2 class="ueberschrift">Kalorien | Ø<?= (int)$nettoDurchschnitt ?> kcal/Tag</h2>
-    <canvas id="kalorienChart"></canvas>
-  </div>
-  <div class="chart-half">
-    <h2 class="ueberschrift">Körpergewicht | <?= ($erstesGewicht !== null ? $erstesGewicht : '—') . " kg -> " . ($letztesGewicht !== null ? $letztesGewicht : '—') ?> kg</h2>
-    <canvas id="gewichtChart"></canvas>
-  </div>
-</div>
+<div id="healthPage" class="lt-page lt-page-konto">
+  <div class="lt-topbar">
+    <h1 class="ueberschrift konto-title">
+      <span class="konto-title-main">Ernährung <?= htmlspecialchars((string)$jahr, ENT_QUOTES, 'UTF-8')?></span>
+      <span class="konto-title-soft">| <?= htmlspecialchars($gewichtsDiffText, ENT_QUOTES, 'UTF-8') ?></span>    
+    </h1>
 
-<!-- MAKRO-CHARTS: IDs + Alkohol-Block wieder aktivieren -->
-<div class="chart-row" id="macroChartRow">
-  <div class="chart-third" id="macroProtein">
-    <h2 class="ueberschrift">Protein | Ø<?= (int)$eiweissDurchschnitt ?> g/Tag</h2>
-    <canvas id="eiweissChart"></canvas>
+    <form method="get" id="zeitForm" class="konto-filterform">
+      <div class="lt-yearwrap">
+        <label for="jahr" class="lt-label">Jahr</label>
+        <select id="jahr" name="jahr" class="kategorie-select" onchange="this.form.submit()">
+          <?php foreach ($verfuegbareJahre as $y): ?>
+            <option value="<?= (int)$y ?>" <?= ((int)$y === (int)$jahr ? 'selected' : '') ?>>
+              <?= (int)$y ?>
+            </option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+    </form>
   </div>
-  <div class="chart-third" id="macroFat">
-    <h2 class="ueberschrift">Fett | Ø<?= (int)$fettDurchschnitt ?> g/Tag</h2>
-    <canvas id="fettChart"></canvas>
-  </div>
-  <div class="chart-third" id="macroCarb">
-    <h2 class="ueberschrift">Carbs | Ø<?= (int)$khDurchschnitt ?> g/Tag</h2>
-    <canvas id="khChart"></canvas>
-  </div>
-  <!-- <div class="chart-quarter" id="macroAlc" style="display:none;">
-    <h2 class="ueberschrift">
-      Alkohol | Ø <span class="censor">
-        <span class="value"><?= (int)$alkDurchschnitt ?></span>
-      </span> g/Tag
-    </h2>
-    <div class="censor">
-      <canvas id="alkChart"></canvas>
+
+  <!-- OBEN: 2 Charts nebeneinander, normaler lt-chart-wrap (keine Karten) -->
+  <div class="lt-chart-wrap">
+    <div class="lt-chart-split">
+      <div class="lt-chart-split-item">
+        <div class="konto-pie-kpi">
+          <span class="konto-pie-kpi-label">Kalorien</span>
+          <span class="konto-pie-kpi-value">Ø<?= (int)$nettoDurchschnitt ?> kcal/Tag</span>
+        </div>
+        <canvas id="kalorienChart"></canvas>
+      </div>
+
+      <div class="lt-chart-split-item">
+        <div class="konto-pie-kpi">
+          <span class="konto-pie-kpi-label">Körpergewicht</span>
+          <span class="konto-pie-kpi-value">
+            <?= ($erstesGewicht !== null ? $erstesGewicht : '—') ?> kg → <?= ($letztesGewicht !== null ? $letztesGewicht : '—') ?> kg
+          </span>
+        </div>
+        <canvas id="gewichtChart"></canvas>
+      </div>
     </div>
-  </div> -->
-  <div class="chart-quarter" id="macroAlc" style="display:none;">
-    <h2 class="ueberschrift">
-      Alkohol | Ø <span class="value"><?= (int)$alkDurchschnitt ?></span>g/Tag
-    </h2>
-    <canvas id="alkChart"></canvas>
+  </div>
+
+  <hr class="lt-hr">
+
+  <!-- UNTEN: 3 Cards nebeneinander (wie Einnahmen/Ausgaben), aber 3er-Grid -->
+  <div class="konto-pies konto-pies-3">
+    <div class="konto-pie-card">
+      <div class="konto-pie-kpi">
+        <span class="konto-pie-kpi-label">Protein</span>
+        <span class="konto-pie-kpi-value">Ø<?= (int)$eiweissDurchschnitt ?> g/Tag</span>
+      </div>
+      <div class="konto-pie-wrap">
+        <canvas id="eiweissChart"></canvas>
+      </div>
+    </div>
+
+    <div class="konto-pie-card">
+      <div class="konto-pie-kpi">
+        <span class="konto-pie-kpi-label">Fett</span>
+        <span class="konto-pie-kpi-value">Ø<?= (int)$fettDurchschnitt ?> g/Tag</span>
+      </div>
+      <div class="konto-pie-wrap">
+        <canvas id="fettChart"></canvas>
+      </div>
+    </div>
+
+    <div class="konto-pie-card">
+      <div class="konto-pie-kpi">
+        <span class="konto-pie-kpi-label">Carbs</span>
+        <span class="konto-pie-kpi-value">Ø<?= (int)$khDurchschnitt ?> g/Tag</span>
+      </div>
+      <div class="konto-pie-wrap">
+        <canvas id="khChart"></canvas>
+      </div>
+    </div>
   </div>
 </div>
+
 
 <!-- Scripts am Ende des Body -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -512,6 +539,7 @@ new Chart(document.getElementById('kalorienChart').getContext('2d'), {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
+            legend: { display: false },
             annotation: {
                 annotations: {
                     gruenZone: { type: 'box', yMax: grundbedarf, backgroundColor: 'rgba(0,200,0,0.1)', borderWidth: 0 },
@@ -550,10 +578,12 @@ new Chart(document.getElementById('gewichtChart').getContext('2d'), {
                 tension: 0.3,
                 borderWidth: 3,
                 spanGaps: true,
-                pointBackgroundColor: '#333',
-                pointBorderColor: 'transparent',
-                pointBorderWidth: 0,
-                pointRadius: 4
+
+                pointStyle: 'crossRot',   // oder 'cross'
+                pointRadius: 4,
+                pointBorderColor: 'rgba(0,0,0,0.4)', // Kreuzfarbe
+                pointBorderWidth: 2,
+                pointBackgroundColor: 'transparent'
             },
             {
                 label: 'Trendlinie',
@@ -572,6 +602,7 @@ new Chart(document.getElementById('gewichtChart').getContext('2d'), {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
+            legend: { display: false },
             annotation: {
                 annotations: {
                     ziel:        { type: 'line', yMin: 90,  yMax: 90,  borderColor: 'green', borderWidth: 2, borderDash: [6,4],
@@ -685,6 +716,10 @@ function makeMacroChart(canvasId, dailyData, weeklyData, color, label) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },     // Legende aus
+        tooltip: { enabled: false }     // Tooltip aus (optional)
+      },
       scales: {
         x: monthXAxisScale(),
         y: {
