@@ -287,7 +287,7 @@ require_once __DIR__ . '/../navbar.php';  // Navbar
         <canvas id="saldoChart"></canvas>
     </div>
 
-    <hr class="lt-hr">
+    <!-- <hr class="lt-hr"> -->
 
     <div class="konto-pies">
         <div class="konto-pie-card">

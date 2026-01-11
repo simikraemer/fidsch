@@ -364,63 +364,71 @@ require_once __DIR__ . '/../navbar.php';
     </form>
   </div>
 
-  <!-- OBEN: 2 Charts nebeneinander, normaler lt-chart-wrap (keine Karten) -->
-  <div class="lt-chart-wrap">
-    <div class="lt-chart-split">
-      <div class="lt-chart-split-item">
+
+  <div class="ernährungsdiablock">
+    <!-- OBEN: 2 Cards nebeneinander (wie unten), aber 2er-Grid -->
+    <div class="konto-pies">
+      <div class="konto-pie-card">
         <div class="konto-pie-kpi">
           <span class="konto-pie-kpi-label">Kalorien</span>
           <span class="konto-pie-kpi-value">Ø<?= (int)$nettoDurchschnitt ?> kcal/Tag</span>
         </div>
-        <canvas id="kalorienChart"></canvas>
+        <div class="konto-pie-wrap">
+          <canvas id="kalorienChart"></canvas>
+        </div>
       </div>
 
-      <div class="lt-chart-split-item">
+      <div class="konto-pie-card">
         <div class="konto-pie-kpi">
           <span class="konto-pie-kpi-label">Körpergewicht</span>
           <span class="konto-pie-kpi-value">
             <?= ($erstesGewicht !== null ? $erstesGewicht : '—') ?> kg → <?= ($letztesGewicht !== null ? $letztesGewicht : '—') ?> kg
           </span>
         </div>
-        <canvas id="gewichtChart"></canvas>
+        <div class="konto-pie-wrap">
+          <canvas id="gewichtChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- <hr class="lt-hr"> -->
+
+    <!-- UNTEN: 3 Cards nebeneinander (wie Einnahmen/Ausgaben), aber 3er-Grid -->
+    <div class="konto-pies konto-pies-3">
+      <div class="konto-pie-card">
+        <div class="konto-pie-kpi">
+          <span class="konto-pie-kpi-label">Protein</span>
+          <span class="konto-pie-kpi-value">Ø<?= (int)$eiweissDurchschnitt ?> g/Tag</span>
+        </div>
+        <div class="konto-pie-wrap">
+          <canvas id="eiweissChart"></canvas>
+        </div>
+      </div>
+
+      <div class="konto-pie-card">
+        <div class="konto-pie-kpi">
+          <span class="konto-pie-kpi-label">Fett</span>
+          <span class="konto-pie-kpi-value">Ø<?= (int)$fettDurchschnitt ?> g/Tag</span>
+        </div>
+        <div class="konto-pie-wrap">
+          <canvas id="fettChart"></canvas>
+        </div>
+      </div>
+
+      <div class="konto-pie-card">
+        <div class="konto-pie-kpi">
+          <span class="konto-pie-kpi-label">Carbs</span>
+          <span class="konto-pie-kpi-value">Ø<?= (int)$khDurchschnitt ?> g/Tag</span>
+        </div>
+        <div class="konto-pie-wrap">
+          <canvas id="khChart"></canvas>
+        </div>
       </div>
     </div>
   </div>
 
-  <hr class="lt-hr">
 
-  <!-- UNTEN: 3 Cards nebeneinander (wie Einnahmen/Ausgaben), aber 3er-Grid -->
-  <div class="konto-pies konto-pies-3">
-    <div class="konto-pie-card">
-      <div class="konto-pie-kpi">
-        <span class="konto-pie-kpi-label">Protein</span>
-        <span class="konto-pie-kpi-value">Ø<?= (int)$eiweissDurchschnitt ?> g/Tag</span>
-      </div>
-      <div class="konto-pie-wrap">
-        <canvas id="eiweissChart"></canvas>
-      </div>
-    </div>
-
-    <div class="konto-pie-card">
-      <div class="konto-pie-kpi">
-        <span class="konto-pie-kpi-label">Fett</span>
-        <span class="konto-pie-kpi-value">Ø<?= (int)$fettDurchschnitt ?> g/Tag</span>
-      </div>
-      <div class="konto-pie-wrap">
-        <canvas id="fettChart"></canvas>
-      </div>
-    </div>
-
-    <div class="konto-pie-card">
-      <div class="konto-pie-kpi">
-        <span class="konto-pie-kpi-label">Carbs</span>
-        <span class="konto-pie-kpi-value">Ø<?= (int)$khDurchschnitt ?> g/Tag</span>
-      </div>
-      <div class="konto-pie-wrap">
-        <canvas id="khChart"></canvas>
-      </div>
-    </div>
-  </div>
 </div>
 
 

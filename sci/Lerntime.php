@@ -396,7 +396,7 @@ require_once __DIR__ . '/../navbar.php';
         <canvas id="ltRemainingChart"></canvas>
     </div>
 
-    <hr class="lt-hr">
+    <!-- <hr class="lt-hr"> -->
 
     <div class="lt-subject-row">
         <div id="ltTabs" class="lt-tabs" role="tablist" aria-label="Fächer"></div>

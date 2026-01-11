@@ -966,7 +966,7 @@ input[type="radio"] {
     border-radius: var(--border-radius);
     box-shadow: var(--shadow);
     padding: 16px 18px;
-    height: 340px;
+    height: 300px;
 }
 
 .lt-hr {
@@ -1356,7 +1356,7 @@ input[type="radio"] {
 
 .lt-page-konto .konto-pie-card{
   border: 1px solid rgba(0,0,0,0.08);
-  border-radius: 12px;
+  border-radius: var(--border-radius);
   padding: 14px 14px 12px;
   background: #fff;
   box-shadow: var(--shadow);
@@ -1385,7 +1385,7 @@ input[type="radio"] {
   position: relative;
   width: 100%;
   aspect-ratio: 1 / 1;
-  max-height: 360px;
+  max-height: 240px;
 }
 
 .lt-page-konto .konto-pie-wrap > canvas{
@@ -1414,9 +1414,7 @@ input[type="radio"] {
 .lt-page-konto .lt-chart-split-item{
   position: relative;
   min-width: 0;
-
-  /* verhindert Resize-Loop / "wächst nach unten" */
-  height: 315px;
+  height: 275px;
   min-height: 260px;
 }
 
@@ -1475,4 +1473,11 @@ input[type="radio"] {
   .lt-page-konto .lt-chart-split::after{
     display: none;
   }
+}
+
+.ernährungsdiablock {
+  margin-top: 18px;    
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
