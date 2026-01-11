@@ -1117,7 +1117,7 @@ require_once __DIR__ . '/../navbar.php';
                     type: 'line',
                     xMin: todayMs,
                     xMax: todayMs,
-                    borderColor: '#ff0000',
+                    borderColor: '#000',
                     borderWidth: 1,
                     drawTime: 'afterDatasetsDraw'
                 };
@@ -1139,7 +1139,7 @@ require_once __DIR__ . '/../navbar.php';
                 xMin: ms,
                 xMax: ms,
                 borderColor: SUBJECTS[fach],
-                borderWidth: 5,
+                borderWidth: 8,
                 borderDash: [6, 6],
                 drawTime: 'afterDatasetsDraw'
             };
@@ -1152,7 +1152,7 @@ require_once __DIR__ . '/../navbar.php';
                 parsing: false,
                 borderColor: SUBJECTS[fach],
                 backgroundColor: SUBJECTS[fach],
-                borderWidth: 3,
+                borderWidth: 5,
                 pointRadius: 0,
                 tension: 0.25,
                 stepped: 'after'

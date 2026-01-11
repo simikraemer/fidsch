@@ -276,10 +276,9 @@ input, select, textarea {
 .zeitbereich-container {
     position: fixed;
     top: 90px;         /* ggf. an Navbar-Höhe anpassen */
-    right: 70px;       /* oder: left: 50%; transform: translateX(-50%); für zentriert */
+    right: 55px;       /* oder: left: 50%; transform: translateX(-50%); für zentriert */
     margin: 0;
-    border: 2px dashed var(--primary);
-    border-radius: 10px;
+    font-size: 22px;
     padding: 5px 10px;
     z-index: 10000;
     max-width: 350px;
