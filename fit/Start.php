@@ -302,12 +302,12 @@ require_once __DIR__ . '/../navbar.php';
       <?php endforeach; ?>
     </select>
   </form>
-  <div class="zeitbereich-toggle">
+  <!-- <div class="zeitbereich-toggle">
     <label for="toggleAlk">
       Alkohol anzeigen
       <input type="checkbox" id="toggleAlk">
     </label>
-  </div>
+  </div> -->
 </div>
 
 <div class="chart-row">

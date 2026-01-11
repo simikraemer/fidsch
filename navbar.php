@@ -93,9 +93,10 @@ if (isset($_GET['login']) && $_GET['login'] === '1') {
             <li class="nav-item has-submenu">
                 <a href="/sci/start"><img src="/img/buch.png" alt="Sci" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"></a>
                 <ul class="submenu">
-                    <li><a href="/sci/fragen"><img src="/img/fragezeichen.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Fragen</span></a></li>
+                    <li><a href="/sci/lerntime"><img src="/img/graph.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Übersicht</span></a></li>
+                    <!-- <li><a href="/sci/fragen"><img src="/img/fragezeichen.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Fragen</span></a></li>
                     <li><a href="/sci/data"><img src="/img/table.png" alt="Daten" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Daten</span></a></li>
-                    <li><a href="/sci/insert"><img src="/img/upload.png" alt="Hochladen" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Hochladen</span></a></li>
+                    <li><a href="/sci/insert"><img src="/img/upload.png" alt="Hochladen" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Hochladen</span></a></li> -->
                 </ul>
             </li>
 

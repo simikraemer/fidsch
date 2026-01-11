@@ -21,10 +21,11 @@ $routesBiz = [
 ];
 
 $routesSci = [
-    'start'    => 'Fragen.php',
+    'start'    => 'Lerntime.php',
     'fragen'   => 'Fragen.php',
     'data'     => 'Data.php',
     'insert'   => 'Insert.php',
+    'lerntime' => 'Lerntime.php',
 ];
 
 $routestool = [

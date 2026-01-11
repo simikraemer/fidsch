@@ -275,14 +275,13 @@ input, select, textarea {
 
 .zeitbereich-container {
     position: fixed;
-    top: 30px;         /* ggf. an Navbar-Höhe anpassen */
-    right: 20px;       /* oder: left: 50%; transform: translateX(-50%); für zentriert */
+    top: 90px;         /* ggf. an Navbar-Höhe anpassen */
+    right: 70px;       /* oder: left: 50%; transform: translateX(-50%); für zentriert */
     margin: 0;
+    border: 2px dashed var(--primary);
+    border-radius: 10px;
+    padding: 5px 10px;
     z-index: 10000;
-    padding: 20px;
-    background-color: white;
-    border-radius: var(--border-radius);
-    box-shadow: var(--shadow);
     max-width: 350px;
 }
 
@@ -930,4 +929,381 @@ input[type="radio"] {
     max-height: 70px;
     object-fit: contain;
     display: block;
+}
+
+
+
+/* sci/Lerntime.php – neue Klassen */
+
+.lt-page {
+    --lt-accent: var(--primary);
+    max-width: 1100px;
+    margin: 30px auto 80px;
+    padding: 0 16px;
+}
+
+.lt-topbar {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.lt-yearwrap {
+    width: 160px;
+    min-width: 140px;
+}
+
+.lt-label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 6px;
+}
+
+.lt-chart-wrap {
+    margin: 18px auto 10px;
+    background: #fff;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    padding: 16px 18px;
+    height: 340px;
+}
+
+.lt-hr {
+    border: none;
+    border-top: 2px solid rgba(0,0,0,0.08);
+    margin: 26px 0;
+}
+
+.lt-subject-row {
+    position: relative;
+    max-width: 900px;
+    margin: 0 auto 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 46px;
+}
+
+.lt-tabs {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: 10px 12px;
+    border-radius: 999px;
+    background: #fff;
+    box-shadow: var(--shadow);
+}
+
+.lt-tab {
+    background: transparent;
+    color: var(--text);
+    border: 2px solid rgba(0,0,0,0.10);
+    padding: 8px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-weight: 800;
+    box-shadow: none;
+    transition: transform 0.08s ease, border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.lt-tab:hover {
+    transform: translateY(-1px);
+}
+
+.lt-tab.active {
+    border-color: var(--lt-accent);
+    background-color: rgba(0,0,0,0.03);
+    outline: 2px solid rgba(0,0,0,0.02);
+}
+
+.lt-add-btn {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border-radius: 999px;
+    font-size: 26px;
+    background-color: var(--primary);
+    box-shadow: var(--shadow);
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+.lt-add-plus {
+    display: block;
+    transform: translateY(-3px);
+}
+
+.lt-table-wrap {
+    background: #fff;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+.lt-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font);
+}
+
+.lt-table thead th {
+    text-align: left;
+    padding: 14px 16px;
+    background: rgba(0,0,0,0.03);
+    border-bottom: 2px solid rgba(0,0,0,0.06);
+}
+
+.lt-col-check {
+    width: 110px;
+    text-align: center !important;
+}
+
+.lt-row td {
+    padding: 14px 16px;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+    vertical-align: middle;
+}
+
+.lt-row:last-child td {
+    border-bottom: none;
+}
+
+.lt-left {
+    border-left: 6px solid var(--lt-accent);
+}
+
+.lt-row.done {
+    opacity: 0.55;
+    filter: grayscale(0.15);
+}
+
+.lt-row.pending {
+    opacity: 0.75;
+}
+
+.lt-task {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.lt-task-top {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.lt-unit {
+    font-weight: 900;
+    font-size: 1.05rem;
+    letter-spacing: 0.2px;
+}
+
+.lt-title {
+    font-weight: 700;
+    opacity: 0.95;
+}
+
+.lt-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.lt-note {
+    font-size: 0.92rem;
+    opacity: 0.85;
+}
+
+.lt-dur {
+    font-size: 0.90rem;
+    opacity: 0.78;
+}
+
+.lt-right {
+    text-align: center;
+}
+
+/* "Premium" Checkbox */
+.lt-check {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.lt-check input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.lt-check label {
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+    border: 2px solid rgba(0,0,0,0.18);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.10s ease, border-color 0.15s ease, background-color 0.15s ease;
+    user-select: none;
+    background: #fff;
+}
+
+.lt-check label:hover {
+    transform: translateY(-1px);
+    border-color: var(--lt-accent);
+}
+
+.lt-checkmark {
+    width: 18px;
+    height: 18px;
+}
+
+.lt-checkmark path {
+    fill: none;
+    stroke: var(--lt-accent);
+    stroke-width: 3.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 30;
+    stroke-dashoffset: 30;
+    transition: stroke-dashoffset 0.22s ease;
+}
+
+.lt-check input:checked + label {
+    background-color: rgba(0,0,0,0.03);
+    border-color: var(--lt-accent);
+    animation: lt-pop 0.18s ease;
+}
+
+.lt-check input:checked + label .lt-checkmark path {
+    stroke-dashoffset: 0;
+}
+
+.lt-check input:disabled + label {
+    opacity: 0.75;
+    cursor: progress;
+}
+
+@keyframes lt-pop {
+    0%   { transform: scale(1); }
+    60%  { transform: scale(1.08); }
+    100% { transform: scale(1); }
+}
+
+/* Modal tweaks */
+.lt-modal-content {
+    border-top: 6px solid var(--lt-accent);
+}
+
+.lt-modal-title {
+    margin-top: 0;
+    margin-bottom: 16px;
+}
+
+/* Dauer Grid */
+.lt-duration-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+/* Empty state */
+.lt-empty td {
+    padding: 22px 16px;
+    text-align: center;
+    opacity: 0.75;
+}
+
+/* FIX: Modal startet sonst sichtbar + lässt sich per JS nicht "verstecken" */
+.modal.hidden {
+    display: none !important;
+}
+
+/* optional, falls du "hidden" auch an anderen Stellen nutzt */
+.hidden {
+    display: none !important;
+}
+
+
+.lt-col-drag {
+    width: 54px;
+    text-align: center !important;
+}
+
+.lt-dragcell {
+    width: 54px;
+    text-align: center;
+    border-left: 6px solid var(--lt-accent);
+}
+
+.lt-left {
+    border-left: none; /* war vorher border-left; jetzt sitzt er auf der Drag-Spalte */
+}
+
+.lt-grip {
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+    border: 2px solid rgba(0,0,0,0.14);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    user-select: none;
+    transition: transform 0.10s ease, border-color 0.15s ease, background-color 0.15s ease;
+    color: rgba(0,0,0,0.55);
+    background: #fff;
+    font-size: 18px;
+    line-height: 1;
+}
+
+.lt-grip:hover {
+    border-color: var(--lt-accent);
+    color: var(--lt-accent);
+    transform: translateY(-1px);
+}
+
+.lt-grip:active {
+    cursor: grabbing;
+    transform: scale(0.98);
+}
+
+.lt-row.lt-dragging {
+    opacity: 0.85;
+}
+
+.lt-row.lt-drop-before td {
+    box-shadow: inset 0 3px 0 var(--lt-accent);
+}
+
+.lt-row.lt-drop-after td {
+    box-shadow: inset 0 -3px 0 var(--lt-accent);
+}
+
+
+.lt-row {
+    cursor: pointer;
+    transition: background-color 0.12s ease, transform 0.08s ease;
+}
+
+.lt-row:hover {
+    background-color: rgba(0,0,0,0.03);
+}
+
+.lt-row:active {
+    transform: scale(0.999);
 }
