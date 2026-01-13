@@ -356,14 +356,14 @@ require_once __DIR__ . '/../navbar.php';  // Navbar
 ?>
 
 
-<div id="statsPage" class="lt-page lt-page-konto">
+<div id="statsPage" class="lt-page dashboard-page">
     <div class="lt-topbar">
-        <h1 class="ueberschrift konto-title">
-            <span class="konto-title-main">Finanzen <?= htmlspecialchars((string)$jahr, ENT_QUOTES, 'UTF-8') ?></span>
-            <span class="konto-title-soft">| <?= euro($kontostandBisEndeDesJahres) ?></span>
+        <h1 class="ueberschrift dashboard-title">
+            <span class="dashboard-title-main">Finanzen <?= htmlspecialchars((string)$jahr, ENT_QUOTES, 'UTF-8') ?></span>
+            <span class="dashboard-title-soft">| <?= euro($kontostandBisEndeDesJahres) ?></span>
         </h1>
 
-        <form method="get" class="konto-filterform">
+        <form method="get" class="dashboard-filterform">
             <div class="lt-yearwrap">
                 <label for="kategorie" class="lt-label">Kategorie</label>
                 <select name="kategorie" id="kategorie" class="kategorie-select" onchange="this.form.submit()">
@@ -401,25 +401,25 @@ require_once __DIR__ . '/../navbar.php';  // Navbar
 
     <!-- <hr class="lt-hr"> -->
 
-    <div class="konto-pies konto-pies--asym">
-      <div class="konto-pie-card">
-        <div class="konto-pie-kpi">
+    <div class="dashboard-pies dashboard-pies--asym">
+      <div class="dashboard-pie-card">
+        <div class="dashboard-pie-kpi">
           <button type="button" class="chart-back" id="incomeBack" style="display:none" title="Zurück" aria-label="Zurück">&larr;</button>
-          <span class="konto-pie-kpi-label" id="incomeTitle">Einnahmen</span>
-          <span class="konto-pie-kpi-value" id="incomeKpi"><?= euro(array_sum($incomeByCat)) ?></span>
+          <span class="dashboard-pie-kpi-label" id="incomeTitle">Einnahmen</span>
+          <span class="dashboard-pie-kpi-value" id="incomeKpi"><?= euro(array_sum($incomeByCat)) ?></span>
         </div>
-        <div class="konto-pie-wrap">
+        <div class="dashboard-pie-wrap">
           <canvas id="incomePie"></canvas>
         </div>
       </div>
 
-      <div class="konto-pie-card">
-        <div class="konto-pie-kpi">
+      <div class="dashboard-pie-card">
+        <div class="dashboard-pie-kpi">
           <button type="button" class="chart-back" id="expenseBack" style="display:none" title="Zurück" aria-label="Zurück">&larr;</button>
-          <span class="konto-pie-kpi-label" id="expenseTitle">Ausgaben (Logarithmisch)</span>
-          <span class="konto-pie-kpi-value" id="expenseKpi"><?= euro(array_sum($expenseByCat)) ?></span>
+          <span class="dashboard-pie-kpi-label" id="expenseTitle">Ausgaben (Logarithmisch)</span>
+          <span class="dashboard-pie-kpi-value" id="expenseKpi"><?= euro(array_sum($expenseByCat)) ?></span>
         </div>
-        <div class="konto-pie-wrap">
+        <div class="dashboard-pie-wrap">
           <canvas id="expensePie"></canvas>
         </div>
       </div>

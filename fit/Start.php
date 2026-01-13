@@ -343,14 +343,14 @@ require_once __DIR__ . '/../head.php';
 require_once __DIR__ . '/../navbar.php';
 ?>
 
-<div id="healthPage" class="lt-page lt-page-konto">
+<div id="healthPage" class="lt-page dashboard-page">
   <div class="lt-topbar">
-    <h1 class="ueberschrift konto-title">
-      <span class="konto-title-main">Ernährung <?= htmlspecialchars((string)$jahr, ENT_QUOTES, 'UTF-8')?></span>
-      <span class="konto-title-soft">| <?= htmlspecialchars($gewichtsDiffText, ENT_QUOTES, 'UTF-8') ?></span>    
+    <h1 class="ueberschrift dashboard-title">
+      <span class="dashboard-title-main">Ernährung <?= htmlspecialchars((string)$jahr, ENT_QUOTES, 'UTF-8')?></span>
+      <span class="dashboard-title-soft">| <?= htmlspecialchars($gewichtsDiffText, ENT_QUOTES, 'UTF-8') ?></span>    
     </h1>
 
-    <form method="get" id="zeitForm" class="konto-filterform">
+    <form method="get" id="zeitForm" class="dashboard-filterform">
       <div class="lt-yearwrap">
         <label for="jahr" class="lt-label">Jahr</label>
         <select id="jahr" name="jahr" class="kategorie-select" onchange="this.form.submit()">
@@ -367,25 +367,25 @@ require_once __DIR__ . '/../navbar.php';
 
   <div class="ernährungsdiablock">
     <!-- OBEN: 2 Cards nebeneinander (wie unten), aber 2er-Grid -->
-    <div class="konto-pies">
-      <div class="konto-pie-card">
-        <div class="konto-pie-kpi">
-          <span class="konto-pie-kpi-label">Kalorien</span>
-          <span class="konto-pie-kpi-value">Ø<?= (int)$nettoDurchschnitt ?> kcal/Tag</span>
+    <div class="dashboard-pies">
+      <div class="dashboard-pie-card">
+        <div class="dashboard-pie-kpi">
+          <span class="dashboard-pie-kpi-label">Kalorien</span>
+          <span class="dashboard-pie-kpi-value">Ø<?= (int)$nettoDurchschnitt ?> kcal/Tag</span>
         </div>
-        <div class="konto-pie-wrap">
+        <div class="dashboard-pie-wrap">
           <canvas id="kalorienChart"></canvas>
         </div>
       </div>
 
-      <div class="konto-pie-card">
-        <div class="konto-pie-kpi">
-          <span class="konto-pie-kpi-label">Körpergewicht</span>
-          <span class="konto-pie-kpi-value">
+      <div class="dashboard-pie-card">
+        <div class="dashboard-pie-kpi">
+          <span class="dashboard-pie-kpi-label">Körpergewicht</span>
+          <span class="dashboard-pie-kpi-value">
             <?= ($erstesGewicht !== null ? $erstesGewicht : '—') ?> kg → <?= ($letztesGewicht !== null ? $letztesGewicht : '—') ?> kg
           </span>
         </div>
-        <div class="konto-pie-wrap">
+        <div class="dashboard-pie-wrap">
           <canvas id="gewichtChart"></canvas>
         </div>
       </div>
@@ -395,33 +395,33 @@ require_once __DIR__ . '/../navbar.php';
     <!-- <hr class="lt-hr"> -->
 
     <!-- UNTEN: 3 Cards nebeneinander (wie Einnahmen/Ausgaben), aber 3er-Grid -->
-    <div class="konto-pies konto-pies-3">
-      <div class="konto-pie-card">
-        <div class="konto-pie-kpi">
-          <span class="konto-pie-kpi-label">Protein</span>
-          <span class="konto-pie-kpi-value">Ø<?= (int)$eiweissDurchschnitt ?> g/Tag</span>
+    <div class="dashboard-pies dashboard-pies-3">
+      <div class="dashboard-pie-card">
+        <div class="dashboard-pie-kpi">
+          <span class="dashboard-pie-kpi-label">Protein</span>
+          <span class="dashboard-pie-kpi-value">Ø<?= (int)$eiweissDurchschnitt ?> g/Tag</span>
         </div>
-        <div class="konto-pie-wrap">
+        <div class="dashboard-pie-wrap">
           <canvas id="eiweissChart"></canvas>
         </div>
       </div>
 
-      <div class="konto-pie-card">
-        <div class="konto-pie-kpi">
-          <span class="konto-pie-kpi-label">Fett</span>
-          <span class="konto-pie-kpi-value">Ø<?= (int)$fettDurchschnitt ?> g/Tag</span>
+      <div class="dashboard-pie-card">
+        <div class="dashboard-pie-kpi">
+          <span class="dashboard-pie-kpi-label">Fett</span>
+          <span class="dashboard-pie-kpi-value">Ø<?= (int)$fettDurchschnitt ?> g/Tag</span>
         </div>
-        <div class="konto-pie-wrap">
+        <div class="dashboard-pie-wrap">
           <canvas id="fettChart"></canvas>
         </div>
       </div>
 
-      <div class="konto-pie-card">
-        <div class="konto-pie-kpi">
-          <span class="konto-pie-kpi-label">Carbs</span>
-          <span class="konto-pie-kpi-value">Ø<?= (int)$khDurchschnitt ?> g/Tag</span>
+      <div class="dashboard-pie-card">
+        <div class="dashboard-pie-kpi">
+          <span class="dashboard-pie-kpi-label">Carbs</span>
+          <span class="dashboard-pie-kpi-value">Ø<?= (int)$khDurchschnitt ?> g/Tag</span>
         </div>
-        <div class="konto-pie-wrap">
+        <div class="dashboard-pie-wrap">
           <canvas id="khChart"></canvas>
         </div>
       </div>

@@ -372,12 +372,12 @@ require_once __DIR__ . '/../head.php';
 require_once __DIR__ . '/../navbar.php';
 ?>
 
-<div id="ltPage" class="lt-page lt-page-konto">
+<div id="ltPage" class="lt-page dashboard-page">
     <div class="lt-topbar">
 
-        <h1 class="ueberschrift konto-title">
-        <span class="konto-title-main">B.Sc. Maschinenbau <?= htmlspecialchars((string)semester_label($semester), ENT_QUOTES, 'UTF-8') ?></span>
-        <span class="konto-title-soft">| <?= htmlspecialchars((string)$semesterLernzeitStunden, ENT_QUOTES, 'UTF-8') ?> Stunden</span>
+        <h1 class="ueberschrift dashboard-title">
+        <span class="dashboard-title-main">B.Sc. Maschinenbau <?= htmlspecialchars((string)semester_label($semester), ENT_QUOTES, 'UTF-8') ?></span>
+        <span class="dashboard-title-soft">| <?= htmlspecialchars((string)$semesterLernzeitStunden, ENT_QUOTES, 'UTF-8') ?> Stunden</span>
         </h1>
 
         <div class="lt-yearwrap">
