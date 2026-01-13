@@ -511,6 +511,19 @@ require_once __DIR__ . '/../navbar.php';
 
     const validSubjects = new Set(Object.keys(SUBJECTS));
 
+    const DEFAULT_HIDDEN_SUBJECTS = new Set([
+        'Regelungstechnik',
+        'Strömungsmechanik'
+    ]);
+
+    // Hidden-State bleibt über rebuildChart() erhalten
+    const hiddenSubjects = Object.create(null);
+    for (const s of DEFAULT_HIDDEN_SUBJECTS) hiddenSubjects[s] = true;
+
+    function isSubjectHidden(fach) {
+    return !!hiddenSubjects[String(fach ?? '')];
+    }
+
 
     const validSemesters = new Set([...elSemester.options].map(o => o.value));
 
@@ -1407,39 +1420,42 @@ require_once __DIR__ . '/../navbar.php';
         }
 
         const datasets = Object.keys(SUBJECTS).flatMap((fach) => {
-        const color = SUBJECTS[fach];
+            const color = SUBJECTS[fach];
+            const hidden = isSubjectHidden(fach);
 
-        return [
-            // (A) Sichtbare Step-Linie (sekundengenau)
-            {
-            label: fach,
-            data: buildRemainingStepSeriesForSubject(fach, range.startDay, range.endDay),
-            parsing: false,
-            borderColor: color,
-            backgroundColor: color,
-            borderWidth: 5,
-            pointRadius: 0,
-            hitRadius: 0,          // <- wichtig: diese Serie NICHT hoverbar machen
-            hoverRadius: 0,
-            tension: 0.25,
-            stepped: 'after'
-            },
+            return [
+                // (A) Sichtbare Step-Linie (sekundengenau)
+                {
+                label: fach,
+                data: buildRemainingStepSeriesForSubject(fach, range.startDay, range.endDay),
+                parsing: false,
+                borderColor: color,
+                backgroundColor: color,
+                borderWidth: 5,
+                pointRadius: 0,
+                hitRadius: 0,
+                hoverRadius: 0,
+                tension: 0.25,
+                stepped: 'after',
+                hidden
+                },
 
-            // (B) Unsichtbare Daily-Punkte (nur Tooltip/Hover)
-            {
-            label: fach,
-            data: buildDailyRemainingSeriesForSubject(fach, range.startDay, range.endDay),
-            parsing: false,
-            showLine: false,
-            borderWidth: 0,
-            pointRadius: 0,        // unsichtbar
-            hitRadius: 14,         // <- wichtig: aber "anfassbar" fürs Hover
-            hoverRadius: 0,
-            borderColor: color,
-            backgroundColor: color,
-            ltHover: true          // <- Marker fürs Filtern (Tooltip/Legend)
-            }
-        ];
+                // (B) Unsichtbare Daily-Punkte (nur Tooltip/Hover)
+                {
+                  label: fach,
+                  data: buildDailyRemainingSeriesForSubject(fach, range.startDay, range.endDay),
+                  parsing: false,
+                  showLine: false,
+                  borderWidth: 0,
+                  pointRadius: 0,
+                  hitRadius: 14,
+                  hoverRadius: 0,
+                  borderColor: color,
+                  backgroundColor: color,
+                  ltHover: true,
+                  hidden
+                }
+            ];
         });
 
         const cfg = {
@@ -1454,15 +1470,35 @@ require_once __DIR__ . '/../navbar.php';
                 interaction: { mode: 'nearest', axis: 'x', intersect: false },
                 plugins: {
                     legend: {
-                        position: 'top',
-                        labels: {
-                            boxWidth: 14,
-                            boxHeight: 14,
-                            filter: (legendItem, data) => {
-                            const ds = data?.datasets?.[legendItem.datasetIndex];
-                            return !ds?.ltHover; // Hover-Serie aus Legend raus
-                            }
+                      position: 'top',
+                      labels: {
+                        boxWidth: 14,
+                        boxHeight: 14,
+                        filter: (legendItem, data) => {
+                          const ds = data?.datasets?.[legendItem.datasetIndex];
+                          return !ds?.ltHover; // Hover-Serie aus Legend raus
                         }
+                      },
+                      onClick: (e, legendItem, legend) => {
+                        const chart = legend.chart;
+
+                        // fach aus Legend-Text (entspricht label)
+                        const fach = String(legendItem.text ?? '');
+
+                        // aktueller Sichtbarkeits-Status (Step-Dataset ist das Legend-Item)
+                        const idx0 = legendItem.datasetIndex;
+                        const nextVisible = !chart.isDatasetVisible(idx0);
+
+                        // State merken (damit rebuildChart() das beibehält)
+                        hiddenSubjects[fach] = !nextVisible;
+
+                        // Beide Datasets (Step + Hover) für dieses Fach synchron toggeln
+                        chart.data.datasets.forEach((ds, i) => {
+                          if (ds && ds.label === fach) chart.setDatasetVisibility(i, nextVisible);
+                        });
+
+                        chart.update();
+                      }
                     },
                     tooltip: {
                     displayColors: true,
