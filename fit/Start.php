@@ -598,10 +598,10 @@ new Chart(document.getElementById('kalorienChart').getContext('2d'), {
                     gelbZone:  { type: 'box', yMin: grundbedarf, yMax: kalorienziel, backgroundColor: 'rgba(255,215,0,0.15)', borderWidth: 0 },
                     rotZone:   { type: 'box', yMin: kalorienziel, backgroundColor: 'rgba(255,0,0,0.1)', borderWidth: 0 },
                     grundbedarfline: {
-                        type: 'line', yMin: grundbedarf, yMax: grundbedarf, borderColor: 'green', borderWidth: 2, borderDash: [10,3],
+                        type: 'line', yMin: grundbedarf, yMax: grundbedarf, borderColor: 'green', borderWidth: 1, borderDash: [25,5],
                     },
                     kalorienzielfline: {
-                        type: 'line', yMin: kalorienziel, yMax: kalorienziel, borderColor: 'red', borderWidth: 2, borderDash: [10,3],
+                        type: 'line', yMin: kalorienziel, yMax: kalorienziel, borderColor: 'red', borderWidth: 2, borderDash: [25,5],
                     }
                 }
             }
@@ -655,8 +655,8 @@ new Chart(document.getElementById('gewichtChart').getContext('2d'), {
             legend: { display: false },
             annotation: {
                 annotations: {
-                    ziel:        { type: 'line', yMin: 90,  yMax: 90,  borderColor: 'green', borderWidth: 2, borderDash: [10,3]},
-                    zielunten:   { type: 'line', yMin: 85,  yMax: 85,  borderColor: 'green', borderWidth: 2, borderDash: [10,3] },
+                     ziel:        { type: 'line', yMin: 90,  yMax: 90,  borderColor: 'green', borderWidth: 1, borderDash: [25,5]},
+                    zielunten:   { type: 'line', yMin: 85,  yMax: 85,  borderColor: 'green', borderWidth: 1, borderDash: [25,5] },
                     zielbereich: { type: 'box',  yMin: 85,  yMax: 90,  backgroundColor: 'rgba(0,200,0,0.15)', borderWidth: 0 },
                     ubergangszone:       { type: 'box', yMin: 90,  yMax: 100, backgroundColor: 'rgba(255,215,0,0.15)', borderWidth: 0 },
                     unakzeptabel:        { type: 'box', yMin: 100,                  backgroundColor: 'rgba(255,0,0,0.15)', borderWidth: 0 },

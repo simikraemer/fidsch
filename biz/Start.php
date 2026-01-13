@@ -1,5 +1,5 @@
 <?php
-// biz/Stats.php (Jahresstatistik)
+// biz/Start.php (Jahresstatistik)
 
 // 1) Auth (Seite geschützt)
 require_once __DIR__ . '/../auth.php';
@@ -7,6 +7,118 @@ require_once __DIR__ . '/../auth.php';
 // 2) DB
 require_once __DIR__ . '/../db.php';
 $bizconn->set_charset('utf8mb4');
+
+// 2.5) AJAX Kategorien Jahresverlauf
+if (isset($_GET['ajax']) && $_GET['ajax'] === 'cat_years') {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store, max-age=0');
+
+    $kind  = (string)($_GET['kind'] ?? '');
+    $cat   = trim((string)($_GET['cat'] ?? ''));
+    $limit = (int)($_GET['limit'] ?? 10);
+    if ($limit < 1 || $limit > 10) $limit = 10;
+
+    if (!in_array($kind, ['income', 'expense'], true)) {
+        http_response_code(400);
+        echo json_encode(['ok' => false, 'error' => 'bad_kind'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    if ($cat === '' || mb_strlen($cat) > 128) {
+        http_response_code(400);
+        echo json_encode(['ok' => false, 'error' => 'bad_cat'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    // Jahre mit Daten: max. $limit (letzte Jahre, dann ASC fürs Diagramm)
+    $MIN_YEAR = 2023;
+
+    $yrs = [];
+    $yrsRes = $bizconn->query("
+        SELECT DISTINCT YEAR(valutadatum) AS y
+        FROM transfers
+        WHERE valutadatum IS NOT NULL
+          AND YEAR(valutadatum) >= {$MIN_YEAR}
+        ORDER BY y DESC
+    ");
+    while ($r = $yrsRes->fetch_assoc()) {
+        $y = (int)$r['y'];
+        if ($y >= $MIN_YEAR) $yrs[] = $y;
+    }
+    if (!$yrs) {
+        echo json_encode(['ok' => true, 'kind' => $kind, 'cat' => $cat, 'years' => [], 'values' => []], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    $yrs = array_slice($yrs, 0, $limit);
+    sort($yrs); // ASC
+
+    // Kategorie-Filter
+    $whereCat = '';
+    $params   = [];
+    $types    = '';
+
+    if ($cat === 'unk' || mb_strtolower($cat) === mb_strtolower('Unkategorisiert')) {
+        $whereCat = "t.kategorie_id IS NULL";
+    } else {
+        $katId = null;
+        $stmt = $bizconn->prepare("SELECT id FROM kategorien WHERE name = ? LIMIT 1");
+        $stmt->bind_param('s', $cat);
+        $stmt->execute();
+        $stmt->bind_result($katId);
+        $stmt->fetch();
+        $stmt->close();
+
+        if (!$katId) {
+            http_response_code(404);
+            echo json_encode(['ok' => false, 'error' => 'cat_not_found'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+        $whereCat = "t.kategorie_id = ?";
+        $params[] = (int)$katId;
+        $types   .= 'i';
+    }
+
+    // YEAR IN (...)
+    $in = implode(',', array_fill(0, count($yrs), '?'));
+    foreach ($yrs as $y) { $params[] = (int)$y; $types .= 'i'; }
+
+    $sql = "
+        SELECT YEAR(t.valutadatum) AS y, COALESCE(SUM(t.betrag), 0) AS s
+        FROM transfers t
+        WHERE t.valutadatum IS NOT NULL
+          AND {$whereCat}
+          AND YEAR(t.valutadatum) IN ({$in})
+        GROUP BY y
+        ORDER BY y ASC
+    ";
+
+    $stmt = $bizconn->prepare($sql);
+    $stmt->bind_param($types, ...$params);
+    $stmt->execute();
+    $res = $stmt->get_result();
+
+    $map = [];
+    foreach ($yrs as $y) $map[$y] = 0.0;
+
+    while ($row = $res->fetch_assoc()) {
+        $y = (int)$row['y'];
+        $s = (float)$row['s'];     // netto (kann + oder - sein)
+        $map[$y] = $s;
+    }
+    $stmt->close();
+
+    $values = [];
+    foreach ($yrs as $y) $values[] = round((float)$map[$y], 2);
+
+    echo json_encode([
+        'ok'    => true,
+        'kind'  => $kind,
+        'cat'   => $cat,
+        'years' => $yrs,
+        'values'=> $values,
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
 
 // 3) Input + Datenbeschaffung (kein Output davor!)
 $jahr = isset($_GET['jahr']) ? (int)$_GET['jahr'] : (int)date('Y');
@@ -290,25 +402,27 @@ require_once __DIR__ . '/../navbar.php';  // Navbar
     <!-- <hr class="lt-hr"> -->
 
     <div class="konto-pies">
-        <div class="konto-pie-card">
-            <div class="konto-pie-kpi">
-                <span class="konto-pie-kpi-label">Einnahmen</span>
-                <span class="konto-pie-kpi-value"><?= euro(array_sum($incomeByCat)) ?></span>
-            </div>
-            <div class="konto-pie-wrap">
-                <canvas id="incomePie"></canvas>
-            </div>
+      <div class="konto-pie-card">
+        <div class="konto-pie-kpi">
+          <button type="button" class="chart-back" id="incomeBack" style="display:none" title="Zurück" aria-label="Zurück">&larr;</button>
+          <span class="konto-pie-kpi-label" id="incomeTitle">Einnahmen</span>
+          <span class="konto-pie-kpi-value" id="incomeKpi"><?= euro(array_sum($incomeByCat)) ?></span>
         </div>
+        <div class="konto-pie-wrap">
+          <canvas id="incomePie"></canvas>
+        </div>
+      </div>
 
-        <div class="konto-pie-card">
-            <div class="konto-pie-kpi">
-                <span class="konto-pie-kpi-label">Ausgaben</span>
-                <span class="konto-pie-kpi-value"><?= euro(array_sum($expenseByCat)) ?></span>
-            </div>
-            <div class="konto-pie-wrap">
-                <canvas id="expensePie"></canvas>
-            </div>
+      <div class="konto-pie-card">
+        <div class="konto-pie-kpi">
+          <button type="button" class="chart-back" id="expenseBack" style="display:none" title="Zurück" aria-label="Zurück">&larr;</button>
+          <span class="konto-pie-kpi-label" id="expenseTitle">Ausgaben</span>
+          <span class="konto-pie-kpi-value" id="expenseKpi"><?= euro(array_sum($expenseByCat)) ?></span>
         </div>
+        <div class="konto-pie-wrap">
+          <canvas id="expensePie"></canvas>
+        </div>
+      </div>
     </div>
 </div>
 
@@ -469,40 +583,295 @@ new Chart(saldoCtx, {
   }
 });
 
-// PIE CHARTS
+
+const TOP_N_INCOME  = 5;  // Default: Einnahmen als Balken (Top-N)
+const TOP_N_EXPENSE = 18;  // Default: Ausgaben als Säulen (Top-N)
+const YEAR_LIMIT    = 10;  // max Jahre im Verlauf
+
 const incomeLabels  = <?= $incomeLabelsJson ?>;
 const incomeValues  = <?= $incomeValuesJson ?>;
 const expenseLabels = <?= $expenseLabelsJson ?>;
 const expenseValues = <?= $expenseValuesJson ?>;
-const sum = (arr) => arr.reduce((a,b)=>a+Number(b||0),0);
 
-const pieOpts = (total) => ({
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: { display: false },
-    tooltip: {
-      callbacks: {
-        label: (ctx) => {
-          const val = Number(ctx.parsed);
-          const pct = total ? (val/total*100) : 0;
-          return `${ctx.label}: ${fmtEuro(val)} (${pct.toFixed(1)}%)`;
+const sumArr = (arr) => arr.reduce((a,b)=>a+Number(b||0),0);
+
+function topNWithRest(labels, values, N) {
+  const pairs = labels
+    .map((l, i) => ({ l, v: Number(values[i] || 0) }))
+    .filter(p => p.v > 0)
+    .sort((a, b) => b.v - a.v);
+
+  const top  = pairs.slice(0, N);
+  const rest = pairs.slice(N);
+
+  if (rest.length) top.push({ l: 'Rest', v: rest.reduce((s, p) => s + p.v, 0) });
+
+  return {
+    labels: top.map(p => p.l),
+    values: top.map(p => Math.round(p.v * 100) / 100),
+  };
+}
+
+function truncateLabel(s, max = 14) {
+  s = String(s ?? '');
+  return s.length > max ? (s.slice(0, max - 1) + '…') : s;
+}
+function staggeredTick(label, index, maxLen = 14) {
+  const t = truncateLabel(label, maxLen);
+  return (index % 2 === 0) ? [t, ''] : ['', t];
+}
+
+async function fetchYearSeries(kind, catLabel) {
+  const base = window.location.pathname; // /biz/Stats.php
+  const qs = new URLSearchParams({
+    ajax: 'cat_years',
+    kind,
+    cat: catLabel === 'Unkategorisiert' ? 'unk' : catLabel,
+    limit: String(YEAR_LIMIT),
+  });
+  const r = await fetch(`${base}?${qs.toString()}`, {
+    method: 'GET',
+    credentials: 'same-origin',
+    headers: { 'Accept': 'application/json' }
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || !j?.ok) throw new Error(j?.error || `http_${r.status}`);
+  return j; // {years:[], values:[]}
+}
+
+const ui = {
+  income: {
+    canvasId: 'incomePie',
+    backId:   'incomeBack',
+    titleId:  'incomeTitle',
+    kpiId:    'incomeKpi',
+    kind:     'income',
+    chart:    null,
+    origTitle: null,
+    origKpi:   null,
+    mode:     'overview'
+  },
+  expense: {
+    canvasId: 'expensePie',
+    backId:   'expenseBack',
+    titleId:  'expenseTitle',
+    kpiId:    'expenseKpi',
+    kind:     'expense',
+    chart:    null,
+    origTitle: null,
+    origKpi:   null,
+    mode:     'overview'
+  }
+};
+
+function $(id){ return document.getElementById(id); }
+
+function setBackVisible(key, on) {
+  const b = $(ui[key].backId);
+  b.style.display = on ? '' : 'none';
+}
+function setTitle(key, t) { $(ui[key].titleId).textContent = t; }
+function setKpi(key, t)   { $(ui[key].kpiId).textContent   = t; }
+
+function destroyChart(key) {
+  if (ui[key].chart) {
+    ui[key].chart.destroy();
+    ui[key].chart = null;
+  }
+}
+
+function makeIncomeOverview() {
+  const key = 'income';
+  destroyChart(key);
+  ui[key].mode = 'overview';
+  setBackVisible(key, false);
+  setTitle(key, ui[key].origTitle);
+  setKpi(key, ui[key].origKpi);
+
+  const top = topNWithRest(incomeLabels, incomeValues, TOP_N_INCOME);
+  const total = sumArr(top.values);
+
+  ui[key].chart = new Chart($(ui[key].canvasId).getContext('2d'), {
+    type: 'bar',
+    data: { labels: top.labels, datasets: [{ data: top.values, borderWidth: 1 }] },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      indexAxis: 'y',
+      scales: {
+        x: { beginAtZero: true, ticks: { callback: (v) => fmtEuro(v) } },
+        y: { ticks: { autoSkip: false } }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const val = Number(ctx.parsed.x);
+              const pct = total ? (val / total * 100) : 0;
+              return `${ctx.label}: ${fmtEuro(val)} (${pct.toFixed(1)}%)`;
+            }
+          }
+        }
+      },
+      onClick: async (evt, elements, chart) => {
+        if (!elements?.length) return;
+        const idx = elements[0].index;
+        const label = chart.data.labels?.[idx];
+        if (!label || label === 'Rest') return;
+        await showYearDetail(key, label);
+      }
+    }
+  });
+}
+
+function makeExpenseOverview() {
+  const key = 'expense';
+  destroyChart(key);
+  ui[key].mode = 'overview';
+  setBackVisible(key, false);
+  setTitle(key, ui[key].origTitle);
+  setKpi(key, ui[key].origKpi);
+
+  const top = topNWithRest(expenseLabels, expenseValues, TOP_N_EXPENSE);
+  const total = sumArr(top.values);
+
+  ui[key].chart = new Chart($(ui[key].canvasId).getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: top.labels,
+      datasets: [{
+        data: top.values,
+        borderWidth: 1,
+        barPercentage: 0.9,
+        categoryPercentage: 0.8
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: { padding: { bottom: 8 } },
+      scales: {
+        x: {
+          ticks: {
+            autoSkip: false,
+            maxRotation: 0,
+            minRotation: 0,
+            padding: 6,
+            callback: function(value, index) {
+              const label = this.getLabelForValue(value);
+              return staggeredTick(label, index, 14);
+            }
+          }
+        },
+        y: { beginAtZero: true, ticks: { callback: (v) => fmtEuro(v) } }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: (items) => items?.[0]?.label ?? '',
+            label: (ctx) => {
+              const val = Number(ctx.parsed.y);
+              const pct = total ? (val / total * 100) : 0;
+              return `${fmtEuro(val)} (${pct.toFixed(1)}%)`;
+            }
+          }
+        }
+      },
+      onClick: async (evt, elements, chart) => {
+        if (!elements?.length) return;
+        const idx = elements[0].index;
+        const label = chart.data.labels?.[idx];
+        if (!label || label === 'Rest') return;
+        await showYearDetail(key, label);
+      }
+    }
+  });
+}
+
+async function showYearDetail(key, catLabel) {
+  destroyChart(key);
+  ui[key].mode = 'detail';
+  setBackVisible(key, true);
+
+  const kind = ui[key].kind;
+  const titleBase = (key === 'income') ? 'Einnahmen' : 'Ausgaben';
+  setTitle(key, `${titleBase} - ${catLabel}`);
+  setKpi(key, '…');
+
+  let data;
+  try {
+    data = await fetchYearSeries(kind, catLabel);
+  } catch (e) {
+    setKpi(key, 'Fehler');
+    console.error(e);
+    // fallback zurück
+    (key === 'income') ? makeIncomeOverview() : makeExpenseOverview();
+    return;
+  }
+
+  const years = data.years || [];
+  let values  = (data.values || []).map(Number);
+  if (key === 'expense') { values = values.map(v => v * -1); }  // nur im Detailfenster: Ausgaben positiv anzeigen
+  const total  = sumArr(values);
+  setKpi(key, fmtEuro(total));
+
+  ui[key].chart = new Chart($(ui[key].canvasId).getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: years.map(String),
+      datasets: [{
+        label: `${titleBase} (${catLabel})`,
+        data: values,
+        borderWidth: 2,
+        pointRadius: 4,
+        fill: false,
+        tension: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => `${ctx.label}: ${fmtEuro(ctx.parsed.y)}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { maxRotation: 0, minRotation: 0 }
+        },
+        y: {
+          beginAtZero: true,
+          ticks: { callback: (v) => fmtEuro(v) }
         }
       }
     }
-  }
-});
+  });
 
-new Chart(document.getElementById('incomePie').getContext('2d'), {
-  type: 'pie',
-  data: { labels: incomeLabels,  datasets: [{ data: incomeValues  }] },
-  options: pieOpts(sum(incomeValues))
-});
-new Chart(document.getElementById('expensePie').getContext('2d'), {
-  type: 'pie',
-  data: { labels: expenseLabels, datasets: [{ data: expenseValues }] },
-  options: pieOpts(sum(expenseValues))
-});
+  // Back-Button
+  const backBtn = $(ui[key].backId);
+  backBtn.onclick = () => {
+    backBtn.onclick = null;
+    (key === 'income') ? makeIncomeOverview() : makeExpenseOverview();
+  };
+}
+
+// Init
+ui.income.origTitle = $(ui.income.titleId).textContent;
+ui.income.origKpi   = $(ui.income.kpiId).textContent;
+ui.expense.origTitle= $(ui.expense.titleId).textContent;
+ui.expense.origKpi  = $(ui.expense.kpiId).textContent;
+
+makeIncomeOverview();   // Einnahmen: Balken
+makeExpenseOverview();  // Ausgaben: Säulen
+
+
 </script>
 
 </body>

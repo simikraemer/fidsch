@@ -1033,6 +1033,8 @@ input[type="radio"] {
     border-radius: var(--border-radius);
     box-shadow: var(--shadow);
     overflow: hidden;
+    margin: auto;
+    max-width: 1000px;
 }
 
 .lt-table {
@@ -1466,4 +1468,34 @@ input[type="radio"] {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+/* Pfeil größer, ohne dass der KPI-Header höher wird */
+button.chart-back{
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+
+  /* feste Box bleibt klein -> Header bleibt gleich hoch */
+  width: 22px;
+  height: 22px;
+
+  /* optisch größer, ohne Layout zu pushen */
+  transform: scale(2);
+  transform-origin: left center;
+
+  /* Abstand zum Titel */
+  margin-right: 8px;
+
+  line-height: 1;
+}
+
+/* optional */
+button.chart-back:hover{ opacity: .8; }
+button.chart-back:focus-visible{
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+  border-radius: 4px;
 }
