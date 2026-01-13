@@ -1340,6 +1340,10 @@ input[type="radio"] {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+/* links schmaler, rechts breiter */
+.lt-page-konto .konto-pies.konto-pies--asym{
+  grid-template-columns: minmax(0, 0.6fr) minmax(0, 1.4fr);
+}
 
 /* =========================
    Konto-Seite: Pie-Card Styling

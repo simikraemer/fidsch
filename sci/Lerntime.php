@@ -376,7 +376,7 @@ require_once __DIR__ . '/../navbar.php';
     <div class="lt-topbar">
 
         <h1 class="ueberschrift konto-title">
-        <span class="konto-title-main">Lernzeit <?= htmlspecialchars((string)semester_label($semester), ENT_QUOTES, 'UTF-8') ?></span>
+        <span class="konto-title-main">B.Sc. Maschinenbau <?= htmlspecialchars((string)semester_label($semester), ENT_QUOTES, 'UTF-8') ?></span>
         <span class="konto-title-soft">| <?= htmlspecialchars((string)$semesterLernzeitStunden, ENT_QUOTES, 'UTF-8') ?> Stunden</span>
         </h1>
 

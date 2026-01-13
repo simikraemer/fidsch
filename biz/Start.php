@@ -359,7 +359,7 @@ require_once __DIR__ . '/../navbar.php';  // Navbar
 <div id="statsPage" class="lt-page lt-page-konto">
     <div class="lt-topbar">
         <h1 class="ueberschrift konto-title">
-            <span class="konto-title-main">Konto <?= htmlspecialchars((string)$jahr, ENT_QUOTES, 'UTF-8') ?></span>
+            <span class="konto-title-main">Finanzen <?= htmlspecialchars((string)$jahr, ENT_QUOTES, 'UTF-8') ?></span>
             <span class="konto-title-soft">| <?= euro($kontostandBisEndeDesJahres) ?></span>
         </h1>
 
@@ -401,7 +401,7 @@ require_once __DIR__ . '/../navbar.php';  // Navbar
 
     <!-- <hr class="lt-hr"> -->
 
-    <div class="konto-pies">
+    <div class="konto-pies konto-pies--asym">
       <div class="konto-pie-card">
         <div class="konto-pie-kpi">
           <button type="button" class="chart-back" id="incomeBack" style="display:none" title="Zurück" aria-label="Zurück">&larr;</button>
@@ -416,7 +416,7 @@ require_once __DIR__ . '/../navbar.php';  // Navbar
       <div class="konto-pie-card">
         <div class="konto-pie-kpi">
           <button type="button" class="chart-back" id="expenseBack" style="display:none" title="Zurück" aria-label="Zurück">&larr;</button>
-          <span class="konto-pie-kpi-label" id="expenseTitle">Ausgaben</span>
+          <span class="konto-pie-kpi-label" id="expenseTitle">Ausgaben (Logarithmisch)</span>
           <span class="konto-pie-kpi-value" id="expenseKpi"><?= euro(array_sum($expenseByCat)) ?></span>
         </div>
         <div class="konto-pie-wrap">
@@ -424,6 +424,7 @@ require_once __DIR__ . '/../navbar.php';  // Navbar
         </div>
       </div>
     </div>
+
 </div>
 
 
@@ -606,7 +607,7 @@ new Chart(saldoCtx, {
 
 
 const TOP_N_INCOME  = 5;  // Default: Einnahmen als Balken (Top-N)
-const TOP_N_EXPENSE = 18;  // Default: Ausgaben als Säulen (Top-N)
+const TOP_N_EXPENSE = 50;  // Default: Ausgaben als Säulen (Top-N)
 const YEAR_LIMIT    = 10;  // max Jahre im Verlauf
 
 const incomeLabels  = <?= $incomeLabelsJson ?>;
@@ -788,6 +789,12 @@ function makeExpenseOverview() {
 
   const top = topNWithRest(expenseLabels, expenseValues, TOP_N_EXPENSE);
   const total = sumArr(top.values);
+  const positive = top.values.filter(v => v > 0);
+  const minVal = positive.length ? Math.min(...positive) : 0.01;
+  
+  // “schöner” Startwert für log-Achse (nächste Zehnerpotenz darunter)
+  let minY = Math.pow(10, Math.floor(Math.log10(minVal)));
+  if (!isFinite(minY) || minY <= 0) minY = 0.01;
 
   ui[key].chart = new Chart($(ui[key].canvasId).getContext('2d'), {
     type: 'bar',
@@ -830,7 +837,7 @@ function makeExpenseOverview() {
         chart.canvas.style.cursor = isClickableBar(chart, elements) ? 'pointer' : 'default';
       },
       layout: { padding: { bottom: 8 } },
-      scales: {
+			scales: {
         x: {
           ticks: {
             autoSkip: false,
@@ -838,12 +845,20 @@ function makeExpenseOverview() {
             minRotation: 0,
             padding: 6,
             callback: function(value, index) {
-              const label = this.getLabelForValue(value);
-              return staggeredTick(label, index, 14);
+                const label = this.getLabelForValue(value);
+                return staggeredTick(label, index, 14);
             }
-          }
+            }
         },
-        y: { beginAtZero: true, ticks: { callback: (v) => fmtEuro(v) } }
+        y: {
+            type: 'logarithmic',
+            min: minY,
+            ticks: {
+            callback: (v) => fmtEuro(v),
+            // optional: nicht zu viele Log-Ticks
+            maxTicksLimit: 5
+            }
+        }
       },
       plugins: {
         legend: { display: false },
