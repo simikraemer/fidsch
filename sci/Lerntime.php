@@ -591,8 +591,8 @@ require_once __DIR__ . '/../navbar.php';
         const rect = targetRow.getBoundingClientRect();
         const before = clientY < rect.top + rect.height / 2;
 
-        targetRow.classList.toggle('lt-drop-before', before);
-        targetRow.classList.toggle('lt-drop-after', !before);
+        /* targetRow.classList.toggle('lt-drop-before', before);
+        targetRow.classList.toggle('lt-drop-after', !before); */
 
         if (before) elTbody.insertBefore(draggingRow, targetRow);
         else elTbody.insertBefore(draggingRow, targetRow.nextSibling);
@@ -794,11 +794,35 @@ require_once __DIR__ . '/../navbar.php';
         elPage.style.setProperty('--lt-accent', c);
     }
 
+    function pickTextColor(hex) {
+        // erwartet "#rrggbb"
+        const m = String(hex).trim().match(/^#?([0-9a-f]{6})$/i);
+        if (!m) return '#fff';
+        const n = parseInt(m[1], 16);
+        const r = (n >> 16) & 255;
+        const g = (n >> 8) & 255;
+        const b = n & 255;
+
+        // relative luminance (sRGB)
+        const srgb = [r, g, b].map(v => {
+            const x = v / 255;
+            return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+        });
+        const L = 0.2126 * srgb[0] + 0.7152 * srgb[1] + 0.0722 * srgb[2];
+
+        // Schwelle: hell -> schwarzer Text, dunkel -> weißer Text
+        return L > 0.55 ? '#111' : '#fff';
+    }
+
     function renderTabs() {
         elTabs.innerHTML = '';
 
         Object.keys(SUBJECTS).forEach((fach) => {
             const btn = document.createElement('button');
+            const c = SUBJECTS[fach] || '#999';
+            btn.style.setProperty('--tab-accent', c);
+            btn.style.setProperty('--tab-accent-text', pickTextColor(c));
+
             btn.type = 'button';
             btn.className = 'lt-tab' + (fach === selectedFach ? ' active' : '');
             btn.textContent = fach;
@@ -941,16 +965,20 @@ require_once __DIR__ . '/../navbar.php';
             const tdDrag = document.createElement('td');
             tdDrag.className = 'lt-dragcell';
 
-            const grip = document.createElement('span');
-            grip.className = 'lt-grip';
+            const grip = document.createElement('div');
+            /* grip.className = 'lt-grip'; */
             grip.innerHTML = '&#8942;&#8942;'; // ⋮⋮
             tdDrag.appendChild(grip);
 
-            grip.addEventListener('pointerdown', () => { dragAllowed = true; });
+            // Ganze Zelle ist der "Handle"
+            tdDrag.addEventListener('pointerdown', () => { dragAllowed = true; });
             const disableDragAllowed = () => { dragAllowed = false; };
-            grip.addEventListener('pointerup', disableDragAllowed);
-            grip.addEventListener('pointercancel', disableDragAllowed);
-            grip.addEventListener('pointerleave', disableDragAllowed);
+            tdDrag.addEventListener('pointerup', disableDragAllowed);
+            tdDrag.addEventListener('pointercancel', disableDragAllowed);
+            tdDrag.addEventListener('pointerleave', disableDragAllowed);
+
+            // Klick auf Drag-Spalte soll NICHT Edit-Modal öffnen
+            tdDrag.addEventListener('click', (e) => e.stopPropagation());
 
             tr.addEventListener('dragstart', (e) => {
                 if (!dragAllowed) {
@@ -1004,9 +1032,9 @@ require_once __DIR__ . '/../navbar.php';
             });
 
             tr.addEventListener('click', (e) => {
-                if (e.target.closest('.lt-check')) return;
-                if (e.target.closest('.lt-grip')) return;
-                openEditModal(task);
+            if (e.target.closest('.lt-check')) return;
+            if (e.target.closest('.lt-dragcell')) return; // statt .lt-grip
+            openEditModal(task);
             });
 
             // Inhalt (zweite Spalte)
@@ -1234,7 +1262,7 @@ require_once __DIR__ . '/../navbar.php';
 
         let total = 0;
         let doneBefore = 0;
-        const doneByDate = Object.create(null); // "YYYY-MM-DD" -> seconds
+        const doneByDate = Object.create(null); // YYYY-MM-DD -> sec
 
         for (const t of list) {
             const dur = Math.max(0, Number(t.dauer_sekunden ?? 0));
@@ -1246,13 +1274,11 @@ require_once __DIR__ . '/../navbar.php';
             if (!dt.isValid) continue;
 
             const ms = dt.toMillis();
-            if (ms < startMs) {
-                doneBefore += dur;
-                continue;
-            }
+
+            if (ms < startMs) { doneBefore += dur; continue; }
             if (ms > endMs) continue;
 
-            const key = dt.toISODate(); // YYYY-MM-DD
+            const key = dt.toISODate();
             doneByDate[key] = (doneByDate[key] || 0) + dur;
         }
 
@@ -1264,12 +1290,79 @@ require_once __DIR__ . '/../navbar.php';
             const key = cursor.toISODate();
             if (doneByDate[key]) remaining = Math.max(0, remaining - doneByDate[key]);
 
-            points.push({ x: cursor.toMillis(), y: secToHours(remaining) });
+            points.push({ x: cursor.toMillis(), y: secToHours(remaining) }); // 00:00
             cursor = cursor.plus({ days: 1 });
         }
 
         return points;
+        }
+
+
+    function buildRemainingStepSeriesForSubject(fach, startDay, endDay) {
+        const startMs = startDay.toMillis();
+        const endMs   = endDay.endOf('day').toMillis();
+
+        const list = TASKS.filter(t => t.fach === fach);
+
+        // Total Workload (sek) aus allen Tasks dieses Fachs
+        let total = 0;
+        for (const t of list) {
+            total += Math.max(0, Number(t.dauer_sekunden ?? 0));
+        }
+
+        // Events: { ms, dur } für erledigte Tasks innerhalb des Ranges
+        let doneBefore = 0;
+        const events = [];
+
+        for (const t of list) {
+            const dur = Math.max(0, Number(t.dauer_sekunden ?? 0));
+            if (!dur) continue;
+            if (!t.erledigt_am) continue;
+
+            const dt = DateTime.fromSQL(String(t.erledigt_am), { zone: 'local' });
+            if (!dt.isValid) continue;
+
+            const ms = dt.toMillis();
+
+            if (ms < startMs) {
+                doneBefore += dur;
+                continue;
+            }
+            if (ms > endMs) continue;
+
+            events.push({ ms, dur });
+        }
+
+        // Startwert: Rest = total - alles was vor Range schon erledigt war
+        let remaining = Math.max(0, total - doneBefore);
+
+        // Events nach Zeit sortieren
+        events.sort((a, b) => a.ms - b.ms);
+
+        // Falls mehrere Events exakt gleiche ms haben: zusammenfassen
+        const merged = [];
+        for (const ev of events) {
+            const last = merged[merged.length - 1];
+            if (last && last.ms === ev.ms) last.dur += ev.dur;
+            else merged.push({ ...ev });
+        }
+
+        const points = [];
+        // Initialpunkt (damit Linie im Range beginnt)
+        points.push({ x: startMs, y: secToHours(remaining) });
+
+        // Bei jedem Event: Drop exakt zur Timestamp
+        for (const ev of merged) {
+            remaining = Math.max(0, remaining - ev.dur);
+            points.push({ x: ev.ms, y: secToHours(remaining) });
+        }
+
+        // Endpunkt (damit Linie bis Range-Ende weiterläuft)
+        points.push({ x: endMs, y: secToHours(remaining) });
+
+        return points;
     }
+
 
     function rebuildChart() {
         const range = getSemesterRange(selectedSemester);
@@ -1279,15 +1372,15 @@ require_once __DIR__ . '/../navbar.php';
         // HEUTE-LINIE
         (() => {
             const now = DateTime.local();
-            const todayMs = now.startOf('day').plus({ hours: 0 }).toMillis(); // 12:00, konsistent zu deinen anderen Lines
-            if (todayMs >= range.minMs && todayMs <= range.maxMs) {
+            const nowMs = now.toMillis();
+            if (nowMs >= range.minMs && nowMs <= range.maxMs) {
                 annotations['today_line'] = {
-                    type: 'line',
-                    xMin: todayMs,
-                    xMax: todayMs,
-                    borderColor: '#000',
-                    borderWidth: 1,
-                    drawTime: 'afterDatasetsDraw'
+                type: 'line',
+                xMin: nowMs,
+                xMax: nowMs,
+                borderColor: '#000',
+                borderWidth: 1,
+                drawTime: 'afterDatasetsDraw'
                 };
             }
         })();
@@ -1313,18 +1406,40 @@ require_once __DIR__ . '/../navbar.php';
             };
         }
 
-        const datasets = Object.keys(SUBJECTS).map((fach) => {
-            return {
-                label: fach,
-                data: buildDailyRemainingSeriesForSubject(fach, range.startDay, range.endDay),
-                parsing: false,
-                borderColor: SUBJECTS[fach],
-                backgroundColor: SUBJECTS[fach],
-                borderWidth: 5,
-                pointRadius: 0,
-                tension: 0.25,
-                stepped: 'after'
-            };
+        const datasets = Object.keys(SUBJECTS).flatMap((fach) => {
+        const color = SUBJECTS[fach];
+
+        return [
+            // (A) Sichtbare Step-Linie (sekundengenau)
+            {
+            label: fach,
+            data: buildRemainingStepSeriesForSubject(fach, range.startDay, range.endDay),
+            parsing: false,
+            borderColor: color,
+            backgroundColor: color,
+            borderWidth: 5,
+            pointRadius: 0,
+            hitRadius: 0,          // <- wichtig: diese Serie NICHT hoverbar machen
+            hoverRadius: 0,
+            tension: 0.25,
+            stepped: 'after'
+            },
+
+            // (B) Unsichtbare Daily-Punkte (nur Tooltip/Hover)
+            {
+            label: fach,
+            data: buildDailyRemainingSeriesForSubject(fach, range.startDay, range.endDay),
+            parsing: false,
+            showLine: false,
+            borderWidth: 0,
+            pointRadius: 0,        // unsichtbar
+            hitRadius: 14,         // <- wichtig: aber "anfassbar" fürs Hover
+            hoverRadius: 0,
+            borderColor: color,
+            backgroundColor: color,
+            ltHover: true          // <- Marker fürs Filtern (Tooltip/Legend)
+            }
+        ];
         });
 
         const cfg = {
@@ -1333,20 +1448,44 @@ require_once __DIR__ . '/../navbar.php';
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                interaction: { mode: 'index', intersect: false },
+                adapters: {
+                    date: { zone: 'local' }
+                },
+                interaction: { mode: 'nearest', axis: 'x', intersect: false },
                 plugins: {
                     legend: {
                         position: 'top',
-                        labels: { boxWidth: 14, boxHeight: 14 }
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: (ctx) => {
-                                const v = Number(ctx.parsed.y ?? 0);
-                                const hours = Math.round(v * 10) / 10;
-                                return `${ctx.dataset.label}: ${hours} h`;
+                        labels: {
+                            boxWidth: 14,
+                            boxHeight: 14,
+                            filter: (legendItem, data) => {
+                            const ds = data?.datasets?.[legendItem.datasetIndex];
+                            return !ds?.ltHover; // Hover-Serie aus Legend raus
                             }
                         }
+                    },
+                    tooltip: {
+                    displayColors: true,
+                    boxWidth: 12,
+                    boxHeight: 12,
+                    callbacks: {
+                        label: (ctx) => {
+                        const v = Number(ctx.parsed.y ?? 0);
+                        const hours = Math.round(v * 10) / 10;
+                        return `${ctx.dataset.label}: ${hours} h`;
+                        },
+
+                        // Farbbox links im Tooltip passend zum Fach
+                        labelColor: (ctx) => {
+                        const ds = ctx.dataset || {};
+                        let c = ds.borderColor || ds.backgroundColor || '#999';
+                        if (Array.isArray(c)) c = c[0]; // falls mal Array-Farben drin sind
+                        return {
+                            borderColor: c,
+                            backgroundColor: c
+                        };
+                        },
+                    }
                     },
                     annotation: {
                         annotations
