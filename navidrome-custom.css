@@ -1,0 +1,7 @@
+@import "CSSVAR.css";
+
+/* Nur Navbar/AppBar Hintergrund */
+.MuiAppBar-colorSecondary,
+.MuiAppBar-root {
+  background-color: #424242 !important;
+}
