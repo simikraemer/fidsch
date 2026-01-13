@@ -1491,7 +1491,10 @@ button.chart-back{
 }
 
 /* optional */
-button.chart-back:hover{ opacity: .8; }
+button.chart-back:hover{ 
+  color: var(--primary);
+  opacity: 1; /* damit nicht zusätzlich abdunkelt */
+ }
 button.chart-back:focus-visible{
   outline: 2px solid currentColor;
   outline-offset: 2px;
