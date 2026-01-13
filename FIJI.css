@@ -954,6 +954,10 @@ input[type="radio"] {
     height: calc(255px + 26px);
 }
 
+.lernzeit-chart-wrap {
+    height: 350px !important;
+}
+
 .lt-hr {
     border: none;
     border-top: 2px solid rgba(0,0,0,0.08);

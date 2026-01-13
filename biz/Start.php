@@ -442,6 +442,26 @@ const selectedCategoryLabel  = <?= json_encode($selectedKatLabel, JSON_UNESCAPED
 const chartYear              = <?= (int)$jahr ?>;
 
 const fmtEuro = (v) => new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'}).format(Number(v||0));
+const PRIMARY = getComputedStyle(document.documentElement)
+  .getPropertyValue('--primary')
+  .trim() || '#1e88e5';
+
+function hexToRgba(hex, a) {
+  const m = String(hex).trim().match(/^#?([0-9a-f]{6})$/i);
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
+}
+
+function isClickableBar(chart, elements) {
+  if (!elements?.length) return false;
+  const el = elements[0];
+  const label = chart.data.labels?.[el.index];
+  return !!label && label !== 'Rest';
+}
 
 /* --- NEU: Monats-Gitterlinien am Monatsanfang, Labels in Monatsmitte (deutsche Monatsabkürzung) --- */
 function daysInMonthUTC(year, monthIndex0) {
@@ -548,7 +568,8 @@ new Chart(saldoCtx, {
   options: {
     responsive: true,
     maintainAspectRatio: false,
-    interaction: { mode: 'index', intersect: false },
+    interaction: { mode: 'nearest', axis: 'x', intersect: false },
+    hover:       { mode: 'nearest', axis: 'x', intersect: false },
     plugins: {
       legend: { display: false },
       tooltip: {
@@ -693,10 +714,42 @@ function makeIncomeOverview() {
 
   ui[key].chart = new Chart($(ui[key].canvasId).getContext('2d'), {
     type: 'bar',
-    data: { labels: top.labels, datasets: [{ data: top.values, borderWidth: 1 }] },
+    data: {
+      labels: top.labels,
+      datasets: [{
+        data: top.values,
+
+        // Styling (nicht per CSS möglich, deshalb hier)
+        backgroundColor: (ctx) => {
+          const label = ctx.chart.data.labels?.[ctx.dataIndex];
+          return (label && label !== 'Rest') ? hexToRgba(PRIMARY, 0.35) : 'rgba(0,0,0,0.08)';
+        },
+        borderColor: (ctx) => {
+          const label = ctx.chart.data.labels?.[ctx.dataIndex];
+          return (label && label !== 'Rest') ? PRIMARY : 'rgba(0,0,0,0.15)';
+        },
+        borderWidth: 1,
+
+        hoverBackgroundColor: (ctx) => {
+          const label = ctx.chart.data.labels?.[ctx.dataIndex];
+          return (label && label !== 'Rest') ? PRIMARY : 'rgba(0,0,0,0.08)';
+        },
+        hoverBorderColor: (ctx) => {
+          const label = ctx.chart.data.labels?.[ctx.dataIndex];
+          return (label && label !== 'Rest') ? PRIMARY : 'rgba(0,0,0,0.15)';
+        },
+        hoverBorderWidth: (ctx) => {
+          const label = ctx.chart.data.labels?.[ctx.dataIndex];
+          return (label && label !== 'Rest') ? 2 : 1;
+        },
+      }]
+    },
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      onHover: (evt, elements, chart) => {
+        chart.canvas.style.cursor = isClickableBar(chart, elements) ? 'pointer' : 'default';
+      },
       indexAxis: 'y',
       scales: {
         x: { beginAtZero: true, ticks: { callback: (v) => fmtEuro(v) } },
@@ -742,7 +795,30 @@ function makeExpenseOverview() {
       labels: top.labels,
       datasets: [{
         data: top.values,
+
+        backgroundColor: (ctx) => {
+          const label = ctx.chart.data.labels?.[ctx.dataIndex];
+          return (label && label !== 'Rest') ? hexToRgba(PRIMARY, 0.35) : 'rgba(0,0,0,0.08)';
+        },
+        borderColor: (ctx) => {
+          const label = ctx.chart.data.labels?.[ctx.dataIndex];
+          return (label && label !== 'Rest') ? PRIMARY : 'rgba(0,0,0,0.15)';
+        },
         borderWidth: 1,
+
+        hoverBackgroundColor: (ctx) => {
+          const label = ctx.chart.data.labels?.[ctx.dataIndex];
+          return (label && label !== 'Rest') ? PRIMARY : 'rgba(0,0,0,0.08)';
+        },
+        hoverBorderColor: (ctx) => {
+          const label = ctx.chart.data.labels?.[ctx.dataIndex];
+          return (label && label !== 'Rest') ? PRIMARY : 'rgba(0,0,0,0.15)';
+        },
+        hoverBorderWidth: (ctx) => {
+          const label = ctx.chart.data.labels?.[ctx.dataIndex];
+          return (label && label !== 'Rest') ? 2 : 1;
+        },
+
         barPercentage: 0.9,
         categoryPercentage: 0.8
       }]
@@ -750,6 +826,9 @@ function makeExpenseOverview() {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      onHover: (evt, elements, chart) => {
+        chart.canvas.style.cursor = isClickableBar(chart, elements) ? 'pointer' : 'default';
+      },
       layout: { padding: { bottom: 8 } },
       scales: {
         x: {
@@ -824,21 +903,36 @@ async function showYearDetail(key, catLabel) {
       datasets: [{
         label: `${titleBase} (${catLabel})`,
         data: values,
-        borderWidth: 2,
-        pointRadius: 4,
-        fill: false,
-        tension: 0
+
+        // Look
+        borderColor: PRIMARY,
+        borderWidth: 3,
+        tension: 1,
+
+        // keine sichtbaren Punkte
+        pointRadius: 5,
+        pointHoverRadius: 6,
+        pointHitRadius: 10,
+
+        // optional: dezentes Fill unter der Linie
+        fill: true,
+        backgroundColor: hexToRgba(PRIMARY, 0.12),
+
+        // optional: “sauberere” Linie
+        cubicInterpolationMode: 'monotone',
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
+      interaction: { mode: 'nearest', axis: 'x', intersect: false },
+      hover:       { mode: 'nearest', axis: 'x', intersect: false },
       plugins: {
-        legend: { display: false },
         tooltip: {
+          mode: 'x',
+          intersect: false,
           callbacks: {
-            label: (ctx) => `${ctx.label}: ${fmtEuro(ctx.parsed.y)}`
+            label: (ctx) => `${ctx.dataset.label}: ${fmtEuro(ctx.parsed.y)}`
           }
         }
       },

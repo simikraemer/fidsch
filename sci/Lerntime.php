@@ -392,7 +392,7 @@ require_once __DIR__ . '/../navbar.php';
         </div>
     </div>
 
-    <div class="lt-chart-wrap">
+    <div class="lt-chart-wrap lernzeit-chart-wrap">
         <canvas id="ltRemainingChart"></canvas>
     </div>
 
