@@ -947,12 +947,12 @@ input[type="radio"] {
 }
 
 .lt-chart-wrap {
-    margin: 18px auto 10px;
+    margin: 18px auto 16px;
     background: #fff;
     border-radius: var(--border-radius);
     box-shadow: var(--shadow);
     padding: 16px 18px;
-    height: 300px;
+    height: calc(255px + 26px);
 }
 
 .lt-hr {
@@ -1343,7 +1343,6 @@ input[type="radio"] {
    ========================= */
 
 .lt-page-konto .konto-pie-card{
-  border: 1px solid rgba(0,0,0,0.08);
   border-radius: var(--border-radius);
   padding: 14px 14px 12px;
   background: #fff;
@@ -1373,7 +1372,7 @@ input[type="radio"] {
   position: relative;
   width: 100%;
   aspect-ratio: 1 / 1;
-  max-height: 240px;
+  max-height: 255px;
 }
 
 .lt-page-konto .konto-pie-wrap > canvas{
