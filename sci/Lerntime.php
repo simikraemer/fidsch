@@ -446,7 +446,7 @@ require_once __DIR__ . '/../navbar.php';
 
             <div class="input-group-dropdown">
                 <label for="ltNewTitel">Titel</label>
-                <input id="ltNewTitel" type="text" placeholder="z.B. Biot-Zahl">
+                <input id="ltNewTitel" type="text" placeholder="z.B. Zugversuch">
             </div>
 
             <div class="input-group-dropdown">
@@ -558,6 +558,124 @@ require_once __DIR__ . '/../navbar.php';
     let draggingRow = null;
     let draggingId = null;
     let dragStartIndex = null;
+
+    // START AUTOSCROLL 
+
+    const elTableWrap = document.querySelector('.lt-table-wrap');
+    const elNavbar = document.querySelector('.navbar');
+    let dragClientX = 0;
+    let dragClientY = 0;
+    let autoScrollRaf = 0;
+    let autoScrollVel = 0;
+
+    const AUTO_SCROLL_MARGIN = 90; // px Edge-Zone
+    const AUTO_SCROLL_MAX    = 26; // px pro Frame
+
+    function clamp(n, lo, hi) { return Math.max(lo, Math.min(hi, n)); }
+
+    function getScrollTarget() {
+        if (elTableWrap && elTableWrap.scrollHeight > elTableWrap.clientHeight + 1) return elTableWrap;
+        return document.scrollingElement || document.documentElement;
+    }
+
+    function setDragPointer(e) {
+        dragClientX = e.clientX;
+        dragClientY = e.clientY;
+    }
+
+    function hoverReorder(targetRow, clientY) {
+        if (!draggingRow || !targetRow || targetRow === draggingRow) return;
+
+        clearDropMarkers();
+
+        const rect = targetRow.getBoundingClientRect();
+        const before = clientY < rect.top + rect.height / 2;
+
+        targetRow.classList.toggle('lt-drop-before', before);
+        targetRow.classList.toggle('lt-drop-after', !before);
+
+        if (before) elTbody.insertBefore(draggingRow, targetRow);
+        else elTbody.insertBefore(draggingRow, targetRow.nextSibling);
+    }
+
+    function navbarBottomPx() {
+        // fixed Navbar nimmt oberen Bereich ein -> Scroll-Edge darunter
+        return elNavbar ? Math.max(0, elNavbar.getBoundingClientRect().bottom) : 0;
+    }
+
+    function updateAutoScrollFromPointer() {
+        if (!draggingRow) return stopAutoScroll();
+
+        const target = getScrollTarget();
+        const docScroll = (document.scrollingElement || document.documentElement);
+
+        const nb = navbarBottomPx();
+
+        let topEdge = nb;                 // <- IMPORTANT
+        let bottomEdge = window.innerHeight;
+
+        if (target !== docScroll) {
+            const r = target.getBoundingClientRect();
+            topEdge = Math.max(r.top, nb); // <- IMPORTANT
+            bottomEdge = r.bottom;
+        }
+
+        let v = 0;
+
+        if (dragClientY < topEdge + AUTO_SCROLL_MARGIN) {
+            const t = (topEdge + AUTO_SCROLL_MARGIN - dragClientY) / AUTO_SCROLL_MARGIN;
+            v = -AUTO_SCROLL_MAX * clamp(t, 0, 1);
+        } else if (dragClientY > bottomEdge - AUTO_SCROLL_MARGIN) {
+            const t = (dragClientY - (bottomEdge - AUTO_SCROLL_MARGIN)) / AUTO_SCROLL_MARGIN;
+            v = AUTO_SCROLL_MAX * clamp(t, 0, 1);
+        }
+
+        autoScrollVel = Math.trunc(v);
+
+        if (autoScrollVel !== 0 && !autoScrollRaf) {
+            autoScrollRaf = requestAnimationFrame(autoScrollTick);
+        } else if (autoScrollVel === 0) {
+            stopAutoScroll();
+        }
+    }
+
+    function autoScrollTick() {
+        autoScrollRaf = 0;
+        if (!draggingRow || autoScrollVel === 0) return;
+
+        const target = getScrollTarget();
+        const docScroll = (document.scrollingElement || document.documentElement);
+
+        if (target === docScroll) {
+            window.scrollBy(0, autoScrollVel);
+        } else {
+            const max = Math.max(0, target.scrollHeight - target.clientHeight);
+            target.scrollTop = clamp(target.scrollTop + autoScrollVel, 0, max);
+        }
+
+        // Reorder auch während Auto-Scroll (falls native dragover nicht sauber triggert)
+        const el = document.elementFromPoint(dragClientX, dragClientY);
+        const row = el && el.closest ? el.closest('tr.lt-row') : null;
+        if (row && elTbody.contains(row)) hoverReorder(row, dragClientY);
+
+        autoScrollRaf = requestAnimationFrame(autoScrollTick);
+    }
+
+    function stopAutoScroll() {
+        if (autoScrollRaf) cancelAnimationFrame(autoScrollRaf);
+        autoScrollRaf = 0;
+        autoScrollVel = 0;
+    }
+
+    document.addEventListener('dragover', (e) => {
+    if (!draggingRow) return;
+    setDragPointer(e);
+    updateAutoScrollFromPointer();
+    e.preventDefault();
+    }, { capture: true, passive: false });
+
+    document.addEventListener('drop', () => stopAutoScroll(), true);
+    document.addEventListener('dragend', () => stopAutoScroll(), true);
 
     function clearDropMarkers() {
         elTbody.querySelectorAll('tr.lt-row').forEach(r => r.classList.remove('lt-drop-before', 'lt-drop-after'));
@@ -843,27 +961,25 @@ require_once __DIR__ . '/../navbar.php';
 
                 draggingRow = tr;
                 draggingId = tr.dataset.id;
-                dragStartIndex = [...elTbody.querySelectorAll('tr.lt-row')].findIndex(r => r.dataset.id === String(draggingId));
+                dragStartIndex = [...elTbody.querySelectorAll('tr.lt-row')]
+                    .findIndex(r => r.dataset.id === String(draggingId));
 
                 tr.classList.add('lt-dragging');
                 e.dataTransfer.effectAllowed = 'move';
                 e.dataTransfer.setData('text/plain', draggingId);
+
+                setDragPointer(e);
+                updateAutoScrollFromPointer();
             });
 
             tr.addEventListener('dragover', (e) => {
                 if (!draggingRow || tr === draggingRow) return;
                 e.preventDefault();
 
-                clearDropMarkers();
+                setDragPointer(e);
+                updateAutoScrollFromPointer();
 
-                const rect = tr.getBoundingClientRect();
-                const before = e.clientY < rect.top + rect.height / 2;
-
-                tr.classList.toggle('lt-drop-before', before);
-                tr.classList.toggle('lt-drop-after', !before);
-
-                if (before) elTbody.insertBefore(draggingRow, tr);
-                else elTbody.insertBefore(draggingRow, tr.nextSibling);
+                hoverReorder(tr, e.clientY);
             });
 
             tr.addEventListener('dragleave', () => {
@@ -878,6 +994,7 @@ require_once __DIR__ . '/../navbar.php';
             tr.addEventListener('dragend', async () => {
                 tr.classList.remove('lt-dragging');
                 clearDropMarkers();
+                stopAutoScroll();
 
                 await commitSortIfChanged();
 
@@ -1159,10 +1276,10 @@ require_once __DIR__ . '/../navbar.php';
 
         const annotations = {};
         
-        // HEUTE-LINIE (rot, dünn)
+        // HEUTE-LINIE
         (() => {
             const now = DateTime.local();
-            const todayMs = now.startOf('day').plus({ hours: 12 }).toMillis(); // 12:00, konsistent zu deinen anderen Lines
+            const todayMs = now.startOf('day').plus({ hours: 0 }).toMillis(); // 12:00, konsistent zu deinen anderen Lines
             if (todayMs >= range.minMs && todayMs <= range.maxMs) {
                 annotations['today_line'] = {
                     type: 'line',
@@ -1190,7 +1307,7 @@ require_once __DIR__ . '/../navbar.php';
                 xMin: ms,
                 xMax: ms,
                 borderColor: SUBJECTS[fach],
-                borderWidth: 8,
+                borderWidth: 4,
                 borderDash: [6, 6],
                 drawTime: 'afterDatasetsDraw'
             };
