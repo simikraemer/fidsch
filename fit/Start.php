@@ -425,6 +425,16 @@ require_once __DIR__ . '/../navbar.php';
           <canvas id="khChart"></canvas>
         </div>
       </div>
+
+      <!-- <div class="dashboard-pie-card">
+        <div class="dashboard-pie-kpi">
+          <span class="dashboard-pie-kpi-label">Alkohol</span>
+          <span class="dashboard-pie-kpi-value">Ø<?= (int)$alkDurchschnitt ?> g/Tag</span>
+        </div>
+        <div class="dashboard-pie-wrap">
+          <canvas id="alkChart"></canvas>
+        </div>
+      </div> -->
     </div>
   </div>
 
