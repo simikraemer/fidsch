@@ -75,9 +75,6 @@ if (str_starts_with($path, 'fit')) {
     }
 
 } elseif ($path === '' || $path === 'index.php') {
-    // --- Startseite ---
-    require_once __DIR__ . '/db.php';        // (kein POST hier, aber ok für Konsistenz)
-
     // Rendering starten
     $page_title = 'Fidsch';
     require_once __DIR__ . '/head.php';      // <!DOCTYPE html> … <body>
@@ -85,19 +82,23 @@ if (str_starts_with($path, 'fit')) {
     ?>
     <main class="container">
         <div style="text-align: center;">
-            <h1 class="ueberschrift">Willkommen :^)</h1>
+            <h1 class="ueberschrift">Private Webseite</h1>
 
             <p>
-                Die Konverter-Tools speichern keine Eingaben.<br>
-                Alle weiteren Inhalte sind zugangsbeschränkt und nur für den persönlichen Gebrauch vorgesehen.
+                Diese Seite ist eine private, nicht-öffentliche Webanwendung und richtet sich ausschließlich an
+                autorisierte Nutzer. Inhalte, Funktionen und Daten sind nicht für die allgemeine Nutzung bestimmt.
+            </p>
+
+            <p>
+                Falls du hier gelandet bist, ohne Zugriff zu haben, kannst du diese Seite einfach schließen.
+                Ein Login bzw. Zugriff ist nur für berechtigte Personen vorgesehen.
+            </p>
+
+            <p style="opacity: .8; font-size: .95rem; margin-top: 1rem;">
+                Hinweis: Unautorisierte Zugriffsversuche werden protokolliert.
             </p>
         </div>
     </main>
-
-    <footer style="text-align: center; font-size: 0.8rem; margin-top: 2rem; color: #777;">
-        <p>Dies ist eine rein private, nicht-kommerzielle Webseite.</p>
-        <p>Simon Fiji Krämer<br>Aachen</p>
-    </footer>
     </body>
     </html>
     <?php

@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../auth.php';
 // ---- POST-Verarbeitung (kein Output davor!) ----
 $mac_colons = $_POST['mac_colons'] ?? '';
 $mac_dots   = $_POST['mac_dots']   ?? '';
