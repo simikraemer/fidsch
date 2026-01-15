@@ -9,12 +9,30 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
 
-$FAECHER = [
-    'Regelungstechnik' => '#1e88e5',                 // blau
-    'Simulationstechnik' => '#43a047',               // grün
-    'Wärme- und Stoffübertragung' => '#e53935',      // rot
-    'Strömungsmechanik' => '#fbc02d',                // gelb
-];
+$SUBJECTS = []; // name => ['id'=>int,'color'=>string,'legend_hidden_default'=>int,'sort_order'=>int]
+$resF = $sciconn->query("
+    SELECT id, name, color, legend_hidden_default, sort_order
+    FROM lerntime_faecher
+    WHERE is_active = 1
+    ORDER BY sort_order ASC, id ASC
+");
+if (!$resF) {
+    http_response_code(500);
+    die('DB-Fehler: lerntime_faecher konnte nicht geladen werden.');
+}
+while ($r = $resF->fetch_assoc()) {
+    $name = (string)$r['name'];
+    $SUBJECTS[$name] = [
+        'id' => (int)$r['id'],
+        'color' => (string)$r['color'],
+        'legend_hidden_default' => (int)$r['legend_hidden_default'],
+        'sort_order' => (int)$r['sort_order'],
+    ];
+}
+if (!$SUBJECTS) {
+    http_response_code(500);
+    die('Keine Fächer vorhanden. Bitte lerntime_faecher befüllen.');
+}
 
 function json_out(array $payload, int $code = 200): void {
     http_response_code($code);
@@ -32,9 +50,11 @@ function parse_int($v, int $default = 0): int {
 $jahr = isset($_GET['jahr']) ? (int)$_GET['jahr'] : (int)date('Y');
 if ($jahr < 2000 || $jahr > 2100) $jahr = (int)date('Y');
 
-$defaultFach = 'Regelungstechnik';
-$sessionFach = $_SESSION['lerntime_fach'] ?? $defaultFach;
-if (!array_key_exists($sessionFach, $FAECHER)) $sessionFach = $defaultFach;
+$preferredDefault = 'Regelungstechnik';
+$defaultFach = isset($SUBJECTS[$preferredDefault]) ? $preferredDefault : (string)array_key_first($SUBJECTS);
+
+$sessionFach = (string)($_SESSION['lerntime_fach'] ?? $defaultFach);
+if (!isset($SUBJECTS[$sessionFach])) $sessionFach = $defaultFach;
 $_SESSION['lerntime_fach'] = $sessionFach;
 
 /* ---------------------- POST (AJAX) ---------------------- */
@@ -43,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
     if ($action === 'set_fach') {
         $fach = (string)($_POST['fach'] ?? '');
-        if (!array_key_exists($fach, $FAECHER)) {
+        if (!isset($SUBJECTS[$fach])) {
             json_out(['ok' => false, 'error' => 'Ungültiges Fach.'], 400);
         }
         $_SESSION['lerntime_fach'] = $fach;
@@ -92,7 +112,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             ? max(0, (int)$_POST['dauer_sekunden'])
             : null;
 
-        if (!array_key_exists($fach, $FAECHER)) json_out(['ok' => false, 'error' => 'Ungültiges Fach.'], 400);
+        if (!isset($SUBJECTS[$fach])) json_out(['ok' => false, 'error' => 'Ungültiges Fach.'], 400);
         if ($einheit === '' || $titel === '') json_out(['ok' => false, 'error' => 'Einheit und Titel sind Pflichtfelder.'], 400);
 
         $_SESSION['lerntime_fach'] = $fach;
@@ -153,7 +173,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
         json_out(['ok' => true, 'id' => $id, 'sort_key' => $sort]);
     }
-    /* FIX 3: POST-Action update_task (in deinen POST-Block einfügen, vor "Unbekannte Aktion") */
 
     if ($action === 'update_task') {
         $id = (int)($_POST['id'] ?? 0);
@@ -167,12 +186,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             : null;
 
         if ($id <= 0) json_out(['ok' => false, 'error' => 'Ungültige ID.'], 400);
-        if (!array_key_exists($fach, $FAECHER)) json_out(['ok' => false, 'error' => 'Ungültiges Fach.'], 400);
+        if (!isset($SUBJECTS[$fach])) json_out(['ok' => false, 'error' => 'Ungültiges Fach.'], 400);
         if ($einheit === '' || $titel === '') json_out(['ok' => false, 'error' => 'Einheit und Titel sind Pflichtfelder.'], 400);
 
         $sciconn->begin_transaction();
         try {
-            // altes Fach laden (für Fachwechsel)
             $stmt = $sciconn->prepare("SELECT fach FROM lerntime WHERE id = ? LIMIT 1");
             $stmt->bind_param('i', $id);
             $stmt->execute();
@@ -187,7 +205,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
             $oldFach = (string)$old['fach'];
 
-            // bei Fachwechsel: sort_key ans Ende des neuen Fachs hängen
             $newSort = null;
             if ($fach !== $oldFach) {
                 $stmt = $sciconn->prepare("SELECT MAX(sort_key) AS m FROM lerntime WHERE fach = ?");
@@ -212,13 +229,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $stmt = $sciconn->prepare("UPDATE lerntime SET fach=?, einheit=?, titel=?, notiz=?, dauer_sekunden=? WHERE id=?");
                 $stmt->bind_param('ssssii', $fach, $einheit, $titel, $notiz, $dauer_sekunden, $id);
             } else {
-                $stmt = $sciconn->prepare("UPDATE lerntime SET fach=?, einheit=?, titel=?, notiz=?, dauer_sekunden=?, sort_key=? WHERE id=?");
-                $stmt->bind_param('ssssidI', $fach, $einheit, $titel, $notiz, $dauer_sekunden, $newSort, $id);
-                // Hinweis: bind_param kennt kein 'I' -> deshalb diese Variante NICHT nutzen
-            }
-
-            // Korrektur: letzter else-Case sauber:
-            if ($dauer_sekunden !== null && $newSort !== null) {
                 $stmt = $sciconn->prepare("UPDATE lerntime SET fach=?, einheit=?, titel=?, notiz=?, dauer_sekunden=?, sort_key=? WHERE id=?");
                 $stmt->bind_param('ssssidi', $fach, $einheit, $titel, $notiz, $dauer_sekunden, $newSort, $id);
             }
@@ -430,13 +440,13 @@ require_once __DIR__ . '/../navbar.php';
             <input type="hidden" id="ltEditId" value="">
             <div class="input-group-dropdown">
                 <label for="ltNewFach">Fach</label>
-                <select id="ltNewFach">
-                    <?php foreach ($FAECHER as $name => $hex): ?>
-                        <option value="<?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?>">
-                            <?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
+                    <select id="ltNewFach">
+                        <?php foreach ($SUBJECTS as $name => $meta): ?>
+                            <option value="<?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?>">
+                                <?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
             </div>
 
             <div class="input-group-dropdown">
@@ -484,7 +494,7 @@ require_once __DIR__ . '/../navbar.php';
 (() => {
     const DateTime = luxon.DateTime;
 
-    const SUBJECTS = <?= json_encode($FAECHER, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+    const SUBJECTS = <?= json_encode($SUBJECTS, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
     const TASKS = <?= json_encode($tasks, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
     const EXAMS = <?= json_encode($klausuren, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 
@@ -511,19 +521,19 @@ require_once __DIR__ . '/../navbar.php';
 
     const validSubjects = new Set(Object.keys(SUBJECTS));
 
-    const DEFAULT_HIDDEN_SUBJECTS = new Set([
-        'Regelungstechnik',
-        'Strömungsmechanik'
-    ]);
+    function subjectColor(fach) {
+        return SUBJECTS?.[String(fach ?? '')]?.color || '#999';
+    }
 
     // Hidden-State bleibt über rebuildChart() erhalten
     const hiddenSubjects = Object.create(null);
-    for (const s of DEFAULT_HIDDEN_SUBJECTS) hiddenSubjects[s] = true;
-
-    function isSubjectHidden(fach) {
-    return !!hiddenSubjects[String(fach ?? '')];
+    for (const [name, meta] of Object.entries(SUBJECTS)) {
+        if (meta && Number(meta.legend_hidden_default) === 1) hiddenSubjects[name] = true;
     }
 
+    function isSubjectHidden(fach) {
+        return !!hiddenSubjects[String(fach ?? '')];
+    }
 
     const validSemesters = new Set([...elSemester.options].map(o => o.value));
 
@@ -803,12 +813,10 @@ require_once __DIR__ . '/../navbar.php';
     if (!validSubjects.has(selectedFach)) selectedFach = phpDefaultFach;
 
     function setAccentForSubject(fach) {
-        const c = SUBJECTS[fach] || '#999';
-        elPage.style.setProperty('--lt-accent', c);
+        elPage.style.setProperty('--lt-accent', subjectColor(fach));
     }
 
     function pickTextColor(hex) {
-        // erwartet "#rrggbb"
         const m = String(hex).trim().match(/^#?([0-9a-f]{6})$/i);
         if (!m) return '#fff';
         const n = parseInt(m[1], 16);
@@ -816,14 +824,11 @@ require_once __DIR__ . '/../navbar.php';
         const g = (n >> 8) & 255;
         const b = n & 255;
 
-        // relative luminance (sRGB)
         const srgb = [r, g, b].map(v => {
             const x = v / 255;
             return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
         });
         const L = 0.2126 * srgb[0] + 0.7152 * srgb[1] + 0.0722 * srgb[2];
-
-        // Schwelle: hell -> schwarzer Text, dunkel -> weißer Text
         return L > 0.55 ? '#111' : '#fff';
     }
 
@@ -832,7 +837,7 @@ require_once __DIR__ . '/../navbar.php';
 
         Object.keys(SUBJECTS).forEach((fach) => {
             const btn = document.createElement('button');
-            const c = SUBJECTS[fach] || '#999';
+            const c = subjectColor(fach);
             btn.style.setProperty('--tab-accent', c);
             btn.style.setProperty('--tab-accent-text', pickTextColor(c));
 
@@ -851,7 +856,6 @@ require_once __DIR__ . '/../navbar.php';
                 renderTable();
                 elNewFach.value = selectedFach;
 
-                // Session-Update im Hintergrund
                 try { await post('set_fach', { fach: selectedFach }); } catch (e) {}
             });
 
@@ -1381,19 +1385,18 @@ require_once __DIR__ . '/../navbar.php';
         const range = getSemesterRange(selectedSemester);
 
         const annotations = {};
-        
-        // HEUTE-LINIE
+
         (() => {
             const now = DateTime.local();
             const nowMs = now.toMillis();
             if (nowMs >= range.minMs && nowMs <= range.maxMs) {
                 annotations['today_line'] = {
-                type: 'line',
-                xMin: nowMs,
-                xMax: nowMs,
-                borderColor: '#000',
-                borderWidth: 1,
-                drawTime: 'afterDatasetsDraw'
+                    type: 'line',
+                    xMin: nowMs,
+                    xMax: nowMs,
+                    borderColor: '#000',
+                    borderWidth: 1,
+                    drawTime: 'afterDatasetsDraw'
                 };
             }
         })();
@@ -1412,7 +1415,7 @@ require_once __DIR__ . '/../navbar.php';
                 type: 'line',
                 xMin: ms,
                 xMax: ms,
-                borderColor: SUBJECTS[fach],
+                borderColor: subjectColor(fach),
                 borderWidth: 4,
                 borderDash: [6, 6],
                 drawTime: 'afterDatasetsDraw'
@@ -1420,40 +1423,37 @@ require_once __DIR__ . '/../navbar.php';
         }
 
         const datasets = Object.keys(SUBJECTS).flatMap((fach) => {
-            const color = SUBJECTS[fach];
+            const color = subjectColor(fach);
             const hidden = isSubjectHidden(fach);
 
             return [
-                // (A) Sichtbare Step-Linie (sekundengenau)
                 {
-                label: fach,
-                data: buildRemainingStepSeriesForSubject(fach, range.startDay, range.endDay),
-                parsing: false,
-                borderColor: color,
-                backgroundColor: color,
-                borderWidth: 5,
-                pointRadius: 0,
-                hitRadius: 0,
-                hoverRadius: 0,
-                tension: 0.25,
-                stepped: 'after',
-                hidden
+                    label: fach,
+                    data: buildRemainingStepSeriesForSubject(fach, range.startDay, range.endDay),
+                    parsing: false,
+                    borderColor: color,
+                    backgroundColor: color,
+                    borderWidth: 5,
+                    pointRadius: 0,
+                    hitRadius: 0,
+                    hoverRadius: 0,
+                    tension: 0.25,
+                    stepped: 'after',
+                    hidden
                 },
-
-                // (B) Unsichtbare Daily-Punkte (nur Tooltip/Hover)
                 {
-                  label: fach,
-                  data: buildDailyRemainingSeriesForSubject(fach, range.startDay, range.endDay),
-                  parsing: false,
-                  showLine: false,
-                  borderWidth: 0,
-                  pointRadius: 0,
-                  hitRadius: 14,
-                  hoverRadius: 0,
-                  borderColor: color,
-                  backgroundColor: color,
-                  ltHover: true,
-                  hidden
+                    label: fach,
+                    data: buildDailyRemainingSeriesForSubject(fach, range.startDay, range.endDay),
+                    parsing: false,
+                    showLine: false,
+                    borderWidth: 0,
+                    pointRadius: 0,
+                    hitRadius: 14,
+                    hoverRadius: 0,
+                    borderColor: color,
+                    backgroundColor: color,
+                    ltHover: true,
+                    hidden
                 }
             ];
         });

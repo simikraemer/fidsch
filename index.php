@@ -28,6 +28,11 @@ $routesSci = [
     'lerntime' => 'Lerntime.php',
 ];
 
+$routesCheck = [
+    'start'    => 'ToDo.php',
+    'todo'     => 'ToDo.php',
+];
+
 $routestool = [
     'mac'         => 'MAC.php',
     'path'    => 'PATH.php',
@@ -64,6 +69,14 @@ if (str_starts_with($path, 'fit')) {
         echo "Seite nicht gefunden.";
     }
 
+} elseif (str_starts_with($path, 'check')) {
+    $slug = trim(preg_replace('#^check/?#', '', $path), '/');
+    if (array_key_exists($slug, $routesCheck)) {
+        require __DIR__ . '/check/' . $routesCheck[$slug];
+    } else {
+        http_response_code(404);
+        echo "Seite nicht gefunden.";
+    }
 
 } elseif (str_starts_with($path, 'tools')) {
     $slug = trim(preg_replace('#^tools/?#', '', $path), '/');

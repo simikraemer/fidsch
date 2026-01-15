@@ -38,3 +38,14 @@ $sciconn = new mysqli($sciconf['host'], $sciconf['user'], $sciconf['password'], 
 if ($sciconn->connect_error) {
     die('Verbindung zur sci-Datenbank fehlgeschlagen: ' . $sciconn->connect_error);
 }
+
+
+// Verbindung zur check-Datenbank
+if (!isset($config_data['checkphp'])) {
+    die('checkphp-Konfiguration nicht gefunden.');
+}
+$checkconf = $config_data['checkphp'];
+$checkconn = new mysqli($checkconf['host'], $checkconf['user'], $checkconf['password'], $checkconf['database']);
+if ($checkconn->connect_error) {
+    die('Verbindung zur check-Datenbank fehlgeschlagen: ' . $checkconn->connect_error);
+}
