@@ -452,6 +452,21 @@ require_once __DIR__ . '/../navbar.php';
     </div>
 </div>
 
+<style>
+  #ltNewNotiz{
+    resize: none;           
+    overflow-y: auto;       
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  #ltNewDetailNotiz{
+    resize: none;           
+    overflow-y: auto;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+</style>
+
 <script>
 (() => {
     const SUBJECTS = <?= json_encode($SUBJECTS, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
