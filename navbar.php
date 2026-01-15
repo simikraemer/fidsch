@@ -81,20 +81,20 @@ if (isset($_GET['login']) && $_GET['login'] === '1') {
             <!-- Sci -->
             <li class="nav-item has-submenu">
                 <a href="/sci/start"><img src="/img/uni.png" alt="Sci" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"></a>
-                <ul class="submenu">
+                <!-- <ul class="submenu">
                     <li><a href="/sci/lerntime"><img src="/img/graph.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Übersicht</span></a></li>
                     <!-- <li><a href="/sci/fragen"><img src="/img/fragezeichen.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Fragen</span></a></li>
                     <li><a href="/sci/data"><img src="/img/table.png" alt="Daten" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Daten</span></a></li>
-                    <li><a href="/sci/insert"><img src="/img/upload.png" alt="Hochladen" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Hochladen</span></a></li> -->
-                </ul>
+                    <li><a href="/sci/insert"><img src="/img/upload.png" alt="Hochladen" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Hochladen</span></a></li>
+                </ul> -->
             </li>
 
             <!-- Check -->
             <li class="nav-item has-submenu">
                 <a href="/check/start"><img src="/img/todo.png" alt="Check" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"></a>
-                <ul class="submenu">
+                <!-- <ul class="submenu">
                     <li><a href="/check/todo"><img src="/img/graph.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Übersicht</span></a></li>
-                </ul>
+                </ul> -->
             </li>
 
             <div class="nav-divider"></div>

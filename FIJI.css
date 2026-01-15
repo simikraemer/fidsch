@@ -1094,3 +1094,94 @@ button.chart-back:focus-visible {
     border-color: var(--tab-accent);
     color: var(--tab-accent-text);
 }
+
+.lt-task-top{
+  align-items:center;
+}
+
+.lt-indent{
+  display:inline-block;
+  width:calc(var(--lt-depth,0)*18px);
+  flex:0 0 auto;
+}
+
+.lt-expcell,
+.lt-subcell{
+  width:52px;
+  text-align:center;
+  vertical-align:middle;
+}
+
+.lt-todo-expbtn,
+.lt-todo-subbtn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  line-height:1;
+  opacity:.75;
+  user-select:none;
+}
+
+.lt-todo-expbtn{
+  width:1.8rem;
+  height:1.8rem;
+  font-size:3rem;
+  transform:rotate(0deg);
+  transition:transform .12s ease,opacity .12s ease;
+}
+
+.lt-todo-subbtn{
+  width:1.8rem;
+  height:1.8rem;
+  font-size:3rem;
+}
+
+.lt-todo-expbtn:hover,
+.lt-todo-subbtn:hover{
+  opacity:1;
+  color:var(--primary);
+}
+
+.lt-todo-expbtn.open{
+  transform:rotate(90deg);
+}
+
+.lt-todo-expbtn.is-hidden{
+  visibility:hidden;
+}
+
+.lt-todo-subbtn.is-hidden{
+  display:none;
+}
+
+.lt-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:1.35em;
+  height:1.35em;
+  margin-left:.5rem;
+  padding:0 .35em;
+  border-radius:999px;
+  background:rgba(0,0,0,.12);
+  font-size:.78em;
+  line-height:1;
+}
+
+.lt-child .lt-task-top{
+  opacity:.98;
+}
+
+.lt-row.lt-child td{
+  background:var(--lt-child-bg, rgba(0,0,0,.035));
+}
+
+.lt-row.lt-child .lt-title{
+  font-size:.9em;
+}
+
+.lt-row.lt-child .lt-note{
+  font-size:.8em;
+  opacity:.9;
+}

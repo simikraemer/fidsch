@@ -4,10 +4,6 @@
 require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../db.php';
 
-/**
- * Erwartung: db.php stellt $checkconn bereit (mysqli) und verbindet auf DB `check`.
- * Falls du das noch nicht hast: in db.php analog zu $sciconn hinzufügen.
- */
 $checkconn->set_charset('utf8mb4');
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
@@ -21,14 +17,9 @@ function json_out(array $payload, int $code = 200): void {
     echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
 }
-function parse_int($v, int $default = 0): int {
-    if (!isset($v)) return $default;
-    if (is_numeric($v)) return (int)$v;
-    return $default;
-}
 
-/* ---------------------- Kategorien laden ---------------------- */
-$CATS = []; // id => ['id'=>int,'name'=>string,'color'=>string,'sort_order'=>int]
+/* ---------------------- Kategorien laden (als SUBJECTS wie Lerntime) ---------------------- */
+$SUBJECTS = []; // name => ['id'=>int,'color'=>string,'sort_order'=>int]
 $resC = $checkconn->query("
     SELECT id, name, color, sort_order
     FROM todo_kategorien
@@ -40,35 +31,48 @@ if (!$resC) {
     die('DB-Fehler: todo_kategorien konnte nicht geladen werden.');
 }
 while ($r = $resC->fetch_assoc()) {
-    $id = (int)$r['id'];
-    $CATS[$id] = [
-        'id' => $id,
-        'name' => (string)$r['name'],
+    $name = (string)$r['name'];
+    $SUBJECTS[$name] = [
+        'id' => (int)$r['id'],
         'color' => (string)$r['color'],
         'sort_order' => (int)$r['sort_order'],
     ];
 }
-if (!$CATS) {
+if (!$SUBJECTS) {
     http_response_code(500);
     die('Keine Kategorien vorhanden. Bitte todo_kategorien befüllen.');
 }
 
-$defaultCatId = (int)array_key_first($CATS);
-$sessionCatId = (int)($_SESSION['todo_cat_id'] ?? $defaultCatId);
-if (!isset($CATS[$sessionCatId])) $sessionCatId = $defaultCatId;
-$_SESSION['todo_cat_id'] = $sessionCatId;
+$defaultFach = (string)array_key_first($SUBJECTS);
+$sessionFach = (string)($_SESSION['todo_fach'] ?? $defaultFach);
+if (!isset($SUBJECTS[$sessionFach])) $sessionFach = $defaultFach;
+$_SESSION['todo_fach'] = $sessionFach;
 
 /* ---------------------- POST (AJAX) ---------------------- */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $action = (string)$_POST['action'];
 
-    if ($action === 'set_category') {
-        $catId = (int)($_POST['category_id'] ?? 0);
-        if ($catId <= 0 || !isset($CATS[$catId])) {
-            json_out(['ok' => false, 'error' => 'Ungültige Kategorie.'], 400);
-        }
-        $_SESSION['todo_cat_id'] = $catId;
+    if ($action === 'set_fach') {
+        $fach = (string)($_POST['fach'] ?? '');
+        if (!isset($SUBJECTS[$fach])) json_out(['ok' => false, 'error' => 'Ungültige Kategorie.'], 400);
+        $_SESSION['todo_fach'] = $fach;
         json_out(['ok' => true]);
+    }
+    
+    if ($action === 'get_counts') {
+        $res = $checkconn->query("
+            SELECT
+                SUM(done_at IS NULL) AS open_c,
+                SUM(done_at IS NOT NULL) AS done_c
+            FROM todo
+        ");
+        $open = 0;
+        $done = 0;
+        if ($res && ($r = $res->fetch_assoc())) {
+            $open = (int)$r['open_c'];
+            $done = (int)$r['done_c'];
+        }
+        json_out(['ok' => true, 'open' => $open, 'done' => $done]);
     }
 
     if ($action === 'toggle_done') {
@@ -88,7 +92,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $stmt->close();
         }
 
-        $stmt = $checkconn->prepare("SELECT id, category_id, parent_id, title, note, done_at, sort_key FROM todo WHERE id = ? LIMIT 1");
+        $stmt = $checkconn->prepare("
+            SELECT t.id, k.name AS fach, t.category_id, t.parent_id, t.title, t.note, t.done_at, t.sort_key
+            FROM todo t
+            JOIN todo_kategorien k ON k.id = t.category_id
+            WHERE t.id = ?
+            LIMIT 1
+        ");
         $stmt->bind_param('i', $id);
         $stmt->execute();
         $res = $stmt->get_result();
@@ -96,7 +106,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $stmt->close();
 
         if (!$row) json_out(['ok' => false, 'error' => 'Eintrag nicht gefunden.'], 404);
-
         json_out(['ok' => true, 'todo' => $row]);
     }
 
@@ -118,21 +127,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     }
 
     if ($action === 'add_todo') {
-        $catId = (int)($_POST['category_id'] ?? 0);
-        $parentIdRaw = trim((string)($_POST['parent_id'] ?? ''));
+        $fach = (string)($_POST['fach'] ?? '');
+        $parentIdRaw = trim((string)($_POST['parent_id'] ?? '0'));
         $parentId = ($parentIdRaw === '' || $parentIdRaw === '0') ? null : (int)$parentIdRaw;
 
         $title = trim((string)($_POST['title'] ?? ''));
         $note  = (string)($_POST['note'] ?? '');
 
-        if ($catId <= 0 || !isset($CATS[$catId])) json_out(['ok' => false, 'error' => 'Ungültige Kategorie.'], 400);
+        if (!isset($SUBJECTS[$fach])) json_out(['ok' => false, 'error' => 'Ungültige Kategorie.'], 400);
         if ($title === '') json_out(['ok' => false, 'error' => 'Titel ist Pflicht.'], 400);
 
-        // parent validieren (optional)
+        $catId = (int)$SUBJECTS[$fach]['id'];
+
         if ($parentId !== null) {
             if ($parentId <= 0) json_out(['ok' => false, 'error' => 'Ungültiger Parent.'], 400);
 
-            $stmt = $checkconn->prepare("SELECT id, category_id, parent_id FROM todo WHERE id = ? LIMIT 1");
+            $stmt = $checkconn->prepare("SELECT id, category_id FROM todo WHERE id = ? LIMIT 1");
             $stmt->bind_param('i', $parentId);
             $stmt->execute();
             $res = $stmt->get_result();
@@ -143,13 +153,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             if ((int)$p['category_id'] !== $catId) json_out(['ok' => false, 'error' => 'Parent gehört zu anderer Kategorie.'], 400);
         }
 
-        $_SESSION['todo_cat_id'] = $catId;
+        $_SESSION['todo_fach'] = $fach;
 
         $checkconn->begin_transaction();
         try {
-            // max sort innerhalb der SIBLINGS (category_id + parent_id)
             $max = 0.0;
-
             if ($parentId === null) {
                 $stmt = $checkconn->prepare("SELECT MAX(sort_key) AS m FROM todo WHERE category_id = ? AND parent_id IS NULL");
                 $stmt->bind_param('i', $catId);
@@ -177,7 +185,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
             $checkconn->commit();
 
-            $stmt = $checkconn->prepare("SELECT id, category_id, parent_id, title, note, done_at, sort_key FROM todo WHERE id = ? LIMIT 1");
+            $stmt = $checkconn->prepare("
+                SELECT t.id, k.name AS fach, t.category_id, t.parent_id, t.title, t.note, t.done_at, t.sort_key
+                FROM todo t
+                JOIN todo_kategorien k ON k.id = t.category_id
+                WHERE t.id = ?
+                LIMIT 1
+            ");
             $stmt->bind_param('i', $newId);
             $stmt->execute();
             $res = $stmt->get_result();
@@ -193,18 +207,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
     if ($action === 'update_todo') {
         $id = (int)($_POST['id'] ?? 0);
-        $catId = (int)($_POST['category_id'] ?? 0);
-        $parentIdRaw = trim((string)($_POST['parent_id'] ?? ''));
+        $fach = (string)($_POST['fach'] ?? '');
+        $parentIdRaw = trim((string)($_POST['parent_id'] ?? '0'));
         $parentId = ($parentIdRaw === '' || $parentIdRaw === '0') ? null : (int)$parentIdRaw;
 
         $title = trim((string)($_POST['title'] ?? ''));
         $note  = (string)($_POST['note'] ?? '');
 
         if ($id <= 0) json_out(['ok' => false, 'error' => 'Ungültige ID.'], 400);
-        if ($catId <= 0 || !isset($CATS[$catId])) json_out(['ok' => false, 'error' => 'Ungültige Kategorie.'], 400);
+        if (!isset($SUBJECTS[$fach])) json_out(['ok' => false, 'error' => 'Ungültige Kategorie.'], 400);
         if ($title === '') json_out(['ok' => false, 'error' => 'Titel ist Pflicht.'], 400);
 
-        // current row (für Wechsel-Erkennung)
+        $catId = (int)$SUBJECTS[$fach]['id'];
+
         $stmt = $checkconn->prepare("SELECT id, category_id, parent_id FROM todo WHERE id = ? LIMIT 1");
         $stmt->bind_param('i', $id);
         $stmt->execute();
@@ -215,14 +230,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         if (!$old) json_out(['ok' => false, 'error' => 'Eintrag nicht gefunden.'], 404);
 
         $oldCatId = (int)$old['category_id'];
-        $oldParentId = $old['parent_id'] === null ? null : (int)$old['parent_id'];
+        $oldParentId = ($old['parent_id'] === null) ? null : (int)$old['parent_id'];
 
-        // parent validieren (optional)
         if ($parentId !== null) {
             if ($parentId <= 0) json_out(['ok' => false, 'error' => 'Ungültiger Parent.'], 400);
             if ($parentId === $id) json_out(['ok' => false, 'error' => 'Parent darf nicht selbst sein.'], 400);
 
-            $stmt = $checkconn->prepare("SELECT id, category_id, parent_id FROM todo WHERE id = ? LIMIT 1");
+            $stmt = $checkconn->prepare("SELECT id, category_id FROM todo WHERE id = ? LIMIT 1");
             $stmt->bind_param('i', $parentId);
             $stmt->execute();
             $res = $stmt->get_result();
@@ -235,10 +249,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
         $checkconn->begin_transaction();
         try {
+            $moved = ($catId !== $oldCatId)
+                || (($parentId === null) !== ($oldParentId === null))
+                || ($parentId !== null && $oldParentId !== null && $parentId !== $oldParentId);
+
             $newSort = null;
-
-            $moved = ($catId !== $oldCatId) || (($parentId === null) !== ($oldParentId === null)) || ($parentId !== null && $oldParentId !== null && $parentId !== $oldParentId);
-
             if ($moved) {
                 $max = 0.0;
                 if ($parentId === null) {
@@ -275,9 +290,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
             $checkconn->commit();
 
-            $_SESSION['todo_cat_id'] = $catId;
+            $_SESSION['todo_fach'] = $fach;
 
-            $stmt = $checkconn->prepare("SELECT id, category_id, parent_id, title, note, done_at, sort_key FROM todo WHERE id = ? LIMIT 1");
+            $stmt = $checkconn->prepare("
+                SELECT t.id, k.name AS fach, t.category_id, t.parent_id, t.title, t.note, t.done_at, t.sort_key
+                FROM todo t
+                JOIN todo_kategorien k ON k.id = t.category_id
+                WHERE t.id = ?
+                LIMIT 1
+            ");
             $stmt->bind_param('i', $id);
             $stmt->execute();
             $res = $stmt->get_result();
@@ -302,9 +323,30 @@ if ($resD && ($r = $resD->fetch_assoc())) $doneCount = (int)$r['c'];
 /* ---------------------- Todos for JS ---------------------- */
 $todos = [];
 $resT = $checkconn->query("
-    SELECT id, category_id, parent_id, title, note, done_at, sort_key
-    FROM todo
-    ORDER BY category_id ASC, (parent_id IS NULL) DESC, parent_id ASC, sort_key ASC, id ASC
+    SELECT
+        t.id,
+        k.name AS fach,
+        t.category_id,
+        t.parent_id,
+        t.title,
+        t.note,
+        t.done_at,
+        t.sort_key
+    FROM todo t
+    JOIN todo_kategorien k ON k.id = t.category_id
+    LEFT JOIN todo p ON p.id = t.parent_id
+    WHERE k.is_active = 1
+      AND (
+            (t.parent_id IS NULL AND (t.done_at IS NULL OR t.done_at >= (NOW() - INTERVAL 7 DAY)))
+         OR (t.parent_id IS NOT NULL AND p.id IS NOT NULL AND p.done_at IS NULL)
+      )
+    ORDER BY
+        k.sort_order ASC,
+        k.id ASC,
+        (t.parent_id IS NULL) DESC,
+        t.parent_id ASC,
+        t.sort_key ASC,
+        t.id ASC
 ");
 if ($resT) {
     while ($r = $resT->fetch_assoc()) $todos[] = $r;
@@ -315,123 +357,111 @@ require_once __DIR__ . '/../head.php';
 require_once __DIR__ . '/../navbar.php';
 ?>
 
-<div id="tdPage" class="td-page dashboard-page">
-    <div class="td-topbar">
+<div id="ltPage" class="lt-page dashboard-page">
+    <div class="lt-topbar">
         <h1 class="ueberschrift dashboard-title">
             <span class="dashboard-title-main">ToDo</span>
-            <span class="dashboard-title-soft">| <span id="tdDoneCount"><?= htmlspecialchars((string)$doneCount, ENT_QUOTES, 'UTF-8') ?></span> erledigt</span>
+            <span class="dashboard-title-soft">
+            | <span id="ltOpenCount">0</span> offen
+            · <span id="ltDoneCount"><?= htmlspecialchars((string)$doneCount, ENT_QUOTES, 'UTF-8') ?></span> erledigt
+            </span>
         </h1>
     </div>
 
-    <div class="td-subject-row">
-        <div id="tdTabs" class="td-tabs" role="tablist" aria-label="Kategorien"></div>
+    <div class="lt-subject-row">
+        <div id="ltTabs" class="lt-tabs" role="tablist" aria-label="Kategorien"></div>
 
-        <button id="tdAddBtn" class="td-add-btn" type="button" title="Todo hinzufügen" aria-label="Todo hinzufügen">
-            <span class="td-add-plus">+</span>
+        <button id="ltAddBtn" class="lt-add-btn" type="button" title="Todo hinzufügen" aria-label="Todo hinzufügen">
+            <span class="lt-add-plus">+</span>
         </button>
     </div>
 
-    <div class="td-table-wrap">
-        <table class="td-table">
+    <div class="lt-table-wrap">
+        <table class="lt-table">
             <thead>
                 <tr>
-                    <th class="td-col-drag"></th>
+                    <th class="lt-col-drag"></th>
+                    <th class="lt-col-exp"></th>
                     <th>ToDo</th>
-                    <th class="td-col-check">Erledigt</th>
+                    <th class="lt-col-sub"></th>
+                    <th class="lt-col-check">Erledigt</th>
                 </tr>
             </thead>
-            <tbody id="tdTbody"></tbody>
+            <tbody id="ltTbody"></tbody>
         </table>
     </div>
 </div>
 
-<!-- Modal -->
-<div id="tdModal" class="modal hidden" aria-hidden="true">
-    <div class="modal-content td-modal-content" role="dialog" aria-modal="true" aria-labelledby="tdModalTitle">
-        <span class="close-button" id="tdModalClose" title="Schließen">&times;</span>
-        <h2 id="tdModalTitle" class="td-modal-title">Neues Todo</h2>
+<div id="ltModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-content lt-modal-content" role="dialog" aria-modal="true" aria-labelledby="ltModalTitle">
+        <span class="close-button" id="ltModalClose" title="Schließen">&times;</span>
+        <h2 id="ltModalTitle" class="lt-modal-title">Neues Todo</h2>
 
         <div class="form-block">
-            <input type="hidden" id="tdEditId" value="">
+            <input type="hidden" id="ltEditId" value="">
 
-            <div class="td-modal-grid">
-                <div class="input-group-dropdown">
-                    <label for="tdNewCat">Kategorie</label>
-                    <select id="tdNewCat"></select>
-                </div>
-
-                <div class="input-group-dropdown">
-                    <label for="tdNewParent">Unterpunkt von</label>
-                    <select id="tdNewParent"></select>
-                </div>
+            <div class="input-group-dropdown">
+                <label for="ltNewFach">Kategorie</label>
+                <select id="ltNewFach">
+                    <?php foreach ($SUBJECTS as $name => $meta): ?>
+                        <option value="<?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?>">
+                            <?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
             </div>
 
             <div class="input-group-dropdown">
-                <label for="tdNewTitle">Titel</label>
-                <input id="tdNewTitle" type="text" placeholder="z.B. Einkaufsliste schreiben">
+                <label for="ltNewParent">Unterpunkt von</label>
+                <select id="ltNewParent"></select>
             </div>
 
             <div class="input-group-dropdown">
-                <label for="tdNewNote">Notiz</label>
-                <textarea id="tdNewNote" rows="4" placeholder="optional"></textarea>
+                <label for="ltNewTitel">Titel</label>
+                <input id="ltNewTitel" type="text" placeholder="z.B. Einkaufsliste schreiben">
             </div>
 
-            <button id="tdSave" type="button">Speichern</button>
+            <div class="input-group-dropdown">
+                <label for="ltNewNotiz">Notiz</label>
+                <textarea id="ltNewNotiz" rows="4" placeholder="optional"></textarea>
+            </div>
+
+            <button id="ltSaveNew" type="button">Speichern</button>
         </div>
     </div>
 </div>
 
 <script>
 (() => {
-    const CATS = <?= json_encode($CATS, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>; // id => {id,name,color,...}
-    const TODOS = <?= json_encode($todos, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+    const SUBJECTS = <?= json_encode($SUBJECTS, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+    const TASKS = <?= json_encode($todos, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 
-    const phpDefaultCatId = <?= json_encode((int)$sessionCatId, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+    const phpDefaultFach = <?= json_encode($sessionFach, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 
-    const elPage = document.getElementById('tdPage');
-    const elTabs = document.getElementById('tdTabs');
-    const elTbody = document.getElementById('tdTbody');
-    const elDoneCount = document.getElementById('tdDoneCount');
+    const elPage = document.getElementById('ltPage');
+    const elTabs = document.getElementById('ltTabs');
+    const elTbody = document.getElementById('ltTbody');
+    const elDoneCount = document.getElementById('ltDoneCount');
 
-    const elModal = document.getElementById('tdModal');
-    const elModalClose = document.getElementById('tdModalClose');
-    const elAddBtn = document.getElementById('tdAddBtn');
+    const elModal = document.getElementById('ltModal');
+    const elModalClose = document.getElementById('ltModalClose');
+    const elAddBtn = document.getElementById('ltAddBtn');
 
-    const elEditId = document.getElementById('tdEditId');
-    const elNewCat = document.getElementById('tdNewCat');
-    const elNewParent = document.getElementById('tdNewParent');
-    const elNewTitle = document.getElementById('tdNewTitle');
-    const elNewNote = document.getElementById('tdNewNote');
-    const elSave = document.getElementById('tdSave');
+    const elEditId = document.getElementById('ltEditId');
+    const elNewFach = document.getElementById('ltNewFach');
+    const elNewParent = document.getElementById('ltNewParent');
+    const elNewTitel = document.getElementById('ltNewTitel');
+    const elNewNotiz = document.getElementById('ltNewNotiz');
+    const elSaveNew = document.getElementById('ltSaveNew');
 
-    const catIds = Object.keys(CATS).map(Number);
-    const validCats = new Set(catIds);
+    const validSubjects = new Set(Object.keys(SUBJECTS));
 
-    // Expand-State (parent ids)
-    const expanded = new Set();
-    try {
-        const raw = localStorage.getItem('todo_expanded');
-        if (raw) JSON.parse(raw).forEach(x => expanded.add(String(x)));
-    } catch (_) {}
-
-    function saveExpanded() {
-        try { localStorage.setItem('todo_expanded', JSON.stringify([...expanded])); } catch (_) {}
+    function subjectColor(fach) {
+        return SUBJECTS?.[String(fach ?? '')]?.color || '#999';
     }
 
-    function post(action, data) {
-        const fd = new FormData();
-        fd.append('action', action);
-        Object.entries(data || {}).forEach(([k, v]) => fd.append(k, v));
-        return fetch(location.pathname + location.search, {
-            method: 'POST',
-            body: fd,
-            credentials: 'same-origin'
-        }).then(r => r.json());
-    }
-
-    function catColor(catId) {
-        const c = CATS?.[String(catId)]?.color;
-        return c || '#999';
+    function setAccentForSubject(fach) {
+        elPage.style.setProperty('--lt-accent', subjectColor(fach));
     }
 
     function pickTextColor(hex) {
@@ -450,30 +480,76 @@ require_once __DIR__ . '/../navbar.php';
         return L > 0.55 ? '#111' : '#fff';
     }
 
-    let selectedCatId = Number(localStorage.getItem('todo_cat_id') || phpDefaultCatId);
-    if (!validCats.has(selectedCatId)) selectedCatId = phpDefaultCatId;
-
-    function setAccent(catId) {
-        elPage.style.setProperty('--td-accent', catColor(catId));
+    function hexToRgba(hex, a = 0.12) {
+        const m = String(hex).trim().match(/^#?([0-9a-f]{6})$/i);
+        if (!m) return `rgba(0,0,0,${a})`;
+        const n = parseInt(m[1], 16);
+        const r = (n >> 16) & 255;
+        const g = (n >> 8) & 255;
+        const b = n & 255;
+        return `rgba(${r},${g},${b},${a})`;
     }
 
-    function updateDoneCount() {
-        let c = 0;
-        for (const t of TODOS) if (t.done_at) c++;
-        elDoneCount.textContent = String(c);
+    function post(action, data) {
+        const fd = new FormData();
+        fd.append('action', action);
+        Object.entries(data || {}).forEach(([k, v]) => fd.append(k, v));
+        return fetch(location.pathname + location.search, {
+            method: 'POST',
+            body: fd,
+            credentials: 'same-origin'
+        }).then(r => r.json());
     }
 
-    function buildTreeForCat(catId) {
-        const list = TODOS.filter(t => Number(t.category_id) === Number(catId));
+    let selectedFach = localStorage.getItem('todo_fach') || phpDefaultFach;
+    if (!validSubjects.has(selectedFach)) selectedFach = phpDefaultFach;
 
-        const byId = new Map();
+    const expanded = new Set();
+    try {
+        const raw = localStorage.getItem('todo_expanded');
+        if (raw) JSON.parse(raw).forEach(x => expanded.add(String(x)));
+    } catch (_) {}
+    function saveExpanded() {
+        try { localStorage.setItem('todo_expanded', JSON.stringify([...expanded])); } catch (_) {}
+    }
+
+    function applyTodoUpdate(updated) {
+        const id = Number(updated.id);
+        const idx = TASKS.findIndex(t => Number(t.id) === id);
+        if (idx >= 0) TASKS[idx] = { ...TASKS[idx], ...updated };
+        else TASKS.push(updated);
+    }
+
+    const elOpenCount = document.getElementById('ltOpenCount');    
+    async function updateDoneCount() {
+        try {
+            const res = await post('get_counts', {});
+            if (res && res.ok) {
+                if (typeof res.open !== 'undefined') elOpenCount.textContent = String(res.open);
+                if (typeof res.done !== 'undefined') elDoneCount.textContent = String(res.done);
+            }
+        } catch (_) {}
+    }
+
+    function sortSiblings(a, b) {
+        const da = !!(a.done_at && a.done_at !== 'pending');
+        const db = !!(b.done_at && b.done_at !== 'pending');
+        if (da !== db) return da ? 1 : -1;
+
+        const sa = Number(a.sort_key ?? 0);
+        const sb = Number(b.sort_key ?? 0);
+        if (sa !== sb) return sa - sb;
+
+        return Number(a.id) - Number(b.id);
+    }
+
+    function buildTreeForSubject(fach) {
+        const list = TASKS.filter(t => String(t.fach) === String(fach));
+
         const kids = new Map(); // parentIdStr -> array
         const roots = [];
 
         for (const t of list) {
-            const id = String(t.id);
-            byId.set(id, t);
-
             const p = (t.parent_id == null) ? null : String(t.parent_id);
             if (p === null) roots.push(t);
             else {
@@ -482,122 +558,39 @@ require_once __DIR__ . '/../navbar.php';
             }
         }
 
-        const sortSiblings = (a, b) => {
-            const da = !!a.done_at;
-            const db = !!b.done_at;
-            if (da !== db) return da ? 1 : -1;
-
-            const sa = Number(a.sort_key ?? 0);
-            const sb = Number(b.sort_key ?? 0);
-            if (sa !== sb) return sa - sb;
-
-            return Number(a.id) - Number(b.id);
-        };
-
         roots.sort(sortSiblings);
         for (const [p, arr] of kids.entries()) arr.sort(sortSiblings);
 
-        return { byId, kids, roots };
+        return { kids, roots };
     }
 
-    function renderTabs() {
-        elTabs.innerHTML = '';
-
-        // sort by sort_order then id (already in PHP order, but keep stable)
-        const list = Object.values(CATS).slice().sort((a, b) => {
-            const sa = Number(a.sort_order ?? 0), sb = Number(b.sort_order ?? 0);
-            if (sa !== sb) return sa - sb;
-            return Number(a.id) - Number(b.id);
-        });
-
-        for (const cat of list) {
-            const btn = document.createElement('button');
-            const c = cat.color || '#999';
-            btn.style.setProperty('--tab-accent', c);
-            btn.style.setProperty('--tab-accent-text', pickTextColor(c));
-
-            btn.type = 'button';
-            btn.className = 'td-tab' + (Number(cat.id) === Number(selectedCatId) ? ' active' : '');
-            btn.textContent = cat.name;
-            btn.setAttribute('role', 'tab');
-            btn.setAttribute('aria-selected', Number(cat.id) === Number(selectedCatId) ? 'true' : 'false');
-
-            btn.addEventListener('click', async () => {
-                const next = Number(cat.id);
-                if (next === selectedCatId) return;
-                selectedCatId = next;
-                localStorage.setItem('todo_cat_id', String(selectedCatId));
-                setAccent(selectedCatId);
-                renderTabs();
-                renderTable();
-                rebuildModalSelects();
-
-                try { await post('set_category', { category_id: String(selectedCatId) }); } catch (_) {}
-            });
-
-            elTabs.appendChild(btn);
-        }
-    }
-
-    function rebuildModalSelects(parentPref = null) {
-        // Kategorie-Select
-        elNewCat.innerHTML = '';
-        Object.values(CATS).slice().sort((a,b) => (a.sort_order-b.sort_order) || (a.id-b.id)).forEach(cat => {
-            const opt = document.createElement('option');
-            opt.value = String(cat.id);
-            opt.textContent = cat.name;
-            elNewCat.appendChild(opt);
-        });
-        elNewCat.value = String(selectedCatId);
-
-        // Parent-Select: nur Top-Level in aktueller Kategorie (plus "Kein Parent")
+    function rebuildParentOptions(fach, selectedParentId = '0', excludeId = null) {
         elNewParent.innerHTML = '';
         const optNone = document.createElement('option');
         optNone.value = '0';
         optNone.textContent = '— (Top-Level)';
         elNewParent.appendChild(optNone);
 
-        const tree = buildTreeForCat(selectedCatId);
-        tree.roots.forEach(t => {
+        const { roots } = buildTreeForSubject(fach);
+        for (const t of roots) {
+            if (excludeId != null && String(t.id) === String(excludeId)) continue;
             const opt = document.createElement('option');
             opt.value = String(t.id);
             opt.textContent = t.title || `(Todo #${t.id})`;
             elNewParent.appendChild(opt);
-        });
-
-        if (parentPref != null) elNewParent.value = String(parentPref);
-        else elNewParent.value = '0';
-    }
-
-    function openModal({ edit = null, parentPref = null } = {}) {
-        elModal.classList.remove('hidden');
-        elModal.setAttribute('aria-hidden', 'false');
-
-        rebuildModalSelects(parentPref);
-
-        if (!edit) {
-            elEditId.value = '';
-            document.getElementById('tdModalTitle').textContent = 'Neues Todo';
-            elNewTitle.value = '';
-            elNewNote.value = '';
-            setTimeout(() => elNewTitle.focus(), 50);
-            return;
         }
 
-        elEditId.value = String(edit.id);
-        document.getElementById('tdModalTitle').textContent = 'Todo bearbeiten';
+        elNewParent.value = String(selectedParentId ?? '0');
+        if (!elNewParent.value) elNewParent.value = '0';
+    }
 
-        elNewCat.value = String(edit.category_id);
-        selectedCatId = Number(edit.category_id);
-        localStorage.setItem('todo_cat_id', String(selectedCatId));
-        setAccent(selectedCatId);
-        renderTabs();
-
-        rebuildModalSelects(edit.parent_id == null ? 0 : edit.parent_id);
-
-        elNewTitle.value = edit.title ?? '';
-        elNewNote.value = edit.note ?? '';
-        setTimeout(() => elNewTitle.focus(), 50);
+    function openModal(focusEl = null) {
+        elModal.classList.remove('hidden');
+        elModal.setAttribute('aria-hidden', 'false');
+        setTimeout(() => {
+            const el = focusEl || elNewTitel;
+            if (el && typeof el.focus === 'function') el.focus();
+        }, 50);
     }
 
     function closeModal() {
@@ -605,39 +598,162 @@ require_once __DIR__ . '/../navbar.php';
         elModal.setAttribute('aria-hidden', 'true');
     }
 
-    elAddBtn.addEventListener('click', () => openModal({ edit: null, parentPref: 0 }));
+    function openNewModal(parentPref = '0') {
+        elEditId.value = '';
+        document.getElementById('ltModalTitle').textContent = 'Neues Todo';
+
+        elNewFach.value = selectedFach;
+        rebuildParentOptions(selectedFach, parentPref, null);
+
+        elNewTitel.value = '';
+        elNewNotiz.value = '';
+
+        openModal(elNewTitel);
+    }
+
+    function openEditModal(todo) {
+        elEditId.value = String(todo.id);
+        document.getElementById('ltModalTitle').textContent = 'Todo bearbeiten';
+
+        selectedFach = String(todo.fach);
+        localStorage.setItem('todo_fach', selectedFach);
+
+        elNewFach.value = selectedFach;
+        rebuildParentOptions(selectedFach, (todo.parent_id == null ? '0' : String(todo.parent_id)), String(todo.id));
+
+        elNewTitel.value = todo.title ?? '';
+        elNewNotiz.value = todo.note ?? '';
+
+        setAccentForSubject(selectedFach);
+        renderTabs();
+        renderTable();
+
+        openModal(elNewTitel);
+    }
+
+    elAddBtn.addEventListener('click', () => openNewModal('0'));
     elModalClose.addEventListener('click', closeModal);
     elModal.addEventListener('click', (e) => { if (e.target === elModal) closeModal(); });
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && !elModal.classList.contains('hidden')) closeModal();
     });
 
-    // Beim Kategorie-Wechsel im Modal: Parent-Liste neu aufbauen
-    elNewCat.addEventListener('change', () => {
-        const cid = Number(elNewCat.value || 0);
-        if (!validCats.has(cid)) return;
-        selectedCatId = cid;
-        localStorage.setItem('todo_cat_id', String(selectedCatId));
-        setAccent(selectedCatId);
+    elNewFach.addEventListener('change', () => {
+        const fach = String(elNewFach.value || '');
+        if (!validSubjects.has(fach)) return;
+        selectedFach = fach;
+        localStorage.setItem('todo_fach', selectedFach);
+        setAccentForSubject(selectedFach);
         renderTabs();
         renderTable();
-        rebuildModalSelects(0);
+        rebuildParentOptions(selectedFach, '0', (elEditId.value || '').trim() || null);
+        try { post('set_fach', { fach: selectedFach }); } catch (_) {}
     });
 
-    function applyTodoUpdate(updated) {
-        const id = Number(updated.id);
-        const idx = TODOS.findIndex(t => Number(t.id) === id);
-        if (idx >= 0) TODOS[idx] = { ...TODOS[idx], ...updated };
-        else TODOS.push(updated);
+    function renderTabs() {
+        elTabs.innerHTML = '';
+
+        Object.keys(SUBJECTS).forEach((fach) => {
+            const btn = document.createElement('button');
+            const c = subjectColor(fach);
+            btn.style.setProperty('--tab-accent', c);
+            btn.style.setProperty('--tab-accent-text', pickTextColor(c));
+
+            btn.type = 'button';
+            btn.className = 'lt-tab' + (fach === selectedFach ? ' active' : '');
+            btn.textContent = fach;
+            btn.setAttribute('role', 'tab');
+            btn.setAttribute('aria-selected', fach === selectedFach ? 'true' : 'false');
+
+            btn.addEventListener('click', async () => {
+                if (fach === selectedFach) return;
+                selectedFach = fach;
+                localStorage.setItem('todo_fach', selectedFach);
+                setAccentForSubject(selectedFach);
+                renderTabs();
+                renderTable();
+                elNewFach.value = selectedFach;
+                rebuildParentOptions(selectedFach, '0', (elEditId.value || '').trim() || null);
+
+                try { await post('set_fach', { fach: selectedFach }); } catch (e) {}
+            });
+
+            elTabs.appendChild(btn);
+        });
     }
 
-    // Drag & Drop (nur innerhalb gleicher parent_id)
+    function makeCheckbox(todo) {
+        const wrap = document.createElement('div');
+        wrap.className = 'lt-check';
+
+        const id = `ltDone_${todo.id}`;
+
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.id = id;
+        input.checked = !!todo.done_at;
+
+        const label = document.createElement('label');
+        label.htmlFor = id;
+        label.title = input.checked ? 'Erledigt (klicken zum Zurücksetzen)' : 'Als erledigt markieren';
+
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('viewBox', '0 0 24 24');
+        svg.classList.add('lt-checkmark');
+
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', 'M20 6L9 17l-5-5');
+        svg.appendChild(path);
+        label.appendChild(svg);
+
+        input.addEventListener('change', async () => {
+            input.disabled = true;
+            const newChecked = input.checked;
+
+            todo.done_at = newChecked ? 'pending' : null;
+            updateRowState(todo.id);
+
+            try {
+                const res = await post('toggle_done', { id: String(todo.id), checked: newChecked ? '1' : '0' });
+                if (!res || !res.ok || !res.todo) throw new Error('toggle_failed');
+
+                applyTodoUpdate(res.todo);
+
+                input.checked = !!res.todo.done_at;
+                input.disabled = false;
+
+                updateRowState(todo.id);
+                updateDoneCount();
+                renderTable();
+            } catch (_) {
+                input.checked = !newChecked;
+                todo.done_at = input.checked ? 'pending' : null;
+                input.disabled = false;
+                updateRowState(todo.id);
+            }
+        });
+
+        wrap.appendChild(input);
+        wrap.appendChild(label);
+        return wrap;
+    }
+
+    function updateRowState(todoId) {
+        const row = document.querySelector(`tr[data-id="${todoId}"]`);
+        if (!row) return;
+        const t = TASKS.find(x => Number(x.id) === Number(todoId));
+        const isDone = !!(t && t.done_at && t.done_at !== 'pending');
+        const isPending = !!(t && t.done_at === 'pending');
+        row.classList.toggle('done', isDone);
+        row.classList.toggle('pending', isPending);
+    }
+
     let dragAllowed = false;
     let draggingRow = null;
     let draggingId = null;
     let dragStartIndex = null;
 
-    const elTableWrap = document.querySelector('.td-table-wrap');
+    const elTableWrap = document.querySelector('.lt-table-wrap');
     const elNavbar = document.querySelector('.navbar');
     let dragClientX = 0;
     let dragClientY = 0;
@@ -713,7 +829,7 @@ require_once __DIR__ . '/../navbar.php';
         }
 
         const el = document.elementFromPoint(dragClientX, dragClientY);
-        const row = el && el.closest ? el.closest('tr.td-row') : null;
+        const row = el && el.closest ? el.closest('tr.lt-row') : null;
         if (row && elTbody.contains(row)) hoverReorder(row, dragClientY);
 
         autoScrollRaf = requestAnimationFrame(autoScrollTick);
@@ -730,13 +846,11 @@ require_once __DIR__ . '/../navbar.php';
     document.addEventListener('dragend', () => stopAutoScroll(), true);
 
     function clearDropMarkers() {
-        elTbody.querySelectorAll('tr.td-row').forEach(r => r.classList.remove('td-drop-before', 'td-drop-after'));
+        elTbody.querySelectorAll('tr.lt-row').forEach(r => r.classList.remove('lt-drop-before', 'lt-drop-after'));
     }
 
     function hoverReorder(targetRow, clientY) {
         if (!draggingRow || !targetRow || targetRow === draggingRow) return;
-
-        // nur gleiche parent-gruppe
         if (String(targetRow.dataset.parent || '0') !== String(draggingRow.dataset.parent || '0')) return;
 
         clearDropMarkers();
@@ -749,10 +863,10 @@ require_once __DIR__ . '/../navbar.php';
     }
 
     async function commitSortIfChanged() {
-        if (!draggingId) return;
+        if (!draggingId || !draggingRow) return;
 
-        const parentKey = String(draggingRow?.dataset?.parent || '0');
-        const rows = [...elTbody.querySelectorAll(`tr.td-row[data-parent="${CSS.escape(parentKey)}"]`)];
+        const parentKey = String(draggingRow.dataset.parent || '0');
+        const rows = [...elTbody.querySelectorAll(`tr.lt-row[data-parent="${CSS.escape(parentKey)}"]`)];
         const endIndex = rows.findIndex(r => r.dataset.id === String(draggingId));
 
         if (dragStartIndex === null || endIndex < 0 || endIndex === dragStartIndex) return;
@@ -760,8 +874,8 @@ require_once __DIR__ . '/../navbar.php';
         const prevId = endIndex > 0 ? rows[endIndex - 1].dataset.id : null;
         const nextId = endIndex < rows.length - 1 ? rows[endIndex + 1].dataset.id : null;
 
-        const prevT = prevId ? TODOS.find(t => String(t.id) === String(prevId)) : null;
-        const nextT = nextId ? TODOS.find(t => String(t.id) === String(nextId)) : null;
+        const prevT = prevId ? TASKS.find(t => String(t.id) === String(prevId)) : null;
+        const nextT = nextId ? TASKS.find(t => String(t.id) === String(nextId)) : null;
 
         const prevSort = prevT ? Number(prevT.sort_key ?? 0) : null;
         const nextSort = nextT ? Number(nextT.sort_key ?? 0) : null;
@@ -778,8 +892,8 @@ require_once __DIR__ . '/../navbar.php';
             const res = await post('update_sort', { id: String(draggingId), sort_key: sortStr });
             if (!res || !res.ok) throw new Error('update_sort_failed');
 
-            const idx = TODOS.findIndex(t => String(t.id) === String(draggingId));
-            if (idx >= 0) TODOS[idx].sort_key = sortStr;
+            const idx = TASKS.findIndex(t => String(t.id) === String(draggingId));
+            if (idx >= 0) TASKS[idx].sort_key = sortStr;
 
             renderTable();
         } catch (_) {
@@ -787,86 +901,20 @@ require_once __DIR__ . '/../navbar.php';
         }
     }
 
-    function makeCheckbox(todo) {
-        const wrap = document.createElement('div');
-        wrap.className = 'td-check';
-
-        const id = `tdDone_${todo.id}`;
-
-        const input = document.createElement('input');
-        input.type = 'checkbox';
-        input.id = id;
-        input.checked = !!todo.done_at;
-
-        const label = document.createElement('label');
-        label.htmlFor = id;
-        label.title = input.checked ? 'Erledigt (klicken zum Zurücksetzen)' : 'Als erledigt markieren';
-
-        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        svg.setAttribute('viewBox', '0 0 24 24');
-        svg.classList.add('td-checkmark');
-
-        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        path.setAttribute('d', 'M20 6L9 17l-5-5');
-        svg.appendChild(path);
-        label.appendChild(svg);
-
-        input.addEventListener('change', async () => {
-            input.disabled = true;
-            const newChecked = input.checked;
-
-            // optimistic
-            todo.done_at = newChecked ? 'pending' : null;
-            updateRowState(todo.id);
-
-            try {
-                const res = await post('toggle_done', { id: String(todo.id), checked: newChecked ? '1' : '0' });
-                if (!res || !res.ok || !res.todo) throw new Error('toggle_failed');
-
-                applyTodoUpdate(res.todo);
-                input.checked = !!res.todo.done_at;
-                input.disabled = false;
-
-                updateRowState(todo.id);
-                updateDoneCount();
-                renderTable();
-            } catch (_) {
-                input.checked = !newChecked;
-                todo.done_at = input.checked ? 'pending' : null;
-                input.disabled = false;
-                updateRowState(todo.id);
-            }
-        });
-
-        wrap.appendChild(input);
-        wrap.appendChild(label);
-        return wrap;
-    }
-
-    function updateRowState(todoId) {
-        const row = document.querySelector(`tr[data-id="${todoId}"]`);
-        if (!row) return;
-        const t = TODOS.find(x => Number(x.id) === Number(todoId));
-        const isDone = !!(t && t.done_at && t.done_at !== 'pending');
-        const isPending = !!(t && t.done_at === 'pending');
-        row.classList.toggle('done', isDone);
-        row.classList.toggle('pending', isPending);
-    }
-
     function renderTable() {
         elTbody.innerHTML = '';
 
-        const tree = buildTreeForCat(selectedCatId);
-        const kids = tree.kids;
+        const { kids, roots } = buildTreeForSubject(selectedFach);
 
-        if (!tree.roots.length) {
+        if (!roots.length) {
             const tr = document.createElement('tr');
-            tr.className = 'td-empty';
+            tr.className = 'lt-empty';
             const td = document.createElement('td');
-            td.colSpan = 3;
+            td.colSpan = 5;
             td.textContent = 'Noch keine Todos in dieser Kategorie.';
             tr.appendChild(td);
             elTbody.appendChild(tr);
+            setAccentForSubject(selectedFach);
             return;
         }
 
@@ -874,19 +922,23 @@ require_once __DIR__ . '/../navbar.php';
             const idStr = String(todo.id);
             const parentKey = (todo.parent_id == null) ? '0' : String(todo.parent_id);
 
-            const tr = document.createElement('tr');
-            tr.dataset.id = idStr;
-            tr.dataset.parent = (todo.parent_id == null) ? '0' : String(todo.parent_id);
-            tr.className = 'td-row' + (todo.done_at ? ' done' : '') + (depth > 0 ? ' td-child' : '');
+            const children = kids.get(idStr) || [];
+            const hasKids = children.length > 0;
+            const isOpen = expanded.has(idStr);
 
+            const tr = document.createElement('tr');
+            if (depth > 0) {
+                tr.style.setProperty('--lt-child-bg', hexToRgba(subjectColor(selectedFach), 0.12));
+            }
+            tr.dataset.id = idStr;
+            tr.dataset.parent = parentKey;
+            tr.className = 'lt-row' + (todo.done_at ? ' done' : '') + (depth > 0 ? ' lt-child' : '');
             tr.draggable = true;
 
-            // Drag cell
             const tdDrag = document.createElement('td');
-            tdDrag.className = 'td-dragcell';
+            tdDrag.className = 'lt-dragcell';
 
             const grip = document.createElement('div');
-            grip.className = 'td-grip';
             grip.innerHTML = '&#8942;&#8942;';
             tdDrag.appendChild(grip);
 
@@ -895,7 +947,6 @@ require_once __DIR__ . '/../navbar.php';
             tdDrag.addEventListener('pointerup', disableDragAllowed);
             tdDrag.addEventListener('pointercancel', disableDragAllowed);
             tdDrag.addEventListener('pointerleave', disableDragAllowed);
-
             tdDrag.addEventListener('click', (e) => e.stopPropagation());
 
             tr.addEventListener('dragstart', (e) => {
@@ -905,11 +956,11 @@ require_once __DIR__ . '/../navbar.php';
                 draggingRow = tr;
                 draggingId = tr.dataset.id;
 
-                const parentKey = String(tr.dataset.parent || '0');
-                dragStartIndex = [...elTbody.querySelectorAll(`tr.td-row[data-parent="${CSS.escape(parentKey)}"]`)]
+                const pKey = String(tr.dataset.parent || '0');
+                dragStartIndex = [...elTbody.querySelectorAll(`tr.lt-row[data-parent="${CSS.escape(pKey)}"]`)]
                     .findIndex(r => r.dataset.id === String(draggingId));
 
-                tr.classList.add('td-dragging');
+                tr.classList.add('lt-dragging');
                 e.dataTransfer.effectAllowed = 'move';
                 e.dataTransfer.setData('text/plain', draggingId);
 
@@ -920,17 +971,15 @@ require_once __DIR__ . '/../navbar.php';
             tr.addEventListener('dragover', (e) => {
                 if (!draggingRow || tr === draggingRow) return;
                 e.preventDefault();
-
                 setDragPointer(e);
                 updateAutoScrollFromPointer();
-
                 hoverReorder(tr, e.clientY);
             });
 
             tr.addEventListener('drop', (e) => { e.preventDefault(); clearDropMarkers(); });
 
             tr.addEventListener('dragend', async () => {
-                tr.classList.remove('td-dragging');
+                tr.classList.remove('lt-dragging');
                 clearDropMarkers();
                 stopAutoScroll();
 
@@ -941,160 +990,166 @@ require_once __DIR__ . '/../navbar.php';
                 dragStartIndex = null;
             });
 
-            // Content cell
-            const tdLeft = document.createElement('td');
-            tdLeft.className = 'td-left';
-
-            const wrap = document.createElement('div');
-            wrap.className = 'td-item';
-
-            const top = document.createElement('div');
-            top.className = 'td-item-top';
-
-            // Expand toggle (nur für Parent-Items)
-            const children = kids.get(idStr) || [];
-            const hasKids = children.length > 0;
-
-            const indent = document.createElement('span');
-            indent.className = 'td-indent';
-            indent.style.setProperty('--td-depth', String(depth));
-            top.appendChild(indent);
-
-            const expBtn = document.createElement('button');
-            expBtn.type = 'button';
-            expBtn.className = 'td-expand' + (hasKids ? '' : ' is-hidden');
-            expBtn.title = hasKids ? 'Auf-/Zuklappen' : '';
-            expBtn.setAttribute('aria-label', 'Aufklappen');
-            expBtn.innerHTML = '&#9656;'; // ▶
-
-            const isOpen = expanded.has(idStr);
-            expBtn.classList.toggle('open', isOpen);
-
-            expBtn.addEventListener('click', (e) => {
+            const toggleExpand = (e) => {
                 e.stopPropagation();
                 if (!hasKids) return;
                 if (expanded.has(idStr)) expanded.delete(idStr);
                 else expanded.add(idStr);
                 saveExpanded();
                 renderTable();
-            });
+            };
 
-            const title = document.createElement('span');
-            title.className = 'td-title';
-            title.textContent = todo.title ?? '';
-
-            // quick add sub
-            const subBtn = document.createElement('button');
-            subBtn.type = 'button';
-            subBtn.className = 'td-subadd' + (depth > 0 ? ' is-hidden' : '');
-            subBtn.title = 'Unterpunkt hinzufügen';
-            subBtn.setAttribute('aria-label', 'Unterpunkt hinzufügen');
-            subBtn.textContent = '+';
-            subBtn.addEventListener('click', (e) => {
+            const addSub = (e) => {
                 e.stopPropagation();
-                // parent öffnen und modal direkt auf sub
                 expanded.add(idStr);
                 saveExpanded();
-                openModal({ edit: null, parentPref: idStr });
+                openNewModal(idStr);
+            };
+
+            const tdExp = document.createElement('td');
+            tdExp.className = 'lt-expcell';
+
+            const expBtn = document.createElement('span');
+            expBtn.className = 'lt-todo-expbtn' + (hasKids ? '' : ' is-hidden') + (isOpen ? ' open' : '');
+            expBtn.innerHTML = '&#9656;';
+            expBtn.setAttribute('role', 'button');
+            expBtn.setAttribute('aria-label', 'Auf-/Zuklappen');
+            expBtn.tabIndex = hasKids ? 0 : -1;
+            expBtn.addEventListener('click', toggleExpand);
+            expBtn.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleExpand(e);
+                }
             });
 
+            tdExp.appendChild(expBtn);
+
+            const tdLeft = document.createElement('td');
+            tdLeft.className = 'lt-left';
+
+            const main = document.createElement('div');
+            main.className = 'lt-task';
+
+            const top = document.createElement('div');
+            top.className = 'lt-task-top';
+
+            const title = document.createElement('span');
+            title.className = 'lt-title';
+            title.textContent = todo.title ?? '';
+
+            if (hasKids && depth === 0) {
+                const total = children.length;
+                const done = children.filter(ch => (ch.done_at && ch.done_at !== 'pending')).length;
+
+                const badge = document.createElement('span');
+                badge.className = 'lt-badge';
+                badge.textContent = `${done}/${total}`;
+                title.appendChild(badge);
+            }
+
+            top.appendChild(title);
+
             const meta = document.createElement('div');
-            meta.className = 'td-meta';
+            meta.className = 'lt-meta';
 
             const note = String(todo.note ?? '').trim();
             if (note) {
                 const noteEl = document.createElement('div');
-                noteEl.className = 'td-note';
+                noteEl.className = 'lt-note';
                 noteEl.textContent = note;
                 meta.appendChild(noteEl);
             }
 
-            // children count badge
-            if (hasKids && depth === 0) {
-                const badge = document.createElement('span');
-                badge.className = 'td-badge';
-                badge.textContent = String(children.length);
-                title.appendChild(badge);
+            main.appendChild(top);
+            if (meta.childNodes.length > 0) main.appendChild(meta);
+            tdLeft.appendChild(main);
+
+            const tdSub = document.createElement('td');
+            tdSub.className = 'lt-subcell';
+
+            if (depth === 0) {
+                const subBtn = document.createElement('span');
+                subBtn.className = 'lt-todo-subbtn';
+                subBtn.textContent = '+';
+                subBtn.setAttribute('role', 'button');
+                subBtn.setAttribute('aria-label', 'Unterpunkt hinzufügen');
+                subBtn.tabIndex = 0;
+                subBtn.addEventListener('click', addSub);
+                subBtn.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        addSub(e);
+                    }
+                });
+                tdSub.appendChild(subBtn);
             }
 
-            top.appendChild(expBtn);
-            top.appendChild(title);
-            top.appendChild(subBtn);
-
-            wrap.appendChild(top);
-            if (meta.childNodes.length > 0) wrap.appendChild(meta);
-
-            tdLeft.appendChild(wrap);
-
-            // Checkbox cell
             const tdRight = document.createElement('td');
-            tdRight.className = 'td-right';
+            tdRight.className = 'lt-right';
             tdRight.appendChild(makeCheckbox(todo));
 
             tr.appendChild(tdDrag);
+            tr.appendChild(tdExp);
             tr.appendChild(tdLeft);
+            tr.appendChild(tdSub);
             tr.appendChild(tdRight);
 
-            // Row click -> edit (nicht bei checkbox / drag / expand / subadd)
             tr.addEventListener('click', (e) => {
-                if (e.target.closest('.td-check')) return;
-                if (e.target.closest('.td-dragcell')) return;
-                if (e.target.closest('.td-expand')) return;
-                if (e.target.closest('.td-subadd')) return;
-                openModal({ edit: todo });
+                if (e.target.closest('.lt-check')) return;
+                if (e.target.closest('.lt-dragcell')) return;
+                if (e.target.closest('.lt-todo-expbtn')) return;
+                if (e.target.closest('.lt-todo-subbtn')) return;
+                openEditModal(todo);
             });
 
             elTbody.appendChild(tr);
 
-            // render children if expanded
-            if (hasKids && expanded.has(idStr)) {
+            if (hasKids && isOpen) {
                 children.forEach(ch => renderOne(ch, depth + 1));
             }
         };
 
-        tree.roots.forEach(t => renderOne(t, 0));
 
-        setAccent(selectedCatId);
+        roots.forEach(t => renderOne(t, 0));
+        setAccentForSubject(selectedFach);
     }
 
-    elSave.addEventListener('click', async () => {
+    elSaveNew.addEventListener('click', async () => {
         const editId = (elEditId.value || '').trim();
 
-        const category_id = String(elNewCat.value || '');
+        const fach = String(elNewFach.value || '');
         const parent_id = String(elNewParent.value || '0');
-        const title = elNewTitle.value.trim();
-        const note = elNewNote.value ?? '';
+        const title = elNewTitel.value.trim();
+        const note = elNewNotiz.value ?? '';
 
-        const catIdNum = Number(category_id || 0);
-        if (!validCats.has(catIdNum)) return;
+        if (!validSubjects.has(fach)) return;
         if (!title) return;
 
-        elSave.disabled = true;
+        elSaveNew.disabled = true;
 
         try {
             if (!editId) {
-                const res = await post('add_todo', { category_id, parent_id, title, note });
+                const res = await post('add_todo', { fach, parent_id, title, note });
                 if (!res || !res.ok || !res.todo) throw new Error('add_failed');
 
                 applyTodoUpdate(res.todo);
 
-                selectedCatId = Number(res.todo.category_id);
-                localStorage.setItem('todo_cat_id', String(selectedCatId));
+                selectedFach = String(res.todo.fach);
+                localStorage.setItem('todo_fach', selectedFach);
 
-                // parent auto-expand wenn subtask
                 if (res.todo.parent_id != null) {
                     expanded.add(String(res.todo.parent_id));
                     saveExpanded();
                 }
-
             } else {
-                const res = await post('update_todo', { id: editId, category_id, parent_id, title, note });
+                const res = await post('update_todo', { id: editId, fach, parent_id, title, note });
                 if (!res || !res.ok || !res.todo) throw new Error('update_failed');
 
                 applyTodoUpdate(res.todo);
 
-                selectedCatId = Number(res.todo.category_id);
-                localStorage.setItem('todo_cat_id', String(selectedCatId));
+                selectedFach = String(res.todo.fach);
+                localStorage.setItem('todo_fach', selectedFach);
 
                 if (res.todo.parent_id != null) {
                     expanded.add(String(res.todo.parent_id));
@@ -1103,22 +1158,21 @@ require_once __DIR__ . '/../navbar.php';
             }
 
             updateDoneCount();
-            setAccent(selectedCatId);
+            setAccentForSubject(selectedFach);
             renderTabs();
+            rebuildParentOptions(selectedFach, '0', (elEditId.value || '').trim() || null);
             renderTable();
-            rebuildModalSelects(0);
             closeModal();
         } catch (_) {
-            // silent
         } finally {
-            elSave.disabled = false;
+            elSaveNew.disabled = false;
         }
     });
 
     function init() {
-        setAccent(selectedCatId);
+        setAccentForSubject(selectedFach);
         renderTabs();
-        rebuildModalSelects(0);
+        rebuildParentOptions(selectedFach, '0', null);
         updateDoneCount();
         renderTable();
     }
