@@ -348,6 +348,7 @@ $resT = $checkconn->query("
         t.sort_key ASC,
         t.id ASC
 ");
+
 if ($resT) {
     while ($r = $resT->fetch_assoc()) $todos[] = $r;
 }

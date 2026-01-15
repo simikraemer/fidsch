@@ -651,9 +651,9 @@ input[type="radio"] {
     transition: transform 0.08s ease, border-color 0.15s ease, background-color 0.15s ease;
 }
 
-.lt-tab:hover {
+/* .lt-tab:hover {
     transform: translateY(-1px);
-}
+} */
 
 .lt-tab.active {
     border-color: var(--lt-accent);
@@ -1121,6 +1121,7 @@ button.chart-back:focus-visible {
   line-height:1;
   opacity:.75;
   user-select:none;
+  color:inherit;
 }
 
 .lt-todo-expbtn{
@@ -1140,7 +1141,7 @@ button.chart-back:focus-visible {
 .lt-todo-expbtn:hover,
 .lt-todo-subbtn:hover{
   opacity:1;
-  color:var(--primary);
+  color:var(--lt-accent);
 }
 
 .lt-todo-expbtn.open{
