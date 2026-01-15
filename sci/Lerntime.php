@@ -377,7 +377,7 @@ if ($resT) {
     }
 }
 
-$page_title = 'Lerntime';
+$page_title = 'B.Sc. Maschinenbau';
 require_once __DIR__ . '/../head.php';
 require_once __DIR__ . '/../navbar.php';
 ?>

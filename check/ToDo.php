@@ -368,7 +368,7 @@ if ($resT) {
     while ($r = $resT->fetch_assoc()) $todos[] = $r;
 }
 
-$page_title = 'ToDo';
+$page_title = 'ToDo-Liste';
 require_once __DIR__ . '/../head.php';
 require_once __DIR__ . '/../navbar.php';
 ?>

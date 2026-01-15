@@ -338,7 +338,7 @@ $khKWJson      = json_encode($khKWavg);
 $alkKWJson     = json_encode($alkKWavg);
 
 // 12) Rendering starten (kein Output davor!)
-$page_title = 'Fitness';
+$page_title = 'Ernährung';
 require_once __DIR__ . '/../head.php';
 require_once __DIR__ . '/../navbar.php';
 ?>
