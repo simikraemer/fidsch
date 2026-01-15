@@ -93,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         }
 
         $stmt = $checkconn->prepare("
-            SELECT t.id, k.name AS fach, t.category_id, t.parent_id, t.title, t.note, t.done_at, t.sort_key
+            SELECT t.id, k.name AS fach, t.category_id, t.parent_id, t.title, t.note, t.detail_note, t.done_at, t.sort_key
             FROM todo t
             JOIN todo_kategorien k ON k.id = t.category_id
             WHERE t.id = ?
@@ -133,6 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
         $title = trim((string)($_POST['title'] ?? ''));
         $note  = (string)($_POST['note'] ?? '');
+        $detailNote = (string)($_POST['detail_note'] ?? '');
 
         if (!isset($SUBJECTS[$fach])) json_out(['ok' => false, 'error' => 'Ungültige Kategorie.'], 400);
         if ($title === '') json_out(['ok' => false, 'error' => 'Titel ist Pflicht.'], 400);
@@ -173,11 +174,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $newSort = ($max > 0 ? $max + 1000.0 : 1000.0);
 
             if ($parentId === null) {
-                $stmt = $checkconn->prepare("INSERT INTO todo (category_id, parent_id, title, note, done_at, sort_key) VALUES (?, NULL, ?, ?, NULL, ?)");
-                $stmt->bind_param('issd', $catId, $title, $note, $newSort);
+                $stmt = $checkconn->prepare("INSERT INTO todo (category_id, parent_id, title, note, detail_note, done_at, sort_key) VALUES (?, NULL, ?, ?, ?, NULL, ?)");
+                $stmt->bind_param('isssd', $catId, $title, $note, $detailNote, $newSort);
             } else {
-                $stmt = $checkconn->prepare("INSERT INTO todo (category_id, parent_id, title, note, done_at, sort_key) VALUES (?, ?, ?, ?, NULL, ?)");
-                $stmt->bind_param('iissd', $catId, $parentId, $title, $note, $newSort);
+                $stmt = $checkconn->prepare("INSERT INTO todo (category_id, parent_id, title, note, detail_note, done_at, sort_key) VALUES (?, ?, ?, ?, ?, NULL, ?)");
+                $stmt->bind_param('iisssd', $catId, $parentId, $title, $note, $detailNote, $newSort);
             }
             $stmt->execute();
             $newId = (int)$stmt->insert_id;
@@ -186,7 +187,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $checkconn->commit();
 
             $stmt = $checkconn->prepare("
-                SELECT t.id, k.name AS fach, t.category_id, t.parent_id, t.title, t.note, t.done_at, t.sort_key
+                SELECT t.id, k.name AS fach, t.category_id, t.parent_id, t.title, t.note, t.detail_note, t.done_at, t.sort_key
                 FROM todo t
                 JOIN todo_kategorien k ON k.id = t.category_id
                 WHERE t.id = ?
@@ -213,6 +214,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
         $title = trim((string)($_POST['title'] ?? ''));
         $note  = (string)($_POST['note'] ?? '');
+        $detailNote = (string)($_POST['detail_note'] ?? '');
 
         if ($id <= 0) json_out(['ok' => false, 'error' => 'Ungültige ID.'], 400);
         if (!isset($SUBJECTS[$fach])) json_out(['ok' => false, 'error' => 'Ungültige Kategorie.'], 400);
@@ -272,17 +274,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
 
             if ($parentId === null && $newSort === null) {
-                $stmt = $checkconn->prepare("UPDATE todo SET category_id=?, parent_id=NULL, title=?, note=? WHERE id=?");
-                $stmt->bind_param('issi', $catId, $title, $note, $id);
+                $stmt = $checkconn->prepare("UPDATE todo SET category_id=?, parent_id=NULL, title=?, note=?, detail_note=? WHERE id=?");
+                $stmt->bind_param('isssi', $catId, $title, $note, $detailNote, $id);
             } elseif ($parentId === null && $newSort !== null) {
-                $stmt = $checkconn->prepare("UPDATE todo SET category_id=?, parent_id=NULL, title=?, note=?, sort_key=? WHERE id=?");
-                $stmt->bind_param('issdi', $catId, $title, $note, $newSort, $id);
+                $stmt = $checkconn->prepare("UPDATE todo SET category_id=?, parent_id=NULL, title=?, note=?, detail_note=?, sort_key=? WHERE id=?");
+                $stmt->bind_param('isssdi', $catId, $title, $note, $detailNote, $newSort, $id);
             } elseif ($parentId !== null && $newSort === null) {
-                $stmt = $checkconn->prepare("UPDATE todo SET category_id=?, parent_id=?, title=?, note=? WHERE id=?");
-                $stmt->bind_param('iissi', $catId, $parentId, $title, $note, $id);
+                $stmt = $checkconn->prepare("UPDATE todo SET category_id=?, parent_id=?, title=?, note=?, detail_note=? WHERE id=?");
+                $stmt->bind_param('iisssi', $catId, $parentId, $title, $note, $detailNote, $id);
             } else {
-                $stmt = $checkconn->prepare("UPDATE todo SET category_id=?, parent_id=?, title=?, note=?, sort_key=? WHERE id=?");
-                $stmt->bind_param('iissdi', $catId, $parentId, $title, $note, $newSort, $id);
+                $stmt = $checkconn->prepare("UPDATE todo SET category_id=?, parent_id=?, title=?, note=?, detail_note=?, sort_key=? WHERE id=?");
+                $stmt->bind_param('iisssdi', $catId, $parentId, $title, $note, $detailNote, $newSort, $id);
             }
 
             $stmt->execute();
@@ -293,7 +295,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $_SESSION['todo_fach'] = $fach;
 
             $stmt = $checkconn->prepare("
-                SELECT t.id, k.name AS fach, t.category_id, t.parent_id, t.title, t.note, t.done_at, t.sort_key
+                SELECT t.id, k.name AS fach, t.category_id, t.parent_id, t.title, t.note, t.detail_note, t.done_at, t.sort_key
                 FROM todo t
                 JOIN todo_kategorien k ON k.id = t.category_id
                 WHERE t.id = ?
@@ -330,6 +332,7 @@ $resT = $checkconn->query("
         t.parent_id,
         t.title,
         t.note,
+        t.detail_note,
         t.done_at,
         t.sort_key
     FROM todo t
@@ -337,8 +340,20 @@ $resT = $checkconn->query("
     LEFT JOIN todo p ON p.id = t.parent_id
     WHERE k.is_active = 1
       AND (
-            (t.parent_id IS NULL AND (t.done_at IS NULL OR t.done_at >= (NOW() - INTERVAL 7 DAY)))
-         OR (t.parent_id IS NOT NULL AND p.id IS NOT NULL AND p.done_at IS NULL)
+            (t.parent_id IS NULL AND (
+                t.done_at IS NULL
+                OR t.done_at >= (NOW() - INTERVAL 7 DAY)
+                OR EXISTS (
+                    SELECT 1
+                    FROM todo c
+                    WHERE c.parent_id = t.id
+                      AND c.done_at IS NULL
+                )
+            ))
+         OR (t.parent_id IS NOT NULL AND p.id IS NOT NULL AND (
+                p.done_at IS NULL
+             OR t.done_at IS NULL
+            ))
       )
     ORDER BY
         k.sort_order ASC,
@@ -361,7 +376,7 @@ require_once __DIR__ . '/../navbar.php';
 <div id="ltPage" class="lt-page dashboard-page">
     <div class="lt-topbar">
         <h1 class="ueberschrift dashboard-title">
-            <span class="dashboard-title-main">ToDo</span>
+            <span class="dashboard-title-main">ToDo-Liste</span>
             <span class="dashboard-title-soft">
             | <span id="ltOpenCount">0</span> offen
             · <span id="ltDoneCount"><?= htmlspecialchars((string)$doneCount, ENT_QUOTES, 'UTF-8') ?></span> erledigt
@@ -424,7 +439,12 @@ require_once __DIR__ . '/../navbar.php';
 
             <div class="input-group-dropdown">
                 <label for="ltNewNotiz">Notiz</label>
-                <textarea id="ltNewNotiz" rows="4" placeholder="optional"></textarea>
+                <textarea id="ltNewNotiz" rows="2" placeholder="optional"></textarea>
+            </div>
+            
+            <div class="input-group-dropdown">
+                <label for="ltNewDetailNotiz">Details</label>
+                <textarea id="ltNewDetailNotiz" rows="5" placeholder="optional"></textarea>
             </div>
 
             <button id="ltSaveNew" type="button">Speichern</button>
@@ -453,6 +473,7 @@ require_once __DIR__ . '/../navbar.php';
     const elNewParent = document.getElementById('ltNewParent');
     const elNewTitel = document.getElementById('ltNewTitel');
     const elNewNotiz = document.getElementById('ltNewNotiz');
+    const elNewDetailNotiz = document.getElementById('ltNewDetailNotiz');
     const elSaveNew = document.getElementById('ltSaveNew');
 
     const validSubjects = new Set(Object.keys(SUBJECTS));
@@ -608,6 +629,7 @@ require_once __DIR__ . '/../navbar.php';
 
         elNewTitel.value = '';
         elNewNotiz.value = '';
+        elNewDetailNotiz.value = '';
 
         openModal(elNewTitel);
     }
@@ -624,6 +646,7 @@ require_once __DIR__ . '/../navbar.php';
 
         elNewTitel.value = todo.title ?? '';
         elNewNotiz.value = todo.note ?? '';
+        elNewDetailNotiz.value = todo.detail_note ?? '';
 
         setAccentForSubject(selectedFach);
         renderTabs();
@@ -1123,6 +1146,7 @@ require_once __DIR__ . '/../navbar.php';
         const parent_id = String(elNewParent.value || '0');
         const title = elNewTitel.value.trim();
         const note = elNewNotiz.value ?? '';
+        const detail_note = elNewDetailNotiz.value ?? '';
 
         if (!validSubjects.has(fach)) return;
         if (!title) return;
@@ -1131,7 +1155,7 @@ require_once __DIR__ . '/../navbar.php';
 
         try {
             if (!editId) {
-                const res = await post('add_todo', { fach, parent_id, title, note });
+                const res = await post('add_todo', { fach, parent_id, title, note, detail_note });
                 if (!res || !res.ok || !res.todo) throw new Error('add_failed');
 
                 applyTodoUpdate(res.todo);
@@ -1144,7 +1168,7 @@ require_once __DIR__ . '/../navbar.php';
                     saveExpanded();
                 }
             } else {
-                const res = await post('update_todo', { id: editId, fach, parent_id, title, note });
+                const res = await post('update_todo', { id: editId, fach, parent_id, title, note, detail_note });
                 if (!res || !res.ok || !res.todo) throw new Error('update_failed');
 
                 applyTodoUpdate(res.todo);
