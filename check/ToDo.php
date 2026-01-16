@@ -376,6 +376,7 @@ if ($status === 'done') {
             k.id ASC,
             (t.parent_id IS NULL) DESC,
             t.parent_id ASC,
+            t.done_at DESC,
             t.sort_key ASC,
             t.id ASC
     ");
@@ -780,14 +781,55 @@ require_once __DIR__ . '/../navbar.php';
     function buildTreeForSubject(fach) {
         const raw = TASKS.filter(t => String(t.fach) === String(fach));
 
-        // kidsAll: alle Sub-Todos (unabhängig von offen/erledigt-Filter) -> nur für Badge  x/y
-        const kidsAll = new Map(); // parentIdStr -> array (alle Kinder)
+        // Max erledigt-ts pro Parent (nur für DONE-Ansicht + Parent-Kontext-Zeilen)
+        const maxDoneByParent = new Map(); // parentIdStr -> ms
         for (const t of raw) {
-            const p = (t.parent_id == null) ? null : String(t.parent_id);
-            if (p === null) continue;
-            if (!kidsAll.has(p)) kidsAll.set(p, []);
-            kidsAll.get(p).push(t);
+            if (t.parent_id == null) continue;
+            if (todoState(t) !== 'done') continue;
+            const d = parseMysqlDateLocal(t.done_at);
+            const ts = d ? d.getTime() : 0;
+            const pid = String(t.parent_id);
+            const cur = maxDoneByParent.get(pid) || 0;
+            if (ts > cur) maxDoneByParent.set(pid, ts);
         }
+
+        const effectiveDoneTs = (t) => {
+            const st = todoState(t);
+            if (st === 'done') {
+                const d = parseMysqlDateLocal(t.done_at);
+                return d ? d.getTime() : 0;
+            }
+            // Parent-Kontext in DONE-Ansicht: nutze "letzter Abschluss" aus Kindern
+            if (viewStatus === 'done' && t.parent_id == null) {
+                return maxDoneByParent.get(String(t.id)) || 0;
+            }
+            return 0;
+        };
+
+        const cmp = (a, b) => {
+            if (viewStatus === 'done') {
+                const ta = effectiveDoneTs(a);
+                const tb = effectiveDoneTs(b);
+                if (ta !== tb) return tb - ta; // neueste zuerst
+
+                // Stabiler Fallback
+                const sa = Number(a.sort_key ?? 0);
+                const sb = Number(b.sort_key ?? 0);
+                if (sa !== sb) return sa - sb;
+                return Number(a.id) - Number(b.id);
+            }
+
+            // OPEN-Ansicht: bisheriges Verhalten
+            const da = (todoState(a) === 'done');
+            const db = (todoState(b) === 'done');
+            if (da !== db) return da ? 1 : -1;
+
+            const sa = Number(a.sort_key ?? 0);
+            const sb = Number(b.sort_key ?? 0);
+            if (sa !== sb) return sa - sb;
+
+            return Number(a.id) - Number(b.id);
+        };
 
         // list: gefilterte Todos für die aktuell gewählte View (open/done)
         const list = filterTasksForView(raw);
@@ -804,14 +846,12 @@ require_once __DIR__ . '/../navbar.php';
             }
         }
 
-        roots.sort(sortSiblings);
-        for (const [p, arr] of kids.entries()) arr.sort(sortSiblings);
+        roots.sort(cmp);
+        for (const [p, arr] of kids.entries()) arr.sort(cmp);
 
-        // kidsAll auch sortieren (für stabile x/y-Berechnung optional, aber sauber)
-        for (const [p, arr] of kidsAll.entries()) arr.sort(sortSiblings);
-
-        return { kids, roots, kidsAll };
+        return { kids, roots, maxDoneByParent, effectiveDoneTs };
     }
+
 
 
     function rebuildParentOptions(fach, selectedParentId = '0', excludeId = null) {
@@ -1168,7 +1208,7 @@ require_once __DIR__ . '/../navbar.php';
     function renderTable() {
         elTbody.innerHTML = '';
 
-        const { kids, roots, kidsAll } = buildTreeForSubject(selectedFach);
+        const { kids, roots, maxDoneByParent, effectiveDoneTs } = buildTreeForSubject(selectedFach);
 
         if (!roots.length) {
             const tr = document.createElement('tr');
@@ -1301,6 +1341,12 @@ require_once __DIR__ . '/../navbar.php';
             const main = document.createElement('div');
             main.className = 'lt-task';
 
+            const row = document.createElement('div');
+            row.className = 'lt-task-row';
+
+            const left = document.createElement('div');
+            left.className = 'lt-task-left';
+
             const top = document.createElement('div');
             top.className = 'lt-task-top';
 
@@ -1321,7 +1367,6 @@ require_once __DIR__ . '/../navbar.php';
                 }
             }
 
-
             top.appendChild(title);
 
             const meta = document.createElement('div');
@@ -1335,8 +1380,36 @@ require_once __DIR__ . '/../navbar.php';
                 meta.appendChild(noteEl);
             }
 
-            main.appendChild(top);
-            if (meta.childNodes.length > 0) main.appendChild(meta);
+            left.appendChild(top);
+            if (meta.childNodes.length > 0) left.appendChild(meta);
+
+            row.appendChild(left);
+
+            // Rechts: "Erledigt am" (DONE) bzw. "Letzter Abschluss" (Parent-Kontext ohne done_at)
+            if (viewStatus === 'done') {
+                const ts = effectiveDoneTs(todo);
+                if (ts > 0) {
+                    const right = document.createElement('div');
+                    right.className = 'lt-task-right';
+
+                    const label = document.createElement('span');
+                    label.className = 'lt-doneat-label';
+                    label.textContent = (todoState(todo) === 'done') ? 'Erledigt:' : 'Zuletzt:';
+
+                    const val = document.createElement('span');
+                    val.className = 'lt-doneat-value';
+                    val.textContent = new Date(ts).toLocaleString('de-DE', {
+                        day: '2-digit', month: '2-digit', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit'
+                    });
+
+                    right.appendChild(label);
+                    right.appendChild(val);
+                    row.appendChild(right);
+                }
+            }
+
+            main.appendChild(row);
             tdLeft.appendChild(main);
 
             const tdSub = document.createElement('td');

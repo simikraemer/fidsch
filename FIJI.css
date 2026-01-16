@@ -753,6 +753,30 @@ input[type="radio"] {
     gap: 6px;
 }
 
+.lt-task-row {
+    display: flex;
+    align-items: stretch;
+    gap: 14px;
+}
+
+.lt-task-left{
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.lt-task-right{
+    display: flex;
+    align-items: center;      /* vertikal zentriert */
+    justify-content: flex-end;
+    gap: 6px;
+    white-space: nowrap;
+    font-size: 0.9rem;
+    opacity: 0.78;
+}
+
 .lt-task-top {
     display: flex;
     align-items: baseline;
@@ -780,6 +804,15 @@ input[type="radio"] {
 .lt-note {
     font-size: 0.92rem;
     opacity: 0.85;
+}
+
+.lt-doneat-label{
+    font-weight: 700;
+    opacity: 0.85;
+}
+
+.lt-doneat-value{
+    font-variant-numeric: tabular-nums;
 }
 
 .lt-dur {
