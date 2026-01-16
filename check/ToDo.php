@@ -10,6 +10,10 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
 
+/* ---------------------- Status-Filter (open|done) ---------------------- */
+$status = strtolower(trim((string)($_GET['status'] ?? 'open')));
+if (!in_array($status, ['open', 'done'], true)) $status = 'open';
+
 /* ---------------------- Helpers ---------------------- */
 function json_out(array $payload, int $code = 200): void {
     http_response_code($code);
@@ -317,56 +321,134 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     json_out(['ok' => false, 'error' => 'Unbekannte Aktion.'], 400);
 }
 
-/* ---------------------- Done-Count for Header ---------------------- */
+/* ---------------------- Counts for Header ---------------------- */
+$openCount = 0;
 $doneCount = 0;
-$resD = $checkconn->query("SELECT COUNT(*) AS c FROM todo WHERE done_at IS NOT NULL");
-if ($resD && ($r = $resD->fetch_assoc())) $doneCount = (int)$r['c'];
+
+$resCnt = $checkconn->query("
+    SELECT
+        SUM(done_at IS NULL)     AS open_c,
+        SUM(done_at IS NOT NULL) AS done_c
+    FROM todo
+");
+if ($resCnt && ($r = $resCnt->fetch_assoc())) {
+    $openCount = (int)$r['open_c'];
+    $doneCount = (int)$r['done_c'];
+}
+
+$headerCount = ($status === 'done') ? $doneCount : $openCount;
+$headerLabel = ($status === 'done') ? 'erledigt' : 'offen';
+
 
 /* ---------------------- Todos for JS ---------------------- */
 $todos = [];
-$resT = $checkconn->query("
-    SELECT
-        t.id,
-        k.name AS fach,
-        t.category_id,
-        t.parent_id,
-        t.title,
-        t.note,
-        t.detail_note,
-        t.done_at,
-        t.sort_key
-    FROM todo t
-    JOIN todo_kategorien k ON k.id = t.category_id
-    LEFT JOIN todo p ON p.id = t.parent_id
-    WHERE k.is_active = 1
-      AND (
-            (t.parent_id IS NULL AND (
-                t.done_at IS NULL
-                OR t.done_at >= (NOW() - INTERVAL 7 DAY)
-                OR EXISTS (
-                    SELECT 1
-                    FROM todo c
-                    WHERE c.parent_id = t.id
-                      AND c.done_at IS NULL
-                )
-            ))
-         OR (t.parent_id IS NOT NULL AND p.id IS NOT NULL AND (
-                p.done_at IS NULL
-             OR t.done_at IS NULL
-            ))
-      )
-    ORDER BY
-        k.sort_order ASC,
-        k.id ASC,
-        (t.parent_id IS NULL) DESC,
-        t.parent_id ASC,
-        t.sort_key ASC,
-        t.id ASC
-");
+if ($status === 'done') {
+    // "Erledigt"-Ansicht: alle erledigten Todos + Elternzeilen als Kontext, falls ein Unterpunkt erledigt ist
+    $resT = $checkconn->query("
+        SELECT
+            t.id,
+            k.name AS fach,
+            t.category_id,
+            t.parent_id,
+            t.title,
+            t.note,
+            t.detail_note,
+            t.done_at,
+            t.sort_key
+        FROM todo t
+        JOIN todo_kategorien k ON k.id = t.category_id
+        LEFT JOIN todo p ON p.id = t.parent_id
+        WHERE k.is_active = 1
+          AND (
+                (t.parent_id IS NULL AND (
+                    t.done_at IS NOT NULL
+                    OR EXISTS (
+                        SELECT 1
+                        FROM todo c
+                        WHERE c.parent_id = t.id
+                          AND c.done_at IS NOT NULL
+                    )
+                ))
+             OR (t.parent_id IS NOT NULL AND p.id IS NOT NULL AND t.done_at IS NOT NULL)
+          )
+        ORDER BY
+            k.sort_order ASC,
+            k.id ASC,
+            (t.parent_id IS NULL) DESC,
+            t.parent_id ASC,
+            t.sort_key ASC,
+            t.id ASC
+    ");
+} else {
+    // "Offen"-Ansicht: wie bisher (erledigte Top-Level bleiben 7 Tage, plus Eltern wenn Unterpunkt offen ist)
+    $resT = $checkconn->query("
+        SELECT
+            t.id,
+            k.name AS fach,
+            t.category_id,
+            t.parent_id,
+            t.title,
+            t.note,
+            t.detail_note,
+            t.done_at,
+            t.sort_key
+        FROM todo t
+        JOIN todo_kategorien k ON k.id = t.category_id
+        LEFT JOIN todo p ON p.id = t.parent_id
+        WHERE k.is_active = 1
+          AND (
+                (t.parent_id IS NULL AND (
+                    t.done_at IS NULL
+                    OR t.done_at >= (NOW() - INTERVAL 7 DAY)
+                    OR EXISTS (
+                        SELECT 1
+                        FROM todo c
+                        WHERE c.parent_id = t.id
+                          AND c.done_at IS NULL
+                    )
+                ))
+             OR (t.parent_id IS NOT NULL AND p.id IS NOT NULL AND (
+                    p.done_at IS NULL
+                 OR t.done_at IS NULL
+                ))
+          )
+        ORDER BY
+            k.sort_order ASC,
+            k.id ASC,
+            (t.parent_id IS NULL) DESC,
+            t.parent_id ASC,
+            t.sort_key ASC,
+            t.id ASC
+    ");
+}
+
 
 if ($resT) {
     while ($r = $resT->fetch_assoc()) $todos[] = $r;
 }
+
+/* ---------------------- Child-Counts (für Badge done/total) ---------------------- */
+$childCounts = []; // parent_id => ['total'=>int,'done'=>int]
+
+$resCC = $checkconn->query("
+    SELECT
+        parent_id,
+        COUNT(*) AS total_c,
+        SUM(done_at IS NOT NULL) AS done_c
+    FROM todo
+    WHERE parent_id IS NOT NULL
+    GROUP BY parent_id
+");
+if ($resCC) {
+    while ($r = $resCC->fetch_assoc()) {
+        $pid = (string)$r['parent_id'];
+        $childCounts[$pid] = [
+            'total' => (int)$r['total_c'],
+            'done'  => (int)$r['done_c'],
+        ];
+    }
+}
+
 
 $page_title = 'ToDo-Liste';
 require_once __DIR__ . '/../head.php';
@@ -378,10 +460,19 @@ require_once __DIR__ . '/../navbar.php';
         <h1 class="ueberschrift dashboard-title">
             <span class="dashboard-title-main">ToDo-Liste</span>
             <span class="dashboard-title-soft">
-            | <span id="ltOpenCount">0</span> offen
-            · <span id="ltDoneCount"><?= htmlspecialchars((string)$doneCount, ENT_QUOTES, 'UTF-8') ?></span> erledigt
+                | <span id="ltStatusCount"><?= htmlspecialchars((string)$headerCount, ENT_QUOTES, 'UTF-8') ?></span>
+                <span id="ltStatusLabel"><?= htmlspecialchars((string)$headerLabel, ENT_QUOTES, 'UTF-8') ?></span>
             </span>
         </h1>
+        <form method="get" id="statusForm" class="dashboard-filterform">
+            <div class="lt-yearwrap">
+                <label for="ltStatus" class="lt-label">Status</label>
+                <select id="ltStatus" name="status" class="kategorie-select" onchange="this.form.submit()">
+                <option value="open" <?= ($status === 'open' ? 'selected' : '') ?>>Offen</option>
+                <option value="done" <?= ($status === 'done' ? 'selected' : '') ?>>Erledigt</option>
+                </select>
+            </div>
+        </form>
     </div>
 
     <div class="lt-subject-row">
@@ -471,13 +562,20 @@ require_once __DIR__ . '/../navbar.php';
 (() => {
     const SUBJECTS = <?= json_encode($SUBJECTS, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
     const TASKS = <?= json_encode($todos, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+    const CHILD_COUNTS = <?= json_encode($childCounts, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 
     const phpDefaultFach = <?= json_encode($sessionFach, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 
     const elPage = document.getElementById('ltPage');
     const elTabs = document.getElementById('ltTabs');
     const elTbody = document.getElementById('ltTbody');
-    const elDoneCount = document.getElementById('ltDoneCount');
+
+    const elStatus = document.getElementById('ltStatus');
+    const elStatusCount = document.getElementById('ltStatusCount');
+    const elStatusLabel = document.getElementById('ltStatusLabel');
+
+    let viewStatus = (elStatus && elStatus.value) ? String(elStatus.value) : 'open';
+    if (viewStatus !== 'done') viewStatus = 'open';
 
     const elModal = document.getElementById('ltModal');
     const elModalClose = document.getElementById('ltModalClose');
@@ -557,16 +655,24 @@ require_once __DIR__ . '/../navbar.php';
         else TASKS.push(updated);
     }
 
-    const elOpenCount = document.getElementById('ltOpenCount');    
-    async function updateDoneCount() {
+    async function updateCounts() {
         try {
             const res = await post('get_counts', {});
             if (res && res.ok) {
-                if (typeof res.open !== 'undefined') elOpenCount.textContent = String(res.open);
-                if (typeof res.done !== 'undefined') elDoneCount.textContent = String(res.done);
+                const open = (typeof res.open !== 'undefined') ? Number(res.open) : 0;
+                const done = (typeof res.done !== 'undefined') ? Number(res.done) : 0;
+
+                if (viewStatus === 'done') {
+                    if (elStatusCount) elStatusCount.textContent = String(done);
+                    if (elStatusLabel) elStatusLabel.textContent = 'erledigt';
+                } else {
+                    if (elStatusCount) elStatusCount.textContent = String(open);
+                    if (elStatusLabel) elStatusLabel.textContent = 'offen';
+                }
             }
         } catch (_) {}
     }
+
 
     function sortSiblings(a, b) {
         const da = !!(a.done_at && a.done_at !== 'pending');
@@ -580,10 +686,113 @@ require_once __DIR__ . '/../navbar.php';
         return Number(a.id) - Number(b.id);
     }
 
-    function buildTreeForSubject(fach) {
-        const list = TASKS.filter(t => String(t.fach) === String(fach));
+    function todoState(t) {
+        const v = t?.done_at;
+        if (!v) return 'open';
+        if (v === 'pending') return 'pending';
+        return 'done';
+    }
 
-        const kids = new Map(); // parentIdStr -> array
+    function parseMysqlDateLocal(v) {
+        if (!v || v === 'pending') return null;
+        const s = String(v).trim();
+        const m = s.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})(?:\.\d+)?$/);
+        if (!m) return null;
+        return new Date(`${m[1]}T${m[2]}`);
+    }
+
+    function filterTasksForView(list) {
+        const byId = new Map(list.map(t => [String(t.id), t]));
+        const kids = new Map();
+        for (const t of list) {
+            if (t.parent_id == null) continue;
+            const p = String(t.parent_id);
+            if (!kids.has(p)) kids.set(p, []);
+            kids.get(p).push(t);
+        }
+
+        const included = new Set();
+
+        if (viewStatus === 'done') {
+            // Root: erledigt ODER hat erledigten Unterpunkt (Kontext)
+            for (const t of list) {
+                if (t.parent_id != null) continue;
+                const id = String(t.id);
+                const st = todoState(t);
+                const ch = kids.get(id) || [];
+                const hasDoneChild = ch.some(c => todoState(c) !== 'open');
+                if (st !== 'open' || hasDoneChild) included.add(id);
+            }
+            // Child: nur erledigte Unterpunkte, wenn Parent vorhanden
+            for (const t of list) {
+                if (t.parent_id == null) continue;
+                if (todoState(t) === 'open') continue;
+                const pid = String(t.parent_id);
+                if (!byId.has(pid)) continue;
+                included.add(String(t.id));
+                included.add(pid);
+            }
+        } else {
+            // Offen-Ansicht: erledigte Root bleiben 7 Tage sichtbar (wie bisher)
+            const now = Date.now();
+            const weekMs = 7 * 24 * 60 * 60 * 1000;
+
+            const doneWithinWeek = (t) => {
+                const st = todoState(t);
+                if (st === 'open') return false;
+                if (st === 'pending') return true;
+                const d = parseMysqlDateLocal(t.done_at);
+                if (!d) return true;
+                return (now - d.getTime()) <= weekMs;
+            };
+
+            for (const t of list) {
+                if (t.parent_id != null) continue;
+                const id = String(t.id);
+                const st = todoState(t);
+
+                if (st === 'open' || st === 'pending') { included.add(id); continue; }
+                if (doneWithinWeek(t)) { included.add(id); continue; }
+
+                const ch = kids.get(id) || [];
+                if (ch.some(c => todoState(c) === 'open')) { included.add(id); continue; }
+            }
+
+            for (const t of list) {
+                if (t.parent_id == null) continue;
+                const pid = String(t.parent_id);
+                const p = byId.get(pid);
+                if (!p) continue;
+
+                const pOpen = (todoState(p) === 'open');
+                const tOpen = (todoState(t) === 'open');
+
+                if (pOpen || tOpen) {
+                    included.add(String(t.id));
+                    included.add(pid);
+                }
+            }
+        }
+
+        return list.filter(t => included.has(String(t.id)));
+    }
+
+    function buildTreeForSubject(fach) {
+        const raw = TASKS.filter(t => String(t.fach) === String(fach));
+
+        // kidsAll: alle Sub-Todos (unabhängig von offen/erledigt-Filter) -> nur für Badge  x/y
+        const kidsAll = new Map(); // parentIdStr -> array (alle Kinder)
+        for (const t of raw) {
+            const p = (t.parent_id == null) ? null : String(t.parent_id);
+            if (p === null) continue;
+            if (!kidsAll.has(p)) kidsAll.set(p, []);
+            kidsAll.get(p).push(t);
+        }
+
+        // list: gefilterte Todos für die aktuell gewählte View (open/done)
+        const list = filterTasksForView(raw);
+
+        const kids = new Map(); // parentIdStr -> array (gefilterte Kinder)
         const roots = [];
 
         for (const t of list) {
@@ -598,8 +807,12 @@ require_once __DIR__ . '/../navbar.php';
         roots.sort(sortSiblings);
         for (const [p, arr] of kids.entries()) arr.sort(sortSiblings);
 
-        return { kids, roots };
+        // kidsAll auch sortieren (für stabile x/y-Berechnung optional, aber sauber)
+        for (const [p, arr] of kidsAll.entries()) arr.sort(sortSiblings);
+
+        return { kids, roots, kidsAll };
     }
+
 
     function rebuildParentOptions(fach, selectedParentId = '0', excludeId = null) {
         elNewParent.innerHTML = '';
@@ -730,7 +943,7 @@ require_once __DIR__ . '/../navbar.php';
         const input = document.createElement('input');
         input.type = 'checkbox';
         input.id = id;
-        input.checked = !!todo.done_at;
+        input.checked = todoState(todo) !== 'open';
 
         const label = document.createElement('label');
         label.htmlFor = id;
@@ -748,6 +961,9 @@ require_once __DIR__ . '/../navbar.php';
         input.addEventListener('change', async () => {
             input.disabled = true;
             const newChecked = input.checked;
+            const wasDone = (todoState(todo) === 'done');
+            const pid = (todo.parent_id == null) ? null : String(todo.parent_id);
+
 
             todo.done_at = newChecked ? 'pending' : null;
             updateRowState(todo.id);
@@ -758,11 +974,20 @@ require_once __DIR__ . '/../navbar.php';
 
                 applyTodoUpdate(res.todo);
 
-                input.checked = !!res.todo.done_at;
+                const nowDone = (todoState(res.todo) === 'done');
+
+                if (pid !== null) {
+                    if (!CHILD_COUNTS[pid]) CHILD_COUNTS[pid] = { total: 0, done: 0 };
+                    if (wasDone !== nowDone) {
+                        CHILD_COUNTS[pid].done = Math.max(0, Number(CHILD_COUNTS[pid].done || 0) + (nowDone ? 1 : -1));
+                    }
+                }
+
+                input.checked = (todoState(res.todo) !== 'open');
                 input.disabled = false;
 
                 updateRowState(todo.id);
-                updateDoneCount();
+                updateCounts();
                 renderTable();
             } catch (_) {
                 input.checked = !newChecked;
@@ -943,7 +1168,7 @@ require_once __DIR__ . '/../navbar.php';
     function renderTable() {
         elTbody.innerHTML = '';
 
-        const { kids, roots } = buildTreeForSubject(selectedFach);
+        const { kids, roots, kidsAll } = buildTreeForSubject(selectedFach);
 
         if (!roots.length) {
             const tr = document.createElement('tr');
@@ -971,7 +1196,13 @@ require_once __DIR__ . '/../navbar.php';
             }
             tr.dataset.id = idStr;
             tr.dataset.parent = parentKey;
-            tr.className = 'lt-row' + (todo.done_at ? ' done' : '') + (depth > 0 ? ' lt-child' : '');
+            const st = todoState(todo);
+            tr.className =
+                'lt-row' +
+                (st === 'done' ? ' done' : '') +
+                (st === 'pending' ? ' pending' : '') +
+                (depth > 0 ? ' lt-child' : '');
+
             tr.draggable = true;
 
             const tdDrag = document.createElement('td');
@@ -1077,15 +1308,19 @@ require_once __DIR__ . '/../navbar.php';
             title.className = 'lt-title';
             title.textContent = todo.title ?? '';
 
-            if (hasKids && depth === 0) {
-                const total = children.length;
-                const done = children.filter(ch => (ch.done_at && ch.done_at !== 'pending')).length;
+            if (depth === 0) {
+                const cc = CHILD_COUNTS[idStr] || null;
+                if (cc && Number(cc.total) > 0) {
+                    const total = Number(cc.total) || 0;
+                    const done  = Number(cc.done)  || 0;
 
-                const badge = document.createElement('span');
-                badge.className = 'lt-badge';
-                badge.textContent = `${done}/${total}`;
-                title.appendChild(badge);
+                    const badge = document.createElement('span');
+                    badge.className = 'lt-badge';
+                    badge.textContent = `${done}/${total}`;
+                    title.appendChild(badge);
+                }
             }
+
 
             top.appendChild(title);
 
@@ -1168,12 +1403,23 @@ require_once __DIR__ . '/../navbar.php';
 
         elSaveNew.disabled = true;
 
+        const before = editId ? TASKS.find(t => String(t.id) === String(editId)) : null;
+        const beforePid = (before && before.parent_id != null) ? String(before.parent_id) : null;
+        const beforeDone = before ? (todoState(before) === 'done') : false;
+
         try {
             if (!editId) {
                 const res = await post('add_todo', { fach, parent_id, title, note, detail_note });
                 if (!res || !res.ok || !res.todo) throw new Error('add_failed');
 
                 applyTodoUpdate(res.todo);
+
+                const afterPid = (res.todo.parent_id != null) ? String(res.todo.parent_id) : null;
+                if (afterPid !== null) {
+                    if (!CHILD_COUNTS[afterPid]) CHILD_COUNTS[afterPid] = { total: 0, done: 0 };
+                    CHILD_COUNTS[afterPid].total = Number(CHILD_COUNTS[afterPid].total || 0) + 1;
+                }
+
 
                 selectedFach = String(res.todo.fach);
                 localStorage.setItem('todo_fach', selectedFach);
@@ -1188,6 +1434,33 @@ require_once __DIR__ . '/../navbar.php';
 
                 applyTodoUpdate(res.todo);
 
+                const afterPid = (res.todo.parent_id != null) ? String(res.todo.parent_id) : null;
+                const afterDone = (todoState(res.todo) === 'done');
+
+                if (beforePid !== afterPid) {
+                    // aus altem Parent raus
+                    if (beforePid !== null && CHILD_COUNTS[beforePid]) {
+                        CHILD_COUNTS[beforePid].total = Math.max(0, Number(CHILD_COUNTS[beforePid].total || 0) - 1);
+                        if (beforeDone) {
+                            CHILD_COUNTS[beforePid].done = Math.max(0, Number(CHILD_COUNTS[beforePid].done || 0) - 1);
+                        }
+                    }
+                    // in neuen Parent rein
+                    if (afterPid !== null) {
+                        if (!CHILD_COUNTS[afterPid]) CHILD_COUNTS[afterPid] = { total: 0, done: 0 };
+                        CHILD_COUNTS[afterPid].total = Number(CHILD_COUNTS[afterPid].total || 0) + 1;
+                        if (afterDone) {
+                            CHILD_COUNTS[afterPid].done = Number(CHILD_COUNTS[afterPid].done || 0) + 1;
+                        }
+                    }
+                } else if (afterPid !== null) {
+                    // Parent gleich, nur done-status ggf. geändert
+                    if (!CHILD_COUNTS[afterPid]) CHILD_COUNTS[afterPid] = { total: 0, done: 0 };
+                    if (beforeDone !== afterDone) {
+                        CHILD_COUNTS[afterPid].done = Math.max(0, Number(CHILD_COUNTS[afterPid].done || 0) + (afterDone ? 1 : -1));
+                    }
+                }
+
                 selectedFach = String(res.todo.fach);
                 localStorage.setItem('todo_fach', selectedFach);
 
@@ -1197,7 +1470,7 @@ require_once __DIR__ . '/../navbar.php';
                 }
             }
 
-            updateDoneCount();
+            updateCounts();
             setAccentForSubject(selectedFach);
             renderTabs();
             rebuildParentOptions(selectedFach, '0', (elEditId.value || '').trim() || null);
@@ -1213,7 +1486,7 @@ require_once __DIR__ . '/../navbar.php';
         setAccentForSubject(selectedFach);
         renderTabs();
         rebuildParentOptions(selectedFach, '0', null);
-        updateDoneCount();
+        updateCounts();
         renderTable();
     }
 
