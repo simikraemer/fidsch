@@ -679,11 +679,6 @@ input[type="radio"] {
     line-height: 1;
 }
 
-.lt-add-plus {
-    display: block;
-    transform: translateY(-3px);
-}
-
 .lt-table-wrap {
     background: #fff;
     border-radius: var(--border-radius);
