@@ -96,6 +96,19 @@ if (isset($_GET['login']) && $_GET['login'] === '1') {
                     <li><a href="/check/todo"><img src="/img/graph.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Übersicht</span></a></li>
                 </ul> -->
             </li>
+            
+            <!-- Tools -->
+            <li class="nav-item has-submenu">
+                <a href="/tools/log"><img src="/img/settings.png" alt="Tool" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"></a>
+                <ul class="submenu">                    
+                    <li><a href="/tools/log"><img src="/img/log.png" alt="MAC" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Login-Logs</span></a></li>
+                    <li><a href="/tools/mac"><img src="/img/mac.png" alt="MAC" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">MAC-Konverter</span></a></li>
+                    <li><a href="/tools/path"><img src="/img/path.png" alt="Path" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Path-Konverter</span></a></li>
+                    <li><a href="/tools/bit"><img src="/img/bit.png" alt="Bit" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Bit-Konverter</span></a></li>
+                    <li><a href="/tools/unixtime"><img src="/img/hourglass.png" alt="Unixtime" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Unixtime-Konverter</span></a></li>
+                    <li><a href="/tools/ips"><img src="/img/network.png" alt="IPv4" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">IPv4-Konverter</span></a></li>
+                </ul>
+            </li>
 
             <div class="nav-divider"></div>
 
@@ -121,18 +134,6 @@ if (isset($_GET['login']) && $_GET['login'] === '1') {
             </li>
 
             <div class="nav-divider"></div>
-            
-            <!-- Tools -->
-            <li class="nav-item has-submenu">
-                <a href="/tools/mac"><img src="/img/tool.png" alt="Tool" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"></a>
-                <ul class="submenu">
-                    <li><a href="/tools/mac"><img src="/img/mac.png" alt="MAC" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">MAC-Konverter</span></a></li>
-                    <li><a href="/tools/path"><img src="/img/path.png" alt="Path" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Path-Konverter</span></a></li>
-                    <li><a href="/tools/bit"><img src="/img/bit.png" alt="Bit" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Bit-Konverter</span></a></li>
-                    <li><a href="/tools/unixtime"><img src="/img/hourglass.png" alt="Unixtime" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Unixtime-Konverter</span></a></li>
-                    <li><a href="/tools/ips"><img src="/img/network.png" alt="IPv4" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">IPv4-Konverter</span></a></li>
-                </ul>
-            </li>
 
             <!-- Vault -->
             <li class="nav-item">

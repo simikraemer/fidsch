@@ -73,6 +73,7 @@ if (!isset($page_title) || $page_title === '') {
     <link rel="preload" href="/img/biz.png" as="image" fetchpriority="high">
     <link rel="preload" href="/img/uni.png" as="image" fetchpriority="high">
     <link rel="preload" href="/img/todo.png" as="image" fetchpriority="high">
+    <link rel="preload" href="/img/settings.png" as="image" fetchpriority="high">
     <link rel="preload" href="/img/graph.png" as="image">
     <link rel="preload" href="/img/table.png" as="image">
     <link rel="preload" href="/img/upload.png" as="image">
