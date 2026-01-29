@@ -443,9 +443,25 @@ const selectedCategoryLabel  = <?= json_encode($selectedKatLabel, JSON_UNESCAPED
 const chartYear              = <?= (int)$jahr ?>;
 
 const fmtEuro = (v) => new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'}).format(Number(v||0));
+const NOW = new Date();
 const PRIMARY = getComputedStyle(document.documentElement)
   .getPropertyValue('--primary')
   .trim() || '#1e88e5';
+
+  
+function completedMonthsForYear(year) {
+  const y = Number(year);
+  const nowY = NOW.getFullYear();
+  if (y < nowY) return 12;
+  if (y > nowY) return 0;
+  return NOW.getMonth(); // Jan=0, Feb=1, ...
+}
+
+function fmtMonthlyAvg(val, months) {
+  const m = Number(months || 0);
+  if (m <= 0) return '—';
+  return fmtEuro(Number(val || 0) / m);
+}
 
 function hexToRgba(hex, a) {
   const m = String(hex).trim().match(/^#?([0-9a-f]{6})$/i);
@@ -763,7 +779,16 @@ function makeIncomeOverview() {
             label: (ctx) => {
               const val = Number(ctx.parsed.x);
               const pct = total ? (val / total * 100) : 0;
-              return `${ctx.label}: ${fmtEuro(val)} (${pct.toFixed(1)}%)`;
+
+              // Jahres-Ø pro abgeschlossenem Monat (Chart zeigt Jahreswerte)
+              const months = completedMonthsForYear(chartYear);
+              const perMonth = fmtMonthlyAvg(val, months);
+
+              return [
+                `Ø pro Monat: ${perMonth}`,
+                `Gesamt ${chartYear}: ${fmtEuro(val)}`,
+                `Anteil Einnahmen: ${pct.toFixed(1)} %`
+              ];
             }
           }
         }
@@ -868,7 +893,15 @@ function makeExpenseOverview() {
             label: (ctx) => {
               const val = Number(ctx.parsed.y);
               const pct = total ? (val / total * 100) : 0;
-              return `${fmtEuro(val)} (${pct.toFixed(1)}%)`;
+
+              const months = completedMonthsForYear(chartYear);
+              const perMonth = fmtMonthlyAvg(val, months);
+
+              return [
+                `Ø pro Monat: ${perMonth}`,
+                `Gesamt ${chartYear}: ${fmtEuro(val)}`,
+                `Anteil Ausgaben: ${pct.toFixed(1)} %`
+              ];
             }
           }
         }
@@ -947,7 +980,21 @@ async function showYearDetail(key, catLabel) {
           mode: 'x',
           intersect: false,
           callbacks: {
-            label: (ctx) => `${ctx.dataset.label}: ${fmtEuro(ctx.parsed.y)}`
+            label: (ctx) => {
+              const year = Number(ctx.label);      // Labels sind Jahre als String
+              const val  = Number(ctx.parsed.y);
+
+              const pct = total ? (val / total * 100) : 0;
+
+              const months = completedMonthsForYear(year);
+              const perMonth = fmtMonthlyAvg(val, months);
+
+              return [
+                `Ø pro Monat: ${perMonth}`,
+                `Gesamt ${year}: ${fmtEuro(val)}`,
+                `Anteil ${titleBase}: ${pct.toFixed(1)} %`
+              ];
+            }
           }
         }
       },
