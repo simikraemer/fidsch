@@ -1370,7 +1370,13 @@ require_once __DIR__ . '/../navbar.php';
 
         // Bei jedem Event: Drop exakt zur Timestamp
         for (const ev of merged) {
+            // Punkt "vor dem Drop" am Event-Zeitpunkt
+            points.push({ x: ev.ms, y: secToHours(remaining) });
+
+            // Drop berechnen
             remaining = Math.max(0, remaining - ev.dur);
+
+            // Punkt "nach dem Drop" am GLEICHEN Zeitstempel -> senkrechte Linie genau dort
             points.push({ x: ev.ms, y: secToHours(remaining) });
         }
 
@@ -1437,8 +1443,8 @@ require_once __DIR__ . '/../navbar.php';
                     pointRadius: 0,
                     hitRadius: 0,
                     hoverRadius: 0,
-                    tension: 0.25,
-                    stepped: 'after',
+                    stepped: false,
+                    tension: 0,
                     hidden
                 },
                 {
