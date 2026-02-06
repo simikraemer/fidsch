@@ -1214,3 +1214,43 @@ button.chart-back:focus-visible {
   font-size:.8em;
   opacity:.9;
 }
+
+.lt-modal-actions{
+  display:flex;
+  align-items:stretch;
+  gap:12px;
+  margin-top:16px;
+}
+
+/* Save: links, breit */
+.lt-save-btn{
+  flex: 1 1 auto;          /* nimmt den Platz */
+  min-width: 220px;        /* optional */
+  justify-content:center;
+}
+
+/* Delete: rechts, schmal */
+.lt-delete-btn{
+  flex: 0 0 auto;          /* nicht wachsen */
+  min-width: 110px;
+  padding: 10px 12px;
+  background:#fff;
+  color:#c0392b;
+  border:2px solid rgba(192,57,43,.55);
+  box-shadow:none;
+}
+
+.lt-delete-btn:hover{
+  background:#c0392b;
+  color:#fff;
+  border-color:#c0392b;
+}
+
+.lt-delete-btn:active{
+  transform:scale(0.99);
+}
+
+.lt-delete-btn:disabled{
+  opacity:.6;
+  cursor:not-allowed;
+}

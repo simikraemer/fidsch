@@ -254,6 +254,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         }
     }
 
+    if ($action === 'delete_task') {
+        $id = (int)($_POST['id'] ?? 0);
+        if ($id <= 0) json_out(['ok' => false, 'error' => 'Ungültige ID.'], 400);
+
+        try {
+            $stmt = $sciconn->prepare("DELETE FROM lerntime WHERE id = ? LIMIT 1");
+            $stmt->bind_param('i', $id);
+            $stmt->execute();
+            $affected = $stmt->affected_rows;
+            $stmt->close();
+
+            if ($affected <= 0) json_out(['ok' => false, 'error' => 'Eintrag nicht gefunden.'], 404);
+
+            json_out(['ok' => true, 'id' => $id]);
+        } catch (Throwable $e) {
+            json_out(['ok' => false, 'error' => 'DB-Fehler beim Löschen.'], 500);
+        }
+    }
+
     json_out(['ok' => false, 'error' => 'Unbekannte Aktion.'], 400);
 }
 
@@ -479,7 +498,13 @@ require_once __DIR__ . '/../navbar.php';
                 </div>
             </div>
 
-            <button id="ltSaveNew" type="button">Speichern</button>
+            <div class="lt-modal-actions">
+                <button id="ltSaveNew" class="lt-save-btn" type="button">Speichern</button>
+
+                <button id="ltDeleteBtn" class="lt-delete-btn hidden" type="button" title="Eintrag löschen">
+                    Löschen
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -518,6 +543,7 @@ require_once __DIR__ . '/../navbar.php';
     const elDurM = document.getElementById('ltDurM');
     const elDurS = document.getElementById('ltDurS');
     const elSaveNew = document.getElementById('ltSaveNew');
+    const elDeleteBtn = document.getElementById('ltDeleteBtn');
 
     const validSubjects = new Set(Object.keys(SUBJECTS));
 
@@ -751,6 +777,8 @@ require_once __DIR__ . '/../navbar.php';
         if (elEditId) elEditId.value = '';
         document.getElementById('ltModalTitle').textContent = 'Neuer Eintrag';
 
+        if (elDeleteBtn) elDeleteBtn.classList.add('hidden');
+
         elNewFach.value = selectedFach;
         elNewEinheit.value = '';
         elNewTitel.value = '';
@@ -763,6 +791,8 @@ require_once __DIR__ . '/../navbar.php';
     function openEditModal(task) {
         if (elEditId) elEditId.value = String(task.id);
         document.getElementById('ltModalTitle').textContent = 'Eintrag bearbeiten';
+
+        if (elDeleteBtn) elDeleteBtn.classList.remove('hidden'); // <-- ADD
 
         elNewFach.value = task.fach;
         elNewEinheit.value = task.einheit ?? '';
@@ -807,6 +837,33 @@ require_once __DIR__ . '/../navbar.php';
             body: fd,
             credentials: 'same-origin'
         }).then(r => r.json());
+    }
+
+        if (elDeleteBtn) {
+        elDeleteBtn.addEventListener('click', async () => {
+            const id = (elEditId?.value || '').trim();
+            if (!id) return;
+
+            if (!confirm('Eintrag wirklich löschen?')) return;
+
+            elDeleteBtn.disabled = true;
+
+            try {
+                const res = await post('delete_task', { id });
+                if (!res || !res.ok) throw new Error('delete_failed');
+
+                const idx = TASKS.findIndex(t => String(t.id) === String(id));
+                if (idx >= 0) TASKS.splice(idx, 1);
+
+                renderTable();
+                rebuildChart();
+                closeModal();
+            } catch (e) {
+                // silent fail
+            } finally {
+                elDeleteBtn.disabled = false;
+            }
+        });
     }
 
     let selectedFach = localStorage.getItem('lerntime_fach') || phpDefaultFach;
@@ -1127,6 +1184,7 @@ require_once __DIR__ . '/../navbar.php';
     function closeModal() {
         elModal.classList.add('hidden');
         elModal.setAttribute('aria-hidden', 'true');
+        if (elDeleteBtn) elDeleteBtn.classList.add('hidden'); // <-- ADD
     }
 
     elAddBtn.addEventListener('click', openNewModal);
