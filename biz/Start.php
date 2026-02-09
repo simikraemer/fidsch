@@ -8,6 +8,11 @@ require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../db.php';
 $bizconn->set_charset('utf8mb4');
 
+// === NEU: Cutoff für "abgeschlossene Monate" (aktuelles Jahr) ===
+$CURRENT_YEAR   = (int)date('Y');
+$CURRENT_MONTH  = (int)date('n'); // 1..12
+$CLOSED_CUTOFF  = sprintf('%04d-%02d-01', $CURRENT_YEAR, $CURRENT_MONTH); // 1. Tag aktueller Monat
+
 // 2.5) AJAX Kategorien Jahresverlauf
 if (isset($_GET['ajax']) && $_GET['ajax'] === 'cat_years') {
     header('Content-Type: application/json; charset=utf-8');
@@ -29,7 +34,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'cat_years') {
         exit;
     }
 
-    // Jahre mit Daten: max. $limit (letzte Jahre, dann ASC fürs Diagramm)
     $MIN_YEAR = 2023;
 
     $yrs = [];
@@ -45,19 +49,32 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'cat_years') {
         if ($y >= $MIN_YEAR) $yrs[] = $y;
     }
     if (!$yrs) {
-        echo json_encode(['ok' => true, 'kind' => $kind, 'cat' => $cat, 'years' => [], 'values' => []], JSON_UNESCAPED_UNICODE);
+        echo json_encode([
+            'ok' => true,
+            'kind' => $kind,
+            'cat' => $cat,
+            'cat_param' => null,
+            'years' => [],
+            'values' => [],
+            'values_closed' => [],
+        ], JSON_UNESCAPED_UNICODE);
         exit;
     }
     $yrs = array_slice($yrs, 0, $limit);
-    sort($yrs); // ASC
+    sort($yrs);
 
-    // Kategorie-Filter
     $whereCat = '';
     $params   = [];
     $types    = '';
 
+    // >>> cat_param zurückgeben (id oder 'unk')
+    $catParamReturn = null;
+    $katIdBound     = null; // <<< NEU (für closed-query)
+
     if ($cat === 'unk' || mb_strtolower($cat) === mb_strtolower('Unkategorisiert')) {
         $whereCat = "t.kategorie_id IS NULL";
+        $catParamReturn = 'unk';
+        $katIdBound = null;
     } else {
         $katId = null;
         $stmt = $bizconn->prepare("SELECT id FROM kategorien WHERE name = ? LIMIT 1");
@@ -76,9 +93,11 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'cat_years') {
         $whereCat = "t.kategorie_id = ?";
         $params[] = (int)$katId;
         $types   .= 'i';
+
+        $catParamReturn = (int)$katId;
+        $katIdBound     = (int)$katId;
     }
 
-    // YEAR IN (...)
     $in = implode(',', array_fill(0, count($yrs), '?'));
     foreach ($yrs as $y) { $params[] = (int)$y; $types .= 'i'; }
 
@@ -102,20 +121,313 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'cat_years') {
 
     while ($row = $res->fetch_assoc()) {
         $y = (int)$row['y'];
-        $s = (float)$row['s'];     // netto (kann + oder - sein)
+        $s = (float)$row['s'];
         $map[$y] = $s;
     }
     $stmt->close();
 
+    // === NEU: closed-values (im aktuellen Jahr nur bis < 1. aktueller Monat) ===
+    $mapClosed = $map;
+    if (in_array($CURRENT_YEAR, $yrs, true)) {
+        $sqlClosed = "
+            SELECT COALESCE(SUM(t.betrag), 0) AS s
+            FROM transfers t
+            WHERE t.valutadatum IS NOT NULL
+              AND {$whereCat}
+              AND YEAR(t.valutadatum) = ?
+              AND t.valutadatum < ?
+        ";
+
+        if ($katIdBound !== null) {
+            $stmtC = $bizconn->prepare($sqlClosed);
+            $stmtC->bind_param('iis', $katIdBound, $CURRENT_YEAR, $CLOSED_CUTOFF);
+        } else {
+            $stmtC = $bizconn->prepare($sqlClosed);
+            $stmtC->bind_param('is', $CURRENT_YEAR, $CLOSED_CUTOFF);
+        }
+
+        $stmtC->execute();
+        $stmtC->bind_result($sClosed);
+        $stmtC->fetch();
+        $stmtC->close();
+
+        $mapClosed[$CURRENT_YEAR] = (float)$sClosed;
+    }
+
     $values = [];
-    foreach ($yrs as $y) $values[] = round((float)$map[$y], 2);
+    $valuesClosed = [];
+    foreach ($yrs as $y) {
+        $values[]       = round((float)$map[$y], 2);
+        $valuesClosed[] = round((float)$mapClosed[$y], 2);
+    }
 
     echo json_encode([
-        'ok'    => true,
-        'kind'  => $kind,
-        'cat'   => $cat,
-        'years' => $yrs,
-        'values'=> $values,
+        'ok'        => true,
+        'kind'      => $kind,
+        'cat'       => $cat,
+        'cat_param' => $catParamReturn,
+        'years'     => $yrs,
+        'values'    => $values,
+        'values_closed' => $valuesClosed, // <<< NEU
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+/* =========================================================
+ * 2.6) AJAX Page-Update (ohne Reload) für oben + Pies
+ * ========================================================= */
+if (isset($_GET['ajax']) && $_GET['ajax'] === 'page_data') {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store, max-age=0');
+
+    $jahr = isset($_GET['jahr']) ? (int)$_GET['jahr'] : (int)date('Y');
+    $selectedKat = $_GET['kategorie'] ?? 'all';
+    if ($selectedKat !== 'all' && $selectedKat !== 'unk') {
+        $selectedKat = (int)$selectedKat;
+    }
+
+    $isCurrentYear = ((int)$jahr === $CURRENT_YEAR);
+
+    // verfügbare Jahre (nur vorhandene Daten)
+    $yearsRes = $bizconn->query("
+        SELECT DISTINCT YEAR(valutadatum) AS jahr
+        FROM transfers
+        WHERE valutadatum IS NOT NULL
+        ORDER BY jahr DESC
+    ");
+    $jahre = [];
+    while ($r = $yearsRes->fetch_assoc()) { $jahre[] = (int)$r['jahr']; }
+    if (!in_array($jahr, $jahre, true) && !empty($jahre)) { $jahr = $jahre[0]; }
+    $isCurrentYear = ((int)$jahr === $CURRENT_YEAR);
+
+    // Kategorien mapping
+    $kats = [];
+    $katRes = $bizconn->query("SELECT id, name FROM kategorien");
+    while ($k = $katRes->fetch_assoc()) { $kats[(int)$k['id']] = $k['name']; }
+    $labelUnk = 'Unkategorisiert';
+
+    $selectedKatLabel = 'Kontostand';
+    if ($selectedKat === 'unk') {
+        $selectedKatLabel = $labelUnk;
+    } elseif ($selectedKat !== 'all' && isset($kats[(int)$selectedKat])) {
+        $selectedKatLabel = $kats[(int)$selectedKat];
+    }
+
+    // Anfangsbestand bis 01.01.jahr
+    $startDate = sprintf('%04d-01-01', $jahr);
+    $startStmt = $bizconn->prepare("
+        SELECT COALESCE(SUM(betrag),0) AS summe
+        FROM transfers
+        WHERE valutadatum < ?
+    ");
+    $startStmt->bind_param('s', $startDate);
+    $startStmt->execute();
+    $startStmt->bind_result($anfangsbestand);
+    $startStmt->fetch();
+    $startStmt->close();
+    $anfangsbestand = (float)$anfangsbestand;
+
+    // Transfers im Jahr (einmalig iterieren)
+    $stmt = $bizconn->prepare("
+        SELECT valutadatum, betrag, kategorie_id
+        FROM transfers
+        WHERE YEAR(valutadatum) = ?
+        ORDER BY valutadatum ASC
+    ");
+    $stmt->bind_param('i', $jahr);
+    $stmt->execute();
+    $res = $stmt->get_result();
+
+    $transfersByDate    = [];
+    $catTransfersByDate = [];
+    $kategorieSummen    = [];
+    $kategorieSummenClosed = []; // <<< NEU
+
+    while ($row = $res->fetch_assoc()) {
+        $dRaw   = (string)$row['valutadatum'];
+        $dKey   = substr($dRaw, 0, 10); // YYYY-MM-DD
+        $betrag = (float)$row['betrag'];
+
+        if (!isset($transfersByDate[$dKey])) $transfersByDate[$dKey] = 0.0;
+        $transfersByDate[$dKey] += $betrag;
+
+        // Summen je Kategorie
+        $katName = $labelUnk;
+        if ($row['kategorie_id'] !== null) {
+            $katId = (int)$row['kategorie_id'];
+            if (isset($kats[$katId])) $katName = $kats[$katId];
+        }
+        if (!isset($kategorieSummen[$katName])) $kategorieSummen[$katName] = 0.0;
+        $kategorieSummen[$katName] += $betrag;
+
+        // Closed-Monate Summen (nur aktuelles Jahr: < 1. aktueller Monat)
+        $inClosed = (!$isCurrentYear) || ($dKey < $CLOSED_CUTOFF);
+        if ($inClosed) {
+            if (!isset($kategorieSummenClosed[$katName])) $kategorieSummenClosed[$katName] = 0.0;
+            $kategorieSummenClosed[$katName] += $betrag;
+        }
+
+        // Kategorie-Zeitreihe (wenn ausgewählt)
+        if ($selectedKat !== 'all') {
+            $match = false;
+            if ($selectedKat === 'unk') {
+                $match = ($row['kategorie_id'] === null);
+            } else {
+                $match = ((int)$row['kategorie_id'] === (int)$selectedKat);
+            }
+            if ($match) {
+                if (!isset($catTransfersByDate[$dKey])) $catTransfersByDate[$dKey] = 0.0;
+                $catTransfersByDate[$dKey] += $betrag;
+            }
+        }
+    }
+    $stmt->close();
+
+    // Einnahmen/Ausgaben trennen (für Pies)
+    $incomeByCat  = [];
+    $expenseByCat = [];
+    foreach ($kategorieSummen as $kat => $summe) {
+        if ($summe > 0) $incomeByCat[$kat] = $summe;
+        elseif ($summe < 0) $expenseByCat[$kat] = abs($summe);
+    }
+    arsort($incomeByCat);
+    arsort($expenseByCat);
+
+    // NEU: closed-Varianten
+    $incomeByCatClosed  = [];
+    $expenseByCatClosed = [];
+    foreach ($kategorieSummenClosed as $kat => $summe) {
+        if ($summe > 0) $incomeByCatClosed[$kat] = $summe;
+        elseif ($summe < 0) $expenseByCatClosed[$kat] = abs($summe);
+    }
+    arsort($incomeByCatClosed);
+    arsort($expenseByCatClosed);
+
+    // Labels in der Reihenfolge der "vollen" Arrays (damit JS stabil bleibt)
+    $incomeLabels = array_keys($incomeByCat);
+    $expenseLabels = array_keys($expenseByCat);
+
+    $incomeValues = array_map(fn($v)=>round((float)$v,2), array_values($incomeByCat));
+    $expenseValues = array_map(fn($v)=>round((float)$v,2), array_values($expenseByCat));
+
+    $incomeValuesClosed = [];
+    foreach ($incomeLabels as $lab) $incomeValuesClosed[] = round((float)($incomeByCatClosed[$lab] ?? 0.0), 2);
+
+    $expenseValuesClosed = [];
+    foreach ($expenseLabels as $lab) $expenseValuesClosed[] = round((float)($expenseByCatClosed[$lab] ?? 0.0), 2);
+
+    // letztes Valutadatum in diesem Jahr
+    $lastDateRow = $bizconn->query("
+        SELECT MAX(valutadatum) AS lastdate
+        FROM transfers
+        WHERE YEAR(valutadatum) = {$jahr}
+    ")->fetch_assoc();
+    $lastDate = $lastDateRow['lastdate'] ? new DateTime($lastDateRow['lastdate']) : new DateTime("$jahr-01-01");
+
+    // tägliche kumulierte Serie (gesamt)
+    $dailySeries = [];
+    $cumDaily   = $anfangsbestand;
+    $start      = new DateTime("$jahr-01-01");
+    $end        = new DateTime("$jahr-12-31");
+
+    $cursor = clone $start;
+    while ($cursor <= $end) {
+        $dstr = $cursor->format('Y-m-d');
+        if ($cursor <= $lastDate) {
+            if (isset($transfersByDate[$dstr])) $cumDaily += $transfersByDate[$dstr];
+            $dailySeries[$dstr] = round($cumDaily, 2);
+        } else {
+            $dailySeries[$dstr] = null;
+        }
+        $cursor->modify('+1 day');
+    }
+
+    // tägliche kumulierte Serie für ausgewählte Kategorie
+    $catDailySeries = [];
+    if ($selectedKat !== 'all') {
+        $catCum  = 0.0;
+        $cursor2 = clone $start;
+        while ($cursor2 <= $end) {
+            $dstr = $cursor2->format('Y-m-d');
+            if ($cursor2 <= $lastDate) {
+                if (isset($catTransfersByDate[$dstr])) $catCum += $catTransfersByDate[$dstr];
+                $catDailySeries[$dstr] = round($catCum, 2);
+            } else {
+                $catDailySeries[$dstr] = null;
+            }
+            $cursor2->modify('+1 day');
+        }
+    }
+
+    // Monats-Punkte
+    $monthlyPoints = [];
+    $firstOfYear = sprintf('%04d-01-01', $jahr);
+    $monthlyPoints[$firstOfYear] = $dailySeries[$firstOfYear] ?? $anfangsbestand;
+
+    for ($m = 2; $m <= 12; $m++) {
+        $d = sprintf('%04d-%02d-01', $jahr, $m);
+        if (array_key_exists($d, $dailySeries) && $dailySeries[$d] !== null) {
+            $monthlyPoints[$d] = $dailySeries[$d];
+        }
+    }
+    $heute  = new DateTime('today');
+    $eoy    = new DateTime(sprintf('%04d-12-31', $jahr));
+    $eoyStr = $eoy->format('Y-m-d');
+    if ($eoy <= $heute) {
+        $valEoy = $dailySeries[$eoyStr] ?? null;
+        if ($valEoy === null) {
+            $lastKnown = $anfangsbestand;
+            foreach (array_reverse($dailySeries, true) as $dateKey => $val) {
+                if ($val !== null) { $lastKnown = $val; break; }
+            }
+            $monthlyPoints[$eoyStr] = $lastKnown;
+        } else {
+            $monthlyPoints[$eoyStr] = $valEoy;
+        }
+    }
+
+    // Kontostand bis EOY (gesamt, für Header)
+    $endOfYear = sprintf('%04d-12-31', $jahr);
+    $sumStmt = $bizconn->prepare("
+        SELECT COALESCE(SUM(betrag), 0) AS summe
+        FROM transfers
+        WHERE valutadatum IS NOT NULL
+          AND valutadatum <= ?
+    ");
+    $sumStmt->bind_param('s', $endOfYear);
+    $sumStmt->execute();
+    $sumStmt->bind_result($summeAlleBisEOY);
+    $sumStmt->fetch();
+    $sumStmt->close();
+    $kontostandBisEndeDesJahres = (float)$summeAlleBisEOY;
+
+    $toXY = static function(array $series): array {
+        $out = [];
+        foreach ($series as $d => $v) $out[] = ['x' => $d, 'y' => $v];
+        return $out;
+    };
+
+    echo json_encode([
+        'ok' => true,
+
+        'jahr' => (int)$jahr,
+        'kategorie' => $selectedKat,
+        'kategorie_label' => $selectedKatLabel,
+        'kontostand_eoy' => round($kontostandBisEndeDesJahres, 2),
+
+        'daily' => $toXY($dailySeries),
+        'monthly' => $toXY($monthlyPoints),
+        'cat_daily' => $toXY($catDailySeries),
+
+        // pies (voll)
+        'income_labels' => $incomeLabels,
+        'income_values' => array_values($incomeValues),
+        'expense_labels' => $expenseLabels,
+        'expense_values' => array_values($expenseValues),
+
+        // pies (closed)
+        'income_values_closed' => array_values($incomeValuesClosed),   // <<< NEU
+        'expense_values_closed' => array_values($expenseValuesClosed), // <<< NEU
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }
@@ -128,6 +440,8 @@ if ($selectedKat !== 'all' && $selectedKat !== 'unk') {
     $selectedKat = (int)$selectedKat;
 }
 
+$isCurrentYear = ((int)$jahr === $CURRENT_YEAR);
+
 // verfügbare Jahre (nur vorhandene Daten)
 $yearsRes = $bizconn->query("
     SELECT DISTINCT YEAR(valutadatum) AS jahr
@@ -138,6 +452,7 @@ $yearsRes = $bizconn->query("
 $jahre = [];
 while ($r = $yearsRes->fetch_assoc()) { $jahre[] = (int)$r['jahr']; }
 if (!in_array($jahr, $jahre, true) && !empty($jahre)) { $jahr = $jahre[0]; }
+$isCurrentYear = ((int)$jahr === $CURRENT_YEAR);
 
 // alle Buchungen des Jahres
 $stmt = $bizconn->prepare("
@@ -156,17 +471,28 @@ $katRes = $bizconn->query("SELECT id, name FROM kategorien");
 while ($k = $katRes->fetch_assoc()) { $kats[(int)$k['id']] = $k['name']; }
 $labelUnk = 'Unkategorisiert';
 
-// Summen je Kategorie aufbauen
+// Summen je Kategorie aufbauen (voll + closed)
 $kategorieSummen = [];
+$kategorieSummenClosed = []; // <<< NEU
 while ($row = $res->fetch_assoc()) {
     $betrag  = (float)$row['betrag'];
+    $dRaw    = (string)$row['valutadatum'];
+    $dKey    = substr($dRaw, 0, 10); // YYYY-MM-DD
+
     $katName = $labelUnk;
     if ($row['kategorie_id'] !== null) {
         $katId = (int)$row['kategorie_id'];
         if (isset($kats[$katId])) $katName = $kats[$katId];
     }
+
     if (!isset($kategorieSummen[$katName])) $kategorieSummen[$katName] = 0.0;
     $kategorieSummen[$katName] += $betrag;
+
+    $inClosed = (!$isCurrentYear) || ($dKey < $CLOSED_CUTOFF);
+    if ($inClosed) {
+        if (!isset($kategorieSummenClosed[$katName])) $kategorieSummenClosed[$katName] = 0.0;
+        $kategorieSummenClosed[$katName] += $betrag;
+    }
 }
 
 // Label für aktuell ausgewählte Kategorie
@@ -177,12 +503,20 @@ if ($selectedKat === 'unk') {
     $selectedKatLabel = $kats[(int)$selectedKat];
 }
 
-// Einnahmen/Ausgaben trennen
+// Einnahmen/Ausgaben trennen (voll)
 $incomeByCat  = [];
 $expenseByCat = [];
 foreach ($kategorieSummen as $kat => $summe) {
     if ($summe > 0) $incomeByCat[$kat] = $summe;
     elseif ($summe < 0) $expenseByCat[$kat] = abs($summe);
+}
+
+// Einnahmen/Ausgaben trennen (closed)
+$incomeByCatClosed  = [];
+$expenseByCatClosed = [];
+foreach ($kategorieSummenClosed as $kat => $summe) {
+    if ($summe > 0) $incomeByCatClosed[$kat] = $summe;
+    elseif ($summe < 0) $expenseByCatClosed[$kat] = abs($summe);
 }
 
 // Anfangsbestand bis 01.01.jahr
@@ -215,7 +549,8 @@ $transfersByDate    = [];
 $catTransfersByDate = [];
 
 while ($row = $res2->fetch_assoc()) {
-    $d      = $row['valutadatum'];
+    $dRaw   = (string)$row['valutadatum'];
+    $d      = substr($dRaw, 0, 10); // YYYY-MM-DD
     $betrag = (float)$row['betrag'];
 
     if (!isset($transfersByDate[$d])) $transfersByDate[$d] = 0.0;
@@ -286,8 +621,6 @@ $monthlyPoints = [];
 $firstOfYear = sprintf('%04d-01-01', $jahr);
 $monthlyPoints[$firstOfYear] = $dailySeries[$firstOfYear] ?? $anfangsbestand;
 
-
-
 for ($m = 2; $m <= 12; $m++) {
     $d = sprintf('%04d-%02d-01', $jahr, $m);
     if (array_key_exists($d, $dailySeries) && $dailySeries[$d] !== null) {
@@ -324,13 +657,30 @@ $catDailyJson = json_encode(
     JSON_UNESCAPED_UNICODE
 );
 
-// Pies vorbereiten
+// Pies vorbereiten (voll)
 arsort($incomeByCat);
 arsort($expenseByCat);
-$incomeLabelsJson  = json_encode(array_keys($incomeByCat), JSON_UNESCAPED_UNICODE);
-$incomeValuesJson  = json_encode(array_map(fn($v)=>round($v,2), array_values($incomeByCat)), JSON_UNESCAPED_UNICODE);
-$expenseLabelsJson = json_encode(array_keys($expenseByCat), JSON_UNESCAPED_UNICODE);
-$expenseValuesJson = json_encode(array_map(fn($v)=>round($v,2), array_values($expenseByCat)), JSON_UNESCAPED_UNICODE);
+
+// Labels (voll) + Values (voll)
+$incomeLabels = array_keys($incomeByCat);
+$expenseLabels = array_keys($expenseByCat);
+
+$incomeValues = array_map(fn($v)=>round((float)$v,2), array_values($incomeByCat));
+$expenseValues = array_map(fn($v)=>round((float)$v,2), array_values($expenseByCat));
+
+$incomeLabelsJson  = json_encode($incomeLabels, JSON_UNESCAPED_UNICODE);
+$incomeValuesJson  = json_encode($incomeValues, JSON_UNESCAPED_UNICODE);
+$expenseLabelsJson = json_encode($expenseLabels, JSON_UNESCAPED_UNICODE);
+$expenseValuesJson = json_encode($expenseValues, JSON_UNESCAPED_UNICODE);
+
+// Pies closed (aligned zu full-labels)
+$incomeValuesClosed = [];
+foreach ($incomeLabels as $lab) $incomeValuesClosed[] = round((float)($incomeByCatClosed[$lab] ?? 0.0), 2);
+$expenseValuesClosed = [];
+foreach ($expenseLabels as $lab) $expenseValuesClosed[] = round((float)($expenseByCatClosed[$lab] ?? 0.0), 2);
+
+$incomeValuesClosedJson  = json_encode($incomeValuesClosed, JSON_UNESCAPED_UNICODE);
+$expenseValuesClosedJson = json_encode($expenseValuesClosed, JSON_UNESCAPED_UNICODE);
 
 // Kontostand bis EOY (gesamt)
 $endOfYear = sprintf('%04d-12-31', $jahr);
@@ -359,39 +709,43 @@ require_once __DIR__ . '/../navbar.php';  // Navbar
 <div id="statsPage" class="lt-page dashboard-page">
     <div class="lt-topbar">
         <h1 class="ueberschrift dashboard-title">
-            <span class="dashboard-title-main">Finanzen <?= htmlspecialchars((string)$jahr, ENT_QUOTES, 'UTF-8') ?></span>
-            <span class="dashboard-title-soft">| <?= euro($kontostandBisEndeDesJahres) ?></span>
+          <span class="dashboard-title-main" id="pageTitleYear">
+            Finanzen <?= htmlspecialchars((string)$jahr, ENT_QUOTES, 'UTF-8') ?>
+          </span>
+          <span class="dashboard-title-soft" id="pageTitleSaldo">
+            | <?= euro($kontostandBisEndeDesJahres) ?>
+          </span>
         </h1>
 
-        <form method="get" class="dashboard-filterform">
-            <div class="lt-yearwrap">
-                <label for="kategorie" class="lt-label">Kategorie</label>
-                <select name="kategorie" id="kategorie" class="kategorie-select" onchange="this.form.submit()">
-                    <option value="all" <?= ($selectedKat === 'all') ? 'selected' : '' ?>>
-                        Kontostand
-                    </option>
-                    <option value="unk" <?= ($selectedKat === 'unk') ? 'selected' : '' ?>>
-                        <?= htmlspecialchars($labelUnk, ENT_QUOTES, 'UTF-8') ?>
-                    </option>
-                    <?php foreach ($kats as $id => $name): ?>
-                        <option value="<?= (int)$id ?>" <?= ((string)$selectedKat === (string)$id) ? 'selected' : '' ?>>
-                            <?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            
-            <div class="lt-yearwrap">
-                <label for="jahr" class="lt-label">Jahr</label>
-                <select name="jahr" id="jahr" class="kategorie-select" onchange="this.form.submit()">
-                    <?php foreach ($jahre as $j): ?>
-                        <?php if ((int)$j <= 2021) continue; ?>
-                        <option value="<?= (int)$j ?>" <?= ((int)$j === (int)$jahr) ? 'selected' : '' ?>>
-                            <?= (int)$j ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
+        <form method="get" class="dashboard-filterform" id="statsFilterForm">
+          <div class="lt-yearwrap">
+            <label for="kategorie" class="lt-label">Kategorie</label>
+            <!-- onchange submit RAUS (JS übernimmt) -->
+            <select name="kategorie" id="kategorie" class="kategorie-select">
+              <option value="all" <?= ($selectedKat === 'all') ? 'selected' : '' ?>>Kontostand</option>
+              <option value="unk" <?= ($selectedKat === 'unk') ? 'selected' : '' ?>>
+                <?= htmlspecialchars($labelUnk, ENT_QUOTES, 'UTF-8') ?>
+              </option>
+              <?php foreach ($kats as $id => $name): ?>
+                <option value="<?= (int)$id ?>" <?= ((string)$selectedKat === (string)$id) ? 'selected' : '' ?>>
+                  <?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?>
+                </option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+
+          <div class="lt-yearwrap">
+            <label for="jahr" class="lt-label">Jahr</label>
+            <!-- onchange submit RAUS (JS übernimmt) -->
+            <select name="jahr" id="jahr" class="kategorie-select">
+              <?php foreach ($jahre as $j): ?>
+                <?php if ((int)$j <= 2021) continue; ?>
+                <option value="<?= (int)$j ?>" <?= ((int)$j === (int)$jahr) ? 'selected' : '' ?>>
+                  <?= (int)$j ?>
+                </option>
+              <?php endforeach; ?>
+            </select>
+          </div>
         </form>
     </div>
 
@@ -428,33 +782,86 @@ require_once __DIR__ . '/../navbar.php';  // Navbar
 </div>
 
 
-
-
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
 
 <script>
-const dailyData   = <?= $dailyJson ?>;
-const monthlyData = <?= $monthlyJson ?>;
-const catDailyData = <?= $catDailyJson ?>;
-const selectedCategory       = <?= json_encode($selectedKat) ?>;
-const selectedCategoryLabel  = <?= json_encode($selectedKatLabel, JSON_UNESCAPED_UNICODE) ?>;
-const chartYear              = <?= (int)$jahr ?>;
+/* =========================================================
+ * STATE (alles was sich per AJAX ändert muss LET sein)
+ * ========================================================= */
+let dailyData      = <?= $dailyJson ?>;
+let monthlyData    = <?= $monthlyJson ?>;
+let catDailyData   = <?= $catDailyJson ?>;
 
-const fmtEuro = (v) => new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'}).format(Number(v||0));
+let selectedCategory      = <?= json_encode($selectedKat) ?>; // 'all' | 'unk' | number
+let selectedCategoryLabel = <?= json_encode($selectedKatLabel, JSON_UNESCAPED_UNICODE) ?>;
+let chartYear             = <?= (int)$jahr ?>;
+let catMonthlyData = buildCatMonthlyBarsFromCumulative(catDailyData, chartYear);
+
+let incomeLabels  = <?= $incomeLabelsJson ?>;
+let incomeValues  = <?= $incomeValuesJson ?>;
+let expenseLabels = <?= $expenseLabelsJson ?>;
+let expenseValues = <?= $expenseValuesJson ?>;
+
+let incomeValuesClosed  = <?= $incomeValuesClosedJson ?>;
+let expenseValuesClosed = <?= $expenseValuesClosedJson ?>;
+
+const fmtEuro = (v) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(Number(v || 0));
 const NOW = new Date();
-const PRIMARY = getComputedStyle(document.documentElement)
-  .getPropertyValue('--primary')
-  .trim() || '#1e88e5';
+const PRIMARY = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#1e88e5';
 
-  
+function buildCatMonthlyBarsFromCumulative(catDaily, year) {
+  const y = Number(year);
+  const lastCumByMonth = new Array(12).fill(null);
+
+  if (Array.isArray(catDaily)) {
+    for (const pt of catDaily) {
+      if (!pt || pt.y == null || pt.x == null) continue;
+
+      const d = new Date(String(pt.x) + 'T00:00:00');
+      if (d.getFullYear() !== y) continue;
+
+      const m = d.getMonth(); // 0..11
+      lastCumByMonth[m] = Number(pt.y);
+    }
+  }
+
+  const out = [];
+  let prev = 0;
+
+  for (let m = 0; m < 12; m++) {
+    const midMs = monthMidMsUTC(y, m); // <<< Säule in Monatsmitte
+
+    if (lastCumByMonth[m] == null) {
+      out.push({ x: midMs, y: null }); // Zukunft -> keine Säule
+      continue;
+    }
+
+    const cur = Number(lastCumByMonth[m]);
+    const sum = cur - prev;
+    prev = cur;
+
+    out.push({ x: midMs, y: Math.round(sum * 100) / 100 });
+  }
+
+  return out;
+}
+
+
+function $(id) { return document.getElementById(id); }
+
+/* =========================================================
+ * HELPERS
+ * ========================================================= */
+const sumArr = (arr) => (arr || []).reduce((a, b) => a + Number(b || 0), 0);
+
 function completedMonthsForYear(year) {
   const y = Number(year);
   const nowY = NOW.getFullYear();
   if (y < nowY) return 12;
   if (y > nowY) return 0;
-  return NOW.getMonth(); // Jan=0, Feb=1, ...
+  return NOW.getMonth(); // Jan=0
 }
 
 function fmtMonthlyAvg(val, months) {
@@ -480,7 +887,46 @@ function isClickableBar(chart, elements) {
   return !!label && label !== 'Rest';
 }
 
-/* --- NEU: Monats-Gitterlinien am Monatsanfang, Labels in Monatsmitte (deutsche Monatsabkürzung) --- */
+function truncateLabel(s, max = 14) {
+  s = String(s ?? '');
+  return s.length > max ? (s.slice(0, max - 1) + '…') : s;
+}
+function staggeredTick(label, index, maxLen = 14) {
+  const t = truncateLabel(label, maxLen);
+  return (index % 2 === 0) ? [t, ''] : ['', t];
+}
+
+function topNWithRestDual(labels, values, valuesClosed, N) {
+  const pairs = labels
+    .map((l, i) => ({
+      l,
+      v: Number(values[i] || 0),
+      c: Number((valuesClosed && valuesClosed[i] != null) ? valuesClosed[i] : (values[i] || 0)),
+    }))
+    .filter(p => p.v > 0)
+    .sort((a, b) => b.v - a.v);
+
+  const top  = pairs.slice(0, N);
+  const rest = pairs.slice(N);
+
+  if (rest.length) {
+    top.push({
+      l: 'Rest',
+      v: rest.reduce((s, p) => s + p.v, 0),
+      c: rest.reduce((s, p) => s + p.c, 0),
+    });
+  }
+
+  return {
+    labels: top.map(p => p.l),
+    values: top.map(p => Math.round(p.v * 100) / 100),
+    valuesClosed: top.map(p => Math.round(p.c * 100) / 100),
+  };
+}
+
+/* =========================================================
+ * MID-MONTH LABELS PLUGIN (muss vor Chart-Erstellung registriert werden)
+ * ========================================================= */
 function daysInMonthUTC(year, monthIndex0) {
   return new Date(Date.UTC(year, monthIndex0 + 1, 0)).getUTCDate();
 }
@@ -491,12 +937,12 @@ function monthMidMsUTC(year, monthIndex0) {
   const dim = daysInMonthUTC(year, monthIndex0);
   const start = monthStartMsUTC(year, monthIndex0);
   const midDayOffset = Math.floor(dim / 2);
-  return start + (midDayOffset * 86400000) + (12 * 3600000); // +12:00 UTC
+  return start + (midDayOffset * 86400000) + (12 * 3600000);
 }
 function fmtMonthDE(ms) {
   return new Intl.DateTimeFormat('de-DE', { month: 'short' })
     .format(new Date(ms))
-    .replace('.', ''); // "Jan." -> "Jan"
+    .replace('.', '');
 }
 
 const midMonthLabelsPlugin = {
@@ -510,9 +956,8 @@ const midMonthLabelsPlugin = {
 
     const year = (typeof xOpts.midMonthLabelYear === 'number') ? xOpts.midMonthLabelYear : chartYear;
     const compactW = xOpts.midMonthLabelCompactWidth ?? 420;
-    const step = (typeof scale.width === 'number' && scale.width < compactW) ? 2 : 1; // 12 oder 6 Labels
+    const step = (typeof scale.width === 'number' && scale.width < compactW) ? 2 : 1;
 
-    // Tick-Font/Farbe übernehmen
     let fontStr = '12px sans-serif';
     try {
       if (Chart?.helpers?.toFont) fontStr = Chart.helpers.toFont(xOpts.ticks?.font).string;
@@ -527,140 +972,237 @@ const midMonthLabelsPlugin = {
     ctx.textBaseline = 'bottom';
 
     const y = scale.bottom - 2;
-
     for (let m = 0; m < 12; m++) {
       if (step === 2 && (m % 2 === 1)) continue;
       const midMs = monthMidMsUTC(year, m);
       const x = scale.getPixelForValue(midMs);
       ctx.fillText(fmtMonthDE(midMs), x, y);
     }
-
     ctx.restore();
   }
 };
-
-// einmalig registrieren (vor dem ersten Chart)
 Chart.register(midMonthLabelsPlugin);
 
-/* <<< HIER ANPASSEN: Datensätze je nach Auswahl bauen >>> */
-const datasets = [];
-
-if (!selectedCategory || selectedCategory === 'all') {
-  datasets.push(
-    {
-      label: 'Kontostand (Monatsbeginn)',
-      data: monthlyData,
-      showLine: false,
-      pointRadius: 8,
-      pointBackgroundColor: '#ff6b00',
-      pointBorderColor: '#000',
-      pointBorderWidth: 2
-    },
-    {
-      label: 'Verlauf Kontostand',
-      data: dailyData,
-      borderColor: '#000',
-      borderWidth: 3,
-      pointRadius: 0,
-      fill: false,
-      tension: 0
-    }
-  );
-} else if (Array.isArray(catDailyData) && catDailyData.length > 0) {
-  datasets.push({
-    label: 'Kategorie-Verlauf: ' + selectedCategoryLabel,
-    data: catDailyData,
-    borderColor: '#007bff',
-    borderWidth: 2,
-    pointRadius: 0,
-    fill: false,
-    tension: 0
-  });
-}
-
-const saldoCtx = document.getElementById('saldoChart').getContext('2d');
-new Chart(saldoCtx, {
-  type: 'line',
-  data: { datasets },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    interaction: { mode: 'nearest', axis: 'x', intersect: false },
-    hover:       { mode: 'nearest', axis: 'x', intersect: false },
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        callbacks: {
-          label: (ctx) => `${ctx.dataset.label}: ${fmtEuro(ctx.parsed.y)}`
-        }
-      }
-    },
-    scales: {
-      x: {
-        type: 'time',
-        time: { unit: 'month', tooltipFormat: 'dd.MM.yyyy' },
-
-        // Plugin-Flags
-        midMonthLabels: true,
-        midMonthLabelYear: chartYear,
-        midMonthLabelCompactWidth: 420,
-
-        // Gridlines bleiben an Monatsanfängen, Tick-Text verstecken (Labels malt Plugin)
-        ticks: {
-          autoSkip: false,
-          maxRotation: 0,
-          minRotation: 0,
-          callback: () => ' '
-        }
+/* =========================================================
+ * TOP CHART (Saldo) – EINMALIGE Instanz + Update
+ * ========================================================= */
+function buildSaldoDatasets() {
+  const ds = [];
+  if (!selectedCategory || selectedCategory === 'all') {
+    ds.push(
+      {
+        label: 'Kontostand (Monatsbeginn)',
+        data: monthlyData,
+        showLine: false,
+        pointRadius: 8,
+        pointBackgroundColor: '#ff6b00',
+        pointBorderColor: '#000',
+        pointBorderWidth: 2
       },
-      y: {
-        beginAtZero: false,
-        ticks: { callback: (v) => fmtEuro(v) }
+      {
+        label: 'Verlauf Kontostand',
+        data: dailyData,
+        borderColor: '#000',
+        borderWidth: 3,
+        pointRadius: 0,
+        fill: false,
+        tension: 0
+      }
+    );
+  } else if (Array.isArray(catMonthlyData) && catMonthlyData.length > 0) {
+    const ORANGE = '#ff6b00';
+
+    ds.push({
+      type: 'bar',
+      label: selectedCategoryLabel,
+      data: catMonthlyData,
+
+      // Design: orange, wie unten (nur ohne Rest-Logik)
+      backgroundColor: hexToRgba(ORANGE, 0.35),
+      borderColor: ORANGE,
+      borderWidth: 1,
+
+      // dünner
+      barPercentage: 0.55,
+      categoryPercentage: 0.85
+    });
+  }
+  return ds;
+}
+
+let saldoChart = null;
+(function initSaldoChart() {
+  const canvas = $('saldoChart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  saldoChart = new Chart(ctx, {
+    type: 'line',
+    data: { datasets: buildSaldoDatasets() },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'nearest', axis: 'x', intersect: false },
+      hover:       { mode: 'nearest', axis: 'x', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${fmtEuro(c.parsed.y)}` } }
+      },
+      scales: {
+        x: {
+          type: 'time',
+          time: { unit: 'month', tooltipFormat: 'dd.MM.yyyy' },
+          midMonthLabels: true,
+          midMonthLabelYear: chartYear,
+          midMonthLabelCompactWidth: 420,
+          ticks: { autoSkip: false, maxRotation: 0, minRotation: 0, callback: () => ' ' }
+        },
+        y: {
+          beginAtZero: (!!selectedCategory && selectedCategory !== 'all'),
+          ticks: { callback: (v) => fmtEuro(v) }
+        }
       }
     }
+  });
+  updateSaldoChartOnly();
+})();
+
+function updateSaldoChartOnly() {
+  saldoChart.data.datasets = buildSaldoDatasets();
+  saldoChart.options.scales.x.midMonthLabelYear = chartYear;
+
+  // Für Monats-Säulen: Null-Linie sinnvoll
+  saldoChart.options.scales.y.beginAtZero = (!!selectedCategory && selectedCategory !== 'all');
+
+  const x = saldoChart.options.scales.x;
+  if (selectedCategory && selectedCategory !== 'all') {
+    x.min = monthStartMsUTC(chartYear, 0);        // 01.01. YYYY
+    x.max = monthStartMsUTC(chartYear + 1, 0);    // 01.01. YYYY+1
+  } else {
+    delete x.min;
+    delete x.max;
   }
-});
 
-
-const TOP_N_INCOME  = 5;  // Default: Einnahmen als Balken (Top-N)
-const TOP_N_EXPENSE = 50;  // Default: Ausgaben als Säulen (Top-N)
-const YEAR_LIMIT    = 10;  // max Jahre im Verlauf
-
-const incomeLabels  = <?= $incomeLabelsJson ?>;
-const incomeValues  = <?= $incomeValuesJson ?>;
-const expenseLabels = <?= $expenseLabelsJson ?>;
-const expenseValues = <?= $expenseValuesJson ?>;
-
-const sumArr = (arr) => arr.reduce((a,b)=>a+Number(b||0),0);
-
-function topNWithRest(labels, values, N) {
-  const pairs = labels
-    .map((l, i) => ({ l, v: Number(values[i] || 0) }))
-    .filter(p => p.v > 0)
-    .sort((a, b) => b.v - a.v);
-
-  const top  = pairs.slice(0, N);
-  const rest = pairs.slice(N);
-
-  if (rest.length) top.push({ l: 'Rest', v: rest.reduce((s, p) => s + p.v, 0) });
-
-  return {
-    labels: top.map(p => p.l),
-    values: top.map(p => Math.round(p.v * 100) / 100),
-  };
+  saldoChart.update();
 }
 
-function truncateLabel(s, max = 14) {
-  s = String(s ?? '');
-  return s.length > max ? (s.slice(0, max - 1) + '…') : s;
+/* =========================================================
+ * AJAX Page-Update (ohne Reload)
+ * ========================================================= */
+let _pageReqId = 0;
+
+async function fetchPageData(year, category) {
+  const base = window.location.pathname;
+  const qs = new URLSearchParams({
+    ajax: 'page_data',
+    jahr: String(year),
+    kategorie: String(category ?? 'all'),
+  });
+  const r = await fetch(`${base}?${qs.toString()}`, {
+    method: 'GET',
+    credentials: 'same-origin',
+    headers: { 'Accept': 'application/json' }
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || !j?.ok) throw new Error(j?.error || `http_${r.status}`);
+  return j;
 }
-function staggeredTick(label, index, maxLen = 14) {
-  const t = truncateLabel(label, maxLen);
-  return (index % 2 === 0) ? [t, ''] : ['', t];
+
+function setUrlParams(category, year, push = true) {
+  const u = new URL(window.location.href);
+  u.searchParams.set('jahr', String(year));
+  u.searchParams.set('kategorie', String(category ?? 'all'));
+  if (push) history.pushState({}, '', u.toString());
+  else history.replaceState({}, '', u.toString());
 }
+
+function setSelectValues(category, year) {
+  const selCat = $('kategorie');
+  const selYear = $('jahr');
+  if (selCat) selCat.value = String(category ?? 'all');
+  if (selYear) selYear.value = String(year);
+}
+
+function updateHeader(year, kontostandEoy) {
+  const yEl = $('pageTitleYear');
+  const sEl = $('pageTitleSaldo');
+  if (yEl) yEl.textContent = `Finanzen ${year}`;
+  if (sEl) sEl.textContent = `| ${fmtEuro(kontostandEoy)}`;
+}
+
+async function applySelection(category, year, opts = {}) {
+  const { pushHistory = true, scrollTop = true } = opts;
+  const reqId = ++_pageReqId;
+
+  setSelectValues(category, year);
+  setUrlParams(category, year, pushHistory);
+
+  let j;
+  try {
+    j = await fetchPageData(year, category);
+  } catch (e) {
+    console.error(e);
+    return;
+  }
+  if (reqId !== _pageReqId) return;
+
+  chartYear = Number(j.jahr);
+
+  selectedCategory = j.kategorie;
+  selectedCategoryLabel = j.kategorie_label;
+
+  dailyData = j.daily || [];
+  monthlyData = j.monthly || [];
+  catDailyData = j.cat_daily || [];
+  catMonthlyData = buildCatMonthlyBarsFromCumulative(catDailyData, chartYear);
+
+  incomeLabels = j.income_labels || [];
+  incomeValues = (j.income_values || []).map(Number);
+  incomeValuesClosed = (j.income_values_closed || []).map(Number);
+
+  expenseLabels = j.expense_labels || [];
+  expenseValues = (j.expense_values || []).map(Number);
+  expenseValuesClosed = (j.expense_values_closed || []).map(Number);
+
+  // Fallback (falls Backend mal leer liefert)
+  if (!incomeValuesClosed.length) incomeValuesClosed = incomeValues.slice();
+  if (!expenseValuesClosed.length) expenseValuesClosed = expenseValues.slice();
+
+  updateHeader(chartYear, j.kontostand_eoy);
+
+  // reset bottom charts (pies)
+  destroyChart('income');
+  destroyChart('expense');
+
+  ui.income.origTitle  = 'Einnahmen';
+  ui.expense.origTitle = 'Ausgaben (Logarithmisch)';
+  ui.income.origKpi    = fmtEuro(sumArr(incomeValues));
+  ui.expense.origKpi   = fmtEuro(sumArr(expenseValues));
+
+  setTitle('income', ui.income.origTitle);
+  setTitle('expense', ui.expense.origTitle);
+  setKpi('income', ui.income.origKpi);
+  setKpi('expense', ui.expense.origKpi);
+
+  makeIncomeOverview();
+  makeExpenseOverview();
+  updateSaldoChartOnly();
+
+  if (scrollTop) {
+    const top = $('statsPage');
+    if (top) top.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+/* =========================================================
+ * YEAR SERIES (Detail-Chart unten)
+ * ========================================================= */
+const TOP_N_INCOME  = 5;
+const TOP_N_EXPENSE = 50;
+const YEAR_LIMIT    = 10;
 
 async function fetchYearSeries(kind, catLabel) {
-  const base = window.location.pathname; // /biz/Stats.php
+  const base = window.location.pathname;
   const qs = new URLSearchParams({
     ajax: 'cat_years',
     kind,
@@ -674,9 +1216,12 @@ async function fetchYearSeries(kind, catLabel) {
   });
   const j = await r.json().catch(() => ({}));
   if (!r.ok || !j?.ok) throw new Error(j?.error || `http_${r.status}`);
-  return j; // {years:[], values:[]}
+  return j; // {years:[], values:[], cat_param: ...}
 }
 
+/* =========================================================
+ * UI + BOTTOM CHARTS (Einnahmen/Ausgaben)
+ * ========================================================= */
 const ui = {
   income: {
     canvasId: 'incomePie',
@@ -702,14 +1247,18 @@ const ui = {
   }
 };
 
-function $(id){ return document.getElementById(id); }
-
 function setBackVisible(key, on) {
   const b = $(ui[key].backId);
-  b.style.display = on ? '' : 'none';
+  if (b) b.style.display = on ? '' : 'none';
 }
-function setTitle(key, t) { $(ui[key].titleId).textContent = t; }
-function setKpi(key, t)   { $(ui[key].kpiId).textContent   = t; }
+function setTitle(key, t) {
+  const el = $(ui[key].titleId);
+  if (el) el.textContent = t;
+}
+function setKpi(key, t) {
+  const el = $(ui[key].kpiId);
+  if (el) el.textContent = t;
+}
 
 function destroyChart(key) {
   if (ui[key].chart) {
@@ -726,7 +1275,7 @@ function makeIncomeOverview() {
   setTitle(key, ui[key].origTitle);
   setKpi(key, ui[key].origKpi);
 
-  const top = topNWithRest(incomeLabels, incomeValues, TOP_N_INCOME);
+  const top = topNWithRestDual(incomeLabels, incomeValues, incomeValuesClosed, TOP_N_INCOME);
   const total = sumArr(top.values);
 
   ui[key].chart = new Chart($(ui[key].canvasId).getContext('2d'), {
@@ -735,8 +1284,6 @@ function makeIncomeOverview() {
       labels: top.labels,
       datasets: [{
         data: top.values,
-
-        // Styling (nicht per CSS möglich, deshalb hier)
         backgroundColor: (ctx) => {
           const label = ctx.chart.data.labels?.[ctx.dataIndex];
           return (label && label !== 'Rest') ? hexToRgba(PRIMARY, 0.35) : 'rgba(0,0,0,0.08)';
@@ -746,7 +1293,6 @@ function makeIncomeOverview() {
           return (label && label !== 'Rest') ? PRIMARY : 'rgba(0,0,0,0.15)';
         },
         borderWidth: 1,
-
         hoverBackgroundColor: (ctx) => {
           const label = ctx.chart.data.labels?.[ctx.dataIndex];
           return (label && label !== 'Rest') ? PRIMARY : 'rgba(0,0,0,0.08)';
@@ -778,11 +1324,13 @@ function makeIncomeOverview() {
           callbacks: {
             label: (ctx) => {
               const val = Number(ctx.parsed.x);
+              const idx = ctx.dataIndex;
+              const valClosed = Number(top.valuesClosed?.[idx] ?? val);
+
               const pct = total ? (val / total * 100) : 0;
 
-              // Jahres-Ø pro abgeschlossenem Monat (Chart zeigt Jahreswerte)
               const months = completedMonthsForYear(chartYear);
-              const perMonth = fmtMonthlyAvg(val, months);
+              const perMonth = fmtMonthlyAvg(valClosed, months);
 
               return [
                 `Ø pro Monat: ${perMonth}`,
@@ -795,8 +1343,7 @@ function makeIncomeOverview() {
       },
       onClick: async (evt, elements, chart) => {
         if (!elements?.length) return;
-        const idx = elements[0].index;
-        const label = chart.data.labels?.[idx];
+        const label = chart.data.labels?.[elements[0].index];
         if (!label || label === 'Rest') return;
         await showYearDetail(key, label);
       }
@@ -812,12 +1359,11 @@ function makeExpenseOverview() {
   setTitle(key, ui[key].origTitle);
   setKpi(key, ui[key].origKpi);
 
-  const top = topNWithRest(expenseLabels, expenseValues, TOP_N_EXPENSE);
+  const top = topNWithRestDual(expenseLabels, expenseValues, expenseValuesClosed, TOP_N_EXPENSE);
   const total = sumArr(top.values);
   const positive = top.values.filter(v => v > 0);
   const minVal = positive.length ? Math.min(...positive) : 0.01;
-  
-  // “schöner” Startwert für log-Achse (nächste Zehnerpotenz darunter)
+
   let minY = Math.pow(10, Math.floor(Math.log10(minVal)));
   if (!isFinite(minY) || minY <= 0) minY = 0.01;
 
@@ -827,7 +1373,6 @@ function makeExpenseOverview() {
       labels: top.labels,
       datasets: [{
         data: top.values,
-
         backgroundColor: (ctx) => {
           const label = ctx.chart.data.labels?.[ctx.dataIndex];
           return (label && label !== 'Rest') ? hexToRgba(PRIMARY, 0.35) : 'rgba(0,0,0,0.08)';
@@ -837,7 +1382,6 @@ function makeExpenseOverview() {
           return (label && label !== 'Rest') ? PRIMARY : 'rgba(0,0,0,0.15)';
         },
         borderWidth: 1,
-
         hoverBackgroundColor: (ctx) => {
           const label = ctx.chart.data.labels?.[ctx.dataIndex];
           return (label && label !== 'Rest') ? PRIMARY : 'rgba(0,0,0,0.08)';
@@ -850,7 +1394,6 @@ function makeExpenseOverview() {
           const label = ctx.chart.data.labels?.[ctx.dataIndex];
           return (label && label !== 'Rest') ? 2 : 1;
         },
-
         barPercentage: 0.9,
         categoryPercentage: 0.8
       }]
@@ -862,7 +1405,7 @@ function makeExpenseOverview() {
         chart.canvas.style.cursor = isClickableBar(chart, elements) ? 'pointer' : 'default';
       },
       layout: { padding: { bottom: 8 } },
-			scales: {
+      scales: {
         x: {
           ticks: {
             autoSkip: false,
@@ -870,19 +1413,18 @@ function makeExpenseOverview() {
             minRotation: 0,
             padding: 6,
             callback: function(value, index) {
-                const label = this.getLabelForValue(value);
-                return staggeredTick(label, index, 14);
+              const label = this.getLabelForValue(value);
+              return staggeredTick(label, index, 14);
             }
-            }
+          }
         },
         y: {
-            type: 'logarithmic',
-            min: minY,
-            ticks: {
+          type: 'logarithmic',
+          min: minY,
+          ticks: {
             callback: (v) => fmtEuro(v),
-            // optional: nicht zu viele Log-Ticks
             maxTicksLimit: 5
-            }
+          }
         }
       },
       plugins: {
@@ -892,10 +1434,13 @@ function makeExpenseOverview() {
             title: (items) => items?.[0]?.label ?? '',
             label: (ctx) => {
               const val = Number(ctx.parsed.y);
+              const idx = ctx.dataIndex;
+              const valClosed = Number(top.valuesClosed?.[idx] ?? val);
+
               const pct = total ? (val / total * 100) : 0;
 
               const months = completedMonthsForYear(chartYear);
-              const perMonth = fmtMonthlyAvg(val, months);
+              const perMonth = fmtMonthlyAvg(valClosed, months);
 
               return [
                 `Ø pro Monat: ${perMonth}`,
@@ -908,8 +1453,7 @@ function makeExpenseOverview() {
       },
       onClick: async (evt, elements, chart) => {
         if (!elements?.length) return;
-        const idx = elements[0].index;
-        const label = chart.data.labels?.[idx];
+        const label = chart.data.labels?.[elements[0].index];
         if (!label || label === 'Rest') return;
         await showYearDetail(key, label);
       }
@@ -931,17 +1475,24 @@ async function showYearDetail(key, catLabel) {
   try {
     data = await fetchYearSeries(kind, catLabel);
   } catch (e) {
-    setKpi(key, 'Fehler');
     console.error(e);
-    // fallback zurück
+    setKpi(key, 'Fehler');
     (key === 'income') ? makeIncomeOverview() : makeExpenseOverview();
     return;
   }
 
+  const catParamForJump = (data && data.cat_param != null) ? data.cat_param : null;
+
   const years = data.years || [];
-  let values  = (data.values || []).map(Number);
-  if (key === 'expense') { values = values.map(v => v * -1); }  // nur im Detailfenster: Ausgaben positiv anzeigen
-  const total  = sumArr(values);
+  let valuesFull   = (data.values || []).map(Number);
+  let valuesClosed = ((data.values_closed || data.values || [])).map(Number);
+
+  if (key === 'expense') {
+    valuesFull   = valuesFull.map(v => v * -1);
+    valuesClosed = valuesClosed.map(v => v * -1);
+  }
+
+  const total = sumArr(valuesFull);
   setKpi(key, fmtEuro(total));
 
   ui[key].chart = new Chart($(ui[key].canvasId).getContext('2d'), {
@@ -950,23 +1501,15 @@ async function showYearDetail(key, catLabel) {
       labels: years.map(String),
       datasets: [{
         label: `${titleBase} (${catLabel})`,
-        data: values,
-
-        // Look
+        data: valuesFull,
         borderColor: PRIMARY,
         borderWidth: 3,
         tension: 1,
-
-        // keine sichtbaren Punkte
         pointRadius: 5,
         pointHoverRadius: 6,
         pointHitRadius: 10,
-
-        // optional: dezentes Fill unter der Linie
         fill: true,
         backgroundColor: hexToRgba(PRIMARY, 0.12),
-
-        // optional: “sauberere” Linie
         cubicInterpolationMode: 'monotone',
       }]
     },
@@ -981,13 +1524,16 @@ async function showYearDetail(key, catLabel) {
           intersect: false,
           callbacks: {
             label: (ctx) => {
-              const year = Number(ctx.label);      // Labels sind Jahre als String
+              const year = Number(ctx.label);
               const val  = Number(ctx.parsed.y);
+              const idx  = ctx.dataIndex;
+
+              const valClosed = Number(valuesClosed?.[idx] ?? val);
 
               const pct = total ? (val / total * 100) : 0;
 
               const months = completedMonthsForYear(year);
-              const perMonth = fmtMonthlyAvg(val, months);
+              const perMonth = fmtMonthlyAvg(valClosed, months);
 
               return [
                 `Ø pro Monat: ${perMonth}`,
@@ -999,36 +1545,71 @@ async function showYearDetail(key, catLabel) {
         }
       },
       scales: {
-        x: {
-          ticks: { maxRotation: 0, minRotation: 0 }
-        },
-        y: {
-          beginAtZero: true,
-          ticks: { callback: (v) => fmtEuro(v) }
-        }
+        x: { ticks: { maxRotation: 0, minRotation: 0 } },
+        y: { beginAtZero: true, ticks: { callback: (v) => fmtEuro(v) } }
+      },
+      onClick: (evt, elements, chart) => {
+        if (!elements?.length) return;
+        const year = Number(chart.data.labels?.[elements[0].index]);
+        if (!Number.isFinite(year) || year < 1900) return;
+        if (catParamForJump == null) return;
+        applySelection(catParamForJump, year, { pushHistory: true, scrollTop: true });
       }
     }
   });
 
-  // Back-Button
   const backBtn = $(ui[key].backId);
-  backBtn.onclick = () => {
-    backBtn.onclick = null;
-    (key === 'income') ? makeIncomeOverview() : makeExpenseOverview();
-  };
+  if (backBtn) {
+    backBtn.onclick = () => {
+      backBtn.onclick = null;
+      (key === 'income') ? makeIncomeOverview() : makeExpenseOverview();
+    };
+  }
 }
 
-// Init
-ui.income.origTitle = $(ui.income.titleId).textContent;
-ui.income.origKpi   = $(ui.income.kpiId).textContent;
-ui.expense.origTitle= $(ui.expense.titleId).textContent;
-ui.expense.origKpi  = $(ui.expense.kpiId).textContent;
+/* =========================================================
+ * INIT (nur einmal!)
+ * ========================================================= */
+document.addEventListener('DOMContentLoaded', () => {
+  ui.income.origTitle  = $(ui.income.titleId)?.textContent ?? 'Einnahmen';
+  ui.income.origKpi    = $(ui.income.kpiId)?.textContent ?? fmtEuro(sumArr(incomeValues));
+  ui.expense.origTitle = $(ui.expense.titleId)?.textContent ?? 'Ausgaben (Logarithmisch)';
+  ui.expense.origKpi   = $(ui.expense.kpiId)?.textContent ?? fmtEuro(sumArr(expenseValues));
 
-makeIncomeOverview();   // Einnahmen: Balken
-makeExpenseOverview();  // Ausgaben: Säulen
+  makeIncomeOverview();
+  makeExpenseOverview();
 
+  const selCat = $('kategorie');
+  const selYear = $('jahr');
+  const form = $('statsFilterForm');
 
+  if (form) {
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      applySelection(selCat?.value ?? 'all', selYear?.value ?? chartYear, { pushHistory: true, scrollTop: false });
+    });
+  }
+
+  if (selCat) {
+    selCat.addEventListener('change', () => {
+      applySelection(selCat.value, selYear?.value ?? chartYear, { pushHistory: true, scrollTop: false });
+    });
+  }
+  if (selYear) {
+    selYear.addEventListener('change', () => {
+      applySelection(selCat?.value ?? 'all', selYear.value, { pushHistory: true, scrollTop: false });
+    });
+  }
+});
+
+window.addEventListener('popstate', () => {
+  const u = new URL(window.location.href);
+  const year = Number(u.searchParams.get('jahr') || chartYear);
+  const cat = (u.searchParams.get('kategorie') || 'all');
+  applySelection(cat, year, { pushHistory: false, scrollTop: false });
+});
 </script>
+
 
 </body>
 </html>
