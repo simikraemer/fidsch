@@ -39,7 +39,8 @@ $routestool = [
     'bit'     => 'BYTES.php',
     'ips'     => 'IPS.php',
     'unixtime'     => 'UNIXTIME.php',
-    'log'     => 'LoginLogs.php'
+    'log'     => 'LoginLogs.php',
+    'timer'   => 'TIMER.php'
 ];
 
 // --- Routing-Logik ---
