@@ -295,6 +295,7 @@ require_once __DIR__ . '/../navbar.php';   // Navbar
 
 <script>
     const daten = <?= json_encode(is_array($eintraege) ? $eintraege : [], JSON_UNESCAPED_UNICODE) ?>;
+
     const beschreibungsInput = document.getElementById('beschreibung');
     const kalorienInput      = document.getElementById('kalorien');
     const eiweissInput       = document.getElementById('eiweiss');
@@ -303,14 +304,63 @@ require_once __DIR__ . '/../navbar.php';   // Navbar
     const alkoholInput       = document.getElementById('alkohol');
     const vorschlaegeList    = document.getElementById('vorschlaege');
 
+    // --- Autocomplete: Keyboard-Navigation (↑/↓/Enter/Esc) ---
+    let acIndex = -1;
+
     function numberOrZero(v) {
         const n = parseFloat(String(v).replace(',', '.'));
         return isNaN(n) ? 0 : n;
     }
 
-    beschreibungsInput.addEventListener('input', () => {
-        const eingabe = (beschreibungsInput.value || '').toLowerCase();
+    function getAcItems() {
+        return Array.from(vorschlaegeList.querySelectorAll('li.autocomplete-item'));
+    }
+
+    function clearSuggestions() {
         vorschlaegeList.innerHTML = '';
+        acIndex = -1;
+    }
+
+    function setActiveIndex(nextIndex) {
+        const items = getAcItems();
+        if (!items.length) { acIndex = -1; return; }
+
+        acIndex = Math.max(-1, Math.min(nextIndex, items.length - 1));
+
+        items.forEach((li, i) => {
+            if (i === acIndex) {
+                li.classList.add('active');
+                li.setAttribute('aria-selected', 'true');
+                li.scrollIntoView({ block: 'nearest' });
+            } else {
+                li.classList.remove('active');
+                li.removeAttribute('aria-selected');
+            }
+        });
+    }
+
+    function selectSuggestionFromLi(li) {
+        if (!li) return;
+
+        beschreibungsInput.value = li.dataset.beschreibung || '';
+        kalorienInput.value      = li.dataset.kalorien || '';
+
+        eiweissInput.value  = numberOrZero(li.dataset.eiweiss).toString();
+        fettInput.value     = numberOrZero(li.dataset.fett).toString();
+        khInput.value       = numberOrZero(li.dataset.kh).toString();
+        alkoholInput.value  = numberOrZero(li.dataset.alk).toString();
+
+        clearSuggestions();
+        recomputeChecksum();
+
+        // optional: direkt ins nächste Feld
+        kalorienInput.focus();
+        if (typeof kalorienInput.select === 'function') kalorienInput.select();
+    }
+
+    function renderSuggestions() {
+        const eingabe = (beschreibungsInput.value || '').toLowerCase();
+        clearSuggestions();
         if (!eingabe.length) return;
 
         const passende = daten.filter(e =>
@@ -329,34 +379,74 @@ require_once __DIR__ . '/../navbar.php';   // Navbar
             li.classList.add('autocomplete-item');
             vorschlaegeList.appendChild(li);
         });
-    });
 
-    vorschlaegeList.addEventListener('click', (e) => {
-        if (e.target && e.target.tagName === 'LI') {
-            beschreibungsInput.value = e.target.dataset.beschreibung || '';
-            kalorienInput.value      = e.target.dataset.kalorien || '';
+        acIndex = -1; // keine Vorauswahl, erst mit Pfeiltasten
+    }
 
-            // NEU: Nährwerte übernehmen
-            eiweissInput.value  = numberOrZero(e.target.dataset.eiweiss).toString();
-            fettInput.value     = numberOrZero(e.target.dataset.fett).toString();
-            khInput.value       = numberOrZero(e.target.dataset.kh).toString();
-            alkoholInput.value  = numberOrZero(e.target.dataset.alk).toString();
+    if (beschreibungsInput) {
+        beschreibungsInput.addEventListener('input', renderSuggestions);
 
-            vorschlaegeList.innerHTML = '';
-            recomputeChecksum();
-        }
-    });
+        beschreibungsInput.addEventListener('keydown', (ev) => {
+            const items = getAcItems();
+            if (!items.length) return;
+
+            if (ev.key === 'ArrowDown') {
+                ev.preventDefault();
+                const next = (acIndex + 1) >= items.length ? 0 : (acIndex + 1);
+                setActiveIndex(next);
+                return;
+            }
+
+            if (ev.key === 'ArrowUp') {
+                ev.preventDefault();
+                const next = (acIndex - 1) < 0 ? (items.length - 1) : (acIndex - 1);
+                setActiveIndex(next);
+                return;
+            }
+
+            if (ev.key === 'Enter') {
+                if (acIndex >= 0 && items[acIndex]) {
+                    ev.preventDefault(); // verhindert Form-Submit
+                    selectSuggestionFromLi(items[acIndex]);
+                }
+                return;
+            }
+
+            if (ev.key === 'Escape') {
+                ev.preventDefault();
+                clearSuggestions();
+                return;
+            }
+        });
+    }
+
+    if (vorschlaegeList) {
+        vorschlaegeList.addEventListener('click', (e) => {
+            const li = e.target && e.target.closest('li.autocomplete-item');
+            if (li) selectSuggestionFromLi(li);
+        });
+
+        // optional: Hover = active
+        vorschlaegeList.addEventListener('mousemove', (e) => {
+            const li = e.target && e.target.closest('li.autocomplete-item');
+            if (!li) return;
+            const items = getAcItems();
+            const idx = items.indexOf(li);
+            if (idx >= 0) setActiveIndex(idx);
+        });
+    }
 
     document.addEventListener('click', (e) => {
         if (!vorschlaegeList.contains(e.target) && e.target !== beschreibungsInput) {
-            vorschlaegeList.innerHTML = '';
+            clearSuggestions();
         }
     });
 
+    // --- Prüfsumme ---
     const kcalCheckSpan = document.getElementById('kcal-check');
 
     function recomputeChecksum() {
-        const eiw = numberOrZero(eiweissInput.value);
+        const eiw  = numberOrZero(eiweissInput.value);
         const fett = numberOrZero(fettInput.value);
         const kh   = numberOrZero(khInput.value);
         const alk  = numberOrZero(alkoholInput.value);
@@ -364,27 +454,26 @@ require_once __DIR__ . '/../navbar.php';   // Navbar
         if (kcalCheckSpan) kcalCheckSpan.textContent = String(Math.round(kcal));
     }
 
-    // Live-Update bei Änderungen der Nährwerte
     [eiweissInput, fettInput, khInput, alkoholInput].forEach(el =>
-        el.addEventListener('input', recomputeChecksum)
+        el && el.addEventListener('input', recomputeChecksum)
     );
 
-    // Initiale Berechnung
     recomputeChecksum();
 
     // -------------------- Tagesansicht mit Navigation via AJAX --------------------
-    const tageTbody      = document.getElementById('tage-tbody');
-    const btnTagZurueck  = document.getElementById('tag-zurueck');
-    const btnTagVor      = document.getElementById('tag-vor');
-    const btnTagHeute    = document.getElementById('tag-heute');
+    const tageTbody        = document.getElementById('tage-tbody');
+    const btnTagZurueck    = document.getElementById('tag-zurueck');
+    const btnTagVor        = document.getElementById('tag-vor');
+    const btnTagHeute      = document.getElementById('tag-heute');
     const tageUeberschrift = document.getElementById('tage-ueberschrift'); // optional (aktuell auskommentiert)
-    const dateInput      = document.getElementById('tag-date');
+    const dateInput        = document.getElementById('tag-date');
 
     const heuteStr   = '<?= $heute ?>';
     const gesternStr = '<?= $gestern ?>';
-    let   aktuellesDatum = '<?= $selected ?>';
-    let   prevDate = null;
-    let   nextDate = null;
+
+    let aktuellesDatum = '<?= $selected ?>';
+    let prevDate = null;
+    let nextDate = null;
 
     function escHtml(str) {
         return String(str)
@@ -396,8 +485,8 @@ require_once __DIR__ . '/../navbar.php';   // Navbar
     }
 
     function formatDatum(d) {
-        const parts = d.split('-'); // YYYY-MM-DD
-        if (parts.length !== 3) return d;
+        const parts = String(d).split('-'); // YYYY-MM-DD
+        if (parts.length !== 3) return String(d);
         return parts[2] + '.' + parts[1] + '.' + parts[0];
     }
 
@@ -420,10 +509,9 @@ require_once __DIR__ . '/../navbar.php';   // Navbar
     function renderTagData(data) {
         const datum        = data.date;
         const eintraegeTag = data.entries || [];
+
         let summe = 0;
-        eintraegeTag.forEach(e => {
-            summe += Number(e.kalorien) || 0;
-        });
+        eintraegeTag.forEach(e => { summe += Number(e.kalorien) || 0; });
 
         let html = '';
         html += '<tr style="border-bottom: 3px solid black; font-weight: bold;">';
@@ -443,24 +531,24 @@ require_once __DIR__ . '/../navbar.php';   // Navbar
             html += '<td>' + escHtml(e.beschreibung || '') + '</td>';
             html += '<td>' + kcal + ' kcal</td>';
             html += '<td>';
-            html += '<div style="display: flex; gap: 6px; align-items: stretch;">';
+            html += '<div style="display:flex; gap:6px; align-items:stretch;">';
 
             html += '<form method="post" style="margin:0;">'
                  +  '<input type="hidden" name="current_date" value="' + escHtml(datum) + '">'
                  +  '<input type="hidden" name="move_to_previous_day" value="' + id + '">'
-                 +  '<button type="submit" style="height: 100%;">Auf Vortag</button>'
+                 +  '<button type="submit" style="height:100%;">Auf Vortag</button>'
                  +  '</form>';
 
             html += '<form method="post" style="margin:0;">'
                  +  '<input type="hidden" name="current_date" value="' + escHtml(datum) + '">'
                  +  '<input type="hidden" name="move_to_next_day" value="' + id + '">'
-                 +  '<button type="submit" style="height: 100%;">Auf Folgetag</button>'
+                 +  '<button type="submit" style="height:100%;">Auf Folgetag</button>'
                  +  '</form>';
 
             html += '<form method="post" style="margin:0;">'
                  +  '<input type="hidden" name="current_date" value="' + escHtml(datum) + '">'
                  +  '<input type="hidden" name="delete_entry" value="' + id + '">'
-                 +  '<button type="submit" onclick="return confirm(\'Eintrag wirklich löschen?\');" style="height: 100%;">Löschen</button>'
+                 +  '<button type="submit" onclick="return confirm(\'Eintrag wirklich löschen?\');" style="height:100%;">Löschen</button>'
                  +  '</form>';
 
             html += '</div>';
@@ -468,17 +556,13 @@ require_once __DIR__ . '/../navbar.php';   // Navbar
             html += '</tr>';
         });
 
-        if (tageTbody) {
-            tageTbody.innerHTML = html;
-        }
+        if (tageTbody) tageTbody.innerHTML = html;
 
         aktuellesDatum = datum;
         prevDate       = data.prev || null;
         nextDate       = data.next || null;
 
-        if (dateInput) {
-            dateInput.value = datum;
-        }
+        if (dateInput) dateInput.value = datum;
 
         updateHeadline();
         updateButtons();
@@ -501,7 +585,7 @@ require_once __DIR__ . '/../navbar.php';   // Navbar
             if (data && !data.error) {
                 renderTagData(data);
             } else {
-                console.error('Antwort-Fehler:', data.error);
+                console.error('Antwort-Fehler:', data && data.error);
             }
         } catch (err) {
             console.error('AJAX-Fehler:', err);
@@ -513,26 +597,20 @@ require_once __DIR__ . '/../navbar.php';   // Navbar
         dateInput.value = aktuellesDatum;
         dateInput.addEventListener('change', () => {
             const val = dateInput.value;
-            if (val) {
-                loadDay(val);
-            }
+            if (val) loadDay(val);
         });
     }
 
     // Buttons für vorher/nachher/heute
     if (btnTagZurueck) {
         btnTagZurueck.addEventListener('click', () => {
-            if (prevDate) {
-                loadDay(prevDate);
-            }
+            if (prevDate) loadDay(prevDate);
         });
     }
 
     if (btnTagVor) {
         btnTagVor.addEventListener('click', () => {
-            if (nextDate) {
-                loadDay(nextDate);
-            }
+            if (nextDate) loadDay(nextDate);
         });
     }
 
@@ -542,7 +620,7 @@ require_once __DIR__ . '/../navbar.php';   // Navbar
         });
     }
 
-    // Initial: ausgewähltes Datum (Standard: heute) laden
+    // Initial laden
     loadDay(aktuellesDatum);
 </script>
 

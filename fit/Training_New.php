@@ -246,15 +246,56 @@ require_once __DIR__ . '/../navbar.php'; // nur die Navbar
 </div>
 
 <script>
-    // -------------------- Autocomplete für Beschreibung --------------------
+    // -------------------- Autocomplete für Beschreibung (Keyboard: ↑/↓/Enter/Esc) --------------------
     const daten = <?= json_encode(is_array($eintraege) ? $eintraege : [], JSON_UNESCAPED_UNICODE) ?>;
     const beschreibungsInput = document.getElementById('beschreibung');
     const kalorienInput      = document.getElementById('kalorien');
     const vorschlaegeList    = document.getElementById('vorschlaege');
 
-    beschreibungsInput.addEventListener('input', () => {
-        const eingabe = (beschreibungsInput.value || '').toLowerCase();
+    let acIndex = -1;
+
+    function getAcItems() {
+        return Array.from(vorschlaegeList.querySelectorAll('li.autocomplete-item'));
+    }
+
+    function clearSuggestions() {
         vorschlaegeList.innerHTML = '';
+        acIndex = -1;
+    }
+
+    function setActiveIndex(nextIndex) {
+        const items = getAcItems();
+        if (!items.length) { acIndex = -1; return; }
+
+        acIndex = Math.max(-1, Math.min(nextIndex, items.length - 1));
+
+        items.forEach((li, i) => {
+            if (i === acIndex) {
+                li.classList.add('active');
+                li.setAttribute('aria-selected', 'true');
+                li.scrollIntoView({ block: 'nearest' });
+            } else {
+                li.classList.remove('active');
+                li.removeAttribute('aria-selected');
+            }
+        });
+    }
+
+    function selectSuggestionFromLi(li) {
+        if (!li) return;
+
+        beschreibungsInput.value = li.dataset.beschreibung || '';
+        kalorienInput.value      = li.dataset.kalorien || '';
+
+        clearSuggestions();
+
+        kalorienInput.focus();
+        if (typeof kalorienInput.select === 'function') kalorienInput.select();
+    }
+
+    function renderSuggestions() {
+        const eingabe = (beschreibungsInput.value || '').toLowerCase();
+        clearSuggestions();
         if (!eingabe.length) return;
 
         const passende = daten.filter(e =>
@@ -269,29 +310,72 @@ require_once __DIR__ . '/../navbar.php'; // nur die Navbar
             li.classList.add('autocomplete-item');
             vorschlaegeList.appendChild(li);
         });
+
+        acIndex = -1; // keine Vorauswahl, erst per Pfeiltasten
+    }
+
+    beschreibungsInput.addEventListener('input', renderSuggestions);
+
+    beschreibungsInput.addEventListener('keydown', (ev) => {
+        const items = getAcItems();
+        if (!items.length) return;
+
+        if (ev.key === 'ArrowDown') {
+            ev.preventDefault();
+            const next = (acIndex + 1) >= items.length ? 0 : (acIndex + 1);
+            setActiveIndex(next);
+            return;
+        }
+
+        if (ev.key === 'ArrowUp') {
+            ev.preventDefault();
+            const next = (acIndex - 1) < 0 ? (items.length - 1) : (acIndex - 1);
+            setActiveIndex(next);
+            return;
+        }
+
+        if (ev.key === 'Enter') {
+            if (acIndex >= 0 && items[acIndex]) {
+                ev.preventDefault(); // verhindert Form-Submit
+                selectSuggestionFromLi(items[acIndex]);
+            }
+            return;
+        }
+
+        if (ev.key === 'Escape') {
+            ev.preventDefault();
+            clearSuggestions();
+            return;
+        }
     });
 
     vorschlaegeList.addEventListener('click', (e) => {
-        if (e.target && e.target.tagName === 'LI') {
-            beschreibungsInput.value = e.target.dataset.beschreibung || '';
-            kalorienInput.value      = e.target.dataset.kalorien || '';
-            vorschlaegeList.innerHTML = '';
-        }
+        const li = e.target && e.target.closest && e.target.closest('li.autocomplete-item');
+        if (li) selectSuggestionFromLi(li);
+    });
+
+    // optional: Hover setzt aktive Auswahl
+    vorschlaegeList.addEventListener('mousemove', (e) => {
+        const li = e.target && e.target.closest && e.target.closest('li.autocomplete-item');
+        if (!li) return;
+        const items = getAcItems();
+        const idx = items.indexOf(li);
+        if (idx >= 0) setActiveIndex(idx);
     });
 
     document.addEventListener('click', (e) => {
         if (!vorschlaegeList.contains(e.target) && e.target !== beschreibungsInput) {
-            vorschlaegeList.innerHTML = '';
+            clearSuggestions();
         }
     });
 
     // -------------------- Tagesansicht mit Navigation (AJAX) --------------------
-    const tageTbody       = document.getElementById('tage-tbody');
-    const btnTagZurueck   = document.getElementById('tag-zurueck');
-    const btnTagVor       = document.getElementById('tag-vor');
-    const btnTagHeute     = document.getElementById('tag-heute');
+    const tageTbody        = document.getElementById('tage-tbody');
+    const btnTagZurueck    = document.getElementById('tag-zurueck');
+    const btnTagVor        = document.getElementById('tag-vor');
+    const btnTagHeute      = document.getElementById('tag-heute');
     const tageUeberschrift = document.getElementById('tage-ueberschrift');
-    const dateInput       = document.getElementById('tag-date');
+    const dateInput        = document.getElementById('tag-date');
 
     const heuteStr   = '<?= $heute ?>';
     const gesternStr = '<?= $gestern ?>';
@@ -334,9 +418,7 @@ require_once __DIR__ . '/../navbar.php'; // nur die Navbar
         const datum        = data.date;
         const eintraegeTag = data.entries || [];
         let summe = 0;
-        eintraegeTag.forEach(e => {
-            summe += Number(e.kalorien) || 0;
-        });
+        eintraegeTag.forEach(e => { summe += Number(e.kalorien) || 0; });
 
         let html = '';
         html += '<tr style="border-bottom: 3px solid black; font-weight: bold;">';
@@ -381,17 +463,13 @@ require_once __DIR__ . '/../navbar.php'; // nur die Navbar
             html += '</tr>';
         });
 
-        if (tageTbody) {
-            tageTbody.innerHTML = html;
-        }
+        if (tageTbody) tageTbody.innerHTML = html;
 
         aktuellesDatum = datum;
         prevDate       = data.prev || null;
         nextDate       = data.next || null;
 
-        if (dateInput) {
-            dateInput.value = datum;
-        }
+        if (dateInput) dateInput.value = datum;
 
         updateHeadline();
         updateButtons();
@@ -403,9 +481,7 @@ require_once __DIR__ . '/../navbar.php'; // nur die Navbar
         url.searchParams.set('date', dateStr);
 
         try {
-            const res = await fetch(url.toString(), {
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
-            });
+            const res = await fetch(url.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
             if (!res.ok) {
                 console.error('Fehler beim Laden des Tages', res.status);
                 return;
@@ -425,25 +501,19 @@ require_once __DIR__ . '/../navbar.php'; // nur die Navbar
         dateInput.value = aktuellesDatum;
         dateInput.addEventListener('change', () => {
             const val = dateInput.value;
-            if (val) {
-                loadDay(val);
-            }
+            if (val) loadDay(val);
         });
     }
 
     if (btnTagZurueck) {
         btnTagZurueck.addEventListener('click', () => {
-            if (prevDate) {
-                loadDay(prevDate);
-            }
+            if (prevDate) loadDay(prevDate);
         });
     }
 
     if (btnTagVor) {
         btnTagVor.addEventListener('click', () => {
-            if (nextDate) {
-                loadDay(nextDate);
-            }
+            if (nextDate) loadDay(nextDate);
         });
     }
 
@@ -453,7 +523,6 @@ require_once __DIR__ . '/../navbar.php'; // nur die Navbar
         });
     }
 
-    // Initialer Render: ausgewähltes Datum (Standard: heute)
     loadDay(aktuellesDatum);
 </script>
 
