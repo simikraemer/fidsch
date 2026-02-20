@@ -276,82 +276,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     json_out(['ok' => false, 'error' => 'Unbekannte Aktion.'], 400);
 }
 
-/* ---------------------- Semester for Dropdown ---------------------- */
-function semester_key_for_date(DateTimeInterface $dt): string {
-    $y = (int)$dt->format('Y');
-    $m = (int)$dt->format('n'); // 1..12
-    if ($m >= 10) return "wise_{$y}";
-    if ($m <= 3)  return "wise_" . ($y - 1);
-    return "sose_{$y}";
-}
-function semester_label(string $key): string {
-    if (!preg_match('/^(wise|sose)_(\d{4})$/', $key, $m)) return $key;
-    $typ = $m[1];
-    $y   = (int)$m[2];
-    if ($typ === 'wise') return 'WiSe ' . $y . '/' . substr((string)($y + 1), -2);
-    return 'SoSe ' . $y;
-}
-function semester_start_ts(string $key): int {
-    if (!preg_match('/^(wise|sose)_(\d{4})$/', $key, $m)) return 0;
-    $typ = $m[1];
-    $y   = (int)$m[2];
-    if ($typ === 'wise') return (new DateTimeImmutable(sprintf('%04d-10-01 00:00:00', $y)))->getTimestamp();
-    return (new DateTimeImmutable(sprintf('%04d-04-01 00:00:00', $y)))->getTimestamp();
-}
-function semester_sql_range(string $key): array {
-    if (!preg_match('/^(wise|sose)_(\d{4})$/', $key, $m)) {
-        // Fallback: aktuelles Jahr
-        $y = (int)date('Y');
-        $start = new DateTimeImmutable(sprintf('%04d-01-01 00:00:00', $y));
-        $end   = new DateTimeImmutable(sprintf('%04d-01-01 00:00:00', $y + 1));
-        return [$start->format('Y-m-d H:i:s'), $end->format('Y-m-d H:i:s')];
-    }
-
-    $typ = $m[1];
-    $y   = (int)$m[2];
-
-    if ($typ === 'wise') {
-        // WiSe: 01.10.Y bis 01.04.(Y+1)
-        $start = new DateTimeImmutable(sprintf('%04d-10-01 00:00:00', $y));
-        $end   = new DateTimeImmutable(sprintf('%04d-04-01 00:00:00', $y + 1));
-        return [$start->format('Y-m-d H:i:s'), $end->format('Y-m-d H:i:s')];
-    }
-
-    // SoSe: 01.04.Y bis 01.10.Y
-    $start = new DateTimeImmutable(sprintf('%04d-04-01 00:00:00', $y));
-    $end   = new DateTimeImmutable(sprintf('%04d-10-01 00:00:00', $y));
+/* ---------------------- Jahre for Dropdown ---------------------- */
+function year_sql_range(int $y): array {
+    $start = new DateTimeImmutable(sprintf('%04d-01-01 00:00:00', $y));
+    $end   = new DateTimeImmutable(sprintf('%04d-01-01 00:00:00', $y + 1));
     return [$start->format('Y-m-d H:i:s'), $end->format('Y-m-d H:i:s')];
 }
 
+$yearSet = [];
+$curYear = (int)date('Y');
+$yearSet[$curYear] = true;
 
-$semesterSet = [];
-$curKey = semester_key_for_date(new DateTimeImmutable('now'));
-$semesterSet[$curKey] = true;
-
-// Semester nur aus vorhandenen erledigt_am-Daten ableiten (plus aktuelles Semester)
-$resS = $sciconn->query("
-    SELECT DISTINCT YEAR(erledigt_am) AS y, MONTH(erledigt_am) AS m
+// Jahre nur aus vorhandenen erledigt_am-Daten ableiten (plus aktuelles Jahr)
+$resY = $sciconn->query("
+    SELECT DISTINCT YEAR(erledigt_am) AS y
     FROM lerntime
     WHERE erledigt_am IS NOT NULL
 ");
-if ($resS) {
-    while ($r = $resS->fetch_assoc()) {
+if ($resY) {
+    while ($r = $resY->fetch_assoc()) {
         $y = (int)$r['y'];
-        $m = (int)$r['m'];
-        if ($m >= 10) $key = "wise_{$y}";
-        elseif ($m <= 3) $key = "wise_" . ($y - 1);
-        else $key = "sose_{$y}";
-        $semesterSet[$key] = true;
+        if ($y >= 2000 && $y <= 2100) $yearSet[$y] = true;
     }
 }
 
-$semesterKeys = array_keys($semesterSet);
-usort($semesterKeys, fn($a, $b) => semester_start_ts($b) <=> semester_start_ts($a));
+$yearKeys = array_keys($yearSet);
+rsort($yearKeys);
 
-$semester = isset($_GET['semester']) ? (string)$_GET['semester'] : $curKey;
-if (!isset($semesterSet[$semester])) $semester = $semesterKeys[0] ?? $curKey;
+// $jahr kommt oben aus GET, aber hier gegen vorhandene Jahre validieren
+if (!isset($yearSet[$jahr])) $jahr = $yearKeys[0] ?? $curYear;
 
-[$semStartSql, $semEndSql] = semester_sql_range($semester);
+[$yearStartSql, $yearEndSql] = year_sql_range($jahr);
 
 $stmt = $sciconn->prepare("
     SELECT COALESCE(SUM(COALESCE(dauer_sekunden, 0)), 0) AS sum_sec
@@ -360,18 +315,27 @@ $stmt = $sciconn->prepare("
       AND erledigt_am >= ?
       AND erledigt_am < ?
 ");
-$stmt->bind_param('ss', $semStartSql, $semEndSql);
+$stmt->bind_param('ss', $yearStartSql, $yearEndSql);
 $stmt->execute();
 $res = $stmt->get_result();
 $row = $res ? $res->fetch_assoc() : null;
 $stmt->close();
 
-$semesterLernzeitSekunden = (int)($row['sum_sec'] ?? 0);
+$jahrLernzeitSekunden = (int)($row['sum_sec'] ?? 0);
+$jahrLernzeitStunden  = (int)round($jahrLernzeitSekunden / 3600);
 
-/* Anzeige-Wert (du kannst hier wählen)
-   - als ganze Stunden:
-*/
-$semesterLernzeitStunden = (int)round($semesterLernzeitSekunden / 3600);
+$stmt = $sciconn->prepare("
+    SELECT COALESCE(SUM(COALESCE(dauer_sekunden, 0)), 0) AS open_sec
+    FROM lerntime
+    WHERE erledigt_am IS NULL
+");
+$stmt->execute();
+$res = $stmt->get_result();
+$row = $res ? $res->fetch_assoc() : null;
+$stmt->close();
+
+$offenSekunden = (int)($row['open_sec'] ?? 0);
+$offenStunden  = (int)round($offenSekunden / 3600);
 
 /* ---------------------- Klausurtermine for JS ---------------------- */
 $klausuren = [];
@@ -405,16 +369,17 @@ require_once __DIR__ . '/../navbar.php';
     <div class="lt-topbar">
 
         <h1 class="ueberschrift dashboard-title">
-        <span class="dashboard-title-main">B.Sc. Maschinenbau <?= htmlspecialchars((string)semester_label($semester), ENT_QUOTES, 'UTF-8') ?></span>
-        <span class="dashboard-title-soft">| <?= htmlspecialchars((string)$semesterLernzeitStunden, ENT_QUOTES, 'UTF-8') ?> Stunden</span>
+        <span class="dashboard-title-main">B.Sc. Maschinenbau <?= htmlspecialchars((string)$jahr, ENT_QUOTES, 'UTF-8') ?></span>
+        <span class="dashboard-title-soft">| <span id="ltDoneHours"><?= htmlspecialchars((string)$jahrLernzeitStunden, ENT_QUOTES, 'UTF-8') ?></span>h erledigt</span>
+        <span class="dashboard-title-soft"><-> <span id="ltOpenHours"><?= htmlspecialchars((string)$offenStunden, ENT_QUOTES, 'UTF-8') ?></span>h offen</span>
         </h1>
 
         <div class="lt-yearwrap">
-            <label for="ltSemester" class="lt-label">Semester</label>
-            <select id="ltSemester" class="kategorie-select">
-                <?php foreach ($semesterKeys as $key): ?>
-                    <option value="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>" <?= ($key === $semester) ? 'selected' : '' ?>>
-                        <?= htmlspecialchars(semester_label($key), ENT_QUOTES, 'UTF-8') ?>
+            <label for="ltYear" class="lt-label">Jahr</label>
+            <select id="ltYear" class="kategorie-select">
+                <?php foreach ($yearKeys as $y): ?>
+                    <option value="<?= htmlspecialchars((string)$y, ENT_QUOTES, 'UTF-8') ?>" <?= ((int)$y === (int)$jahr) ? 'selected' : '' ?>>
+                        <?= htmlspecialchars((string)$y, ENT_QUOTES, 'UTF-8') ?>
                     </option>
                 <?php endforeach; ?>
             </select>
@@ -524,12 +489,12 @@ require_once __DIR__ . '/../navbar.php';
     const EXAMS = <?= json_encode($klausuren, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 
     const phpDefaultFach = <?= json_encode($sessionFach, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
-    const initialSemester = <?= json_encode($semester, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+    const initialYear = <?= json_encode((string)$jahr, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 
     const elPage = document.getElementById('ltPage');
     const elTabs = document.getElementById('ltTabs');
     const elTbody = document.getElementById('ltTbody');
-    const elSemester = document.getElementById('ltSemester');
+    const elYear = document.getElementById('ltYear');
 
     const elModal = document.getElementById('ltModal');
     const elModalClose = document.getElementById('ltModalClose');
@@ -561,47 +526,32 @@ require_once __DIR__ . '/../navbar.php';
         return !!hiddenSubjects[String(fach ?? '')];
     }
 
-    const validSemesters = new Set([...elSemester.options].map(o => o.value));
+    const validYears = new Set([...elYear.options].map(o => o.value));
 
-    let selectedSemester = localStorage.getItem('lerntime_semester') || initialSemester;
-    if (!validSemesters.has(selectedSemester)) selectedSemester = initialSemester;
-    elSemester.value = selectedSemester;
+    let selectedYear =
+        localStorage.getItem('lerntime_year')
+        || localStorage.getItem('lerntime_semester') // backward-compat
+        || initialYear;
 
-    function getSemesterRange(key) {
-        const m = String(key).match(/^(wise|sose)_(\d{4})$/);
-        if (!m) {
-            const y = DateTime.local().year;
-            return {
-                startDay: DateTime.local(y, 1, 1).startOf('day'),
-                endDay: DateTime.local(y, 12, 31).startOf('day'),
-                minMs: DateTime.local(y, 1, 1).startOf('day').toMillis(),
-                maxMs: DateTime.local(y, 12, 31).endOf('day').toMillis()
-            };
-        }
-        const typ = m[1];
-        const y = Number(m[2]);
+    selectedYear = String(selectedYear);
+    if (!validYears.has(selectedYear)) selectedYear = String(initialYear);
+    elYear.value = selectedYear;
+    localStorage.setItem('lerntime_year', selectedYear);
 
-        if (typ === 'wise') {
-            const startDay = DateTime.local(y, 10, 1).startOf('day');
-            const endDay   = DateTime.local(y + 1, 3, 31).startOf('day');
-            return {
-                startDay,
-                endDay,
-                minMs: startDay.toMillis(),
-                maxMs: DateTime.local(y + 1, 3, 31).endOf('day').toMillis()
-            };
-        }
+    function getYearRange(yearValue) {
+        const y = Number(yearValue);
+        const year = Number.isFinite(y) ? Math.trunc(y) : DateTime.local().year;
 
-        const startDay = DateTime.local(y, 4, 1).startOf('day');
-        const endDay   = DateTime.local(y, 9, 30).startOf('day');
+        const startDay = DateTime.local(year, 1, 1).startOf('day');
+        const endDay   = DateTime.local(year, 12, 31).startOf('day');
+
         return {
             startDay,
             endDay,
             minMs: startDay.toMillis(),
-            maxMs: DateTime.local(y, 9, 30).endOf('day').toMillis()
+            maxMs: endDay.endOf('day').toMillis()
         };
     }
-
 
     let dragAllowed = false;
     let draggingRow = null;
@@ -1360,18 +1310,25 @@ require_once __DIR__ . '/../navbar.php';
         let remaining = Math.max(0, total - doneBefore);
         const points = [];
 
+        let zeroed = (remaining <= 0);
+
         let cursor = startDay;
         while (cursor <= endDay) {
             const key = cursor.toISODate();
-            if (doneByDate[key]) remaining = Math.max(0, remaining - doneByDate[key]);
 
-            points.push({ x: cursor.toMillis(), y: secToHours(remaining) }); // 00:00
+            if (!zeroed) {
+                if (doneByDate[key]) remaining = Math.max(0, remaining - doneByDate[key]);
+                points.push({ x: cursor.toMillis(), y: secToHours(remaining) }); // 00:00
+                if (remaining <= 0) zeroed = true; // ab 0 -> keine Linie mehr (GAP)
+            } else {
+                points.push({ x: cursor.toMillis(), y: null }); // GAP => nicht auf der Abszisse weiterzeichnen
+            }
+
             cursor = cursor.plus({ days: 1 });
         }
 
         return points;
-        }
-
+    }
 
     function buildRemainingStepSeriesForSubject(fach, startDay, endDay) {
         const startMs = startDay.toMillis();
@@ -1399,10 +1356,7 @@ require_once __DIR__ . '/../navbar.php';
 
             const ms = dt.toMillis();
 
-            if (ms < startMs) {
-                doneBefore += dur;
-                continue;
-            }
+            if (ms < startMs) { doneBefore += dur; continue; }
             if (ms > endMs) continue;
 
             events.push({ ms, dur });
@@ -1423,30 +1377,69 @@ require_once __DIR__ . '/../navbar.php';
         }
 
         const points = [];
-        // Initialpunkt (damit Linie im Range beginnt)
+
+        // Initialpunkt
         points.push({ x: startMs, y: secToHours(remaining) });
 
-        // Bei jedem Event: Drop exakt zur Timestamp
-        for (const ev of merged) {
-            // Punkt "vor dem Drop" am Event-Zeitpunkt
-            points.push({ x: ev.ms, y: secToHours(remaining) });
-
-            // Drop berechnen
-            remaining = Math.max(0, remaining - ev.dur);
-
-            // Punkt "nach dem Drop" am GLEICHEN Zeitstempel -> senkrechte Linie genau dort
-            points.push({ x: ev.ms, y: secToHours(remaining) });
+        // Wenn schon 0: direkt "abschneiden" (keine Linie auf der Abszisse)
+        if (remaining <= 0) {
+            points.push({ x: endMs, y: null });
+            return points;
         }
 
-        // Endpunkt (damit Linie bis Range-Ende weiterläuft)
-        points.push({ x: endMs, y: secToHours(remaining) });
+        for (const ev of merged) {
+            // vor Drop
+            points.push({ x: ev.ms, y: secToHours(remaining) });
 
+            // Drop
+            remaining = Math.max(0, remaining - ev.dur);
+
+            // nach Drop (senkrecht)
+            points.push({ x: ev.ms, y: secToHours(remaining) });
+
+            // ab 0 -> Linie beenden
+            if (remaining <= 0) {
+                points.push({ x: endMs, y: null });
+                return points;
+            }
+        }
+
+        // bis Range-Ende weiterlaufen (nur wenn >0)
+        points.push({ x: endMs, y: secToHours(remaining) });
         return points;
     }
 
-
     function rebuildChart() {
-        const range = getSemesterRange(selectedSemester);
+        // Range (für Chart + "done" im gewählten Jahr)
+        const range = getYearRange(selectedYear);
+
+        // Top-Stats updaten
+        const elDoneHours = document.getElementById('ltDoneHours');
+        const elOpenHours = document.getElementById('ltOpenHours');
+
+        // OFFEN = erledigt_am NULL, jahres-egal
+        const openSec = TASKS.reduce((acc, t) => {
+            if (t && !t.erledigt_am) acc += Math.max(0, Number(t.dauer_sekunden ?? 0));
+            return acc;
+        }, 0);
+        if (elOpenHours) elOpenHours.textContent = String(Math.round(openSec / 3600));
+
+        // DONE = erledigt_am im aktuellen Jahr (Range)
+        const doneYearSec = TASKS.reduce((acc, t) => {
+            if (!t || !t.erledigt_am) return acc;
+
+            const dur = Math.max(0, Number(t.dauer_sekunden ?? 0));
+            if (!dur) return acc;
+
+            const dt = DateTime.fromSQL(String(t.erledigt_am), { zone: 'local' });
+            if (!dt.isValid) return acc;
+
+            const ms = dt.toMillis();
+            if (ms >= range.minMs && ms <= range.maxMs) acc += dur;
+
+            return acc;
+        }, 0);
+        if (elDoneHours) elDoneHours.textContent = String(Math.round(doneYearSec / 3600));
 
         const annotations = {};
 
@@ -1490,10 +1483,18 @@ require_once __DIR__ . '/../navbar.php';
             const color = subjectColor(fach);
             const hidden = isSubjectHidden(fach);
 
+            const stepData = buildRemainingStepSeriesForSubject(fach, range.startDay, range.endDay);
+
+            // komplett raus, wenn nie > 0 (sonst hängts nur auf der Abszisse / unsichtbar)
+            const hasPositive = Array.isArray(stepData) && stepData.some(p => p && p.y != null && Number(p.y) > 0);
+            if (!hasPositive) return [];
+
+            const dailyData = buildDailyRemainingSeriesForSubject(fach, range.startDay, range.endDay);
+
             return [
                 {
                     label: fach,
-                    data: buildRemainingStepSeriesForSubject(fach, range.startDay, range.endDay),
+                    data: stepData,
                     parsing: false,
                     borderColor: color,
                     backgroundColor: color,
@@ -1503,11 +1504,12 @@ require_once __DIR__ . '/../navbar.php';
                     hoverRadius: 0,
                     stepped: false,
                     tension: 0,
+                    spanGaps: false,
                     hidden
                 },
                 {
                     label: fach,
-                    data: buildDailyRemainingSeriesForSubject(fach, range.startDay, range.endDay),
+                    data: dailyData,
                     parsing: false,
                     showLine: false,
                     borderWidth: 0,
@@ -1517,6 +1519,7 @@ require_once __DIR__ . '/../navbar.php';
                     borderColor: color,
                     backgroundColor: color,
                     ltHover: true,
+                    spanGaps: false,
                     hidden
                 }
             ];
@@ -1534,62 +1537,50 @@ require_once __DIR__ . '/../navbar.php';
                 interaction: { mode: 'nearest', axis: 'x', intersect: false },
                 plugins: {
                     legend: {
-                      position: 'top',
-                      labels: {
-                        boxWidth: 14,
-                        boxHeight: 14,
-                        filter: (legendItem, data) => {
-                          const ds = data?.datasets?.[legendItem.datasetIndex];
-                          return !ds?.ltHover; // Hover-Serie aus Legend raus
+                        position: 'top',
+                        labels: {
+                            boxWidth: 14,
+                            boxHeight: 14,
+                            filter: (legendItem, data) => {
+                                const ds = data?.datasets?.[legendItem.datasetIndex];
+                                return !ds?.ltHover; // Hover-Serie aus Legend raus
+                            }
+                        },
+                        onClick: (e, legendItem, legend) => {
+                            const chart = legend.chart;
+
+                            const fach = String(legendItem.text ?? '');
+                            const idx0 = legendItem.datasetIndex;
+                            const nextVisible = !chart.isDatasetVisible(idx0);
+
+                            hiddenSubjects[fach] = !nextVisible;
+
+                            chart.data.datasets.forEach((ds, i) => {
+                                if (ds && ds.label === fach) chart.setDatasetVisibility(i, nextVisible);
+                            });
+
+                            chart.update();
                         }
-                      },
-                      onClick: (e, legendItem, legend) => {
-                        const chart = legend.chart;
-
-                        // fach aus Legend-Text (entspricht label)
-                        const fach = String(legendItem.text ?? '');
-
-                        // aktueller Sichtbarkeits-Status (Step-Dataset ist das Legend-Item)
-                        const idx0 = legendItem.datasetIndex;
-                        const nextVisible = !chart.isDatasetVisible(idx0);
-
-                        // State merken (damit rebuildChart() das beibehält)
-                        hiddenSubjects[fach] = !nextVisible;
-
-                        // Beide Datasets (Step + Hover) für dieses Fach synchron toggeln
-                        chart.data.datasets.forEach((ds, i) => {
-                          if (ds && ds.label === fach) chart.setDatasetVisibility(i, nextVisible);
-                        });
-
-                        chart.update();
-                      }
                     },
                     tooltip: {
-                    displayColors: true,
-                    boxWidth: 12,
-                    boxHeight: 12,
-                    callbacks: {
-                        label: (ctx) => {
-                        const v = Number(ctx.parsed.y ?? 0);
-                        const hours = Math.round(v * 10) / 10;
-                        return `${ctx.dataset.label}: ${hours} h`;
-                        },
-
-                        // Farbbox links im Tooltip passend zum Fach
-                        labelColor: (ctx) => {
-                        const ds = ctx.dataset || {};
-                        let c = ds.borderColor || ds.backgroundColor || '#999';
-                        if (Array.isArray(c)) c = c[0]; // falls mal Array-Farben drin sind
-                        return {
-                            borderColor: c,
-                            backgroundColor: c
-                        };
-                        },
-                    }
+                        displayColors: true,
+                        boxWidth: 12,
+                        boxHeight: 12,
+                        callbacks: {
+                            label: (ctx) => {
+                                const v = Number(ctx.parsed.y ?? 0);
+                                const hours = Math.round(v * 10) / 10;
+                                return `${ctx.dataset.label}: ${hours} h`;
+                            },
+                            labelColor: (ctx) => {
+                                const ds = ctx.dataset || {};
+                                let c = ds.borderColor || ds.backgroundColor || '#999';
+                                if (Array.isArray(c)) c = c[0];
+                                return { borderColor: c, backgroundColor: c };
+                            },
+                        }
                     },
-                    annotation: {
-                        annotations
-                    }
+                    annotation: { annotations }
                 },
                 scales: {
                     x: {
@@ -1637,13 +1628,13 @@ require_once __DIR__ . '/../navbar.php';
         }
     }
 
-    elSemester.addEventListener('change', () => {
-        selectedSemester = elSemester.value;
-        localStorage.setItem('lerntime_semester', selectedSemester);
+    elYear.addEventListener('change', () => {
+        selectedYear = String(elYear.value);
+        localStorage.setItem('lerntime_year', selectedYear);
 
-        // optional: URL-Param persistieren
         const u = new URL(location.href);
-        u.searchParams.set('semester', selectedSemester);
+        u.searchParams.set('jahr', selectedYear);
+        u.searchParams.delete('semester'); // cleanup alt
         history.replaceState(null, '', u.toString());
 
         rebuildChart();

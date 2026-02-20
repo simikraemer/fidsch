@@ -624,7 +624,7 @@ input[type="radio"] {
 
 .lt-subject-row {
     position: relative;
-    max-width: 900px;
+    max-width: 1200px;
     margin: 0 auto 16px;
     display: flex;
     align-items: center;
