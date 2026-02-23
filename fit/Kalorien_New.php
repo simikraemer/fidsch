@@ -225,7 +225,7 @@ require_once __DIR__ . '/../navbar.php';   // Navbar
 
     <form method="post" class="form-block" action="/fit/kalorien">
         <label for="beschreibung">Beschreibung:</label>
-        <input type="text" id="beschreibung" name="beschreibung" autocomplete="off">
+        <input type="text" id="beschreibung" name="beschreibung" autocomplete="off" autofocus>
 
         <ul id="vorschlaege" class="autocomplete-list"></ul>
 
@@ -303,6 +303,11 @@ require_once __DIR__ . '/../navbar.php';   // Navbar
     const khInput            = document.getElementById('kohlenhydrate');
     const alkoholInput       = document.getElementById('alkohol');
     const vorschlaegeList    = document.getElementById('vorschlaege');
+
+    if (beschreibungsInput) {
+        beschreibungsInput.focus({ preventScroll: true });
+        if (typeof beschreibungsInput.select === 'function') beschreibungsInput.select();
+    }
 
     // --- Autocomplete: Keyboard-Navigation (↑/↓/Enter/Esc) ---
     let acIndex = -1;
