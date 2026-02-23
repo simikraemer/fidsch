@@ -54,7 +54,7 @@ if ($checkconn->connect_error) {
 }
 
 
-// Verbindung zur login_audit-Datenbank (Login-Logging)
+// Verbindung zur login_audit-Datenbank
 if (!isset($config_data['loginphp'])) {
     die('loginphp-Konfiguration nicht gefunden.');
 }

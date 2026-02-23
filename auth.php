@@ -10,6 +10,7 @@ $credentials  = $config_all['webpw'] ?? [];
 $valid_user   = $credentials['username'] ?? '';
 $valid_pass   = $credentials['password'] ?? '';
 $allowed_ips  = $credentials['allowed_ips'] ?? [];
+$allowed_subnet = $credentials['allowed_subnet'] ?? [];
 $client_ip    = $_SERVER['REMOTE_ADDR'] ?? '';
 
 function ip_in_subnet(string $ip, string $subnet): bool
@@ -91,7 +92,7 @@ function log_login_event($loginconn, array $e): void
  */
 
 // IP-Whitelist: direkt durchlassen und Modus merken
-if (in_array($client_ip, $allowed_ips, true) || ip_in_subnet($client_ip, '10.2.10.0/24')) {
+if (in_array($client_ip, $allowed_ips, true) || ($allowed_subnet && ip_in_subnet($client_ip, $allowed_subnet)) {
     if (session_status() !== PHP_SESSION_ACTIVE) session_start();
 
     $_SESSION['is_authed'] = true;
@@ -100,7 +101,7 @@ if (in_array($client_ip, $allowed_ips, true) || ip_in_subnet($client_ip, '10.2.1
     // nur einmal pro Session loggen
     if (empty($_SESSION['login_logged'])) {
         log_login_event($loginconn, [
-            'username' => $valid_user ?: null, // optional: wenn du hier lieber null willst, setz auf null
+            'username' => $valid_user ?: null,
             'auth_mode' => 'ip',
             'success' => 1,
             'http_status' => 200,
