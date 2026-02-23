@@ -92,7 +92,7 @@ function log_login_event($loginconn, array $e): void
  */
 
 // IP-Whitelist: direkt durchlassen und Modus merken
-if (in_array($client_ip, $allowed_ips, true) || ($allowed_subnet && ip_in_subnet($client_ip, $allowed_subnet)) {
+if (in_array($client_ip, $allowed_ips, true) || ($allowed_subnet && ip_in_subnet($client_ip, $allowed_subnet))) {
     if (session_status() !== PHP_SESSION_ACTIVE) session_start();
 
     $_SESSION['is_authed'] = true;
