@@ -512,6 +512,8 @@ require_once __DIR__ . '/../navbar.php';
 
     const validSubjects = new Set(Object.keys(SUBJECTS));
 
+    const DRAG_ENABLED = window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+
     function subjectColor(fach) {
         return SUBJECTS?.[String(fach ?? '')]?.color || '#999';
     }
@@ -667,11 +669,21 @@ require_once __DIR__ . '/../navbar.php';
     }
 
     document.addEventListener('dragover', (e) => {
-    if (!draggingRow) return;
-    setDragPointer(e);
-    updateAutoScrollFromPointer();
-    e.preventDefault();
+        if (!DRAG_ENABLED) return;
+        if (!draggingRow) return;
+        setDragPointer(e);
+        updateAutoScrollFromPointer();
+        e.preventDefault();
     }, { capture: true, passive: false });
+
+    // Fail-safe: wenn Safari "hängen bleibt", hart resetten
+    window.addEventListener('pagehide', () => {
+        draggingRow = null;
+        draggingId = null;
+        dragStartIndex = null;
+        dragAllowed = false;
+        stopAutoScroll();
+    }, true);
 
     document.addEventListener('drop', () => stopAutoScroll(), true);
     document.addEventListener('dragend', () => stopAutoScroll(), true);
@@ -958,8 +970,6 @@ require_once __DIR__ . '/../navbar.php';
         row.classList.toggle('pending', isPending);
     }
 
-    /* FIX 2: JS – renderTable(): Anpassungen NUR in diesem Block (ersetzen/patchen) */
-
     function renderTable() {
         elTbody.innerHTML = '';
 
@@ -972,7 +982,7 @@ require_once __DIR__ . '/../navbar.php';
             const tr = document.createElement('tr');
             tr.className = 'lt-empty';
             const td = document.createElement('td');
-            td.colSpan = 3; // <-- war 2
+            td.colSpan = 3;
             td.textContent = 'Noch keine Einträge für dieses Fach.';
             tr.appendChild(td);
             elTbody.appendChild(tr);
@@ -983,32 +993,26 @@ require_once __DIR__ . '/../navbar.php';
             const tr = document.createElement('tr');
             tr.dataset.id = String(task.id);
             tr.className = 'lt-row' + (task.erledigt_am ? ' done' : '');
-            tr.draggable = true;
+            tr.draggable = !!DRAG_ENABLED; // <<< FIX
 
-            // Drag-Handle (erste Spalte)
             const tdDrag = document.createElement('td');
             tdDrag.className = 'lt-dragcell';
 
             const grip = document.createElement('div');
-            /* grip.className = 'lt-grip'; */
-            grip.innerHTML = '&#8942;&#8942;'; // ⋮⋮
+            grip.innerHTML = '&#8942;&#8942;';
             tdDrag.appendChild(grip);
 
-            // Ganze Zelle ist der "Handle"
-            tdDrag.addEventListener('pointerdown', () => { dragAllowed = true; });
+            // Drag-Handle nur wenn Drag enabled
+            tdDrag.addEventListener('pointerdown', () => { if (DRAG_ENABLED) dragAllowed = true; });
             const disableDragAllowed = () => { dragAllowed = false; };
             tdDrag.addEventListener('pointerup', disableDragAllowed);
             tdDrag.addEventListener('pointercancel', disableDragAllowed);
             tdDrag.addEventListener('pointerleave', disableDragAllowed);
 
-            // Klick auf Drag-Spalte soll NICHT Edit-Modal öffnen
             tdDrag.addEventListener('click', (e) => e.stopPropagation());
 
             tr.addEventListener('dragstart', (e) => {
-                if (!dragAllowed) {
-                    e.preventDefault();
-                    return;
-                }
+                if (!DRAG_ENABLED || !dragAllowed) { e.preventDefault(); return; }
                 dragAllowed = false;
 
                 draggingRow = tr;
@@ -1025,6 +1029,7 @@ require_once __DIR__ . '/../navbar.php';
             });
 
             tr.addEventListener('dragover', (e) => {
+                if (!DRAG_ENABLED) return;
                 if (!draggingRow || tr === draggingRow) return;
                 e.preventDefault();
 
@@ -1032,15 +1037,6 @@ require_once __DIR__ . '/../navbar.php';
                 updateAutoScrollFromPointer();
 
                 hoverReorder(tr, e.clientY);
-            });
-
-            tr.addEventListener('dragleave', () => {
-                tr.classList.remove('lt-drop-before', 'lt-drop-after');
-            });
-
-            tr.addEventListener('drop', (e) => {
-                e.preventDefault();
-                clearDropMarkers();
             });
 
             tr.addEventListener('dragend', async () => {
@@ -1056,12 +1052,12 @@ require_once __DIR__ . '/../navbar.php';
             });
 
             tr.addEventListener('click', (e) => {
-            if (e.target.closest('.lt-check')) return;
-            if (e.target.closest('.lt-dragcell')) return; // statt .lt-grip
-            openEditModal(task);
+                if (e.target.closest('.lt-check')) return;
+                if (e.target.closest('.lt-dragcell')) return;
+                openEditModal(task);
             });
 
-            // Inhalt (zweite Spalte)
+            // ... rest von renderTable unverändert ...
             const tdLeft = document.createElement('td');
             tdLeft.className = 'lt-left';
 
@@ -1106,7 +1102,6 @@ require_once __DIR__ . '/../navbar.php';
 
             tdLeft.appendChild(main);
 
-            // Checkbox (dritte Spalte)
             const tdRight = document.createElement('td');
             tdRight.className = 'lt-right';
             tdRight.appendChild(makeCheckbox(task));
@@ -1354,7 +1349,9 @@ require_once __DIR__ . '/../navbar.php';
             const dt = DateTime.fromSQL(String(t.erledigt_am), { zone: 'local' });
             if (!dt.isValid) continue;
 
-            const ms = dt.toMillis();
+            // >>> FIX: nach TAG gruppieren (max. 365 x-Werte/Jahr)
+            const ms = dt.startOf('day').toMillis();
+            // <<< FIX
 
             if (ms < startMs) { doneBefore += dur; continue; }
             if (ms > endMs) continue;
@@ -1368,7 +1365,7 @@ require_once __DIR__ . '/../navbar.php';
         // Events nach Zeit sortieren
         events.sort((a, b) => a.ms - b.ms);
 
-        // Falls mehrere Events exakt gleiche ms haben: zusammenfassen
+        // Falls mehrere Events exakt gleiche ms haben: zusammenfassen (jetzt = gleicher Tag)
         const merged = [];
         for (const ev of events) {
             const last = merged[merged.length - 1];
