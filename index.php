@@ -40,7 +40,8 @@ $routestool = [
     'ips'     => 'IPS.php',
     'unixtime'     => 'UNIXTIME.php',
     'log'     => 'LoginLogs.php',
-    'timer'   => 'TIMER.php'
+    'timer'   => 'TIMER.php',
+    'pdfmerge'   => 'PDFMERGE.php'
 ];
 
 // --- Routing-Logik ---

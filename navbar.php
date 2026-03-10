@@ -102,6 +102,7 @@ if (isset($_GET['login']) && $_GET['login'] === '1') {
                 <a href="/tools/log"><img src="/img/settings.png" alt="Tool" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"></a>
                 <ul class="submenu">                    
                     <li><a href="/tools/log"><img src="/img/log.png" alt="MAC" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Login-Logs</span></a></li>
+                    <li><a href="/tools/pdfmerge"><img src="/img/merge.png" alt="MERGER" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">PDF-Merger</span></a></li>
                     <li><a href="/tools/timer"><img src="/img/timer.png" alt="TIMER" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Timer</span></a></li>
                     <li><a href="/tools/mac"><img src="/img/mac.png" alt="MAC" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">MAC-Konverter</span></a></li>
                     <li><a href="/tools/path"><img src="/img/path.png" alt="Path" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Path-Konverter</span></a></li>
