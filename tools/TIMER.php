@@ -175,6 +175,48 @@ require_once __DIR__ . '/../navbar.php';
   const ICON_PLAY  = "▶";
   const ICON_PAUSE = "⏸";
 
+  let audioCtx = null;
+
+  function ensureAudio(){
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+
+    if (!audioCtx){
+      audioCtx = new Ctx();
+    }
+
+    if (audioCtx.state === "suspended"){
+      audioCtx.resume();
+    }
+
+    return audioCtx;
+  }
+
+  function playFinishedSound(){
+    const ctx = ensureAudio();
+    if (!ctx) return;
+
+    const start = ctx.currentTime + 0.02;
+
+    [0, 0.28, 0.56].forEach((offset) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = "sine";
+      osc.frequency.value = 880;
+
+      gain.gain.setValueAtTime(0.0001, start + offset);
+      gain.gain.exponentialRampToValueAtTime(0.18, start + offset + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + offset + 0.18);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(start + offset);
+      osc.stop(start + offset + 0.2);
+    });
+  }
+
   function clampInt(v, min, max){
     const n = Number.isFinite(v) ? Math.trunc(v) : 0;
     return Math.min(max, Math.max(min, n));
@@ -259,6 +301,7 @@ require_once __DIR__ . '/../navbar.php';
         running = false;
         stopTick();
         setInputsEnabled(true);
+        playFinishedSound();
         updateUI();
         return;
       }
@@ -325,6 +368,7 @@ require_once __DIR__ . '/../navbar.php';
 
   // Klicks
   mainBtn.addEventListener("click", () => {
+    ensureAudio();
     if (running) pause();
     else startOrResume();
   });
