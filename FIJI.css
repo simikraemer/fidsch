@@ -1263,3 +1263,344 @@ button.chart-back:focus-visible {
     border-top: 1px solid #ddd;
     margin: 4px 0 2px 0;
 }
+
+
+
+
+.kartei-shell {
+    max-width: 1460px;
+    margin: 24px auto 56px;
+    padding: 0 18px 28px;
+}
+
+.kartei-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px 24px;
+    flex-wrap: wrap;
+    background: #fff;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    padding: 14px 18px;
+    margin-bottom: 18px;
+}
+
+.kartei-statsline {
+    display: flex;
+    align-items: center;
+    gap: 10px 12px;
+    flex-wrap: wrap;
+}
+
+.kartei-stat {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: var(--border-radius);
+    background: var(--bg-light);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.kartei-stat-label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: rgba(34, 34, 34, 0.72);
+}
+
+.kartei-stat-value {
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+}
+
+.kartei-topmeta {
+    margin-left: auto;
+    font-size: 0.95rem;
+    color: rgba(34, 34, 34, 0.7);
+    white-space: nowrap;
+}
+
+.kartei-stage {
+    position: relative;
+}
+
+.kartei-panel {
+    background: #fff;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    min-height: calc(100vh - 250px);
+    padding: 22px 24px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.kartei-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.kartei-panel-meta {
+    font-size: 0.96rem;
+    font-weight: 600;
+    color: rgba(34, 34, 34, 0.7);
+    letter-spacing: 0.01em;
+}
+
+.kartei-question-wrap {
+    padding-top: 2px;
+}
+
+.kartei-question-body {
+    min-height: 120px;
+    font-size: clamp(1.85rem, 1.55rem + 0.55vw, 1.85rem);
+    font-weight: 700;
+    line-height: 1.42;
+    color: var(--text);
+    letter-spacing: -0.01em;
+}
+
+.kartei-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    align-content: start;
+}
+
+.kartei-option {
+    all: unset;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 120px;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 18px;
+    border-radius: 10px;
+    border: 2px solid rgba(0, 0, 0, 0.1);
+    background: #fff;
+    cursor: pointer;
+    transition:
+        border-color 0.15s ease,
+        background-color 0.15s ease,
+        transform 0.1s ease,
+        box-shadow 0.15s ease;
+}
+
+.kartei-option:hover {
+    border-color: var(--primary);
+    background: var(--bg-light);
+    transform: translateY(-1px);
+}
+
+.kartei-option:focus-visible {
+    outline: 3px solid rgba(255, 107, 0, 0.25);
+    outline-offset: 2px;
+}
+
+.kartei-option.is-selected {
+    border-color: var(--primary);
+    background: #fff2e6;
+    box-shadow: var(--shadow);
+}
+
+.kartei-option.is-locked {
+    cursor: default;
+}
+
+.kartei-option-letter {
+    flex: 0 0 46px;
+    width: 46px;
+    height: 46px;
+    border-radius: 999px;
+    background: var(--primary);
+    color: var(--text-light);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    font-weight: 800;
+    box-shadow: var(--shadow);
+}
+
+.kartei-option-content {
+    flex: 1 1 auto;
+    min-width: 0;
+    color: var(--text);
+    font-size: 1.13rem;
+    line-height: 1.5;
+    padding-top: 4px;
+}
+
+.kartei-bottombar {
+    margin-top: auto;
+    padding-top: 18px;
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.kartei-btn {
+    border: none;
+    border-radius: var(--border-radius);
+    padding: 11px 16px;
+    font-weight: 700;
+    font-family: var(--font);
+    cursor: pointer;
+    transition:
+        background-color 0.15s ease,
+        color 0.15s ease,
+        border-color 0.15s ease,
+        transform 0.1s ease;
+}
+
+.kartei-btn:hover {
+    transform: translateY(-1px);
+}
+
+.kartei-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.kartei-btn-primary {
+    background: var(--primary);
+    color: var(--text-light);
+    box-shadow: var(--shadow);
+}
+
+.kartei-btn-primary:hover {
+    background: var(--primary-dark);
+}
+
+.kartei-btn-subtle {
+    background: #fff;
+    color: var(--text);
+    border: 1px solid rgba(0, 0, 0, 0.14);
+    box-shadow: none;
+}
+
+.kartei-btn-subtle:hover {
+    background: var(--bg-light);
+    border-color: var(--primary);
+}
+
+.kartei-empty {
+    background: #fff;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    padding: 40px;
+    text-align: center;
+    font-size: 1.08rem;
+    color: rgba(34, 34, 34, 0.72);
+}
+
+.kartei-no-options {
+    padding: 22px 18px;
+    border-radius: var(--border-radius);
+    background: var(--bg-light);
+    border: 1px dashed rgba(0, 0, 0, 0.16);
+    color: rgba(34, 34, 34, 0.7);
+    font-weight: 600;
+}
+
+.kartei-feedback {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 118px;
+    height: 118px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 4rem;
+    font-weight: 900;
+    color: #fff;
+    box-shadow: var(--shadow);
+    z-index: 3000;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.kartei-feedback.is-correct {
+    background: #2e9b55;
+    opacity: 1;
+}
+
+.kartei-feedback.is-wrong {
+    background: #c0392b;
+    opacity: 1;
+}
+
+.kartei-question-body .mjx-container,
+.kartei-option-content .mjx-container {
+    margin: 0 !important;
+}
+
+.kartei-question-body .MathJax,
+.kartei-option-content .MathJax {
+    outline: none;
+}
+
+@media (max-width: 1180px) {
+    .kartei-options {
+        grid-template-columns: 1fr;
+    }
+
+    .kartei-panel {
+        min-height: auto;
+    }
+}
+
+@media (max-width: 760px) {
+    .kartei-shell {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+    .kartei-topbar {
+        padding: 12px;
+    }
+
+    .kartei-topmeta {
+        white-space: normal;
+        margin-left: 0;
+        width: 100%;
+    }
+
+    .kartei-panel {
+        padding: 16px;
+    }
+
+    .kartei-question-body {
+        font-size: 1.45rem;
+        min-height: 0;
+    }
+
+    .kartei-option {
+        min-height: 96px;
+        padding: 14px;
+    }
+
+    .kartei-option-letter {
+        width: 40px;
+        height: 40px;
+        flex-basis: 40px;
+    }
+
+    .kartei-option-content {
+        font-size: 1rem;
+    }
+}

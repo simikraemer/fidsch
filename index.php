@@ -23,6 +23,7 @@ $routesBiz = [
 $routesSci = [
     'start'    => 'Lerntime.php',
     'fragen'   => 'Fragen.php',
+    'kartei'   => 'Kartei.php',
     'data'     => 'Data.php',
     'insert'   => 'Insert.php',
     'lerntime' => 'Lerntime.php',
