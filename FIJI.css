@@ -459,7 +459,7 @@ input[type="radio"] {
 }
 
 .autocomplete-list {
-    margin-top: -341px;
+    margin-top: 0px;
 }
 
 .autocomplete-list-tr {
@@ -1257,4 +1257,9 @@ button.chart-back:focus-visible {
 .lt-delete-btn:disabled{
   opacity:.6;
   cursor:not-allowed;
+}
+
+.form-separator {
+    border-top: 1px solid #ddd;
+    margin: 4px 0 2px 0;
 }

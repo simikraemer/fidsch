@@ -91,7 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $eiweiss      = (float)($_POST['eiweiss'] ?? 0);
     $fett         = (float)($_POST['fett'] ?? 0);
     $kh           = (float)($_POST['kohlenhydrate'] ?? 0);
-    $alkohol      = (float)($_POST['alkohol'] ?? 0);
+    $alkohol      = 0.0; // kein Input-Feld mehr
     $anzahl       = max(1, (int)($_POST['anzahl'] ?? 1)); // Standard = 1
 
     $jetzt = new DateTime();
@@ -202,8 +202,7 @@ $result = $fitconn->query("
         COUNT(*) AS anzahl,
         MAX(`eiweiß`)        AS eiweiss,
         MAX(`fett`)          AS fett,
-        MAX(`kohlenhydrate`) AS kh,
-        MAX(`alkohol`)       AS alk
+        MAX(`kohlenhydrate`) AS kh
     FROM kalorien
     GROUP BY beschreibung, kalorien
     ORDER BY anzahl DESC
@@ -217,48 +216,54 @@ $selected = $_GET['date'] ?? $heute;
 
 // ---------------------- RENDERING START ----------------------
 $page_title = 'Kalorien eintragen';
-require_once __DIR__ . '/../head.php';     // <!DOCTYPE html> … <body>
-require_once __DIR__ . '/../navbar.php';   // Navbar
+require_once __DIR__ . '/../head.php';
+require_once __DIR__ . '/../navbar.php';
 ?>
 <div class="container">
     <h1 class="ueberschrift">Kalorienzufuhr eintragen</h1>
 
     <form method="post" class="form-block" action="/fit/kalorien">
-        <label for="beschreibung">Beschreibung:</label>
-        <input type="text" id="beschreibung" name="beschreibung" autocomplete="off" autofocus>
+        <div class="input-group" style="flex: 1 1 100%; position: relative;">
+            <label for="beschreibung">Beschreibung:</label>
+            <input type="text" id="beschreibung" name="beschreibung" autocomplete="off" autofocus>
+            <ul id="vorschlaege" class="autocomplete-list"></ul>
+        </div>
 
-        <ul id="vorschlaege" class="autocomplete-list"></ul>
+        <div class="input-row">
+            <div class="input-group">
+                <label for="anzahl">Anzahl:</label>
+                <input type="number" id="anzahl" name="anzahl" value="1" min="1" required>
+            </div>
+            <div class="input-group">
+                <label>&nbsp;</label>
+                <button type="button" id="btn-100g-modal" style="width: 100%;">Aus /100g berechnen</button>
+            </div>
+        </div>
+
+        <div class="form-separator"></div>
 
         <div class="input-row">
             <div class="input-group">
                 <label for="kalorien">Kalorien (kcal):</label>
                 <input type="number" id="kalorien" name="kalorien" required>
                 <div id="kcal-pruefsumme" style="margin-top:6px; font-size:0.9em; opacity:0.8;">
-                Prüfsumme: <span id="kcal-check">0</span> kcal
+                    Prüfsumme: <span id="kcal-check">0</span> kcal
                 </div>
-            </div>
-            <div class="input-group">
-                <label for="anzahl">Anzahl:</label>
-                <input type="number" id="anzahl" name="anzahl" value="1" min="1" required>
-            </div>
-        </div>
-
-        <div class="input-row">
-            <div class="input-group">
-                <label for="eiweiss">Eiweiß (g):</label>
-                <input type="number" id="eiweiss" name="eiweiss" step="0.01" min="0" value="0">
             </div>
             <div class="input-group">
                 <label for="fett">Fett (g):</label>
                 <input type="number" id="fett" name="fett" step="0.01" min="0" value="0">
             </div>
+        </div>
+
+        <div class="input-row">
             <div class="input-group">
                 <label for="kohlenhydrate">Kohlenhydrate (g):</label>
                 <input type="number" id="kohlenhydrate" name="kohlenhydrate" step="0.01" min="0" value="0">
             </div>
             <div class="input-group">
-                <label for="alkohol">Alkohol (g):</label>
-                <input type="number" id="alkohol" name="alkohol" step="0.01" min="0" value="0">
+                <label for="eiweiss">Eiweiß (g):</label>
+                <input type="number" id="eiweiss" name="eiweiss" step="0.01" min="0" value="0">
             </div>
         </div>
 
@@ -267,7 +272,6 @@ require_once __DIR__ . '/../navbar.php';   // Navbar
 </div>
 
 <div class="container" style="max-width: 800px; margin-top: 25px;">
-
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
         <div style="display:flex; justify-content:center; align-items:center; gap:12px;">
             <button type="button" id="tag-zurueck" style="padding:4px 8px;">&laquo;</button>
@@ -293,16 +297,73 @@ require_once __DIR__ . '/../navbar.php';   // Navbar
     </table>
 </div>
 
+<div id="nutrition-modal" class="modal hidden">
+    <div class="modal-content">
+        <span id="modal-close-x" class="close-button">&times;</span>
+
+        <h2 style="margin-top:0;">Werte aus /100g berechnen</h2>
+
+        <div class="input-row">
+            <div class="input-group">
+                <label for="modal-gesamtgramm">Gesamteinheit (g):</label>
+                <input type="number" id="modal-gesamtgramm" step="0.01" min="0" placeholder="z. B. 190">
+            </div>
+            <div class="input-group">
+                <label for="modal-kalorien-100">Kalorien /100g:</label>
+                <input type="number" id="modal-kalorien-100" step="0.01" min="0" placeholder="z. B. 250">
+            </div>
+        </div>
+
+        <div class="input-row">
+            <div class="input-group">
+                <label for="modal-fett-100">Fett /100g:</label>
+                <input type="number" id="modal-fett-100" step="0.01" min="0" value="0">
+            </div>
+            <div class="input-group">
+                <label for="modal-kh-100">Kohlenhydrate /100g:</label>
+                <input type="number" id="modal-kh-100" step="0.01" min="0" value="0">
+            </div>
+        </div>
+
+        <div class="input-row">
+            <div class="input-group">
+                <label for="modal-eiweiss-100">Eiweiß /100g:</label>
+                <input type="number" id="modal-eiweiss-100" step="0.01" min="0" value="0">
+            </div>
+            <div class="input-group">
+                <label>&nbsp;</label>
+                <div style="padding: 8px 0; opacity: 0.8;">Werte werden auf die gesamte Einheit hochgerechnet.</div>
+            </div>
+        </div>
+
+        <div class="modal-actions">
+            <button type="button" id="modal-cancel" class="btn-secondary">Abbrechen</button>
+            <button type="button" id="modal-apply">Okay</button>
+        </div>
+    </div>
+</div>
+
 <script>
     const daten = <?= json_encode(is_array($eintraege) ? $eintraege : [], JSON_UNESCAPED_UNICODE) ?>;
 
     const beschreibungsInput = document.getElementById('beschreibung');
     const kalorienInput      = document.getElementById('kalorien');
+    const anzahlInput        = document.getElementById('anzahl');
     const eiweissInput       = document.getElementById('eiweiss');
     const fettInput          = document.getElementById('fett');
     const khInput            = document.getElementById('kohlenhydrate');
-    const alkoholInput       = document.getElementById('alkohol');
     const vorschlaegeList    = document.getElementById('vorschlaege');
+
+    const nutritionModal   = document.getElementById('nutrition-modal');
+    const btn100gModal     = document.getElementById('btn-100g-modal');
+    const modalCloseX      = document.getElementById('modal-close-x');
+    const modalCancel      = document.getElementById('modal-cancel');
+    const modalApply       = document.getElementById('modal-apply');
+    const modalGesamtGramm = document.getElementById('modal-gesamtgramm');
+    const modalKalorien100 = document.getElementById('modal-kalorien-100');
+    const modalFett100     = document.getElementById('modal-fett-100');
+    const modalKh100       = document.getElementById('modal-kh-100');
+    const modalEiweiss100  = document.getElementById('modal-eiweiss-100');
 
     if (beschreibungsInput) {
         beschreibungsInput.focus({ preventScroll: true });
@@ -317,6 +378,11 @@ require_once __DIR__ . '/../navbar.php';   // Navbar
         return isNaN(n) ? 0 : n;
     }
 
+    function roundTo(value, digits = 2) {
+        const factor = Math.pow(10, digits);
+        return Math.round((value + Number.EPSILON) * factor) / factor;
+    }
+
     function getAcItems() {
         return Array.from(vorschlaegeList.querySelectorAll('li.autocomplete-item'));
     }
@@ -328,7 +394,10 @@ require_once __DIR__ . '/../navbar.php';   // Navbar
 
     function setActiveIndex(nextIndex) {
         const items = getAcItems();
-        if (!items.length) { acIndex = -1; return; }
+        if (!items.length) {
+            acIndex = -1;
+            return;
+        }
 
         acIndex = Math.max(-1, Math.min(nextIndex, items.length - 1));
 
@@ -349,18 +418,15 @@ require_once __DIR__ . '/../navbar.php';   // Navbar
 
         beschreibungsInput.value = li.dataset.beschreibung || '';
         kalorienInput.value      = li.dataset.kalorien || '';
-
-        eiweissInput.value  = numberOrZero(li.dataset.eiweiss).toString();
-        fettInput.value     = numberOrZero(li.dataset.fett).toString();
-        khInput.value       = numberOrZero(li.dataset.kh).toString();
-        alkoholInput.value  = numberOrZero(li.dataset.alk).toString();
+        eiweissInput.value       = numberOrZero(li.dataset.eiweiss).toString();
+        fettInput.value          = numberOrZero(li.dataset.fett).toString();
+        khInput.value            = numberOrZero(li.dataset.kh).toString();
 
         clearSuggestions();
         recomputeChecksum();
 
-        // optional: direkt ins nächste Feld
-        kalorienInput.focus();
-        if (typeof kalorienInput.select === 'function') kalorienInput.select();
+        anzahlInput.focus();
+        if (typeof anzahlInput.select === 'function') anzahlInput.select();
     }
 
     function renderSuggestions() {
@@ -380,12 +446,11 @@ require_once __DIR__ . '/../navbar.php';   // Navbar
             li.dataset.eiweiss      = e.eiweiss ?? 0;
             li.dataset.fett         = e.fett ?? 0;
             li.dataset.kh           = e.kh ?? 0;
-            li.dataset.alk          = e.alk ?? 0;
             li.classList.add('autocomplete-item');
             vorschlaegeList.appendChild(li);
         });
 
-        acIndex = -1; // keine Vorauswahl, erst mit Pfeiltasten
+        acIndex = -1;
     }
 
     if (beschreibungsInput) {
@@ -411,7 +476,7 @@ require_once __DIR__ . '/../navbar.php';   // Navbar
 
             if (ev.key === 'Enter') {
                 if (acIndex >= 0 && items[acIndex]) {
-                    ev.preventDefault(); // verhindert Form-Submit
+                    ev.preventDefault();
                     selectSuggestionFromLi(items[acIndex]);
                 }
                 return;
@@ -420,7 +485,6 @@ require_once __DIR__ . '/../navbar.php';   // Navbar
             if (ev.key === 'Escape') {
                 ev.preventDefault();
                 clearSuggestions();
-                return;
             }
         });
     }
@@ -431,7 +495,6 @@ require_once __DIR__ . '/../navbar.php';   // Navbar
             if (li) selectSuggestionFromLi(li);
         });
 
-        // optional: Hover = active
         vorschlaegeList.addEventListener('mousemove', (e) => {
             const li = e.target && e.target.closest('li.autocomplete-item');
             if (!li) return;
@@ -454,23 +517,99 @@ require_once __DIR__ . '/../navbar.php';   // Navbar
         const eiw  = numberOrZero(eiweissInput.value);
         const fett = numberOrZero(fettInput.value);
         const kh   = numberOrZero(khInput.value);
-        const alk  = numberOrZero(alkoholInput.value);
-        const kcal = (eiw * 4) + (kh * 4) + (fett * 9) + (alk * 7);
+        const kcal = (eiw * 4) + (kh * 4) + (fett * 9);
         if (kcalCheckSpan) kcalCheckSpan.textContent = String(Math.round(kcal));
     }
 
-    [eiweissInput, fettInput, khInput, alkoholInput].forEach(el =>
+    [eiweissInput, fettInput, khInput].forEach(el =>
         el && el.addEventListener('input', recomputeChecksum)
     );
 
     recomputeChecksum();
+
+    // --- /100g Modal ---
+    function openNutritionModal() {
+        nutritionModal.classList.remove('hidden');
+        if (modalGesamtGramm) modalGesamtGramm.focus();
+    }
+
+    function closeNutritionModal() {
+        nutritionModal.classList.add('hidden');
+        if (btn100gModal) btn100gModal.focus();
+    }
+
+    function apply100gValues() {
+        const gesamt = numberOrZero(modalGesamtGramm.value);
+        const kcal100 = numberOrZero(modalKalorien100.value);
+        const fett100 = numberOrZero(modalFett100.value);
+        const kh100 = numberOrZero(modalKh100.value);
+        const eiw100 = numberOrZero(modalEiweiss100.value);
+
+        if (gesamt <= 0 || kcal100 <= 0) {
+            alert('Bitte mindestens Gesamteinheit und Kalorien /100g sinnvoll ausfüllen.');
+            return;
+        }
+
+        const faktor = gesamt / 100;
+
+        kalorienInput.value = String(Math.round(kcal100 * faktor));
+        fettInput.value = String(roundTo(fett100 * faktor, 2));
+        khInput.value = String(roundTo(kh100 * faktor, 2));
+        eiweissInput.value = String(roundTo(eiw100 * faktor, 2));
+
+        recomputeChecksum();
+        closeNutritionModal();
+    }
+
+    if (btn100gModal) {
+        btn100gModal.addEventListener('click', openNutritionModal);
+    }
+
+    if (modalCloseX) {
+        modalCloseX.addEventListener('click', closeNutritionModal);
+    }
+
+    if (modalCancel) {
+        modalCancel.addEventListener('click', closeNutritionModal);
+    }
+
+    if (modalApply) {
+        modalApply.addEventListener('click', apply100gValues);
+    }
+
+    if (nutritionModal) {
+        nutritionModal.addEventListener('click', (e) => {
+            if (e.target === nutritionModal) {
+                closeNutritionModal();
+            }
+        });
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (!nutritionModal || nutritionModal.classList.contains('hidden')) return;
+
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            closeNutritionModal();
+            return;
+        }
+
+        if (e.key === 'Enter') {
+            const target = e.target;
+            const tag = target && target.tagName ? target.tagName.toLowerCase() : '';
+            if (tag === 'input') {
+                e.preventDefault();
+                apply100gValues();
+            }
+        }
+    });
 
     // -------------------- Tagesansicht mit Navigation via AJAX --------------------
     const tageTbody        = document.getElementById('tage-tbody');
     const btnTagZurueck    = document.getElementById('tag-zurueck');
     const btnTagVor        = document.getElementById('tag-vor');
     const btnTagHeute      = document.getElementById('tag-heute');
-    const tageUeberschrift = document.getElementById('tage-ueberschrift'); // optional (aktuell auskommentiert)
+    const tageUeberschrift = document.getElementById('tage-ueberschrift');
     const dateInput        = document.getElementById('tag-date');
 
     const heuteStr   = '<?= $heute ?>';
@@ -490,7 +629,7 @@ require_once __DIR__ . '/../navbar.php';   // Navbar
     }
 
     function formatDatum(d) {
-        const parts = String(d).split('-'); // YYYY-MM-DD
+        const parts = String(d).split('-');
         if (parts.length !== 3) return String(d);
         return parts[2] + '.' + parts[1] + '.' + parts[0];
     }
@@ -597,7 +736,6 @@ require_once __DIR__ . '/../navbar.php';   // Navbar
         }
     }
 
-    // Datumfeld: direkt springen
     if (dateInput) {
         dateInput.value = aktuellesDatum;
         dateInput.addEventListener('change', () => {
@@ -606,7 +744,6 @@ require_once __DIR__ . '/../navbar.php';   // Navbar
         });
     }
 
-    // Buttons für vorher/nachher/heute
     if (btnTagZurueck) {
         btnTagZurueck.addEventListener('click', () => {
             if (prevDate) loadDay(prevDate);
@@ -625,7 +762,6 @@ require_once __DIR__ . '/../navbar.php';   // Navbar
         });
     }
 
-    // Initial laden
     loadDay(aktuellesDatum);
 </script>
 
