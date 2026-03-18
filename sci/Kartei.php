@@ -9,6 +9,8 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
 
+const KARTEI_EMPTY_TOPIC = '__KARTEI_EMPTY_TOPIC__';
+
 function karteiJsonResponse(array $payload, int $status = 200): void
 {
     http_response_code($status);
@@ -95,8 +97,112 @@ function karteiNormalizeMathMarkup(string $text): string
     return $text;
 }
 
-function karteiLoadActiveQuestions(mysqli $conn): array
+function karteiNormalizeTopicValue(?string $topic): string
 {
+    $topic = trim((string)$topic);
+    return $topic === '' ? KARTEI_EMPTY_TOPIC : $topic;
+}
+
+function karteiTopicLabel(string $topicValue): string
+{
+    return $topicValue === KARTEI_EMPTY_TOPIC ? 'Ohne Topic' : $topicValue;
+}
+
+function karteiResolveSelectedTopic(array $availableTopics, ?string $requestedTopic): string
+{
+    $requestedTopic = trim((string)$requestedTopic);
+
+    if ($requestedTopic !== '' && in_array($requestedTopic, $availableTopics, true)) {
+        return $requestedTopic;
+    }
+
+    return $availableTopics[0] ?? '';
+}
+
+function karteiEmptyStats(): array
+{
+    return [
+        'total_answers'           => 0,
+        'correct_answers'         => 0,
+        'wrong_answers'           => 0,
+        'answered_question_count' => 0,
+        'accuracy_pct'            => 0.0,
+    ];
+}
+
+function karteiEmptyQuestionStats(): array
+{
+    return [
+        'attempts'        => 0,
+        'correct_answers' => 0,
+        'wrong_answers'   => 0,
+        'accuracy_pct'    => 0.0,
+    ];
+}
+
+function karteiLoadAvailableTopics(mysqli $conn): array
+{
+    $sql = "
+        SELECT DISTINCT topic
+        FROM kartei_fragen
+        ORDER BY topic ASC
+    ";
+
+    $res = $conn->query($sql);
+    if (!$res) {
+        throw new RuntimeException('Topics konnten nicht geladen werden: ' . $conn->error);
+    }
+
+    $topics = [];
+
+    while ($row = $res->fetch_assoc()) {
+        $value = karteiNormalizeTopicValue($row['topic'] ?? '');
+        if (!in_array($value, $topics, true)) {
+            $topics[] = $value;
+        }
+    }
+
+    $res->free();
+    return $topics;
+}
+
+function karteiLoadActiveQuestions(mysqli $conn, string $selectedTopic): array
+{
+    if ($selectedTopic === '') {
+        return [];
+    }
+
+    if ($selectedTopic === KARTEI_EMPTY_TOPIC) {
+        $sql = "
+            SELECT
+                id,
+                question_type,
+                question_html,
+                options_json,
+                correct_answers_json,
+                topic,
+                source_label,
+                sort_order
+            FROM kartei_fragen
+            WHERE is_active = 1
+              AND (topic IS NULL OR TRIM(topic) = '')
+            ORDER BY sort_order ASC, id ASC
+        ";
+
+        $res = $conn->query($sql);
+        if (!$res) {
+            throw new RuntimeException('Fragen konnten nicht geladen werden: ' . $conn->error);
+        }
+
+        $questions = [];
+        while ($row = $res->fetch_assoc()) {
+            $questions[] = $row;
+        }
+        $res->free();
+
+        return $questions;
+    }
+
     $sql = "
         SELECT
             id,
@@ -109,31 +215,44 @@ function karteiLoadActiveQuestions(mysqli $conn): array
             sort_order
         FROM kartei_fragen
         WHERE is_active = 1
+          AND TRIM(COALESCE(topic, '')) = ?
         ORDER BY sort_order ASC, id ASC
     ";
 
-    $res = $conn->query($sql);
-    if (!$res) {
-        throw new RuntimeException('Fragen konnten nicht geladen werden: ' . $conn->error);
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) {
+        throw new RuntimeException('Fragen konnten nicht vorbereitet werden: ' . $conn->error);
     }
+
+    $stmt->bind_param('s', $selectedTopic);
+    $stmt->execute();
+    $res = $stmt->get_result();
 
     $questions = [];
     while ($row = $res->fetch_assoc()) {
         $questions[] = $row;
     }
-    $res->free();
 
+    $stmt->close();
     return $questions;
 }
 
-function karteiLoadHistoryByQuestion(mysqli $conn): array
+function karteiLoadHistoryByQuestion(mysqli $conn, array $questionIds): array
 {
+    if (empty($questionIds)) {
+        return [];
+    }
+
+    $questionIds = array_values(array_unique(array_map('intval', $questionIds)));
+    $idList = implode(',', $questionIds);
+
     $sql = "
         SELECT
             question_id,
             is_correct,
             answered_at
         FROM kartei_antworten
+        WHERE question_id IN ($idList)
         ORDER BY question_id ASC, answered_at DESC, id DESC
     ";
 
@@ -156,24 +275,56 @@ function karteiLoadHistoryByQuestion(mysqli $conn): array
     return $history;
 }
 
-function karteiAggregateStats(mysqli $conn): array
+function karteiAggregateStats(mysqli $conn, string $selectedTopic): array
 {
-    $sql = "
-        SELECT
-            COUNT(*) AS total_answers,
-            SUM(CASE WHEN is_correct = 1 THEN 1 ELSE 0 END) AS correct_answers,
-            SUM(CASE WHEN is_correct = 0 THEN 1 ELSE 0 END) AS wrong_answers,
-            COUNT(DISTINCT question_id) AS answered_question_count
-        FROM kartei_antworten
-    ";
-
-    $res = $conn->query($sql);
-    if (!$res) {
-        throw new RuntimeException('Statistik konnte nicht geladen werden: ' . $conn->error);
+    if ($selectedTopic === '') {
+        return karteiEmptyStats();
     }
 
-    $row = $res->fetch_assoc() ?: [];
-    $res->free();
+    if ($selectedTopic === KARTEI_EMPTY_TOPIC) {
+        $sql = "
+            SELECT
+                COUNT(*) AS total_answers,
+                SUM(CASE WHEN a.is_correct = 1 THEN 1 ELSE 0 END) AS correct_answers,
+                SUM(CASE WHEN a.is_correct = 0 THEN 1 ELSE 0 END) AS wrong_answers,
+                COUNT(DISTINCT a.question_id) AS answered_question_count
+            FROM kartei_antworten a
+            INNER JOIN kartei_fragen q
+                ON q.id = a.question_id
+            WHERE q.topic IS NULL OR TRIM(q.topic) = ''
+        ";
+
+        $res = $conn->query($sql);
+        if (!$res) {
+            throw new RuntimeException('Statistik konnte nicht geladen werden: ' . $conn->error);
+        }
+
+        $row = $res->fetch_assoc() ?: [];
+        $res->free();
+    } else {
+        $sql = "
+            SELECT
+                COUNT(*) AS total_answers,
+                SUM(CASE WHEN a.is_correct = 1 THEN 1 ELSE 0 END) AS correct_answers,
+                SUM(CASE WHEN a.is_correct = 0 THEN 1 ELSE 0 END) AS wrong_answers,
+                COUNT(DISTINCT a.question_id) AS answered_question_count
+            FROM kartei_antworten a
+            INNER JOIN kartei_fragen q
+                ON q.id = a.question_id
+            WHERE TRIM(COALESCE(q.topic, '')) = ?
+        ";
+
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            throw new RuntimeException('Statistik konnte nicht vorbereitet werden: ' . $conn->error);
+        }
+
+        $stmt->bind_param('s', $selectedTopic);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $row = $res->fetch_assoc() ?: [];
+        $stmt->close();
+    }
 
     $totalAnswers = (int)($row['total_answers'] ?? 0);
     $correctAnswers = (int)($row['correct_answers'] ?? 0);
@@ -185,6 +336,27 @@ function karteiAggregateStats(mysqli $conn): array
         'wrong_answers'           => $wrongAnswers,
         'answered_question_count' => (int)($row['answered_question_count'] ?? 0),
         'accuracy_pct'            => $totalAnswers > 0 ? round(($correctAnswers / $totalAnswers) * 100, 1) : 0.0,
+    ];
+}
+
+function karteiBuildQuestionStats(array $historyRows): array
+{
+    $attempts = count($historyRows);
+    $correctAnswers = 0;
+
+    foreach ($historyRows as $row) {
+        if ((int)$row['is_correct'] === 1) {
+            $correctAnswers++;
+        }
+    }
+
+    $wrongAnswers = $attempts - $correctAnswers;
+
+    return [
+        'attempts'        => $attempts,
+        'correct_answers' => $correctAnswers,
+        'wrong_answers'   => $wrongAnswers,
+        'accuracy_pct'    => $attempts > 0 ? round(($correctAnswers / $attempts) * 100, 1) : 0.0,
     ];
 }
 
@@ -289,7 +461,7 @@ function karteiBuildClientOptions(array $question): array
 
     shuffle($options);
 
-    $displayLetters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+    $displayLetters = range('A', 'Z');
     foreach ($options as $idx => &$option) {
         $option['display_key'] = $displayLetters[$idx] ?? ('O' . ($idx + 1));
     }
@@ -298,23 +470,25 @@ function karteiBuildClientOptions(array $question): array
     return $options;
 }
 
-function karteiFormatQuestionForClient(array $question): array
+function karteiFormatQuestionForClient(array $question, array $questionStats): array
 {
     return [
-        'id'            => (int)$question['id'],
-        'question_type' => (string)$question['question_type'],
-        'question_html' => karteiNormalizeMathMarkup((string)$question['question_html']),
-        'topic'         => $question['topic'] !== null ? (string)$question['topic'] : '',
-        'source_label'  => $question['source_label'] !== null ? (string)$question['source_label'] : '',
-        'options'       => karteiBuildClientOptions($question),
+        'id'             => (int)$question['id'],
+        'question_type'  => (string)$question['question_type'],
+        'question_html'  => karteiNormalizeMathMarkup((string)$question['question_html']),
+        'topic'          => $question['topic'] !== null ? trim((string)$question['topic']) : '',
+        'source_label'   => $question['source_label'] !== null ? (string)$question['source_label'] : '',
+        'question_stats' => $questionStats,
+        'options'        => karteiBuildClientOptions($question),
     ];
 }
 
-function karteiBuildDeckSnapshot(mysqli $conn): array
+function karteiBuildDeckSnapshot(mysqli $conn, string $selectedTopic): array
 {
-    $questions = karteiLoadActiveQuestions($conn);
-    $historyByQuestion = karteiLoadHistoryByQuestion($conn);
-    $stats = karteiAggregateStats($conn);
+    $questions = karteiLoadActiveQuestions($conn, $selectedTopic);
+    $questionIds = array_map(static fn(array $question): int => (int)$question['id'], $questions);
+    $historyByQuestion = karteiLoadHistoryByQuestion($conn, $questionIds);
+    $stats = karteiAggregateStats($conn, $selectedTopic);
 
     $nowTs = time();
     $ranked = [];
@@ -325,6 +499,7 @@ function karteiBuildDeckSnapshot(mysqli $conn): array
         $qid = (int)$question['id'];
         $historyRows = $historyByQuestion[$qid] ?? [];
         $meta = karteiComputeQuestionMeta($historyRows, $nowTs);
+        $questionStats = karteiBuildQuestionStats($historyRows);
 
         if ($meta['never_answered']) {
             $newCount++;
@@ -334,8 +509,9 @@ function karteiBuildDeckSnapshot(mysqli $conn): array
         }
 
         $ranked[] = [
-            'question' => $question,
-            'meta'     => $meta,
+            'question'       => $question,
+            'meta'           => $meta,
+            'question_stats' => $questionStats,
         ];
     }
 
@@ -362,19 +538,24 @@ function karteiBuildDeckSnapshot(mysqli $conn): array
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['ajax'] ?? '') === '1') {
     try {
         $action = (string)($_POST['action'] ?? '');
+        $availableTopics = karteiLoadAvailableTopics($sciconn);
+        $selectedTopic = karteiResolveSelectedTopic($availableTopics, $_POST['topic'] ?? null);
 
         if ($action === 'next') {
-            $snapshot = karteiBuildDeckSnapshot($sciconn);
+            $snapshot = karteiBuildDeckSnapshot($sciconn, $selectedTopic);
 
-            $chosenQuestion = null;
+            $chosenEntry = null;
             if (!empty($snapshot['ranked'])) {
-                $chosenQuestion = $snapshot['ranked'][0]['question'];
+                $chosenEntry = $snapshot['ranked'][0];
             }
 
             karteiJsonResponse([
-                'ok'       => true,
-                'question' => $chosenQuestion ? karteiFormatQuestionForClient($chosenQuestion) : null,
-                'stats'    => $snapshot['stats'],
+                'ok'             => true,
+                'selected_topic' => $selectedTopic,
+                'question'       => $chosenEntry
+                    ? karteiFormatQuestionForClient($chosenEntry['question'], $chosenEntry['question_stats'])
+                    : null,
+                'stats'          => $snapshot['stats'],
             ]);
         }
 
@@ -390,22 +571,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['ajax'] ?? '') === '1') {
                 ], 400);
             }
 
-            $selectedValues = karteiNormalizeSelection(karteiDecodeJsonArray($selectedValuesJson));
-
-            $stmt = $sciconn->prepare("
-                SELECT
-                    id,
-                    correct_answers_json
-                FROM kartei_fragen
-                WHERE id = ? AND is_active = 1
-                LIMIT 1
-            ");
-
-            if (!$stmt) {
-                throw new RuntimeException('Frage konnte nicht vorbereitet werden: ' . $sciconn->error);
+            if ($selectedTopic === '') {
+                karteiJsonResponse([
+                    'ok'      => false,
+                    'message' => 'Kein Topic ausgewählt.',
+                ], 400);
             }
 
-            $stmt->bind_param('i', $questionId);
+            $selectedValues = karteiNormalizeSelection(karteiDecodeJsonArray($selectedValuesJson));
+
+            if ($selectedTopic === KARTEI_EMPTY_TOPIC) {
+                $stmt = $sciconn->prepare("
+                    SELECT
+                        id,
+                        correct_answers_json
+                    FROM kartei_fragen
+                    WHERE id = ?
+                      AND is_active = 1
+                      AND (topic IS NULL OR TRIM(topic) = '')
+                    LIMIT 1
+                ");
+
+                if (!$stmt) {
+                    throw new RuntimeException('Frage konnte nicht vorbereitet werden: ' . $sciconn->error);
+                }
+
+                $stmt->bind_param('i', $questionId);
+            } else {
+                $stmt = $sciconn->prepare("
+                    SELECT
+                        id,
+                        correct_answers_json
+                    FROM kartei_fragen
+                    WHERE id = ?
+                      AND is_active = 1
+                      AND TRIM(COALESCE(topic, '')) = ?
+                    LIMIT 1
+                ");
+
+                if (!$stmt) {
+                    throw new RuntimeException('Frage konnte nicht vorbereitet werden: ' . $sciconn->error);
+                }
+
+                $stmt->bind_param('is', $questionId, $selectedTopic);
+            }
+
             $stmt->execute();
             $res = $stmt->get_result();
             $questionRow = $res->fetch_assoc();
@@ -449,12 +659,89 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['ajax'] ?? '') === '1') {
             $insert->execute();
             $insert->close();
 
-            $snapshot = karteiBuildDeckSnapshot($sciconn);
+            $snapshot = karteiBuildDeckSnapshot($sciconn, $selectedTopic);
 
             karteiJsonResponse([
-                'ok'         => true,
-                'is_correct' => (bool)$isCorrect,
-                'stats'      => $snapshot['stats'],
+                'ok'             => true,
+                'selected_topic' => $selectedTopic,
+                'is_correct'     => (bool)$isCorrect,
+                'correct_values' => $correctValues,
+                'stats'          => $snapshot['stats'],
+            ]);
+        }
+
+        if ($action === 'delete') {
+            $questionId = (int)($_POST['question_id'] ?? 0);
+
+            if ($questionId <= 0) {
+                karteiJsonResponse([
+                    'ok'      => false,
+                    'message' => 'Ungültige Frage.',
+                ], 400);
+            }
+
+            if ($selectedTopic === '') {
+                karteiJsonResponse([
+                    'ok'      => false,
+                    'message' => 'Kein Topic ausgewählt.',
+                ], 400);
+            }
+
+            if ($selectedTopic === KARTEI_EMPTY_TOPIC) {
+                $stmt = $sciconn->prepare("
+                    UPDATE kartei_fragen
+                    SET is_active = 0
+                    WHERE id = ?
+                      AND is_active = 1
+                      AND (topic IS NULL OR TRIM(topic) = '')
+                ");
+
+                if (!$stmt) {
+                    throw new RuntimeException('Löschen konnte nicht vorbereitet werden: ' . $sciconn->error);
+                }
+
+                $stmt->bind_param('i', $questionId);
+            } else {
+                $stmt = $sciconn->prepare("
+                    UPDATE kartei_fragen
+                    SET is_active = 0
+                    WHERE id = ?
+                      AND is_active = 1
+                      AND TRIM(COALESCE(topic, '')) = ?
+                ");
+
+                if (!$stmt) {
+                    throw new RuntimeException('Löschen konnte nicht vorbereitet werden: ' . $sciconn->error);
+                }
+
+                $stmt->bind_param('is', $questionId, $selectedTopic);
+            }
+
+            $stmt->execute();
+            $affected = $stmt->affected_rows;
+            $stmt->close();
+
+            if ($affected < 1) {
+                karteiJsonResponse([
+                    'ok'      => false,
+                    'message' => 'Frage nicht gefunden.',
+                ], 404);
+            }
+
+            $snapshot = karteiBuildDeckSnapshot($sciconn, $selectedTopic);
+
+            $chosenEntry = null;
+            if (!empty($snapshot['ranked'])) {
+                $chosenEntry = $snapshot['ranked'][0];
+            }
+
+            karteiJsonResponse([
+                'ok'             => true,
+                'selected_topic' => $selectedTopic,
+                'question'       => $chosenEntry
+                    ? karteiFormatQuestionForClient($chosenEntry['question'], $chosenEntry['question_stats'])
+                    : null,
+                'stats'          => $snapshot['stats'],
             ]);
         }
 
@@ -470,6 +757,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['ajax'] ?? '') === '1') {
     }
 }
 
+$availableTopics = karteiLoadAvailableTopics($sciconn);
+$initialTopic = $availableTopics[0] ?? '';
+
 $page_title = 'Karteikarten';
 require_once __DIR__ . '/../head.php';
 require_once __DIR__ . '/../navbar.php';
@@ -477,15 +767,52 @@ require_once __DIR__ . '/../navbar.php';
 
 <div class="content-wrap kartei-shell">
     <div class="kartei-topbar">
-        <div class="kartei-statsline" id="karteiStats"></div>
+        <div class="kartei-header-row">
+            <div class="kartei-header-topic">
+                <select id="topicSelect" class="kategorie-select" <?= empty($availableTopics) ? 'disabled' : '' ?>>
+                    <?php if (empty($availableTopics)): ?>
+                        <option value="">Keine Topics</option>
+                    <?php else: ?>
+                        <?php foreach ($availableTopics as $topicValue): ?>
+                            <option
+                                value="<?= htmlspecialchars($topicValue, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>"
+                                <?= $topicValue === $initialTopic ? 'selected' : '' ?>
+                            >
+                                <?= htmlspecialchars(karteiTopicLabel($topicValue), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>
+                            </option>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </select>
+            </div>
+
+            <div class="kartei-header-divider" aria-hidden="true"></div>
+
+            <div class="kartei-header-stats">
+                <div class="kartei-statsline" id="karteiStats"></div>
+            </div>
+        </div>
     </div>
 
     <div class="kartei-stage">
         <div class="kartei-feedback hidden" id="karteiFeedback" aria-live="polite"></div>
 
         <div class="kartei-panel" id="karteiPanel">
-            <div class="kartei-panel-head">
-                <div class="kartei-panel-meta" id="questionMeta">Lade Frage …</div>
+            <div class="kartei-panel-head kartei-header-row kartei-header-row-with-action">
+                <div class="kartei-header-main">
+                    <div class="kartei-header-topic">
+                        <div class="kartei-panel-meta" id="questionMeta">Lade Frage …</div>
+                    </div>
+
+                    <div class="kartei-header-divider" aria-hidden="true"></div>
+
+                    <div class="kartei-header-stats">
+                        <div class="kartei-statsline kartei-statsline-compact" id="questionStats"></div>
+                    </div>
+                </div>
+
+                <div class="kartei-header-actions">
+                    <button type="button" class="kartei-btn-danger" id="deleteBtn">Löschen</button>
+                </div>
             </div>
 
             <div class="kartei-question-wrap">
@@ -500,7 +827,7 @@ require_once __DIR__ . '/../navbar.php';
         </div>
 
         <div class="kartei-empty hidden" id="emptyState">
-            Keine aktiven Fragen vorhanden.
+            Keine aktiven Fragen für dieses Topic vorhanden.
         </div>
     </div>
 
@@ -523,24 +850,30 @@ window.MathJax = {
 <script>
 (() => {
     const API_URL = window.location.pathname;
-    const ALLOWED_OPTION_COUNTS = new Set([4, 6, 8]);
+    const AUTO_NEXT_DELAY_MS = 2000;
 
     const els = {
+        topicSelect: document.getElementById('topicSelect'),
         stats: document.getElementById('karteiStats'),
         panel: document.getElementById('karteiPanel'),
         feedback: document.getElementById('karteiFeedback'),
         questionMeta: document.getElementById('questionMeta'),
+        questionStats: document.getElementById('questionStats'),
         questionBody: document.getElementById('questionBody'),
         answerGrid: document.getElementById('answerGrid'),
         submitBtn: document.getElementById('submitBtn'),
+        deleteBtn: document.getElementById('deleteBtn'),
         emptyState: document.getElementById('emptyState'),
         globalStatus: document.getElementById('globalStatus')
     };
 
     const state = {
+        topic: els.topicSelect ? String(els.topicSelect.value || '') : '',
         question: null,
         selected: new Set(),
+        correctValues: new Set(),
         locked: false,
+        reviewMode: false,
         startedAt: 0
     };
 
@@ -616,6 +949,15 @@ window.MathJax = {
         }
     }
 
+    function syncSelectedTopic(selectedTopic) {
+        const normalized = String(selectedTopic || '');
+        state.topic = normalized;
+
+        if (els.topicSelect && els.topicSelect.value !== normalized) {
+            els.topicSelect.value = normalized;
+        }
+    }
+
     function renderStats(stats) {
         if (!stats) {
             els.stats.innerHTML = '';
@@ -632,16 +974,76 @@ window.MathJax = {
         `;
     }
 
-    function updateSubmitButton() {
-        if (!state.question) {
+    function renderQuestionStats(stats) {
+        const questionStats = stats || {
+            attempts: 0,
+            correct_answers: 0,
+            wrong_answers: 0,
+            accuracy_pct: 0
+        };
+
+        els.questionStats.innerHTML = `
+            <div class="kartei-stat"><span class="kartei-stat-label">Versuche</span><span class="kartei-stat-value">${questionStats.attempts}</span></div>
+            <div class="kartei-stat"><span class="kartei-stat-label">Richtig</span><span class="kartei-stat-value">${questionStats.correct_answers}</span></div>
+            <div class="kartei-stat"><span class="kartei-stat-label">Falsch</span><span class="kartei-stat-value">${questionStats.wrong_answers}</span></div>
+            <div class="kartei-stat"><span class="kartei-stat-label">Quote</span><span class="kartei-stat-value">${formatPercent(questionStats.accuracy_pct)}</span></div>
+        `;
+    }
+
+    function updateActionButtons() {
+        const hasQuestion = Boolean(state.question);
+
+        if (!hasQuestion) {
+            els.submitBtn.textContent = 'Antwort absenden';
             els.submitBtn.classList.add('hidden');
             els.submitBtn.disabled = true;
+            els.deleteBtn.disabled = true;
+            return;
+        }
+
+        if (state.reviewMode) {
+            els.submitBtn.textContent = 'Weiter';
+            els.submitBtn.classList.remove('hidden');
+            els.submitBtn.disabled = false;
+            els.deleteBtn.disabled = true;
             return;
         }
 
         const isMultiple = state.question.question_type === 'multiple';
+        els.submitBtn.textContent = 'Antwort absenden';
         els.submitBtn.classList.toggle('hidden', !isMultiple);
         els.submitBtn.disabled = !isMultiple || state.locked || state.selected.size === 0;
+        els.deleteBtn.disabled = state.locked;
+    }
+
+    function applyReviewClasses(button) {
+        const submitValue = button.dataset.submitValue || '';
+        const isSelected = state.selected.has(submitValue);
+        const isCorrect = state.correctValues.has(submitValue);
+
+        button.classList.remove(
+            'is-answer-correct',
+            'is-answer-correct-selected',
+            'is-answer-wrong-selected'
+        );
+
+        if (!state.reviewMode) {
+            return;
+        }
+
+        if (isCorrect && isSelected) {
+            button.classList.add('is-answer-correct-selected');
+            return;
+        }
+
+        if (isCorrect) {
+            button.classList.add('is-answer-correct');
+            return;
+        }
+
+        if (isSelected) {
+            button.classList.add('is-answer-wrong-selected');
+        }
     }
 
     function updateSelectionUI() {
@@ -651,13 +1053,14 @@ window.MathJax = {
             const submitValue = button.dataset.submitValue || '';
             const isSelected = state.selected.has(submitValue);
 
-            button.classList.toggle('is-selected', isSelected);
+            button.classList.toggle('is-selected', isSelected && !state.reviewMode);
             button.classList.toggle('is-locked', state.locked);
             button.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
             button.disabled = state.locked;
+            applyReviewClasses(button);
         });
 
-        updateSubmitButton();
+        updateActionButtons();
     }
 
     function showFeedback(isCorrect) {
@@ -673,17 +1076,26 @@ window.MathJax = {
         els.feedback.textContent = '';
     }
 
+    function resetQuestionState() {
+        state.selected = new Set();
+        state.correctValues = new Set();
+        state.locked = false;
+        state.reviewMode = false;
+        state.startedAt = Date.now();
+    }
+
     function renderQuestion(question) {
         state.question = question;
-        state.selected = new Set();
-        state.locked = false;
-        state.startedAt = Date.now();
+        resetQuestionState();
 
         hideFeedback();
 
         if (!question) {
             els.panel.classList.add('hidden');
             els.emptyState.classList.remove('hidden');
+            els.questionMeta.textContent = '';
+            renderQuestionStats(null);
+            updateActionButtons();
             return;
         }
 
@@ -697,32 +1109,23 @@ window.MathJax = {
         if (question.topic) {
             metaParts.push(question.topic);
         }
-        if (question.source_label) {
-            metaParts.push(question.source_label);
-        }
 
-        metaParts.push('Frage #' + question.id);
+        metaParts.push('#' + question.id);
 
         els.questionMeta.textContent = metaParts.join(' · ');
+        renderQuestionStats(question.question_stats || null);
+
         els.questionBody.innerHTML = question.question_html;
         els.answerGrid.innerHTML = '';
         els.answerGrid.className = 'kartei-options';
+        els.answerGrid.style.gridTemplateColumns = '';
 
         if (!Array.isArray(question.options) || question.options.length === 0) {
             els.answerGrid.innerHTML = '<div class="kartei-no-options">Keine Antwortoptionen gefunden.</div>';
             typesetMath(els.panel);
-            updateSubmitButton();
+            updateActionButtons();
             return;
         }
-
-        if (!ALLOWED_OPTION_COUNTS.has(question.options.length)) {
-            els.answerGrid.innerHTML = '<div class="kartei-no-options">Erlaubt sind aktuell nur 4, 6 oder 8 Antwortoptionen.</div>';
-            typesetMath(els.panel);
-            updateSubmitButton();
-            return;
-        }
-
-        els.answerGrid.classList.add('kartei-options-' + String(question.options.length));
 
         question.options.forEach((option) => {
             const button = document.createElement('button');
@@ -743,7 +1146,7 @@ window.MathJax = {
     }
 
     function handleOptionClick(submitValue) {
-        if (!state.question || state.locked) {
+        if (!state.question || state.locked || state.reviewMode) {
             return;
         }
 
@@ -773,7 +1176,11 @@ window.MathJax = {
         hideFeedback();
 
         try {
-            const data = await api('next');
+            const data = await api('next', {
+                topic: state.topic
+            });
+
+            syncSelectedTopic(data.selected_topic);
             renderStats(data.stats);
             renderQuestion(data.question);
         } catch (error) {
@@ -782,7 +1189,7 @@ window.MathJax = {
     }
 
     async function submitCurrentSelection() {
-        if (!state.question || state.locked || state.selected.size === 0) {
+        if (!state.question || state.locked || state.reviewMode || state.selected.size === 0) {
             return;
         }
 
@@ -792,17 +1199,29 @@ window.MathJax = {
 
         try {
             const data = await api('submit', {
+                topic: state.topic,
                 question_id: state.question.id,
                 selected_values_json: JSON.stringify(Array.from(state.selected)),
                 response_time_ms: Math.max(0, Date.now() - state.startedAt)
             });
 
+            syncSelectedTopic(data.selected_topic);
             renderStats(data.stats);
-            showFeedback(Boolean(data.is_correct));
 
-            window.setTimeout(() => {
-                loadNextQuestion();
-            }, 1100);
+            if (Boolean(data.is_correct)) {
+                showFeedback(true);
+
+                window.setTimeout(() => {
+                    loadNextQuestion();
+                }, AUTO_NEXT_DELAY_MS);
+
+                return;
+            }
+
+            state.correctValues = new Set(Array.isArray(data.correct_values) ? data.correct_values : []);
+            state.reviewMode = true;
+            showFeedback(false);
+            updateSelectionUI();
         } catch (error) {
             state.locked = false;
             updateSelectionUI();
@@ -810,9 +1229,67 @@ window.MathJax = {
         }
     }
 
-    els.submitBtn.addEventListener('click', submitCurrentSelection);
+    async function deleteCurrentQuestion() {
+        if (!state.question || state.locked || state.reviewMode) {
+            return;
+        }
+
+        const confirmed = window.confirm('Frage wirklich löschen?');
+        if (!confirmed) {
+            return;
+        }
+
+        state.locked = true;
+        updateSelectionUI();
+        hideStatus();
+        hideFeedback();
+
+        try {
+            const data = await api('delete', {
+                topic: state.topic,
+                question_id: state.question.id
+            });
+
+            syncSelectedTopic(data.selected_topic);
+            renderStats(data.stats);
+            renderQuestion(data.question || null);
+            showStatus('Frage gelöscht.');
+        } catch (error) {
+            state.locked = false;
+            updateSelectionUI();
+            showStatus(error.message, true);
+        }
+    }
+
+    function handlePrimaryButtonClick() {
+        if (state.reviewMode) {
+            loadNextQuestion();
+            return;
+        }
+
+        submitCurrentSelection();
+    }
+
+    els.submitBtn.addEventListener('click', handlePrimaryButtonClick);
+    els.deleteBtn.addEventListener('click', deleteCurrentQuestion);
+
+    if (els.topicSelect) {
+        els.topicSelect.addEventListener('change', () => {
+            state.topic = String(els.topicSelect.value || '');
+            state.question = null;
+            state.selected = new Set();
+            state.correctValues = new Set();
+            state.locked = false;
+            state.reviewMode = false;
+            hideFeedback();
+            hideStatus();
+            loadNextQuestion();
+        });
+    }
 
     window.addEventListener('load', () => {
+        renderQuestionStats(null);
+        updateActionButtons();
         loadNextQuestion();
     });
 })();

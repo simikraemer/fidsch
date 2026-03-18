@@ -83,7 +83,7 @@ if (isset($_GET['login']) && $_GET['login'] === '1') {
                 <a href="/sci/start"><img src="/img/uni.png" alt="Sci" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"></a>
                 <ul class="submenu">
                     <li><a href="/sci/lerntime"><img src="/img/graph.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Übersicht</span></a></li>
-                    <li><a href="/sci/kartei"><img src="/img/fragezeichen.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Fragen</span></a></li>
+                    <li><a href="/sci/kartei"><img src="/img/kartei.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Kartei</span></a></li>
                 </ul>
                 <!-- <ul class="submenu">
                     <li><a href="/sci/lerntime"><img src="/img/graph.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Übersicht</span></a></li>
