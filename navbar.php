@@ -84,6 +84,7 @@ if (isset($_GET['login']) && $_GET['login'] === '1') {
                 <ul class="submenu">
                     <li><a href="/sci/lerntime"><img src="/img/graph.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Übersicht</span></a></li>
                     <li><a href="/sci/kartei"><img src="/img/kartei.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Kartei</span></a></li>
+                    <li><a href="/sci/life"><img src="/img/life.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Lebensplan</span></a></li>
                 </ul>
                 <!-- <ul class="submenu">
                     <li><a href="/sci/lerntime"><img src="/img/graph.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Übersicht</span></a></li>

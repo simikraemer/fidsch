@@ -22,7 +22,7 @@ if (!isset($page_title) || $page_title === '') {
         })();
     </script>
 
-    <link rel="stylesheet" href="/FIJI.css">
+    <link rel="stylesheet" href="/FIJI.css?v=17">
 
     <!-- 1) Standard: Navbar nur verstecken, bis wir einmalig confirmed haben -->
     <style>

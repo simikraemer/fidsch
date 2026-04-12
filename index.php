@@ -27,6 +27,7 @@ $routesSci = [
     'data'     => 'Data.php',
     'insert'   => 'Insert.php',
     'lerntime' => 'Lerntime.php',
+    'life'     => 'Life.php',
 ];
 
 $routesCheck = [
@@ -35,14 +36,14 @@ $routesCheck = [
 ];
 
 $routestool = [
-    'mac'         => 'MAC.php',
-    'path'    => 'PATH.php',
-    'bit'     => 'BYTES.php',
-    'ips'     => 'IPS.php',
-    'unixtime'     => 'UNIXTIME.php',
-    'log'     => 'LoginLogs.php',
-    'timer'   => 'TIMER.php',
-    'pdfmerge'   => 'PDFMERGE.php'
+    'mac'           => 'MAC.php',
+    'path'          => 'PATH.php',
+    'bit'           => 'BYTES.php',
+    'ips'           => 'IPS.php',
+    'unixtime'      => 'UNIXTIME.php',
+    'log'           => 'LoginLogs.php',
+    'timer'         => 'TIMER.php',
+    'pdfmerge'      => 'PDFMERGE.php'
 ];
 
 // --- Routing-Logik ---
