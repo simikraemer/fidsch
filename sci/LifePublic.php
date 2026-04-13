@@ -1,22 +1,289 @@
 <?php
-//Life.php
-
-require_once __DIR__ . '/../auth.php';
-require_once __DIR__ . '/../db.php';
+// /sci/LifePublic.php
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
 
-$conn = null;
+require_once __DIR__ . '/../db.php';
 
-if (isset($conn) && $conn instanceof mysqli) {
-    // ok
-} elseif (isset($sciconn) && $sciconn instanceof mysqli) {
-    $conn = $sciconn;
-} elseif (isset($mysqli) && $mysqli instanceof mysqli) {
-    $conn = $mysqli;
+function resolveMysqliConnection(array $names): ?mysqli
+{
+    foreach ($names as $name) {
+        if (isset($GLOBALS[$name]) && $GLOBALS[$name] instanceof mysqli) {
+            return $GLOBALS[$name];
+        }
+    }
+    return null;
 }
+
+function esc($value): string
+{
+    return htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+}
+
+function getCredentialsConfig(): array
+{
+    static $config = null;
+
+    if ($config !== null) {
+        return $config;
+    }
+
+    $configPath = '/work/credentials.json';
+    if (!is_file($configPath)) {
+        $config = [];
+        return $config;
+    }
+
+    $raw = file_get_contents($configPath);
+    $decoded = json_decode($raw ?: '[]', true);
+
+    $config = is_array($decoded) ? $decoded : [];
+    return $config;
+}
+
+function getClientIp(): string
+{
+    $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+    return filter_var($ip, FILTER_VALIDATE_IP) ? $ip : '0.0.0.0';
+}
+
+function currentRequestPath(): string
+{
+    $uri = $_SERVER['REQUEST_URI'] ?? '/sci/LifePublic.php';
+    $path = parse_url($uri, PHP_URL_PATH);
+    return is_string($path) && $path !== '' ? $path : '/sci/LifePublic.php';
+}
+
+function logLoginEvent(?mysqli $loginconn, array $e): void
+{
+    if (!$loginconn instanceof mysqli) {
+        return;
+    }
+
+    $sql = "INSERT INTO login_events
+            (username, auth_mode, success, http_status, client_ip, x_forwarded_for, session_id, host, request_uri, referer, user_agent)
+            VALUES
+            (?, ?, ?, ?, INET6_ATON(?), ?, ?, ?, ?, ?, ?)";
+
+    $stmt = $loginconn->prepare($sql);
+    if (!$stmt) {
+        error_log('login logger: prepare failed: ' . $loginconn->error);
+        return;
+    }
+
+    $username    = $e['username'] ?? null;
+    $authMode    = $e['auth_mode'] ?? 'pw';
+    $success     = (int)($e['success'] ?? 0);
+    $httpStatus  = isset($e['http_status']) ? (int)$e['http_status'] : null;
+    $clientIp    = $e['client_ip'] ?? '0.0.0.0';
+    $xff         = $e['x_forwarded_for'] ?? null;
+    $sessionId   = $e['session_id'] ?? null;
+    $host        = $e['host'] ?? null;
+    $requestUri  = $e['request_uri'] ?? null;
+    $referer     = $e['referer'] ?? null;
+    $userAgent   = $e['user_agent'] ?? null;
+
+    $stmt->bind_param(
+        'ssiisssssss',
+        $username,
+        $authMode,
+        $success,
+        $httpStatus,
+        $clientIp,
+        $xff,
+        $sessionId,
+        $host,
+        $requestUri,
+        $referer,
+        $userAgent
+    );
+
+    if (!$stmt->execute()) {
+        error_log('login logger: execute failed: ' . $stmt->error);
+    }
+
+    $stmt->close();
+}
+
+function countRecentFailedLifePublicAttempts(?mysqli $loginconn, string $clientIp, string $requestPath, int $hours = 24): int
+{
+    if (!$loginconn instanceof mysqli) {
+        return 0;
+    }
+
+    $cutoff = (new DateTimeImmutable("-{$hours} hours"))->format('Y-m-d H:i:s');
+
+    $sql = "SELECT COUNT(*) AS cnt
+            FROM login_events
+            WHERE client_ip = INET6_ATON(?)
+              AND auth_mode = 'pw'
+              AND success = 0
+              AND http_status = 401
+              AND event_time >= ?
+              AND SUBSTRING_INDEX(COALESCE(request_uri, ''), '?', 1) = ?";
+
+    $stmt = $loginconn->prepare($sql);
+    if (!$stmt) {
+        error_log('login logger: prepare failed in countRecentFailedLifePublicAttempts: ' . $loginconn->error);
+        return 0;
+    }
+
+    $stmt->bind_param('sss', $clientIp, $cutoff, $requestPath);
+
+    if (!$stmt->execute()) {
+        error_log('login logger: execute failed in countRecentFailedLifePublicAttempts: ' . $stmt->error);
+        $stmt->close();
+        return 0;
+    }
+
+    $res = $stmt->get_result();
+    $row = $res ? $res->fetch_assoc() : null;
+    $stmt->close();
+
+    return (int)($row['cnt'] ?? 0);
+}
+
+function renderLifePublicLogin(?string $error = null, bool $blocked = false): void
+{
+    $self = $_SERVER['REQUEST_URI'] ?? '/sci/LifePublic.php';
+
+    if ($blocked) {
+        http_response_code(429);
+        header('Retry-After: 86400');
+    } else {
+        http_response_code($error ? 401 : 200);
+    }
+
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+    ?>
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Studienplan</title>
+    <link rel="stylesheet" href="../FIJI.css">
+</head>
+<body style="margin-top:0;">
+    <div class="content-wrap" style="padding-top:48px; padding-bottom:48px;">
+        <div class="container" style="max-width:460px;">
+            <h1 class="ueberschrift" style="margin-top:0;">Studienplan</h1>
+
+            <?php if ($error !== null && $error !== ''): ?>
+                <div style="margin-bottom:16px; padding:12px 14px; border-radius:var(--border-radius); background:#ffe8e8; color:#a40000; box-shadow:var(--shadow); font-weight:700;">
+                    <?= esc($error) ?>
+                </div>
+            <?php endif; ?>
+
+            <?php if (!$blocked): ?>
+                <form method="post" action="<?= esc($self) ?>" class="form-block">
+                    <div>
+                        <label for="life_public_password" class="lt-label">Passwort</label>
+                        <input
+                            type="password"
+                            id="life_public_password"
+                            name="life_public_password"
+                            autocomplete="current-password"
+                            required
+                            autofocus
+                        >
+                    </div>
+
+                    <button type="submit">Seite freischalten</button>
+                </form>
+            <?php endif; ?>
+        </div>
+    </div>
+</body>
+</html>
+<?php
+    exit;
+}
+
+/* -------------------- Eigenes Passwort nur für diese Datei -------------------- */
+
+$configAll = getCredentialsConfig();
+$lifePublicConfig = $configAll['lifepublic'] ?? [];
+
+$lifePublicPassword = (string)($lifePublicConfig['password'] ?? '');
+$lifePublicLogUser  = (string)($lifePublicConfig['log_username'] ?? 'life_public');
+
+$loginconn = resolveMysqliConnection(['loginconn']);
+
+if ($lifePublicPassword === '') {
+    http_response_code(500);
+    exit('lifepublic.password fehlt in /work/credentials.json');
+}
+
+if (empty($_SESSION['life_public_authed'])) {
+    $clientIp = getClientIp();
+    $requestPath = currentRequestPath();
+    $failedAttemptsLast24h = countRecentFailedLifePublicAttempts($loginconn, $clientIp, $requestPath, 24);
+    $isBlocked = $failedAttemptsLast24h >= 5;
+
+    if ($isBlocked) {
+        renderLifePublicLogin('Passwort zu oft falsch eingegeben, du Trottel!', true);
+    }
+
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+        $submittedPassword = (string)($_POST['life_public_password'] ?? '');
+
+        if (hash_equals($lifePublicPassword, $submittedPassword)) {
+            session_regenerate_id(true);
+
+            $_SESSION['life_public_authed'] = true;
+
+            if (empty($_SESSION['life_public_login_logged'])) {
+                logLoginEvent($loginconn, [
+                    'username'        => $lifePublicLogUser,
+                    'auth_mode'       => 'pw',
+                    'success'         => 1,
+                    'http_status'     => 200,
+                    'client_ip'       => $clientIp,
+                    'x_forwarded_for' => $_SERVER['HTTP_X_FORWARDED_FOR'] ?? null,
+                    'session_id'      => session_id(),
+                    'host'            => $_SERVER['HTTP_HOST'] ?? null,
+                    'request_uri'     => $_SERVER['REQUEST_URI'] ?? null,
+                    'referer'         => $_SERVER['HTTP_REFERER'] ?? null,
+                    'user_agent'      => $_SERVER['HTTP_USER_AGENT'] ?? null,
+                ]);
+                $_SESSION['life_public_login_logged'] = true;
+            }
+
+            header('Location: ' . ($_SERVER['REQUEST_URI'] ?? '/sci/LifePublic.php'));
+            exit;
+        }
+
+        logLoginEvent($loginconn, [
+            'username'        => $lifePublicLogUser,
+            'auth_mode'       => 'pw',
+            'success'         => 0,
+            'http_status'     => 401,
+            'client_ip'       => $clientIp,
+            'x_forwarded_for' => $_SERVER['HTTP_X_FORWARDED_FOR'] ?? null,
+            'session_id'      => session_id(),
+            'host'            => $_SERVER['HTTP_HOST'] ?? null,
+            'request_uri'     => $_SERVER['REQUEST_URI'] ?? null,
+            'referer'         => $_SERVER['HTTP_REFERER'] ?? null,
+            'user_agent'      => $_SERVER['HTTP_USER_AGENT'] ?? null,
+        ]);
+
+        $failedAttemptsLast24h++;
+
+        if ($failedAttemptsLast24h >= 5) {
+            renderLifePublicLogin('Zu oft Passwort falsch eingegeben. Versuchen Sie es in 24 h erneut.', true);
+        }
+
+        renderLifePublicLogin('Falsches Passwort.');
+    }
+
+    renderLifePublicLogin();
+}
+
+$conn = resolveMysqliConnection(['sciconn', 'conn', 'mysqli']);
 
 if (!$conn instanceof mysqli) {
     http_response_code(500);
@@ -26,27 +293,27 @@ if (!$conn instanceof mysqli) {
 $conn->set_charset('utf8mb4');
 $conn->select_db('life');
 
-function esc($value): string {
-    return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
-}
-
-function dt(?string $date): ?DateTimeImmutable {
+function dt(?string $date): ?DateTimeImmutable
+{
     if ($date === null || $date === '') {
         return null;
     }
     return new DateTimeImmutable($date);
 }
 
-function fmtDate(?DateTimeImmutable $d): string {
+function fmtDate(?DateTimeImmutable $d): string
+{
     return $d ? $d->format('d.m.Y') : '';
 }
 
-function outlineParts(string $outline): array {
+function outlineParts(string $outline): array
+{
     $parts = preg_split('/\./', $outline);
     return array_map(static fn($p) => (int)$p, $parts ?: []);
 }
 
-function compareOutline(string $a, string $b): int {
+function compareOutline(string $a, string $b): int
+{
     $aa = outlineParts($a);
     $bb = outlineParts($b);
     $len = max(count($aa), count($bb));
@@ -60,7 +327,8 @@ function compareOutline(string $a, string $b): int {
     return 0;
 }
 
-function statusLabel(?string $status): string {
+function statusLabel(?string $status): string
+{
     $map = [
         'BE' => 'Bestanden',
         'NB' => 'Nicht bestanden',
@@ -72,12 +340,14 @@ function statusLabel(?string $status): string {
     return $map[$s] ?? ($s !== '' ? $s : 'Ohne Status');
 }
 
-function statusCss(?string $status): string {
+function statusCss(?string $status): string
+{
     $s = strtolower(trim((string)$status));
     return preg_replace('/[^a-z0-9_-]/', '', $s) ?: 'default';
 }
 
-function rootGroupId(int $groupId, array $groupsById): int {
+function rootGroupId(int $groupId, array $groupsById): int
+{
     $current = $groupId;
     $seen = [];
 
@@ -102,11 +372,13 @@ function rootColorById(int $rootId): string {
     return $map[$rootId] ?? '#64748b';
 }
 
-function daysInYear(DateTimeImmutable $date): int {
+function daysInYear(DateTimeImmutable $date): int
+{
     return ((int)$date->format('L') === 1) ? 366 : 365;
 }
 
-function formatSemesterLabel(string $season, int $year): string {
+function formatSemesterLabel(string $season, int $year): string
+{
     if ($season === 'S') {
         return sprintf('SS%02d', $year % 100);
     }
@@ -114,7 +386,8 @@ function formatSemesterLabel(string $season, int $year): string {
     return sprintf('WS%02d/%02d', $year % 100, ($year + 1) % 100);
 }
 
-function parseSemesterValue(string $value): ?array {
+function parseSemesterValue(string $value): ?array
+{
     $value = trim($value);
 
     if (preg_match('/^SS(\d{2})$/', $value, $m)) {
@@ -150,7 +423,8 @@ function parseSemesterValue(string $value): ?array {
     return null;
 }
 
-function buildSemesterOptions(?DateTimeImmutable $minDate, ?DateTimeImmutable $maxDate): array {
+function buildSemesterOptions(?DateTimeImmutable $minDate, ?DateTimeImmutable $maxDate): array
+{
     if (!$minDate || !$maxDate) {
         $now = new DateTimeImmutable('today');
         $year = (int)$now->format('Y');
@@ -312,7 +586,6 @@ function pointPercentInScale(
 $minDate = null;
 $maxDate = null;
 
-/* Primär aus Segmenten */
 $res = $conn->query("
     SELECT
         MIN(start_date) AS min_start,
@@ -324,7 +597,6 @@ if ($res && ($row = $res->fetch_assoc())) {
     $maxDate = $row['max_end'] ?: null;
 }
 
-/* Fallback/Ergänzung aus timeline_entries */
 $res = $conn->query("
     SELECT
         MIN(start_date) AS min_start,
@@ -340,7 +612,6 @@ if ($res && ($row = $res->fetch_assoc())) {
     }
 }
 
-/* Events ergänzen */
 $res = $conn->query("
     SELECT
         MIN(event_date) AS min_event,
@@ -456,7 +727,6 @@ $entriesByGroup = [];
 $eventsByEntry = [];
 $segmentsByEntry = [];
 
-/* Gruppen */
 $resG = $conn->query("
     SELECT id, parent_group_id, name, outline_no, level_no, sort_order
     FROM timeline_groups
@@ -475,7 +745,6 @@ while ($g = $resG->fetch_assoc()) {
     $groupChildren[$g['parent_group_id'] ?? 0][] = $g;
 }
 
-/* Entries */
 $resE = $conn->query("
     SELECT id, group_id, title, start_date, end_date, outline_no, sort_order
     FROM timeline_entries
@@ -493,7 +762,6 @@ while ($e = $resE->fetch_assoc()) {
     $entriesByGroup[$e['group_id']][] = $e;
 }
 
-/* Segmente */
 $resS = $conn->query("
     SELECT id, entry_id, start_date, end_date, sort_order
     FROM timeline_entry_segments
@@ -511,7 +779,6 @@ while ($s = $resS->fetch_assoc()) {
     $segmentsByEntry[$s['entry_id']][] = $s;
 }
 
-/* Fallback: wenn ein Entry noch gar keine Segmente hat, aus start/end eins erzeugen */
 foreach ($entriesById as $entryId => $entry) {
     if (!isset($segmentsByEntry[$entryId]) || count($segmentsByEntry[$entryId]) === 0) {
         if (!empty($entry['start_date']) && !empty($entry['end_date'])) {
@@ -526,7 +793,6 @@ foreach ($entriesById as $entryId => $entry) {
     }
 }
 
-/* Events im aktuellen Sichtbereich */
 $stmtEv = $conn->prepare("
     SELECT id, entry_id, event_type, title, event_date, note, status_code, semester_code
     FROM special_events
@@ -686,10 +952,6 @@ foreach ($rootGroups as $rootGroup) {
     $walk((int)$rootGroup['id'], 0);
 }
 
-$page_title = 'Studienplan';
-require_once __DIR__ . '/../head.php';
-require_once __DIR__ . '/../navbar.php';
-
 if ($mode === 'gesamt') {
     $titleSuffix = $firstYear . '-' . $lastYear;
 } elseif ($mode === 'jahr') {
@@ -698,7 +960,20 @@ if ($mode === 'gesamt') {
     $titleSuffix = $selectedSemester['label'] ?? '';
 }
 ?>
-
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Studienplan</title>
+    <link rel="stylesheet" href="../FIJI.css">
+    <style>
+        body { margin-top: 0; }
+        .lt-page { margin-top: 18px; }
+        .life-axis-sticky { top: 0; }
+    </style>
+</head>
+<body>
 <div class="lt-page dashboard-page">
     <div class="lt-topbar">
         <h1 class="ueberschrift dashboard-title">
@@ -1042,3 +1317,5 @@ if ($mode === 'gesamt') {
     applyCollapsedState();
 })();
 </script>
+</body>
+</html>

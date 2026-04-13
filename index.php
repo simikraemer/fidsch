@@ -4,51 +4,60 @@ $path = trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/');
 
 // --- Routing-Tabellen ---
 $routesFit = [
-    'start'    => 'Start.php',          // /fit/ → Start.php
-    'stats'    => 'Start.php',
-    'kalorien' => 'Kalorien_New.php',
+    'start'         => 'Start.php',          // /fit/ → Start.php
+    'stats'         => 'Start.php',
+    'kalorien'      => 'Kalorien_New.php',
     'kalorien_data' => 'Kalorien_Data.php',
-    'gewicht'  => 'Gewicht_New.php',
-    'pizza'    => 'Pizza.php',
-    'training' => 'Training_New.php',
+    'gewicht'       => 'Gewicht_New.php',
+    'pizza'         => 'Pizza.php',
+    'training'      => 'Training_New.php',
 ];
 
 $routesBiz = [
-    'start'    => 'Start.php',
-    'stats'    => 'Start.php',
-    'data'     => 'Data.php',
-    'insert'   => 'Insert.php',
+    'start'  => 'Start.php',
+    'stats'  => 'Start.php',
+    'data'   => 'Data.php',
+    'insert' => 'Insert.php',
 ];
 
 $routesSci = [
-    'start'    => 'Lerntime.php',
-    'fragen'   => 'Fragen.php',
-    'kartei'   => 'Kartei.php',
-    'data'     => 'Data.php',
-    'insert'   => 'Insert.php',
-    'lerntime' => 'Lerntime.php',
-    'life'     => 'Life.php',
+    'start'       => 'Lerntime.php',
+    'fragen'      => 'Fragen.php',
+    'kartei'      => 'Kartei.php',
+    'data'        => 'Data.php',
+    'insert'      => 'Insert.php',
+    'lerntime'    => 'Lerntime.php',
+    'plan'        => 'Life.php',
+    'studienplan' => 'LifePublic.php',
 ];
 
 $routesCheck = [
-    'start'    => 'ToDo.php',
-    'todo'     => 'ToDo.php',
+    'start' => 'ToDo.php',
+    'todo'  => 'ToDo.php',
 ];
 
-$routestool = [
-    'mac'           => 'MAC.php',
-    'path'          => 'PATH.php',
-    'bit'           => 'BYTES.php',
-    'ips'           => 'IPS.php',
-    'unixtime'      => 'UNIXTIME.php',
-    'log'           => 'LoginLogs.php',
-    'timer'         => 'TIMER.php',
-    'pdfmerge'      => 'PDFMERGE.php'
+$routesTool = [
+    'mac'      => 'MAC.php',
+    'path'     => 'PATH.php',
+    'bit'      => 'BYTES.php',
+    'ips'      => 'IPS.php',
+    'unixtime' => 'UNIXTIME.php',
+    'log'      => 'LoginLogs.php',
+    'timer'    => 'TIMER.php',
+    'pdfmerge' => 'PDFMERGE.php',
 ];
+
+// --- Sonderfall: öffentliche Pretty-URL ohne /sci/ ---
+if ($path === 'studienplan') {
+    require __DIR__ . '/sci/LifePublic.php';
 
 // --- Routing-Logik ---
-if (str_starts_with($path, 'fit')) {
+} elseif (str_starts_with($path, 'fit')) {
     $slug = trim(preg_replace('#^fit/?#', '', $path), '/');
+    if ($slug === '') {
+        $slug = 'start';
+    }
+
     if (array_key_exists($slug, $routesFit)) {
         require __DIR__ . '/fit/' . $routesFit[$slug];
     } else {
@@ -58,6 +67,10 @@ if (str_starts_with($path, 'fit')) {
 
 } elseif (str_starts_with($path, 'biz')) {
     $slug = trim(preg_replace('#^biz/?#', '', $path), '/');
+    if ($slug === '') {
+        $slug = 'start';
+    }
+
     if (array_key_exists($slug, $routesBiz)) {
         require __DIR__ . '/biz/' . $routesBiz[$slug];
     } else {
@@ -67,6 +80,10 @@ if (str_starts_with($path, 'fit')) {
 
 } elseif (str_starts_with($path, 'sci')) {
     $slug = trim(preg_replace('#^sci/?#', '', $path), '/');
+    if ($slug === '') {
+        $slug = 'start';
+    }
+
     if (array_key_exists($slug, $routesSci)) {
         require __DIR__ . '/sci/' . $routesSci[$slug];
     } else {
@@ -76,6 +93,10 @@ if (str_starts_with($path, 'fit')) {
 
 } elseif (str_starts_with($path, 'check')) {
     $slug = trim(preg_replace('#^check/?#', '', $path), '/');
+    if ($slug === '') {
+        $slug = 'start';
+    }
+
     if (array_key_exists($slug, $routesCheck)) {
         require __DIR__ . '/check/' . $routesCheck[$slug];
     } else {
@@ -85,18 +106,20 @@ if (str_starts_with($path, 'fit')) {
 
 } elseif (str_starts_with($path, 'tools')) {
     $slug = trim(preg_replace('#^tools/?#', '', $path), '/');
-    if (array_key_exists($slug, $routestool)) {
-        require __DIR__ . '/tools/' . $routestool[$slug];
+    if ($slug === '') {
+        http_response_code(404);
+        echo "Seite nicht gefunden.";
+    } elseif (array_key_exists($slug, $routesTool)) {
+        require __DIR__ . '/tools/' . $routesTool[$slug];
     } else {
         http_response_code(404);
         echo "Seite nicht gefunden.";
     }
 
 } elseif ($path === '' || $path === 'index.php') {
-    // Rendering starten
     $page_title = 'Fidsch';
-    require_once __DIR__ . '/head.php';      // <!DOCTYPE html> … <body>
-    require_once __DIR__ . '/navbar.php';    // nur die Navbar
+    require_once __DIR__ . '/head.php';
+    require_once __DIR__ . '/navbar.php';
     ?>
     <main class="container">
         <div style="text-align: center;">
@@ -113,11 +136,15 @@ if (str_starts_with($path, 'fit')) {
             </p>
 
             <p style="opacity: .8; font-size: .95rem; margin-top: 1rem;">
-                Hinweis: Unautorisierte Zugriffsversuche werden protokolliert.
+                Unautorisierte Zugriffsversuche werden protokolliert.
             </p>
         </div>
     </main>
     </body>
     </html>
     <?php
+
+} else {
+    http_response_code(404);
+    echo "Seite nicht gefunden.";
 }
