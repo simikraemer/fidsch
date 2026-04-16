@@ -27,7 +27,7 @@ $routesSci = [
     'data'        => 'Data.php',
     'insert'      => 'Insert.php',
     'lerntime'    => 'Lerntime.php',
-    'plan'        => 'Life.php',
+    'plan'        => 'LifePrivate.php',
     'studienplan' => 'LifePublic.php',
 ];
 
