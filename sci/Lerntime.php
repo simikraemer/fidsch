@@ -50,7 +50,7 @@ function parse_int($v, int $default = 0): int {
 $jahr = isset($_GET['jahr']) ? (int)$_GET['jahr'] : (int)date('Y');
 if ($jahr < 2000 || $jahr > 2100) $jahr = (int)date('Y');
 
-$preferredDefault = 'Regelungstechnik';
+$preferredDefault = 'Strömungsmechanik';
 $defaultFach = isset($SUBJECTS[$preferredDefault]) ? $preferredDefault : (string)array_key_first($SUBJECTS);
 
 $sessionFach = (string)($_SESSION['lerntime_fach'] ?? $defaultFach);
