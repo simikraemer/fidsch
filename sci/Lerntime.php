@@ -325,9 +325,12 @@ $jahrLernzeitSekunden = (int)($row['sum_sec'] ?? 0);
 $jahrLernzeitStunden  = (int)round($jahrLernzeitSekunden / 3600);
 
 $stmt = $sciconn->prepare("
-    SELECT COALESCE(SUM(COALESCE(dauer_sekunden, 0)), 0) AS open_sec
-    FROM lerntime
-    WHERE erledigt_am IS NULL
+    SELECT COALESCE(SUM(COALESCE(l.dauer_sekunden, 0)), 0) AS open_sec
+    FROM lerntime l
+    INNER JOIN lerntime_faecher f
+        ON l.fach COLLATE utf8mb4_unicode_ci = f.name COLLATE utf8mb4_unicode_ci
+    WHERE l.erledigt_am IS NULL
+      AND f.is_active = 1
 ");
 $stmt->execute();
 $res = $stmt->get_result();
@@ -1414,9 +1417,10 @@ require_once __DIR__ . '/../navbar.php';
         const elDoneHours = document.getElementById('ltDoneHours');
         const elOpenHours = document.getElementById('ltOpenHours');
 
-        // OFFEN = erledigt_am NULL, jahres-egal
         const openSec = TASKS.reduce((acc, t) => {
-            if (t && !t.erledigt_am) acc += Math.max(0, Number(t.dauer_sekunden ?? 0));
+            if (t && !t.erledigt_am && validSubjects.has(String(t.fach ?? ''))) {
+                acc += Math.max(0, Number(t.dauer_sekunden ?? 0));
+            }
             return acc;
         }, 0);
         if (elOpenHours) elOpenHours.textContent = String(Math.round(openSec / 3600));

@@ -52,13 +52,6 @@ final class LifeTimelinePage
         require_once __DIR__ . '/../auth.php';
         require_once __DIR__ . '/../db.php';
 
-        /*
-         * Wichtig:
-         * db.php wird hier innerhalb dieser Methode eingebunden.
-         * Dadurch liegen $sciconn / $conn / $mysqli im lokalen Funktions-Scope
-         * und nicht in $GLOBALS. Deshalb erst lokal prüfen und nur als Fallback
-         * auf $GLOBALS schauen.
-         */
         $resolvedConn = null;
 
         if (isset($sciconn) && $sciconn instanceof mysqli) {
@@ -161,7 +154,7 @@ final class LifeTimelinePage
         $lastYear  = $maxDate ? (int)substr($maxDate, 0, 4) : $currentYear;
 
         $mode = isset($_GET['modus']) ? strtolower(trim((string)$_GET['modus'])) : 'gesamt';
-        if (!in_array($mode, ['gesamt', 'jahr', 'semester'], true)) {
+        if (!in_array($mode, ['gesamt', 'jahr', 'semester', 'cp_jahr', 'cp_semester'], true)) {
             $mode = 'gesamt';
         }
 
@@ -187,6 +180,20 @@ final class LifeTimelinePage
         if (!$selectedSemester && !empty($semesterOptions)) {
             $selectedSemester = $semesterOptions[0];
             $semester = $selectedSemester['value'];
+        }
+
+        if (self::isCpMode($mode)) {
+            $cpChart = self::buildCreditpointsChartData($conn, $mode, $currentYear);
+
+            return [
+                'mode' => $mode,
+                'jahr' => $jahr,
+                'semester' => $semester,
+                'yearKeys' => $yearKeys,
+                'semesterOptions' => $semesterOptions,
+                'titleSuffix' => $mode === 'cp_jahr' ? 'CP pro Jahr' : 'CP pro Semester',
+                'cpChart' => $cpChart,
+            ];
         }
 
         $monthNames = [1 => 'Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
@@ -319,7 +326,7 @@ final class LifeTimelinePage
         }
 
         $stmtEv = $conn->prepare("
-            SELECT id, entry_id, event_type, title, event_date, note, status_code, semester_code
+            SELECT id, entry_id, event_type, title, event_date, note, status_code, semester_code, creditpoints
             FROM special_events
             WHERE event_date >= ? AND event_date < ?
             ORDER BY event_date ASC, id ASC
@@ -338,6 +345,11 @@ final class LifeTimelinePage
             if (!isset($entriesById[$entryId])) {
                 continue;
             }
+
+            if ($ev['creditpoints'] !== null && $ev['creditpoints'] !== '') {
+                $ev['creditpoints'] = (float)$ev['creditpoints'];
+            }
+
             $eventsByEntry[$entryId][] = $ev;
         }
         $stmtEv->close();
@@ -503,6 +515,12 @@ final class LifeTimelinePage
     public static function renderApp(array $view): void
     {
         $mode = $view['mode'];
+
+        if (self::isCpMode($mode)) {
+            self::renderCreditpointsApp($view);
+            return;
+        }
+
         $jahr = $view['jahr'];
         $semester = $view['semester'];
         $semesterOptions = $view['semesterOptions'];
@@ -524,15 +542,6 @@ final class LifeTimelinePage
         </h1>
 
         <div class="life-controls">
-            <div class="life-modewrap">
-                <label for="lifeMode" class="lt-label">Modus</label>
-                <select id="lifeMode" class="kategorie-select">
-                    <option value="gesamt" <?= $mode === 'gesamt' ? 'selected' : '' ?>>Gesamt</option>
-                    <option value="jahr" <?= $mode === 'jahr' ? 'selected' : '' ?>>Jahr</option>
-                    <option value="semester" <?= $mode === 'semester' ? 'selected' : '' ?>>Semester</option>
-                </select>
-            </div>
-
             <?php if ($mode === 'jahr'): ?>
                 <div class="life-sidewrap">
                     <label for="ltYear" class="lt-label">Jahr</label>
@@ -556,6 +565,17 @@ final class LifeTimelinePage
                     </select>
                 </div>
             <?php endif; ?>
+
+            <div class="life-modewrap">
+                <label for="lifeMode" class="lt-label">Modus</label>
+                <select id="lifeMode" class="kategorie-select">
+                    <option value="gesamt" <?= $mode === 'gesamt' ? 'selected' : '' ?>>Gesamt</option>
+                    <option value="jahr" <?= $mode === 'jahr' ? 'selected' : '' ?>>Jahr</option>
+                    <option value="semester" <?= $mode === 'semester' ? 'selected' : '' ?>>Semester</option>
+                    <option value="cp_jahr" <?= $mode === 'cp_jahr' ? 'selected' : '' ?>>CP pro Jahr</option>
+                    <option value="cp_semester" <?= $mode === 'cp_semester' ? 'selected' : '' ?>>CP pro Semester</option>
+                </select>
+            </div>
         </div>
     </div>
 
@@ -624,17 +644,13 @@ final class LifeTimelinePage
                                         $rootId = self::rootGroupId($groupId, $groupsById);
                                         $barColor = self::rootColorById($rootId);
 
-                                        $entryTooltipParts = [
+                                        $entryTooltipLines = self::normalizeInfoLines([
                                             $entry['title'],
                                             !empty($entry['start_date']) ? ('Von: ' . self::fmtDate(self::dt($entry['start_date']))) : null,
                                             !empty($entry['end_date']) ? ('Bis: ' . self::fmtDate(self::dt($entry['end_date']))) : null,
-                                            'Gruppe: ' . ($groupsById[$groupId]['name'] ?? ''),
-                                        ];
-
-                                        $entryTooltip = implode("\n", array_filter(
-                                            $entryTooltipParts,
-                                            static fn($v) => $v !== null && $v !== ''
-                                        ));
+                                            /* 'Gruppe: ' . ($groupsById[$groupId]['name'] ?? ''), */
+                                        ]);
+                                        $entryTooltip = implode("\n", $entryTooltipLines);
                                     ?>
 
                                     <div
@@ -664,16 +680,21 @@ final class LifeTimelinePage
                                                     $bar = $barItem['bar'];
                                                     $segment = $barItem['segment'];
 
-                                                    $segmentTooltip = implode("\n", [
+                                                    $segmentTooltipLines = self::normalizeInfoLines([
                                                         $entry['title'],
                                                         'Von: ' . self::fmtDate(self::dt($segment['start_date'])),
                                                         'Bis: ' . self::fmtDate(self::dt($segment['end_date'])),
-                                                        'Gruppe: ' . ($groupsById[$groupId]['name'] ?? ''),
+                                                        /* 'Gruppe: ' . ($groupsById[$groupId]['name'] ?? ''), */
                                                     ]);
+                                                    $segmentTooltip = implode("\n", $segmentTooltipLines);
                                                 ?>
                                                 <div
-                                                    class="life-bar"
+                                                    class="life-bar life-interactive"
                                                     title="<?= self::esc($segmentTooltip) ?>"
+                                                    data-life-info="<?= self::infoPayloadAttr($segmentTooltipLines) ?>"
+                                                    tabindex="0"
+                                                    role="button"
+                                                    aria-label="<?= self::esc('Details zu ' . $entry['title']) ?>"
                                                     style="
                                                         left: <?= number_format((float)$bar['left'], 6, '.', '') ?>%;
                                                         width: <?= number_format((float)$bar['width'], 6, '.', '') ?>%;
@@ -698,27 +719,42 @@ final class LifeTimelinePage
                                                         $lastYear
                                                     );
 
-                                                    $eventTooltipParts = [
+                                                    $eventTooltipLines = [
                                                         $event['title'],
                                                         'Datum: ' . self::fmtDate($eventDate),
                                                     ];
 
                                                     if ((string)$event['note'] !== '') {
-                                                        $eventTooltipParts[] = 'Notiz / Note: ' . $event['note'];
+                                                        $eventTooltipLines[] = 'Note: ' . $event['note'];
                                                     }
                                                     if ((string)$event['status_code'] !== '') {
-                                                        $eventTooltipParts[] = 'Status: ' . self::statusLabel($event['status_code']) . ' (' . $event['status_code'] . ')';
+                                                        $statusText = self::statusLabel($event['status_code']) . ' (' . $event['status_code'] . ')';
+
+                                                        if (
+                                                            strtoupper(trim((string)$event['status_code'])) === 'BE'
+                                                            && $event['creditpoints'] !== null
+                                                            && $event['creditpoints'] !== ''
+                                                        ) {
+                                                            $statusText .= ' | ' . self::fmtCp((float)$event['creditpoints']) . ' CP';
+                                                        }
+
+                                                        $eventTooltipLines[] = $statusText;
                                                     }
                                                     if ((string)$event['semester_code'] !== '') {
-                                                        $eventTooltipParts[] = 'Semester: ' . $event['semester_code'];
+                                                        $eventTooltipLines[] = 'Semester: ' . $event['semester_code'];
                                                     }
 
-                                                    $eventTooltip = implode("\n", $eventTooltipParts);
+                                                    $eventTooltipLines = self::normalizeInfoLines($eventTooltipLines);
+                                                    $eventTooltip = implode("\n", $eventTooltipLines);
                                                     $eventClass = 'life-event life-event--' . self::statusCss($event['status_code']);
                                                 ?>
                                                 <div
-                                                    class="<?= self::esc($eventClass) ?>"
+                                                    class="<?= self::esc($eventClass) ?> life-interactive"
                                                     title="<?= self::esc($eventTooltip) ?>"
+                                                    data-life-info="<?= self::infoPayloadAttr($eventTooltipLines) ?>"
+                                                    tabindex="0"
+                                                    role="button"
+                                                    aria-label="<?= self::esc('Ereignisdetails zu ' . $event['title']) ?>"
                                                     style="left: <?= number_format($eventLeft, 6, '.', '') ?>%;"
                                                 ></div>
                                             <?php endforeach; ?>
@@ -858,9 +894,612 @@ final class LifeTimelinePage
     });
 
     applyCollapsedState();
+
+    const infoTargets = Array.from(document.querySelectorAll('.life-bar[data-life-info], .life-event[data-life-info]'));
+    if (!infoTargets.length) {
+        return;
+    }
+
+    const popover = document.createElement('div');
+    popover.className = 'life-info-popover';
+    popover.setAttribute('role', 'dialog');
+    popover.setAttribute('aria-modal', 'false');
+    popover.setAttribute('aria-hidden', 'true');
+    popover.innerHTML = `
+        <div class="life-info-popover-header">
+            <div class="life-info-popover-title"></div>
+            <button type="button" class="life-info-popover-close" aria-label="Info schließen">&times;</button>
+        </div>
+        <div class="life-info-popover-body"></div>
+    `;
+    document.body.appendChild(popover);
+
+    const popoverTitle = popover.querySelector('.life-info-popover-title');
+    const popoverBody = popover.querySelector('.life-info-popover-body');
+    const popoverClose = popover.querySelector('.life-info-popover-close');
+
+    let activeTrigger = null;
+
+    function parseInfoLines(el) {
+        const raw = el.dataset.lifeInfo || '[]';
+
+        try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+                return parsed
+                    .map((line) => String(line ?? '').trim())
+                    .filter((line) => line !== '');
+            }
+        } catch (e) {
+        }
+
+        return [];
+    }
+
+    function closeInfoPopover() {
+        if (activeTrigger) {
+            activeTrigger.setAttribute('aria-expanded', 'false');
+        }
+
+        activeTrigger = null;
+        popover.classList.remove('is-open');
+        popover.setAttribute('aria-hidden', 'true');
+        popover.style.left = '-9999px';
+        popover.style.top = '-9999px';
+        popoverTitle.textContent = '';
+        popoverBody.innerHTML = '';
+    }
+
+    function positionInfoPopover(trigger) {
+        const gap = 10;
+        const rect = trigger.getBoundingClientRect();
+
+        popover.style.left = '0px';
+        popover.style.top = '0px';
+        popover.classList.add('is-open');
+        popover.setAttribute('aria-hidden', 'false');
+
+        const popRect = popover.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        let left = rect.left + (rect.width / 2) - (popRect.width / 2);
+        left = Math.max(12, Math.min(left, viewportWidth - popRect.width - 12));
+
+        let top = rect.bottom + gap;
+        if (top + popRect.height > viewportHeight - 12) {
+            top = rect.top - popRect.height - gap;
+        }
+        if (top < 12) {
+            top = Math.max(12, viewportHeight - popRect.height - 12);
+        }
+
+        popover.style.left = `${left}px`;
+        popover.style.top = `${top}px`;
+    }
+
+    function openInfoPopover(trigger) {
+        const lines = parseInfoLines(trigger);
+        if (!lines.length) {
+            closeInfoPopover();
+            return;
+        }
+
+        if (activeTrigger === trigger && popover.classList.contains('is-open')) {
+            closeInfoPopover();
+            return;
+        }
+
+        activeTrigger = trigger;
+
+        infoTargets.forEach((el) => {
+            el.setAttribute('aria-expanded', el === trigger ? 'true' : 'false');
+        });
+
+        popoverTitle.textContent = lines[0] || '';
+        popoverBody.innerHTML = '';
+
+        lines.slice(1).forEach((line) => {
+            const div = document.createElement('div');
+            div.className = 'life-info-popover-line';
+            div.textContent = line;
+            popoverBody.appendChild(div);
+        });
+
+        positionInfoPopover(trigger);
+    }
+
+    infoTargets.forEach((el) => {
+        el.setAttribute('aria-expanded', 'false');
+
+        el.addEventListener('click', (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            openInfoPopover(el);
+        });
+
+        el.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Enter' || ev.key === ' ') {
+                ev.preventDefault();
+                openInfoPopover(el);
+            }
+        });
+    });
+
+    popoverClose.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        closeInfoPopover();
+    });
+
+    document.addEventListener('click', (ev) => {
+        const target = ev.target;
+
+        if (target instanceof Node && (popover.contains(target) || (activeTrigger && activeTrigger.contains(target)))) {
+            return;
+        }
+
+        closeInfoPopover();
+    });
+
+    document.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Escape') {
+            closeInfoPopover();
+        }
+    });
+
+    window.addEventListener('resize', () => {
+        if (activeTrigger && popover.classList.contains('is-open')) {
+            positionInfoPopover(activeTrigger);
+        }
+    });
+
+    window.addEventListener('scroll', () => {
+        if (activeTrigger && popover.classList.contains('is-open')) {
+            positionInfoPopover(activeTrigger);
+        }
+    }, { passive: true });
+
+    if (bodyScroll) {
+        bodyScroll.addEventListener('scroll', () => {
+            if (activeTrigger && popover.classList.contains('is-open')) {
+                positionInfoPopover(activeTrigger);
+            }
+        }, { passive: true });
+    }
+
+    if (axisScroll) {
+        axisScroll.addEventListener('scroll', () => {
+            if (activeTrigger && popover.classList.contains('is-open')) {
+                positionInfoPopover(activeTrigger);
+            }
+        }, { passive: true });
+    }
 })();
 </script>
 <?php
+    }
+
+    private static function renderCreditpointsApp(array $view): void
+    {
+        $mode = $view['mode'];
+        $titleSuffix = $view['titleSuffix'];
+        $cpChart = $view['cpChart'];
+        $avgPeriodLabel = $mode === 'cp_jahr' ? 'Jahr' : 'Semester';
+
+        $labelsJson = json_encode($cpChart['labels'], JSON_UNESCAPED_UNICODE);
+        $valuesJson = json_encode($cpChart['values'], JSON_UNESCAPED_UNICODE);
+        ?>
+<div class="lt-page dashboard-page">
+    <div class="lt-topbar">
+        <h1 class="ueberschrift dashboard-title">
+            <span class="dashboard-title-main">Studienplan <?= self::esc($titleSuffix) ?></span>
+            <span class="dashboard-title-soft">| <?= self::fmtCp((float)$cpChart['total']) ?> CP</span>
+        </h1>
+
+        <div class="life-controls">
+            <div class="life-modewrap">
+                <label for="lifeMode" class="lt-label">Modus</label>
+                <select id="lifeMode" class="kategorie-select">
+                    <option value="gesamt" <?= $mode === 'gesamt' ? 'selected' : '' ?>>Gesamt</option>
+                    <option value="jahr" <?= $mode === 'jahr' ? 'selected' : '' ?>>Jahr</option>
+                    <option value="semester" <?= $mode === 'semester' ? 'selected' : '' ?>>Semester</option>
+                    <option value="cp_jahr" <?= $mode === 'cp_jahr' ? 'selected' : '' ?>>CP pro Jahr</option>
+                    <option value="cp_semester" <?= $mode === 'cp_semester' ? 'selected' : '' ?>>CP pro Semester</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="ernährungsdiablock">
+        <div class="dashboard-pies dashboard-pies--single">
+            <div class="dashboard-pie-card dashboard-pie-card--full">
+                <div class="dashboard-pie-kpi">
+                    <span class="dashboard-pie-kpi-label">Creditpoints</span>
+                    <span class="dashboard-pie-kpi-value">
+                        Ø <?= self::fmtCp((float)$cpChart['avg_value']) ?> CP pro <?= self::esc($avgPeriodLabel) ?>
+                    </span>
+                </div>
+                <div class="dashboard-pie-wrap">
+                    <canvas id="lifeCpChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+(() => {
+    const elMode = document.getElementById('lifeMode');
+
+    function navigateWithCurrentState() {
+        const u = new URL(window.location.href);
+        const mode = elMode ? elMode.value : 'gesamt';
+
+        u.searchParams.set('modus', mode);
+        u.searchParams.delete('jahr');
+        u.searchParams.delete('semester');
+
+        window.location.href = u.toString();
+    }
+
+    if (elMode) {
+        elMode.addEventListener('change', navigateWithCurrentState);
+    }
+
+    const labels = <?= $labelsJson ?>;
+    const values = <?= $valuesJson ?>;
+    const isSemesterMode = <?= $mode === 'cp_semester' ? 'true' : 'false' ?>;
+
+    const canvas = document.getElementById('lifeCpChart');
+    if (!canvas || typeof Chart === 'undefined') {
+        return;
+    }
+
+    function fmtCp(value) {
+        const num = Number(value);
+        if (!Number.isFinite(num)) {
+            return '0';
+        }
+
+        if (Math.abs(num - Math.round(num)) < 0.00001) {
+            return String(Math.round(num));
+        }
+
+        return String(num.toFixed(2)).replace(/\.?0+$/, '').replace('.', ',');
+    }
+
+    new Chart(canvas.getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Creditpoints',
+                    data: values,
+                    fill: false,
+                    tension: 0.25,
+                    borderWidth: 3,
+                    borderColor: '#111',
+                    pointRadius: 4,
+                    pointStyle: 'circle',
+                    pointBorderColor: 'rgba(0,0,0,0.45)',
+                    pointBorderWidth: 2,
+                    pointBackgroundColor: '#fff',
+                    spanGaps: true
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label(context) {
+                            const value = (context.parsed && typeof context.parsed.y === 'number')
+                                ? context.parsed.y
+                                : 0;
+                            return fmtCp(value) + ' CP';
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    type: 'category',
+                    offset: true,
+                    grid: {
+                        offset: true
+                    },
+                    ticks: {
+                        autoSkip: isSemesterMode ? false : (labels.length > 18),
+                        maxTicksLimit: isSemesterMode ? undefined : 18,
+                        maxRotation: 0,
+                        minRotation: 0,
+                        padding: 8,
+                        callback(value) {
+                            const label = this.getLabelForValue(value);
+
+                            if (!isSemesterMode) {
+                                return label;
+                            }
+
+                            if (typeof label === 'string' && label.startsWith('SS')) {
+                                return ['', label];
+                            }
+
+                            return [label, ''];
+                        }
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 5,
+                        callback(value) {
+                            return fmtCp(value) + ' CP';
+                        }
+                    }
+                }
+            }
+        }
+    });
+})();
+</script>
+<?php
+    }
+
+    private static function isCpMode(string $mode): bool
+    {
+        return in_array($mode, ['cp_jahr', 'cp_semester'], true);
+    }
+
+    private static function buildCreditpointsChartData(mysqli $conn, string $mode, int $fallbackYear): array
+    {
+        $events = self::fetchPassedCreditEvents($conn);
+
+        if ($mode === 'cp_semester') {
+            return self::buildCpSemesterSeriesFromEvents($events, $fallbackYear);
+        }
+
+        return self::buildCpYearSeriesFromEvents($events, $fallbackYear);
+    }
+
+    private static function fetchPassedCreditEvents(mysqli $conn): array
+    {
+        $events = [];
+        $res = $conn->query("
+            SELECT event_date, title, semester_code, creditpoints
+            FROM special_events
+            WHERE creditpoints IS NOT NULL
+              AND UPPER(TRIM(COALESCE(status_code, ''))) = 'BE'
+            ORDER BY event_date ASC, id ASC
+        ");
+
+        if (!$res) {
+            return $events;
+        }
+
+        while ($row = $res->fetch_assoc()) {
+            $date = self::dt($row['event_date']);
+            if (!$date) {
+                continue;
+            }
+
+            $events[] = [
+                'date' => $date,
+                'title' => (string)($row['title'] ?? ''),
+                'semester_code' => (string)($row['semester_code'] ?? ''),
+                'semester_label' => self::resolveSemesterLabelForCreditEvent(
+                    $date,
+                    (string)($row['title'] ?? ''),
+                    (string)($row['semester_code'] ?? '')
+                ),
+                'creditpoints' => (float)$row['creditpoints'],
+            ];
+        }
+
+        return $events;
+    }
+
+    private static function buildCpYearSeriesFromEvents(array $events, int $fallbackYear): array
+    {
+        if (count($events) === 0) {
+            return [
+                'labels' => [(string)$fallbackYear],
+                'values' => [0.0],
+                'total' => 0.0,
+                'avg_value' => 0.0,
+                'max_value' => 0.0,
+                'max_label' => '',
+            ];
+        }
+
+        $firstYear = (int)$events[0]['date']->format('Y');
+        $lastYear  = (int)$events[count($events) - 1]['date']->format('Y');
+
+        $sumByYear = [];
+        foreach ($events as $event) {
+            $year = (int)$event['date']->format('Y');
+            if (!isset($sumByYear[$year])) {
+                $sumByYear[$year] = 0.0;
+            }
+            $sumByYear[$year] += (float)$event['creditpoints'];
+        }
+
+        $labels = [];
+        $values = [];
+        $total = 0.0;
+        $maxValue = 0.0;
+        $maxLabel = '';
+
+        for ($year = $firstYear; $year <= $lastYear; $year++) {
+            $value = (float)($sumByYear[$year] ?? 0.0);
+            $labels[] = (string)$year;
+            $values[] = $value;
+            $total += $value;
+
+            if ($value > $maxValue) {
+                $maxValue = $value;
+                $maxLabel = (string)$year;
+            }
+        }
+
+        $avgValue = count($values) > 0 ? ($total / count($values)) : 0.0;
+
+        return [
+            'labels' => $labels,
+            'values' => $values,
+            'total' => $total,
+            'avg_value' => $avgValue,
+            'max_value' => $maxValue,
+            'max_label' => $maxLabel,
+        ];
+    }
+
+    private static function buildCpSemesterSeriesFromEvents(array $events, int $fallbackYear): array
+    {
+        if (count($events) === 0) {
+            $fallbackDate = new DateTimeImmutable(sprintf('%04d-01-01', $fallbackYear));
+            $fallbackLabel = self::semesterLabelForDate($fallbackDate);
+
+            return [
+                'labels' => [$fallbackLabel],
+                'values' => [0.0],
+                'total' => 0.0,
+                'avg_value' => 0.0,
+                'max_value' => 0.0,
+                'max_label' => '',
+            ];
+        }
+
+        $firstSemesterValue = self::semesterValueFromLabel((string)$events[0]['semester_label']);
+        $lastSemesterValue  = self::semesterValueFromLabel((string)$events[count($events) - 1]['semester_label']);
+
+        $minDate = $firstSemesterValue['start'] ?? $events[0]['date'];
+        $maxDate = $lastSemesterValue['end'] ?? $events[count($events) - 1]['date'];
+
+        $semesterItems = self::buildSemesterOptions($minDate, $maxDate);
+        usort($semesterItems, static function ($a, $b) {
+            return $a['start'] <=> $b['start'];
+        });
+
+        $sumBySemester = [];
+        foreach ($events as $event) {
+            $label = (string)$event['semester_label'];
+            if (!isset($sumBySemester[$label])) {
+                $sumBySemester[$label] = 0.0;
+            }
+            $sumBySemester[$label] += (float)$event['creditpoints'];
+        }
+
+        $labels = [];
+        $values = [];
+        $total = 0.0;
+        $maxValue = 0.0;
+        $maxLabel = '';
+
+        foreach ($semesterItems as $semesterItem) {
+            $label = (string)$semesterItem['label'];
+            $value = (float)($sumBySemester[$label] ?? 0.0);
+
+            $labels[] = $label;
+            $values[] = $value;
+            $total += $value;
+
+            if ($value > $maxValue) {
+                $maxValue = $value;
+                $maxLabel = $label;
+            }
+        }
+
+        $avgValue = count($values) > 0 ? ($total / count($values)) : 0.0;
+
+        return [
+            'labels' => $labels,
+            'values' => $values,
+            'total' => $total,
+            'avg_value' => $avgValue,
+            'max_value' => $maxValue,
+            'max_label' => $maxLabel,
+        ];
+    }
+
+    private static function resolveSemesterLabelForCreditEvent(
+        DateTimeImmutable $date,
+        string $title = '',
+        string $semesterCode = ''
+    ): string {
+        $normalizedSemesterCode = self::normalizeSemesterCode($semesterCode);
+        if ($normalizedSemesterCode !== null) {
+            return $normalizedSemesterCode;
+        }
+
+        if (self::isCoronaOverrideHoema3Ws2021($date, $title)) {
+            return 'WS20/21';
+        }
+
+        return self::semesterLabelForDate($date);
+    }
+
+    private static function normalizeSemesterCode(string $semesterCode): ?string
+    {
+        $semesterCode = strtoupper(trim($semesterCode));
+        $semesterCode = preg_replace('/\s+/', '', $semesterCode);
+
+        if ($semesterCode === null || $semesterCode === '') {
+            return null;
+        }
+
+        if (preg_match('/^SS(\d{2})$/', $semesterCode, $m)) {
+            return self::formatSemesterLabel('S', 2000 + (int)$m[1]);
+        }
+
+        if (preg_match('/^WS(\d{2})\/(\d{2})$/', $semesterCode, $m)) {
+            return self::formatSemesterLabel('W', 2000 + (int)$m[1]);
+        }
+
+        if (preg_match('/^WS(\d{2})$/', $semesterCode, $m)) {
+            return self::formatSemesterLabel('W', 2000 + (int)$m[1]);
+        }
+
+        return null;
+    }
+
+    private static function isCoronaOverrideHoema3Ws2021(DateTimeImmutable $date, string $title): bool
+    {
+        if ($date->format('Y-m-d') !== '2021-04-22') {
+            return false;
+        }
+
+        return preg_match('/h(?:ö|oe|o)ma\s*iii/iu', $title) === 1;
+    }
+
+    private static function semesterValueFromLabel(string $label): ?array
+    {
+        return self::parseSemesterValue(trim($label));
+    }
+
+    private static function semesterLabelForDate(DateTimeImmutable $date): string
+    {
+        if ($date->format('Y-m-d') === '2021-04-22') {
+            return 'WS20/21';
+        }
+
+        $month = (int)$date->format('n');
+        $year = (int)$date->format('Y');
+
+        if ($month >= 4 && $month <= 9) {
+            return self::formatSemesterLabel('S', $year);
+        }
+
+        if ($month >= 10) {
+            return self::formatSemesterLabel('W', $year);
+        }
+
+        return self::formatSemesterLabel('W', $year - 1);
     }
 
     private static function dt(?string $date): ?DateTimeImmutable
@@ -875,6 +1514,43 @@ final class LifeTimelinePage
     private static function fmtDate(?DateTimeImmutable $d): string
     {
         return $d ? $d->format('d.m.Y') : '';
+    }
+
+    private static function fmtCp(float $value): string
+    {
+        if (abs($value - round($value)) < 0.00001) {
+            return (string)(int)round($value);
+        }
+
+        return str_replace('.', ',', rtrim(rtrim(number_format($value, 2, '.', ''), '0'), '.'));
+    }
+
+    private static function normalizeInfoLines(array $parts): array
+    {
+        $lines = [];
+
+        foreach ($parts as $part) {
+            if ($part === null) {
+                continue;
+            }
+
+            $line = trim((string)$part);
+            if ($line === '') {
+                continue;
+            }
+
+            $lines[] = $line;
+        }
+
+        return array_values($lines);
+    }
+
+    private static function infoPayloadAttr(array $parts): string
+    {
+        return self::esc((string)json_encode(
+            self::normalizeInfoLines($parts),
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        ));
     }
 
     private static function outlineParts(string $outline): array
@@ -912,7 +1588,7 @@ final class LifeTimelinePage
             'NB' => 'Nicht bestanden',
             'Q'  => 'Attest / keine Beurteilung',
             'X'  => 'Nicht erschienen',
-            'AN' => 'Aktive Anmeldung',
+            'AN' => 'Angemeldet',
         ];
         $s = strtoupper(trim((string)$status));
 

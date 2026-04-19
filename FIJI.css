@@ -2018,6 +2018,82 @@ button.chart-back:focus-visible {
 }
 
 
+.life-interactive {
+    cursor: pointer;
+}
+
+.life-bar.life-interactive:focus-visible,
+.life-event.life-interactive:focus-visible {
+    outline: 2px solid #111;
+    outline-offset: 2px;
+    z-index: 8;
+}
+
+.life-info-popover {
+    position: fixed;
+    z-index: 9999;
+    display: none;
+    min-width: 220px;
+    max-width: min(380px, calc(100vw - 24px));
+    padding: 12px 14px;
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    border-radius: 14px;
+    background: #fff;
+    color: #111;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.22);
+}
+
+.life-info-popover.is-open {
+    display: block;
+}
+
+.life-info-popover-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.life-info-popover-title {
+    font-weight: 700;
+    line-height: 1.35;
+    flex: 1 1 auto;
+}
+
+.life-info-popover-close {
+    appearance: none;
+    border: 0;
+    box-shadow: none;
+    background: transparent;
+    color: #333;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    padding: 3px;
+    margin: 0;
+    flex: 0 0 auto;
+}
+
+.life-info-popover-close:hover,
+.life-info-popover-close:focus-visible {
+    color: var(--primary);
+    outline: none;
+    background: none;
+}
+
+.life-info-popover-body {
+    display: grid;
+    gap: 4px;
+}
+
+.life-info-popover-line {
+    line-height: 1.4;
+    color: #1f2937;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
 
 
 
