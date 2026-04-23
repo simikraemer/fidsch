@@ -374,7 +374,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv'])) {
                         $insertStmt->close();
                         fclose($handle);
 
-                        $importMessage = "{$inserted} neue Einträge importiert. {$duplicates} Dubletten übersprungen. {$skipped} Zeilen übersprungen.";
+                        /* $importMessage = "{$inserted} neue Einträge importiert. {$duplicates} Dubletten übersprungen. {$skipped} Zeilen übersprungen."; */
+                        $importMessage = "{$inserted} neue Einträge importiert.";
                     }
                 }
             }
