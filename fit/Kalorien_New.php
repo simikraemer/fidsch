@@ -142,6 +142,30 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'tag') {
     $eintraegeTag = $result->fetch_all(MYSQLI_ASSOC);
     $stmt->close();
 
+    // Brutto-Kalorien dieses Tages
+    $bruttoSumme = 0;
+    foreach ($eintraegeTag as $e) {
+        $bruttoSumme += (int)($e['kalorien'] ?? 0);
+    }
+
+    // Trainingsverbrauch dieses Tages
+    $trainingSumme = 0;
+    $stmt = $fitconn->prepare("
+        SELECT COALESCE(SUM(kalorien), 0) AS training_summe
+        FROM training
+        WHERE DATE(tstamp) = ?
+    ");
+    $stmt->bind_param('s', $datum);
+    $stmt->execute();
+    $stmt->bind_result($trainingSummeDb);
+    if ($stmt->fetch()) {
+        $trainingSumme = (int)$trainingSummeDb;
+    }
+    $stmt->close();
+
+    // Netto-Kalorien wie in Start.php: Zufuhr - Verbrauch
+    $nettoSumme = $bruttoSumme - $trainingSumme;
+
     // Vorheriger Tag mit Einträgen
     $prev = null;
     $stmt = $fitconn->prepare("
@@ -181,12 +205,15 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'tag') {
 
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode([
-        'date'    => $datum,
-        'heute'   => $heute,
-        'gestern' => $gestern,
-        'entries' => $eintraegeTag,
-        'prev'    => $prev,
-        'next'    => $next,
+        'date'            => $datum,
+        'heute'           => $heute,
+        'gestern'         => $gestern,
+        'entries'         => $eintraegeTag,
+        'brutto_summe'    => $bruttoSumme,
+        'training_summe'  => $trainingSumme,
+        'netto_summe'     => $nettoSumme,
+        'prev'            => $prev,
+        'next'            => $next,
     ]);
     exit;
 }
@@ -213,6 +240,11 @@ if ($result) $result->close();
 $heute   = date('Y-m-d');
 $gestern = date('Y-m-d', strtotime('-1 day'));
 $selected = $_GET['date'] ?? $heute;
+
+$selectedDate = DateTime::createFromFormat('Y-m-d', $selected);
+if (!$selectedDate || $selectedDate->format('Y-m-d') !== $selected) {
+    $selected = $heute;
+}
 
 // ---------------------- RENDERING START ----------------------
 $page_title = 'Kalorien eintragen';
@@ -287,8 +319,8 @@ require_once __DIR__ . '/../navbar.php';
         <tr>
             <th>Zeitpunkt</th>
             <th>Beschreibung</th>
-            <th>Kalorien</th>
-            <th></th>
+            <th style="white-space:nowrap;">Brutto-Kalorien</th>
+            <th style="text-align:center;">Netto-Kalorien</th>
         </tr>
         </thead>
         <tbody id="tage-tbody">
@@ -612,10 +644,10 @@ require_once __DIR__ . '/../navbar.php';
     const tageUeberschrift = document.getElementById('tage-ueberschrift');
     const dateInput        = document.getElementById('tag-date');
 
-    const heuteStr   = '<?= $heute ?>';
-    const gesternStr = '<?= $gestern ?>';
+    const heuteStr   = <?= json_encode($heute, JSON_UNESCAPED_UNICODE) ?>;
+    const gesternStr = <?= json_encode($gestern, JSON_UNESCAPED_UNICODE) ?>;
 
-    let aktuellesDatum = '<?= $selected ?>';
+    let aktuellesDatum = <?= json_encode($selected, JSON_UNESCAPED_UNICODE) ?>;
     let prevDate = null;
     let nextDate = null;
 
@@ -654,15 +686,21 @@ require_once __DIR__ . '/../navbar.php';
         const datum        = data.date;
         const eintraegeTag = data.entries || [];
 
-        let summe = 0;
-        eintraegeTag.forEach(e => { summe += Number(e.kalorien) || 0; });
+        let fallbackBruttoSumme = 0;
+        eintraegeTag.forEach(e => { fallbackBruttoSumme += Number(e.kalorien) || 0; });
+
+        const bruttoSummeRaw = Number(data.brutto_summe);
+        const nettoSummeRaw  = Number(data.netto_summe);
+
+        const bruttoSumme = Number.isFinite(bruttoSummeRaw) ? bruttoSummeRaw : fallbackBruttoSumme;
+        const nettoSumme  = Number.isFinite(nettoSummeRaw)  ? nettoSummeRaw  : bruttoSumme;
 
         let html = '';
         html += '<tr style="border-bottom: 3px solid black; font-weight: bold;">';
         html += '<td></td>';
         html += '<td style="white-space:nowrap;">SUMME</td>';
-        html += '<td style="white-space:nowrap;">' + summe + ' kcal</td>';
-        html += '<td></td>';
+        html += '<td style="white-space:nowrap;">' + bruttoSumme + ' kcal</td>';
+        html += '<td style="white-space:nowrap; text-align:center;">' + nettoSumme + ' kcal</td>';
         html += '</tr>';
 
         eintraegeTag.forEach(e => {
@@ -675,7 +713,7 @@ require_once __DIR__ . '/../navbar.php';
             html += '<td>' + escHtml(e.beschreibung || '') + '</td>';
             html += '<td>' + kcal + ' kcal</td>';
             html += '<td>';
-            html += '<div style="display:flex; gap:6px; align-items:stretch;">';
+            html += '<div style="display:flex; gap:6px; align-items:stretch; justify-content:center;">';
 
             html += '<form method="post" style="margin:0;">'
                  +  '<input type="hidden" name="current_date" value="' + escHtml(datum) + '">'
