@@ -8,7 +8,7 @@ require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../db.php';
 
 // 3) Variablen + Zeitraum bestimmen (POST-Verarbeitung gibt es hier nicht)
-$grundbedarf  = 2200;
+$grundbedarf  = 2500;
 $kalorienziel = 3000;
 
 $aktJahr = (int)(new DateTime())->format('Y');
