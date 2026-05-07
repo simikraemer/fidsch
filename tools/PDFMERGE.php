@@ -670,5 +670,3 @@ require_once __DIR__ . '/../navbar.php';
   renderList();
 })();
 </script>
-
-<?php require_once __DIR__ . '/../footer.php'; ?>

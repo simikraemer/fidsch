@@ -114,6 +114,7 @@ if (isset($_GET['login']) && $_GET['login'] === '1') {
                     <li><a href="/tools/bit"><img src="/img/bit.png" alt="Bit" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Bit-Konverter</span></a></li>
                     <li><a href="/tools/unixtime"><img src="/img/hourglass.png" alt="Unixtime" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Unixtime-Konverter</span></a></li>
                     <li><a href="/tools/ips"><img src="/img/network.png" alt="IPv4" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">IPv4-Konverter</span></a></li>
+                    <li><a href="/tools/MTNGWRTNG"><img src="/img/graph.png" alt="IPv4" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Meeting-Auswertung</span></a></li>
                 </ul>
             </li>
 
