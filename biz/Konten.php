@@ -259,6 +259,7 @@ require_once __DIR__ . '/../navbar.php';
                                 class="prefill-konto"
                                 data-konto="<?= esc((string)$row['konto']) ?>"
                                 data-betrag="<?= esc(number_format((float)$row['betrag'], 2, ',', '.')) ?>"
+                                data-info="<?= esc((string)($row['info'] ?? '')) ?>"
                             >
                                 Aktualisieren
                             </button>
@@ -274,11 +275,13 @@ require_once __DIR__ . '/../navbar.php';
 document.addEventListener('DOMContentLoaded', () => {
     const kontoInput = document.getElementById('konto');
     const betragInput = document.getElementById('betrag');
+    const infoInput = document.getElementById('info');
 
     document.querySelectorAll('.prefill-konto').forEach((button) => {
         button.addEventListener('click', () => {
             if (kontoInput) kontoInput.value = button.dataset.konto || '';
             if (betragInput) betragInput.value = button.dataset.betrag || '';
+            if (infoInput) infoInput.value = button.dataset.info || '';
 
             if (betragInput) {
                 betragInput.focus();

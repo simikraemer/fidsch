@@ -401,6 +401,58 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'page_data') {
     $sumStmt->close();
     $kontostandBisEndeDesJahres = (float)$summeAlleBisEOY;
 
+    $externeKontostaende = [];
+
+    $kontoStandCutoff = sprintf('%04d-12-31 23:59:59', $jahr);
+
+    $stmtKontoStaende = $bizconn->prepare("
+        SELECT ks.konto, ks.betrag, ks.eingetragen_am
+        FROM konto_staende ks
+        WHERE ks.eingetragen_am <= ?
+          AND NOT EXISTS (
+              SELECT 1
+              FROM konto_staende newer
+              WHERE newer.konto = ks.konto
+                AND newer.eingetragen_am <= ?
+                AND (
+                    newer.eingetragen_am > ks.eingetragen_am
+                    OR (
+                        newer.eingetragen_am = ks.eingetragen_am
+                        AND newer.id > ks.id
+                    )
+                )
+          )
+          AND ks.betrag <> 0
+        ORDER BY ks.betrag DESC
+    ");
+
+    if ($stmtKontoStaende !== false) {
+        $stmtKontoStaende->bind_param('ss', $kontoStandCutoff, $kontoStandCutoff);
+        $stmtKontoStaende->execute();
+
+        $resKontoStaende = $stmtKontoStaende->get_result();
+        while ($row = $resKontoStaende->fetch_assoc()) {
+            $externeKontostaende[] = $row;
+        }
+
+        $stmtKontoStaende->close();
+    }
+
+    $summeExterneKontostaende = 0.0;
+
+    foreach ($externeKontostaende as $kontoStand) {
+        $summeExterneKontostaende += (float)$kontoStand['betrag'];
+    }
+
+    $dashboardSaldoGesamt = (float)$kontostandBisEndeDesJahres + $summeExterneKontostaende;
+
+    $dashboardSaldoDetails = [];
+    $dashboardSaldoDetails[] = euro($kontostandBisEndeDesJahres);
+
+    foreach ($externeKontostaende as $kontoStand) {
+        $dashboardSaldoDetails[] = $kontoStand['konto'] . ': ' . euro($kontoStand['betrag']);
+    }
+
     $toXY = static function(array $series): array {
         $out = [];
         foreach ($series as $d => $v) $out[] = ['x' => $d, 'y' => $v];
@@ -414,6 +466,9 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'page_data') {
         'kategorie' => $selectedKat,
         'kategorie_label' => $selectedKatLabel,
         'kontostand_eoy' => round($kontostandBisEndeDesJahres, 2),
+
+        'dashboard_saldo_gesamt' => round($dashboardSaldoGesamt, 2),
+        'dashboard_saldo_details' => $dashboardSaldoDetails,
 
         'daily' => $toXY($dailySeries),
         'monthly' => $toXY($monthlyPoints),
@@ -699,30 +754,39 @@ $kontostandBisEndeDesJahres = (float)$summeAlleBisEOY;
 
 $externeKontostaende = [];
 
-$sql = "
+$kontoStandCutoff = sprintf('%04d-12-31 23:59:59', $jahr);
+
+$stmtKontoStaende = $bizconn->prepare("
     SELECT ks.konto, ks.betrag, ks.eingetragen_am
     FROM konto_staende ks
-    WHERE NOT EXISTS (
-        SELECT 1
-        FROM konto_staende newer
-        WHERE newer.konto = ks.konto
-          AND (
-              newer.eingetragen_am > ks.eingetragen_am
-              OR (
-                  newer.eingetragen_am = ks.eingetragen_am
-                  AND newer.id > ks.id
-              )
-          )
-    )
+    WHERE ks.eingetragen_am <= ?
+      AND NOT EXISTS (
+          SELECT 1
+          FROM konto_staende newer
+          WHERE newer.konto = ks.konto
+            AND newer.eingetragen_am <= ?
+            AND (
+                newer.eingetragen_am > ks.eingetragen_am
+                OR (
+                    newer.eingetragen_am = ks.eingetragen_am
+                    AND newer.id > ks.id
+                )
+            )
+      )
       AND ks.betrag <> 0
     ORDER BY ks.betrag DESC
-";
+");
 
-$resKontoStaende = $bizconn->query($sql);
-if ($resKontoStaende) {
+if ($stmtKontoStaende !== false) {
+    $stmtKontoStaende->bind_param('ss', $kontoStandCutoff, $kontoStandCutoff);
+    $stmtKontoStaende->execute();
+
+    $resKontoStaende = $stmtKontoStaende->get_result();
     while ($row = $resKontoStaende->fetch_assoc()) {
         $externeKontostaende[] = $row;
     }
+
+    $stmtKontoStaende->close();
 }
 
 $summeExterneKontostaende = 0.0;
@@ -1171,11 +1235,27 @@ function setSelectValues(category, year) {
   if (selYear) selYear.value = String(year);
 }
 
-function updateHeader(year, kontostandEoy) {
+function updateHeader(year, saldoGesamt, saldoDetails = []) {
   const yEl = $('pageTitleYear');
   const sEl = $('pageTitleSaldo');
-  if (yEl) yEl.textContent = `Finanzen ${year}`;
-  if (sEl) sEl.textContent = `| ${fmtEuro(kontostandEoy)}`;
+
+  if (yEl) {
+    yEl.textContent = `Finanzen ${year}`;
+  }
+
+  if (!sEl) {
+    return;
+  }
+
+  sEl.textContent = `| ${fmtEuro(saldoGesamt)}`;
+
+  if (Array.isArray(saldoDetails) && saldoDetails.length > 0) {
+    const detailSpan = document.createElement('span');
+    detailSpan.className = 'dashboard-title-soft-detail';
+    detailSpan.textContent = `(${saldoDetails.join(' + ')})`;
+    sEl.appendChild(document.createTextNode(' '));
+    sEl.appendChild(detailSpan);
+  }
 }
 
 async function applySelection(category, year, opts = {}) {
@@ -1216,7 +1296,11 @@ async function applySelection(category, year, opts = {}) {
   if (!incomeValuesClosed.length) incomeValuesClosed = incomeValues.slice();
   if (!expenseValuesClosed.length) expenseValuesClosed = expenseValues.slice();
 
-  updateHeader(chartYear, j.kontostand_eoy);
+  updateHeader(
+    chartYear,
+    j.dashboard_saldo_gesamt ?? j.kontostand_eoy,
+    j.dashboard_saldo_details || []
+  );
 
   // reset bottom charts (pies)
   destroyChart('income');
