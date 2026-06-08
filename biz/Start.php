@@ -697,6 +697,49 @@ $sumStmt->fetch();
 $sumStmt->close();
 $kontostandBisEndeDesJahres = (float)$summeAlleBisEOY;
 
+$externeKontostaende = [];
+
+$sql = "
+    SELECT ks.konto, ks.betrag, ks.eingetragen_am
+    FROM konto_staende ks
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM konto_staende newer
+        WHERE newer.konto = ks.konto
+          AND (
+              newer.eingetragen_am > ks.eingetragen_am
+              OR (
+                  newer.eingetragen_am = ks.eingetragen_am
+                  AND newer.id > ks.id
+              )
+          )
+    )
+      AND ks.betrag <> 0
+    ORDER BY ks.betrag DESC
+";
+
+$resKontoStaende = $bizconn->query($sql);
+if ($resKontoStaende) {
+    while ($row = $resKontoStaende->fetch_assoc()) {
+        $externeKontostaende[] = $row;
+    }
+}
+
+$summeExterneKontostaende = 0.0;
+
+foreach ($externeKontostaende as $kontoStand) {
+    $summeExterneKontostaende += (float)$kontoStand['betrag'];
+}
+
+$dashboardSaldoGesamt = (float)$kontostandBisEndeDesJahres + $summeExterneKontostaende;
+
+$dashboardSaldoDetails = [];
+$dashboardSaldoDetails[] = euro($kontostandBisEndeDesJahres);
+
+foreach ($externeKontostaende as $kontoStand) {
+    $dashboardSaldoDetails[] = $kontoStand['konto'] . ': ' . euro($kontoStand['betrag']);
+}
+
 function euro($v) { return number_format((float)$v, 2, ',', '.').' €'; }
 
 // 4) Rendering starten
@@ -713,7 +756,12 @@ require_once __DIR__ . '/../navbar.php';  // Navbar
             Finanzen <?= htmlspecialchars((string)$jahr, ENT_QUOTES, 'UTF-8') ?>
           </span>
           <span class="dashboard-title-soft" id="pageTitleSaldo">
-            | <?= euro($kontostandBisEndeDesJahres) ?>
+            | <?= euro($dashboardSaldoGesamt) ?>
+            <?php if (!empty($dashboardSaldoDetails)): ?>
+              <span class="dashboard-title-soft-detail">
+                (<?= htmlspecialchars(implode(' + ', $dashboardSaldoDetails), ENT_QUOTES, 'UTF-8') ?>)
+              </span>
+            <?php endif; ?>
           </span>
         </h1>
 

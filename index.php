@@ -18,6 +18,7 @@ $routesBiz = [
     'stats'  => 'Start.php',
     'data'   => 'Data.php',
     'insert' => 'Insert.php',
+    'konten' => 'Konten.php',
 ];
 
 $routesSci = [
