@@ -590,6 +590,7 @@ input[type="radio"] {
     justify-content: space-between;
     gap: 16px;
     flex-wrap: wrap;
+    align-items: center;
 }
 
 .lt-yearwrap {
@@ -1090,6 +1091,52 @@ tr.lt-dragging .lt-grip {
     .dashboard-page .dashboard-pies.dashboard-pies-3 {
         grid-template-columns: 1fr;
     }
+}
+
+.dashboard-page .dashboard-sober-counters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: stretch;
+    justify-content: center;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.dashboard-page .dashboard-sober-counter {
+    flex: 0 0 auto;
+    min-width: 115px;
+    background: #fff;
+    border: 1px solid var(--primary);
+    border-radius: var(--border-radius);
+    padding: 8px 8px;
+    text-align: center;
+}
+
+.dashboard-page .dashboard-sober-label {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.2px;
+    color: var(--text);
+    margin-bottom: 3px;
+}
+
+.dashboard-page .dashboard-sober-value {
+    display: block;
+    font-size: clamp(0.95rem, 0.82rem + 0.45vw, 1.18rem);
+    font-weight: 900;
+    color: var(--primary);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.dashboard-page .dashboard-sober-since {
+    display: block;
+    margin-top: 3px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    opacity: 0.72;
 }
 
 .ernährungsdiablock {

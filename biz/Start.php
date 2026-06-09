@@ -806,6 +806,21 @@ foreach ($externeKontostaende as $kontoStand) {
 
 function euro($v) { return number_format((float)$v, 2, ',', '.').' €'; }
 
+function dashboardSaldoDetailParts(string $detail, int $index): array
+{
+    if ($index === 0) {
+        return ['Kontostand', $detail];
+    }
+
+    $parts = explode(':', $detail, 2);
+
+    if (count($parts) === 2) {
+        return [trim($parts[0]), trim($parts[1])];
+    }
+
+    return ['Detail', $detail];
+}
+
 // 4) Rendering starten
 $page_title = 'Finanzen';
 require_once __DIR__ . '/../head.php';    // <!DOCTYPE html> … <body>
@@ -821,13 +836,22 @@ require_once __DIR__ . '/../navbar.php';  // Navbar
           </span>
           <span class="dashboard-title-soft" id="pageTitleSaldo">
             | <?= euro($dashboardSaldoGesamt) ?>
-            <?php if (!empty($dashboardSaldoDetails)): ?>
-              <span class="dashboard-title-soft-detail">
-                (<?= htmlspecialchars(implode(' + ', $dashboardSaldoDetails), ENT_QUOTES, 'UTF-8') ?>)
-              </span>
-            <?php endif; ?>
           </span>
         </h1>
+
+        <div class="dashboard-sober-counters" id="pageTitleSaldoDetails" aria-label="Saldo-Details">
+          <?php foreach ($dashboardSaldoDetails as $i => $detail): ?>
+            <?php [$detailLabel, $detailValue] = dashboardSaldoDetailParts((string)$detail, (int)$i); ?>
+            <div class="dashboard-sober-counter">
+              <span class="dashboard-sober-label">
+                <?= htmlspecialchars($detailLabel, ENT_QUOTES, 'UTF-8') ?>
+              </span>
+              <span class="dashboard-sober-value">
+                <?= htmlspecialchars($detailValue, ENT_QUOTES, 'UTF-8') ?>
+              </span>
+            </div>
+          <?php endforeach; ?>
+        </div>
 
         <form method="get" class="dashboard-filterform" id="statsFilterForm">
           <div class="lt-yearwrap">
@@ -1235,6 +1259,64 @@ function setSelectValues(category, year) {
   if (selYear) selYear.value = String(year);
 }
 
+function splitSaldoDetail(detail, index) {
+  const raw = String(detail ?? '').trim();
+
+  if (index === 0) {
+    return {
+      label: 'Kontostand',
+      value: raw
+    };
+  }
+
+  const sep = raw.indexOf(':');
+
+  if (sep !== -1) {
+    return {
+      label: raw.slice(0, sep).trim(),
+      value: raw.slice(sep + 1).trim()
+    };
+  }
+
+  return {
+    label: 'Detail',
+    value: raw
+  };
+}
+
+function renderSaldoDetailBlocks(saldoDetails = []) {
+  const wrap = $('pageTitleSaldoDetails');
+  if (!wrap) return;
+
+  wrap.innerHTML = '';
+
+  if (!Array.isArray(saldoDetails) || saldoDetails.length === 0) {
+    wrap.style.display = 'none';
+    return;
+  }
+
+  wrap.style.display = '';
+
+  saldoDetails.forEach((detail, index) => {
+    const parts = splitSaldoDetail(detail, index);
+
+    const card = document.createElement('div');
+    card.className = 'dashboard-sober-counter';
+
+    const label = document.createElement('span');
+    label.className = 'dashboard-sober-label';
+    label.textContent = parts.label;
+
+    const value = document.createElement('span');
+    value.className = 'dashboard-sober-value';
+    value.textContent = parts.value;
+
+    card.appendChild(label);
+    card.appendChild(value);
+    wrap.appendChild(card);
+  });
+}
+
 function updateHeader(year, saldoGesamt, saldoDetails = []) {
   const yEl = $('pageTitleYear');
   const sEl = $('pageTitleSaldo');
@@ -1243,19 +1325,11 @@ function updateHeader(year, saldoGesamt, saldoDetails = []) {
     yEl.textContent = `Finanzen ${year}`;
   }
 
-  if (!sEl) {
-    return;
+  if (sEl) {
+    sEl.textContent = `| ${fmtEuro(saldoGesamt)}`;
   }
 
-  sEl.textContent = `| ${fmtEuro(saldoGesamt)}`;
-
-  if (Array.isArray(saldoDetails) && saldoDetails.length > 0) {
-    const detailSpan = document.createElement('span');
-    detailSpan.className = 'dashboard-title-soft-detail';
-    detailSpan.textContent = `(${saldoDetails.join(' + ')})`;
-    sEl.appendChild(document.createTextNode(' '));
-    sEl.appendChild(detailSpan);
-  }
+  renderSaldoDetailBlocks(saldoDetails);
 }
 
 async function applySelection(category, year, opts = {}) {

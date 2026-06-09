@@ -440,12 +440,32 @@ require_once __DIR__ . '/../navbar.php';
 
 <div id="healthPage" class="lt-page dashboard-page">
   <div class="lt-topbar">
-    <h1 class="ueberschrift dashboard-title">
-      <span class="dashboard-title-main">Ernährung <?= htmlspecialchars((string)$jahr, ENT_QUOTES, 'UTF-8') ?></span>
-      <span class="dashboard-title-soft">| <?= htmlspecialchars($gewichtsDiffText, ENT_QUOTES, 'UTF-8') ?></span>
-    </h1>
+  <h1 class="ueberschrift dashboard-title">
+    <span class="dashboard-title-main">Ernährung <?= htmlspecialchars((string)$jahr, ENT_QUOTES, 'UTF-8') ?></span>
+    <span class="dashboard-title-soft">| <?= htmlspecialchars($gewichtsDiffText, ENT_QUOTES, 'UTF-8') ?></span>
+  </h1>
 
-    <form method="get" id="zeitForm" class="dashboard-filterform">
+  <div class="dashboard-sober-counters" aria-label="Abstinenz-Counter">
+
+    <div class="dashboard-sober-counter">
+      <span class="dashboard-sober-label">Nichtraucher</span>
+      <span
+        class="dashboard-sober-value js-sober-counter"
+        data-start="2020-11-29"
+      >—</span>
+    </div>
+
+    <div class="dashboard-sober-counter">
+      <span class="dashboard-sober-label">Nüchtern</span>
+      <span
+        class="dashboard-sober-value js-sober-counter"
+        data-start="2025-11-16"
+      >—</span>
+    </div>
+
+  </div>
+
+  <form method="get" id="zeitForm" class="dashboard-filterform">
       <div class="lt-yearwrap">
         <label for="modus" class="lt-label">Modus</label>
         <select id="modus" name="modus" class="kategorie-select" onchange="this.form.submit()">
@@ -585,6 +605,82 @@ function monthStartsFromLabels(allLabels) {
   for (let cur = first; cur <= last; cur = cur.plus({ months: 1 })) out.push(cur);
   return out;
 }
+
+function daysBetweenDates(fromDate, toDate) {
+  const from = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate());
+  const to   = new Date(toDate.getFullYear(), toDate.getMonth(), toDate.getDate());
+
+  return Math.max(0, Math.floor((to - from) / 86400000));
+}
+
+function addCalendarPart(date, amount, part) {
+  const out = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+  if (part === 'years') {
+    out.setFullYear(out.getFullYear() + amount);
+  }
+
+  if (part === 'months') {
+    out.setMonth(out.getMonth() + amount);
+  }
+
+  return out;
+}
+
+function formatSoberDuration(start, now) {
+  const totalDays = daysBetweenDates(start, now);
+
+  let years = now.getFullYear() - start.getFullYear();
+  let anchor = addCalendarPart(start, years, 'years');
+
+  if (anchor > now) {
+    years--;
+    anchor = addCalendarPart(start, years, 'years');
+  }
+
+  let months =
+    (now.getFullYear() - anchor.getFullYear()) * 12 +
+    (now.getMonth() - anchor.getMonth());
+
+  let monthAnchor = addCalendarPart(anchor, months, 'months');
+
+  if (monthAnchor > now) {
+    months--;
+    monthAnchor = addCalendarPart(anchor, months, 'months');
+  }
+
+  const days = daysBetweenDates(monthAnchor, now);
+
+  if (years >= 1) {
+    return `${years}J ${months}M ${days}T`;
+  }
+
+  if (months >= 1) {
+    return `${months}M ${days}T`;
+  }
+
+  return `${totalDays}T`;
+}
+
+function updateSoberCounters() {
+  const counters = document.querySelectorAll('.js-sober-counter');
+  const now = new Date();
+
+  counters.forEach(counter => {
+    const startRaw = counter.dataset.start;
+    if (!startRaw) return;
+
+    const [year, month, day] = startRaw.split('-').map(Number);
+    const start = new Date(year, month - 1, day);
+
+    if (Number.isNaN(start.getTime())) return;
+
+    counter.textContent = formatSoberDuration(start, now);
+  });
+}
+
+updateSoberCounters();
+setInterval(updateSoberCounters, 60 * 60 * 1000);
 
 const midMonthLabelsPlugin = {
   id: 'midMonthLabelsPlugin',
