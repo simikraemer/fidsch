@@ -809,7 +809,7 @@ function euro($v) { return number_format((float)$v, 2, ',', '.').' €'; }
 function dashboardSaldoDetailParts(string $detail, int $index): array
 {
     if ($index === 0) {
-        return ['Kontostand', $detail];
+        return ['Konto', $detail];
     }
 
     $parts = explode(':', $detail, 2);
