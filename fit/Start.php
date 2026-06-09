@@ -456,7 +456,7 @@ require_once __DIR__ . '/../navbar.php';
     </div>
 
     <div class="dashboard-sober-counter">
-      <span class="dashboard-sober-label">Nüchtern</span>
+      <span class="dashboard-sober-label">Abstinent</span>
       <span
         class="dashboard-sober-value js-sober-counter"
         data-start="2025-11-16"
