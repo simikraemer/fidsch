@@ -1143,9 +1143,9 @@ tr.lt-dragging .lt-grip {
     flex: 0 0 auto;
     min-width: 115px;
     background: #fff;
-    border: 1px solid var(--primary);
+    border: 2px solid var(--primary);
     border-radius: var(--border-radius);
-    padding: 8px 8px;
+    padding: 2px 8px;
     text-align: center;
 }
 
@@ -1155,7 +1155,7 @@ tr.lt-dragging .lt-grip {
     font-weight: 800;
     letter-spacing: 0.2px;
     color: var(--text);
-    margin-bottom: 3px;
+    /*! margin-bottom: 3px; */
 }
 
 .dashboard-page .dashboard-sober-value {
