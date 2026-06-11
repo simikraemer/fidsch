@@ -189,41 +189,42 @@ $page_title = 'Gewicht eintragen';
 require_once __DIR__ . '/../head.php';    // <!DOCTYPE html> … <body>
 require_once __DIR__ . '/../navbar.php';  // nur die Navbar
 ?>
-<div class="container">
-    <h1 class="ueberschrift">Gewicht eintragen</h1>
+<div class="container-duo">
+    <div class="container">
+        <h1 class="ueberschrift">Gewicht eintragen</h1>
 
-    <form method="post" class="form-block" action="/fit/gewicht">
-        <label for="gewicht">Gewicht (kg):</label>
-        <input type="number" id="gewicht" name="gewicht" step="0.1" required>
-        <button type="submit">Eintragen</button>
-    </form>
-</div>
-
-<div class="container" style="max-width: 800px; margin-top: 25px;">
-
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-        <div style="display:flex; justify-content:center; align-items:center; gap:12px;">
-            <button type="button" id="tag-zurueck" style="padding:4px 8px;">&laquo;</button>
-            <input type="date" id="tag-date" style="padding:4px 6px;">
-            <!-- <h2 id="tage-ueberschrift" style="margin:0;"><?= htmlspecialchars(date('d.m.Y'), ENT_QUOTES) ?></h2> -->
-            <button type="button" id="tag-vor" style="padding:4px 8px;">&raquo;</button>
-        </div>
-        <button type="button" id="tag-heute" style="padding:4px 8px;">Heute</button>
+        <form method="post" class="form-block" action="/fit/gewicht">
+            <label for="gewicht">Gewicht (kg):</label>
+            <input type="number" id="gewicht" name="gewicht" step="0.1" required>
+            <button type="submit">Eintragen</button>
+        </form>
     </div>
 
-    <table class="food-table">
-        <thead>
-        <tr>
-            <th>Zeitpunkt</th>
-            <th>Gewicht</th>
-            <th></th>
-            <th></th>
-        </tr>
-        </thead>
-        <tbody id="tage-tbody">
-            <!-- wird per JavaScript befüllt -->
-        </tbody>
-    </table>
+    <div class="container">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <div style="display:flex; justify-content:center; align-items:center; gap:12px;">
+                <button type="button" id="tag-zurueck" style="padding:4px 8px;">&laquo;</button>
+                <input type="date" id="tag-date" style="padding:4px 6px;">
+                <!-- <h2 id="tage-ueberschrift" style="margin:0;"><?= htmlspecialchars(date('d.m.Y'), ENT_QUOTES) ?></h2> -->
+                <button type="button" id="tag-vor" style="padding:4px 8px;">&raquo;</button>
+            </div>
+            <button type="button" id="tag-heute" style="padding:4px 8px;">Heute</button>
+        </div>
+
+        <table class="food-table">
+            <thead>
+            <tr>
+                <th>Zeitpunkt</th>
+                <th>Gewicht</th>
+                <th></th>
+                <th></th>
+            </tr>
+            </thead>
+            <tbody id="tage-tbody">
+                <!-- wird per JavaScript befüllt -->
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <script>

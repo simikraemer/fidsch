@@ -159,116 +159,112 @@ require_once __DIR__ . '/../head.php';
 require_once __DIR__ . '/../navbar.php';
 ?>
 
-<div class="container">
-    <h1 class="ueberschrift">Konten aktualisieren</h1>
+    <div class="container-duo">
+    <div class="container">
+        <h1 class="ueberschrift">Konten aktualisieren</h1>
 
-    <?php if ($message !== ''): ?>
-        <p class="kalorien-output"><?= esc($message) ?></p>
-    <?php endif; ?>
+        <?php if ($message !== ''): ?>
+            <p class="kalorien-output"><?= esc($message) ?></p>
+        <?php endif; ?>
 
-    <?php if ($errors !== []): ?>
-        <details open>
-            <summary>Fehlerdetails anzeigen (<?= count($errors) ?>)</summary>
-            <ul>
-                <?php foreach ($errors as $error): ?>
-                    <li><?= esc($error) ?></li>
-                <?php endforeach; ?>
-            </ul>
-        </details>
+        <?php if ($errors !== []): ?>
+            <details open>
+                <summary>Fehlerdetails anzeigen (<?= count($errors) ?>)</summary>
+                <ul>
+                    <?php foreach ($errors as $error): ?>
+                        <li><?= esc($error) ?></li>
+                    <?php endforeach; ?>
+                </ul>
+            </details>
 
-        <div class="form-separator"></div>
-    <?php endif; ?>
+            <div class="form-separator"></div>
+        <?php endif; ?>
 
-    <form class="form-block" method="post">
-        <div class="input-group">
-            <label for="konto">Konto:</label>
-            <input
-                type="text"
-                id="konto"
-                name="konto"
-                list="konto-vorschlaege"
-                maxlength="100"
-                placeholder="z. B. Sparbuch, PayPal"
-                required
-            >
+        <form class="form-block" method="post">
+            <div class="input-group">
+                <label for="konto">Konto:</label>
+                <input
+                    type="text"
+                    id="konto"
+                    name="konto"
+                    list="konto-vorschlaege"
+                    maxlength="100"
+                    placeholder="z. B. Sparbuch, PayPal"
+                    required
+                >
 
-            <datalist id="konto-vorschlaege">
-                <?php foreach ($kontenVorschlaege as $konto): ?>
-                    <option value="<?= esc($konto) ?>"></option>
-                <?php endforeach; ?>
-            </datalist>
-        </div>
+                <datalist id="konto-vorschlaege">
+                    <?php foreach ($kontenVorschlaege as $konto): ?>
+                        <option value="<?= esc($konto) ?>"></option>
+                    <?php endforeach; ?>
+                </datalist>
+            </div>
 
-        <div class="input-group">
-            <label for="betrag">Kontostand:</label>
-            <input
-                type="text"
-                id="betrag"
-                name="betrag"
-                inputmode="decimal"
-                placeholder="z. B. 1.254,51"
-                required
-            >
-        </div>
+            <div class="input-group">
+                <label for="betrag">Kontostand:</label>
+                <input
+                    type="text"
+                    id="betrag"
+                    name="betrag"
+                    inputmode="decimal"
+                    placeholder="z. B. 1.254,51"
+                    required
+                >
+            </div>
 
-        <div class="input-group">
-            <label for="info">Notiz:</label>
-            <textarea
-                id="info"
-                name="info"
-                rows="3"
-                placeholder="Optional, z. B. Stand aus App geprüft"
-            ></textarea>
-        </div>
+            <div class="input-group">
+                <label for="info">Notiz:</label>
+                <textarea
+                    id="info"
+                    name="info"
+                    rows="3"
+                    placeholder="Optional, z. B. Stand aus App geprüft"
+                ></textarea>
+            </div>
 
-        <button type="submit">Kontostand speichern</button>
-    </form>
-</div>
+            <button type="submit">Kontostand speichern</button>
+        </form>
+    </div>
 
-<div class="container">
-    <table class="food-table">
-        <thead>
-            <tr>
-                <th>Konto</th>
-                <th>Stand</th>
-                <th>Eingetragen</th>
-                <th>Notiz</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php if ($latestKontostaende === []): ?>
+    <div class="container">
+        <h1 class="ueberschrift">Aktuelle Einträge</h1>
+        <table class="food-table">
+            <thead>
                 <tr>
-                    <td colspan="5">Noch keine externen Kontostände gespeichert.</td>
+                    <th>Konto</th>
+                    <th>Stand</th>
+                    <th>Eingetragen</th>
+                    <th></th>
                 </tr>
-            <?php else: ?>
-                <?php foreach ($latestKontostaende as $row): ?>
+            </thead>
+            <tbody>
+                <?php if ($latestKontostaende === []): ?>
                     <tr>
-                        <td><?= esc((string)$row['konto']) ?></td>
-                        <td><?= esc(euro((float)$row['betrag'])) ?></td>
-                        <td><?= esc(formatDateTime((string)$row['eingetragen_am'])) ?></td>
-                        <td>
-                            <?= $row['info'] !== null && trim((string)$row['info']) !== ''
-                                ? esc((string)$row['info'])
-                                : '—'
-                            ?>
-                        </td>
-                        <td>
-                            <button
-                                type="button"
-                                class="prefill-konto"
-                                data-konto="<?= esc((string)$row['konto']) ?>"
-                                data-betrag="<?= esc(number_format((float)$row['betrag'], 2, ',', '.')) ?>"
-                                data-info="<?= esc((string)($row['info'] ?? '')) ?>"
-                            >
-                                Aktualisieren
-                            </button>
-                        </td>
+                        <td colspan="5">Noch keine externen Kontostände gespeichert.</td>
                     </tr>
-                <?php endforeach; ?>
-            <?php endif; ?>
-        </tbody>
-    </table>
+                <?php else: ?>
+                    <?php foreach ($latestKontostaende as $row): ?>
+                        <tr>
+                            <td><?= esc((string)$row['konto']) ?></td>
+                            <td><?= esc(euro((float)$row['betrag'])) ?></td>
+                            <td><?= esc(formatDateTime((string)$row['eingetragen_am'])) ?></td>
+                            <td>
+                                <button
+                                    type="button"
+                                    class="prefill-konto"
+                                    data-konto="<?= esc((string)$row['konto']) ?>"
+                                    data-betrag="<?= esc(number_format((float)$row['betrag'], 2, ',', '.')) ?>"
+                                    data-info="<?= esc((string)($row['info'] ?? '')) ?>"
+                                >
+                                    Aktualisieren
+                                </button>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <script>

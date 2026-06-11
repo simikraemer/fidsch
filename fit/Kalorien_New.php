@@ -251,82 +251,84 @@ $page_title = 'Kalorien eintragen';
 require_once __DIR__ . '/../head.php';
 require_once __DIR__ . '/../navbar.php';
 ?>
-<div class="container">
-    <h1 class="ueberschrift">Kalorienzufuhr eintragen</h1>
+<div class="container-duo">
+    <div class="container">
+        <h1 class="ueberschrift">Kalorienzufuhr eintragen</h1>
 
-    <form method="post" class="form-block" action="/fit/kalorien">
-        <div class="input-group" style="flex: 1 1 100%; position: relative;">
-            <label for="beschreibung">Beschreibung:</label>
-            <input type="text" id="beschreibung" name="beschreibung" autocomplete="off" autofocus>
-            <ul id="vorschlaege" class="autocomplete-list"></ul>
-        </div>
-
-        <div class="input-row">
-            <div class="input-group">
-                <label for="anzahl">Anzahl:</label>
-                <input type="number" id="anzahl" name="anzahl" value="1" min="1" required>
+        <form method="post" class="form-block" action="/fit/kalorien">
+            <div class="input-group" style="flex: 1 1 100%; position: relative;">
+                <label for="beschreibung">Beschreibung:</label>
+                <input type="text" id="beschreibung" name="beschreibung" autocomplete="off" autofocus>
+                <ul id="vorschlaege" class="autocomplete-list"></ul>
             </div>
-            <div class="input-group">
-                <label>&nbsp;</label>
-                <button type="button" id="btn-100g-modal" style="width: 100%;">Aus /100g berechnen</button>
-            </div>
-        </div>
 
-        <div class="form-separator"></div>
-
-        <div class="input-row">
-            <div class="input-group">
-                <label for="kalorien">Kalorien (kcal):</label>
-                <input type="number" id="kalorien" name="kalorien" required>
-                <div id="kcal-pruefsumme" style="margin-top:6px; font-size:0.9em; opacity:0.8;">
-                    Prüfsumme: <span id="kcal-check">0</span> kcal
+            <div class="input-row">
+                <div class="input-group">
+                    <label for="anzahl">Anzahl:</label>
+                    <input type="number" id="anzahl" name="anzahl" value="1" min="1" required>
+                </div>
+                <div class="input-group">
+                    <label>&nbsp;</label>
+                    <button type="button" id="btn-100g-modal" style="width: 100%;">Aus /100g berechnen</button>
                 </div>
             </div>
-            <div class="input-group">
-                <label for="fett">Fett (g):</label>
-                <input type="number" id="fett" name="fett" step="0.01" min="0" value="0">
-            </div>
-        </div>
 
-        <div class="input-row">
-            <div class="input-group">
-                <label for="kohlenhydrate">Kohlenhydrate (g):</label>
-                <input type="number" id="kohlenhydrate" name="kohlenhydrate" step="0.01" min="0" value="0">
-            </div>
-            <div class="input-group">
-                <label for="eiweiss">Eiweiß (g):</label>
-                <input type="number" id="eiweiss" name="eiweiss" step="0.01" min="0" value="0">
-            </div>
-        </div>
+            <div class="form-separator"></div>
 
-        <button type="submit">Eintragen</button>
-    </form>
-</div>
+            <div class="input-row">
+                <div class="input-group">
+                    <label for="kalorien">Kalorien (kcal):</label>
+                    <input type="number" id="kalorien" name="kalorien" required>
+                    <div id="kcal-pruefsumme" style="margin-top:6px; font-size:0.9em; opacity:0.8;">
+                        Prüfsumme: <span id="kcal-check">0</span> kcal
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label for="fett">Fett (g):</label>
+                    <input type="number" id="fett" name="fett" step="0.01" min="0" value="0">
+                </div>
+            </div>
 
-<div class="container" style="max-width: 800px; margin-top: 25px;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-        <div style="display:flex; justify-content:center; align-items:center; gap:12px;">
-            <button type="button" id="tag-zurueck" style="padding:4px 8px;">&laquo;</button>
-            <input type="date" id="tag-date" style="padding:4px 6px;">
-            <!-- <h2 id="tage-ueberschrift" style="margin:0;"><?= htmlspecialchars(date('d.m.Y'), ENT_QUOTES) ?></h2> -->
-            <button type="button" id="tag-vor" style="padding:4px 8px;">&raquo;</button>
-        </div>
-        <button type="button" id="tag-heute" style="padding:4px 8px;">Heute</button>
+            <div class="input-row">
+                <div class="input-group">
+                    <label for="kohlenhydrate">Kohlenhydrate (g):</label>
+                    <input type="number" id="kohlenhydrate" name="kohlenhydrate" step="0.01" min="0" value="0">
+                </div>
+                <div class="input-group">
+                    <label for="eiweiss">Eiweiß (g):</label>
+                    <input type="number" id="eiweiss" name="eiweiss" step="0.01" min="0" value="0">
+                </div>
+            </div>
+
+            <button type="submit">Eintragen</button>
+        </form>
     </div>
 
-    <table class="food-table">
-        <thead>
-        <tr>
-            <th>Zeitpunkt</th>
-            <th>Beschreibung</th>
-            <th style="white-space:nowrap;">Brutto-Kalorien</th>
-            <th style="text-align:center;">Netto-Kalorien</th>
-        </tr>
-        </thead>
-        <tbody id="tage-tbody">
-            <!-- wird per JavaScript befüllt -->
-        </tbody>
-    </table>
+    <div class="container">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <div style="display:flex; justify-content:center; align-items:center; gap:12px;">
+                <button type="button" id="tag-zurueck" style="padding:4px 8px;">&laquo;</button>
+                <input type="date" id="tag-date" style="padding:4px 6px;">
+                <!-- <h2 id="tage-ueberschrift" style="margin:0;"><?= htmlspecialchars(date('d.m.Y'), ENT_QUOTES) ?></h2> -->
+                <button type="button" id="tag-vor" style="padding:4px 8px;">&raquo;</button>
+            </div>
+            <button type="button" id="tag-heute" style="padding:4px 8px;">Heute</button>
+        </div>
+
+        <table class="food-table">
+            <thead>
+            <tr>
+                <th>Zeitpunkt</th>
+                <th>Beschreibung</th>
+                <th style="white-space:nowrap;">Brutto-Kalorien</th>
+                <th style="text-align:center;">Netto-Kalorien</th>
+            </tr>
+            </thead>
+            <tbody id="tage-tbody">
+                <!-- wird per JavaScript befüllt -->
+            </tbody>
+        </table>
+    </div>    
 </div>
 
 <div id="nutrition-modal" class="modal hidden">

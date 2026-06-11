@@ -62,6 +62,42 @@ input[type="radio"] {
     box-shadow: var(--shadow);
 }
 
+.container-duo {
+    width: min(1500px, calc(100% - 32px));
+    margin: 60px auto;
+    display: grid;
+    grid-template-columns: minmax(420px, 0.85fr) minmax(620px, 1.15fr);
+    gap: 24px;
+    align-items: start;
+}
+
+.container-duo > .container {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+.container-duo .container-table {
+    overflow-x: auto;
+}
+
+@media (max-width: 1180px) {
+    .container-duo {
+        grid-template-columns: 1fr;
+        width: min(800px, calc(100% - 24px));
+        gap: 25px;
+    }
+}
+
+@media (max-width: 640px) {
+    .container-duo {
+        width: calc(100% - 20px);
+        margin: 30px auto;
+        gap: 20px;
+    }
+}
+
 .form-block {
     display: flex;
     flex-direction: column;
