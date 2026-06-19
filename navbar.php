@@ -160,7 +160,7 @@ if ($isAuthed) {
             <li class="nav-item has-submenu">
                 <a href="/check/start">
                     <span class="nav-icon-badge-wrap">
-                        <img src="/img/checkmark.png" alt="Check" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high">
+                        <img src="/img/glocke.png" alt="Check" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high">
                         <?php if ($spotifyTokenNeedsAttention): ?>
                             <span class="nav-alert-badge">!</span>
                         <?php endif; ?>
