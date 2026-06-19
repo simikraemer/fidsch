@@ -35,6 +35,7 @@ $routesSci = [
 $routesCheck = [
     'start' => 'ToDo.php',
     'todo'  => 'ToDo.php',
+    'spotify' => 'SpotifyToken.php',
 ];
 
 $routesTool = [
@@ -46,7 +47,6 @@ $routesTool = [
     'log'      => 'LoginLogs.php',
     'timer'    => 'TIMER.php',
     'pdfmerge' => 'PDFMERGE.php',
-    'MTNGWRTNG' => 'MEETINGAUSWERTUNG.php'
 ];
 
 // --- Sonderfall: öffentliche Pretty-URL ohne /sci/ ---

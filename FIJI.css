@@ -235,6 +235,43 @@ input[type="radio"] {
     height: 32px;
 }
 
+.nav-icon-badge-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+}
+
+.nav-alert-badge {
+    position: absolute;
+    top: -5px;
+    right: -7px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 0px;
+    border-radius: 999px;
+    background: var(--primary-dark);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 900;
+    line-height: 1;
+    box-shadow: 0 0 0 2px #fff, var(--shadow);
+    z-index: 2;
+}
+
+.submenu .nav-alert-badge {
+    top: -5px;
+    right: -5px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 0px;
+    font-size: 0.68rem;
+}
+
 .chart-third {
     flex: 1 1 28%;
     max-width: 450px;
@@ -2290,4 +2327,82 @@ button.chart-back:focus-visible {
         border-left: 6px solid currentColor;
         margin-left: 1px;
     }
+}
+
+
+
+
+.spotify-token-page .container {
+    margin-top: 0;
+}
+
+.spotify-token-panel {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 270px;
+    text-align: center;
+}
+
+.spotify-token-countdown {
+    font-size: clamp(1.5rem, 3vw, 3.2rem);
+    font-weight: 900;
+    line-height: 1.05;
+    color: var(--primary);
+    font-variant-numeric: tabular-nums;
+    margin-bottom: 14px;
+}
+
+.spotify-token-expiry {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 24px;
+}
+
+.spotify-token-actions {
+    margin-top: 0;
+}
+
+.spotify-token-log-panel {
+    display: flex;
+}
+
+.spotify-token-log {
+    height: 100%;
+    min-height: 230px;
+    resize: vertical;
+    font-family: monospace;
+    white-space: pre;
+    margin: 0;
+}
+
+.spotify-token-notice {
+    margin-bottom: 18px;
+    padding: 10px 12px;
+    border-radius: var(--border-radius);
+    background: #edf8f1;
+    border-left: 6px solid #2e9b55;
+    font-weight: 700;
+}
+
+.spotify-token-error {
+    margin-top: 24px;
+    padding: 12px;
+    border-radius: var(--border-radius);
+    background: #fdf0ee;
+    border-left: 6px solid #c0392b;
+    text-align: left;
+}
+
+.spotify-token-error-code {
+    font-weight: 900;
+    color: #c0392b;
+    margin-bottom: 6px;
+}
+
+.spotify-token-error-message {
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin-bottom: 12px;
 }

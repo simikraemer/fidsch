@@ -43,6 +43,67 @@ if (isset($_GET['login']) && $_GET['login'] === '1') {
     header('Location: ' . $uri, true, 303);
     exit;
 }
+
+$spotifyTokenNeedsAttention = false;
+
+if ($isAuthed) {
+    $spotifyBadgeCacheTtl = 1800; // 30 Minuten
+    $spotifyBadgeCheckedAt = (int)($_SESSION['nav_spotify_token_badge_checked_at'] ?? 0);
+
+    if (
+        isset($_SESSION['nav_spotify_token_badge_value']) &&
+        $spotifyBadgeCheckedAt > 0 &&
+        (time() - $spotifyBadgeCheckedAt) < $spotifyBadgeCacheTtl
+    ) {
+        $spotifyTokenNeedsAttention = (bool)$_SESSION['nav_spotify_token_badge_value'];
+    } else {
+        try {
+            if (
+                (!isset($checkconn) || !($checkconn instanceof mysqli)) &&
+                (!isset($conn) || !($conn instanceof mysqli))
+            ) {
+                require_once __DIR__ . '/db.php';
+            }
+
+            $navDb = null;
+
+            if (isset($checkconn) && $checkconn instanceof mysqli) {
+                $navDb = $checkconn;
+            } elseif (isset($conn) && $conn instanceof mysqli) {
+                $navDb = $conn;
+            }
+
+            if ($navDb instanceof mysqli) {
+                $appKey = 'spotify_monthly_top50';
+
+                $stmt = $navDb->prepare("
+                    SELECT
+                        CASE
+                            WHEN reauth_required = 1 THEN 1
+                            WHEN refresh_token_expires_at IS NOT NULL
+                             AND refresh_token_expires_at <= DATE_ADD(NOW(), INTERVAL 14 DAY)
+                            THEN 1
+                            ELSE 0
+                        END AS needs_attention
+                    FROM spotify_token_state
+                    WHERE app_key = ?
+                    LIMIT 1
+                ");
+                $stmt->bind_param('s', $appKey);
+                $stmt->execute();
+
+                $row = $stmt->get_result()->fetch_assoc();
+                $spotifyTokenNeedsAttention = !empty($row['needs_attention']);
+            }
+        } catch (Throwable $e) {
+            $spotifyTokenNeedsAttention = false;
+        }
+
+        $_SESSION['nav_spotify_token_badge_checked_at'] = time();
+        $_SESSION['nav_spotify_token_badge_value'] = $spotifyTokenNeedsAttention ? 1 : 0;
+    }
+}
+
 ?>
 <nav class="navbar" data-auth="<?= htmlspecialchars($authMode, ENT_QUOTES) ?>">
     <ul class="nav-links">
@@ -97,10 +158,33 @@ if (isset($_GET['login']) && $_GET['login'] === '1') {
 
             <!-- Check -->
             <li class="nav-item has-submenu">
-                <a href="/check/start"><img src="/img/todo.png" alt="Check" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"></a>
-                <!-- <ul class="submenu">
-                    <li><a href="/check/todo"><img src="/img/graph.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Übersicht</span></a></li>
-                </ul> -->
+                <a href="/check/start">
+                    <span class="nav-icon-badge-wrap">
+                        <img src="/img/checkmark.png" alt="Check" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high">
+                        <?php if ($spotifyTokenNeedsAttention): ?>
+                            <span class="nav-alert-badge">!</span>
+                        <?php endif; ?>
+                    </span>
+                </a>
+                <ul class="submenu">
+                    <li>
+                        <a href="/check/todo">
+                            <img src="/img/todo.png" alt="ToDo" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high">
+                            <span class="submenu-text">ToDo</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/check/spotify">
+                            <span class="nav-icon-badge-wrap">
+                                <img src="/img/spotify.png" alt="Spotify Token" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high">
+                                <?php if ($spotifyTokenNeedsAttention): ?>
+                                    <span class="nav-alert-badge">!</span>
+                                <?php endif; ?>
+                            </span>
+                            <span class="submenu-text">Spotify Token</span>
+                        </a>
+                    </li>
+                </ul>
             </li>
             
             <!-- Tools -->
@@ -115,7 +199,6 @@ if (isset($_GET['login']) && $_GET['login'] === '1') {
                     <li><a href="/tools/bit"><img src="/img/bit.png" alt="Bit" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Bit-Konverter</span></a></li>
                     <li><a href="/tools/unixtime"><img src="/img/hourglass.png" alt="Unixtime" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Unixtime-Konverter</span></a></li>
                     <li><a href="/tools/ips"><img src="/img/network.png" alt="IPv4" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">IPv4-Konverter</span></a></li>
-                    <li><a href="/tools/MTNGWRTNG"><img src="/img/graph.png" alt="IPv4" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Meeting-Auswertung</span></a></li>
                 </ul>
             </li>
 
