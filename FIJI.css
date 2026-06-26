@@ -1153,6 +1153,67 @@ tr.lt-dragging .lt-grip {
     grid-column: 1 / -1;
 }
 
+.dashboard-page button.dashboard-upload-trigger {
+    appearance: none;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    box-shadow: none;
+    background: #fff;
+    border: 2px solid var(--primary);
+    border-radius: var(--border-radius);
+    padding: 2px 8px;
+    text-align: center;
+}
+
+.dashboard-page button.dashboard-upload-trigger:hover {
+    background: color-mix(in srgb, var(--primary) 10%, #fff 90%);
+}
+
+.dashboard-page button.dashboard-upload-trigger:disabled {
+    cursor: progress;
+    opacity: 0.7;
+}
+
+.csv-upload-toast {
+    position: fixed;
+    top: 220px; /* hier hoch/runter schieben */
+    left: 50%;
+    z-index: 5000;
+    min-width: min(360px, calc(100vw - 32px));
+    max-width: calc(100vw - 32px);
+    padding: 12px 18px;
+    border-radius: var(--border-radius);
+    background: #fff;
+    border: 2px solid var(--primary);
+    box-shadow: var(--shadow);
+    color: var(--primary);
+    font-weight: 900;
+    text-align: center;
+    pointer-events: none;
+    opacity: 0;
+    transform: translate(-50%, -12px);
+    transition:
+        opacity 160ms ease,
+        transform 160ms ease;
+}
+
+.csv-upload-toast.is-visible {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+
+.csv-upload-toast--success,
+.csv-upload-toast--info {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.csv-upload-toast--error {
+    border-color: var(--error);
+    color: var(--error);
+}
+
 @media (max-width: 1100px) {
     .dashboard-page .dashboard-pies.dashboard-pies-3 {
         grid-template-columns: repeat(2, minmax(0, 1fr));

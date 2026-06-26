@@ -1,19 +1,21 @@
 <?php
-// biz/Start.php (Jahresstatistik)
+// biz/Start.php
+// Finanzdashboard. CSV-Uploads laufen zentral über upload_csv.php.
 
-// 1) Auth (Seite geschützt)
 require_once __DIR__ . '/../auth.php';
-
-// 2) DB
 require_once __DIR__ . '/../db.php';
 $bizconn->set_charset('utf8mb4');
 
-// === NEU: Cutoff für "abgeschlossene Monate" (aktuelles Jahr) ===
+/* =========================================================
+ * Basiswerte
+ * ========================================================= */
 $CURRENT_YEAR   = (int)date('Y');
 $CURRENT_MONTH  = (int)date('n'); // 1..12
 $CLOSED_CUTOFF  = sprintf('%04d-%02d-01', $CURRENT_YEAR, $CURRENT_MONTH); // 1. Tag aktueller Monat
 
-// 2.5) AJAX Kategorien Jahresverlauf
+/* =========================================================
+ * AJAX: Kategorien-Jahresverlauf
+ * ========================================================= */
 if (isset($_GET['ajax']) && $_GET['ajax'] === 'cat_years') {
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store, max-age=0');
@@ -67,9 +69,9 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'cat_years') {
     $params   = [];
     $types    = '';
 
-    // >>> cat_param zurückgeben (id oder 'unk')
+    // Rücksprungziel für Klick aus Jahresdetail: Kategorie-ID oder 'unk'.
     $catParamReturn = null;
-    $katIdBound     = null; // <<< NEU (für closed-query)
+    $katIdBound     = null;
 
     if ($cat === 'unk' || mb_strtolower($cat) === mb_strtolower('Unkategorisiert')) {
         $whereCat = "t.kategorie_id IS NULL";
@@ -126,7 +128,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'cat_years') {
     }
     $stmt->close();
 
-    // === NEU: closed-values (im aktuellen Jahr nur bis < 1. aktueller Monat) ===
+    // Im laufenden Jahr nur abgeschlossene Monate für Durchschnittswerte verwenden.
     $mapClosed = $map;
     if (in_array($CURRENT_YEAR, $yrs, true)) {
         $sqlClosed = "
@@ -168,13 +170,13 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'cat_years') {
         'cat_param' => $catParamReturn,
         'years'     => $yrs,
         'values'    => $values,
-        'values_closed' => $valuesClosed, // <<< NEU
+        'values_closed' => $valuesClosed,
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
 /* =========================================================
- * 2.6) AJAX Page-Update (ohne Reload) für oben + Pies
+ * AJAX: Dashboard-Daten ohne Reload
  * ========================================================= */
 if (isset($_GET['ajax']) && $_GET['ajax'] === 'page_data') {
     header('Content-Type: application/json; charset=utf-8');
@@ -241,7 +243,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'page_data') {
     $transfersByDate    = [];
     $catTransfersByDate = [];
     $kategorieSummen    = [];
-    $kategorieSummenClosed = []; // <<< NEU
+    $kategorieSummenClosed = [];
 
     while ($row = $res->fetch_assoc()) {
         $dRaw   = (string)$row['valutadatum'];
@@ -293,7 +295,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'page_data') {
     arsort($incomeByCat);
     arsort($expenseByCat);
 
-    // NEU: closed-Varianten
+    // Varianten auf Basis abgeschlossener Monate.
     $incomeByCatClosed  = [];
     $expenseByCatClosed = [];
     foreach ($kategorieSummenClosed as $kat => $summe) {
@@ -481,13 +483,15 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'page_data') {
         'expense_values' => array_values($expenseValues),
 
         // pies (closed)
-        'income_values_closed' => array_values($incomeValuesClosed),   // <<< NEU
-        'expense_values_closed' => array_values($expenseValuesClosed), // <<< NEU
+        'income_values_closed' => array_values($incomeValuesClosed),
+        'expense_values_closed' => array_values($expenseValuesClosed)
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
-// 3) Input + Datenbeschaffung (kein Output davor!)
+/* =========================================================
+ * Initiale Daten für erstes Rendern
+ * ========================================================= */
 $jahr = isset($_GET['jahr']) ? (int)$_GET['jahr'] : (int)date('Y');
 
 $selectedKat = $_GET['kategorie'] ?? 'all';
@@ -528,7 +532,7 @@ $labelUnk = 'Unkategorisiert';
 
 // Summen je Kategorie aufbauen (voll + closed)
 $kategorieSummen = [];
-$kategorieSummenClosed = []; // <<< NEU
+$kategorieSummenClosed = [];
 while ($row = $res->fetch_assoc()) {
     $betrag  = (float)$row['betrag'];
     $dRaw    = (string)$row['valutadatum'];
@@ -626,7 +630,7 @@ while ($row = $res2->fetch_assoc()) {
 }
 $stmt2->close();
 
-// letztes Valutadatum in diesem Jahr (unverändert)
+// Letztes Valutadatum im ausgewählten Jahr.
 $lastDateRow = $bizconn->query("
     SELECT MAX(valutadatum) AS lastdate
     FROM transfers
@@ -634,7 +638,7 @@ $lastDateRow = $bizconn->query("
 ")->fetch_assoc();
 $lastDate = $lastDateRow['lastdate'] ? new DateTime($lastDateRow['lastdate']) : new DateTime("$jahr-01-01");
 
-// tägliche kumulierte Serie (gesamt, unverändert)
+// Tägliche kumulierte Kontostand-Serie.
 $dailySeries = [];
 $cumDaily   = $anfangsbestand;
 $start      = new DateTime("$jahr-01-01");
@@ -821,10 +825,12 @@ function dashboardSaldoDetailParts(string $detail, int $index): array
     return ['Detail', $detail];
 }
 
-// 4) Rendering starten
+/* =========================================================
+ * Rendering
+ * ========================================================= */
 $page_title = 'Finanzen';
-require_once __DIR__ . '/../head.php';    // <!DOCTYPE html> … <body>
-require_once __DIR__ . '/../navbar.php';  // Navbar
+require_once __DIR__ . '/../head.php';
+require_once __DIR__ . '/../navbar.php';
 ?>
 
 
@@ -842,21 +848,39 @@ require_once __DIR__ . '/../navbar.php';  // Navbar
         <div class="dashboard-sober-counters" id="pageTitleSaldoDetails" aria-label="Saldo-Details">
           <?php foreach ($dashboardSaldoDetails as $i => $detail): ?>
             <?php [$detailLabel, $detailValue] = dashboardSaldoDetailParts((string)$detail, (int)$i); ?>
-            <div class="dashboard-sober-counter">
-              <span class="dashboard-sober-label">
-                <?= htmlspecialchars($detailLabel, ENT_QUOTES, 'UTF-8') ?>
-              </span>
-              <span class="dashboard-sober-value">
-                <?= htmlspecialchars($detailValue, ENT_QUOTES, 'UTF-8') ?>
-              </span>
-            </div>
+            <?php if ((int)$i === 0): ?>
+              <button
+                type="button"
+                class="dashboard-sober-counter dashboard-upload-trigger"
+                id="kontoCsvUploadTrigger"
+                title="CSV hochladen und direkt importieren"
+                aria-label="CSV hochladen und direkt importieren"
+              >
+                <span class="dashboard-sober-label">
+                  <?= htmlspecialchars($detailLabel, ENT_QUOTES, 'UTF-8') ?>
+                </span>
+                <span class="dashboard-sober-value">
+                  <?= htmlspecialchars($detailValue, ENT_QUOTES, 'UTF-8') ?>
+                </span>
+              </button>
+            <?php else: ?>
+              <div class="dashboard-sober-counter">
+                <span class="dashboard-sober-label">
+                  <?= htmlspecialchars($detailLabel, ENT_QUOTES, 'UTF-8') ?>
+                </span>
+                <span class="dashboard-sober-value">
+                  <?= htmlspecialchars($detailValue, ENT_QUOTES, 'UTF-8') ?>
+                </span>
+              </div>
+            <?php endif; ?>
           <?php endforeach; ?>
         </div>
+
+        <input type="file" id="kontoCsvUploadInput" name="csv" accept=".csv,text/csv" hidden>
 
         <form method="get" class="dashboard-filterform" id="statsFilterForm">
           <div class="lt-yearwrap">
             <label for="kategorie" class="lt-label">Kategorie</label>
-            <!-- onchange submit RAUS (JS übernimmt) -->
             <select name="kategorie" id="kategorie" class="kategorie-select">
               <option value="all" <?= ($selectedKat === 'all') ? 'selected' : '' ?>>Kontostand</option>
               <option value="unk" <?= ($selectedKat === 'unk') ? 'selected' : '' ?>>
@@ -872,7 +896,6 @@ require_once __DIR__ . '/../navbar.php';  // Navbar
 
           <div class="lt-yearwrap">
             <label for="jahr" class="lt-label">Jahr</label>
-            <!-- onchange submit RAUS (JS übernimmt) -->
             <select name="jahr" id="jahr" class="kategorie-select">
               <?php foreach ($jahre as $j): ?>
                 <?php if ((int)$j <= 2021) continue; ?>
@@ -924,7 +947,7 @@ require_once __DIR__ . '/../navbar.php';  // Navbar
 
 <script>
 /* =========================================================
- * STATE (alles was sich per AJAX ändert muss LET sein)
+ * JS-State
  * ========================================================= */
 let dailyData      = <?= $dailyJson ?>;
 let monthlyData    = <?= $monthlyJson ?>;
@@ -1223,9 +1246,10 @@ function updateSaldoChartOnly() {
 }
 
 /* =========================================================
- * AJAX Page-Update (ohne Reload)
+ * Dashboard-Refresh ohne Reload
  * ========================================================= */
 let _pageReqId = 0;
+let _csvUploadRunning = false;
 
 async function fetchPageData(year, category) {
   const base = window.location.pathname;
@@ -1264,7 +1288,7 @@ function splitSaldoDetail(detail, index) {
 
   if (index === 0) {
     return {
-      label: 'Kontostand',
+      label: 'Konto',
       value: raw
     };
   }
@@ -1300,8 +1324,15 @@ function renderSaldoDetailBlocks(saldoDetails = []) {
   saldoDetails.forEach((detail, index) => {
     const parts = splitSaldoDetail(detail, index);
 
-    const card = document.createElement('div');
-    card.className = 'dashboard-sober-counter';
+    const card = document.createElement(index === 0 ? 'button' : 'div');
+    card.className = 'dashboard-sober-counter' + (index === 0 ? ' dashboard-upload-trigger' : '');
+
+    if (index === 0) {
+      card.type = 'button';
+      card.id = 'kontoCsvUploadTrigger';
+      card.title = 'CSV hochladen und direkt importieren';
+      card.setAttribute('aria-label', 'CSV hochladen und direkt importieren');
+    }
 
     const label = document.createElement('span');
     label.className = 'dashboard-sober-label';
@@ -1397,6 +1428,94 @@ async function applySelection(category, year, opts = {}) {
   if (scrollTop) {
     const top = $('statsPage');
     if (top) top.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+/* =========================================================
+ * CSV Upload
+ * ========================================================= */
+let _csvToastTimer = null;
+
+function csvImportedMessage(inserted) {
+  const count = Number(inserted || 0);
+  return count === 1
+    ? '1 neuer Eintrag importiert.'
+    : `${count} neue Einträge importiert.`;
+}
+
+function showCsvUploadToast(message, type = 'info', autohide = true) {
+  let toast = $('csvUploadToast');
+
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'csvUploadToast';
+    toast.className = 'csv-upload-toast';
+    toast.setAttribute('role', 'status');
+    toast.setAttribute('aria-live', 'polite');
+    document.body.appendChild(toast);
+  }
+
+  if (_csvToastTimer) {
+    window.clearTimeout(_csvToastTimer);
+    _csvToastTimer = null;
+  }
+
+  toast.textContent = message;
+  toast.className = `csv-upload-toast csv-upload-toast--${type} is-visible`;
+
+  if (autohide) {
+    _csvToastTimer = window.setTimeout(() => {
+      toast.classList.remove('is-visible');
+      _csvToastTimer = null;
+    }, 3000);
+  }
+}
+
+async function uploadCsvFile(file) {
+  if (!file || _csvUploadRunning) return;
+
+  _csvUploadRunning = true;
+  showCsvUploadToast('CSV wird importiert …', 'info', false);
+
+  const trigger = $('kontoCsvUploadTrigger');
+  if (trigger) trigger.disabled = true;
+
+  try {
+    const fd = new FormData();
+    fd.append('csv', file);
+
+    const uploadUrl = new URL('upload_csv.php', window.location.href);
+    const response = await fetch(uploadUrl.toString(), {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' },
+      body: fd
+    });
+
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok || !result?.ok) {
+      const message = result?.error === 'wrong_account'
+        ? (result?.message || 'Falsches Konto.')
+        : (result?.message || result?.error || `http_${response.status}`);
+
+      throw new Error(message);
+    }
+
+    showCsvUploadToast(csvImportedMessage(result.inserted), 'success', true);
+
+    await applySelection(
+      $('kategorie')?.value ?? selectedCategory ?? 'all',
+      $('jahr')?.value ?? chartYear,
+      { pushHistory: false, scrollTop: false }
+    );
+  } catch (e) {
+    console.error(e);
+    showCsvUploadToast(e?.message || 'CSV-Import fehlgeschlagen.', 'error', true);
+  } finally {
+    _csvUploadRunning = false;
+    const freshTrigger = $('kontoCsvUploadTrigger');
+    if (freshTrigger) freshTrigger.disabled = false;
   }
 }
 
@@ -1774,7 +1893,7 @@ async function showYearDetail(key, catLabel) {
 }
 
 /* =========================================================
- * INIT (nur einmal!)
+ * Initialisierung
  * ========================================================= */
 document.addEventListener('DOMContentLoaded', () => {
   ui.income.origTitle  = $(ui.income.titleId)?.textContent ?? 'Einnahmen';
@@ -1788,6 +1907,24 @@ document.addEventListener('DOMContentLoaded', () => {
   const selCat = $('kategorie');
   const selYear = $('jahr');
   const form = $('statsFilterForm');
+  const uploadInput = $('kontoCsvUploadInput');
+  const saldoDetails = $('pageTitleSaldoDetails');
+
+  if (saldoDetails && uploadInput) {
+    saldoDetails.addEventListener('click', (e) => {
+      const trigger = e.target.closest('#kontoCsvUploadTrigger');
+      if (!trigger || _csvUploadRunning) return;
+      uploadInput.click();
+    });
+  }
+
+  if (uploadInput) {
+    uploadInput.addEventListener('change', () => {
+      const file = uploadInput.files?.[0] || null;
+      uploadInput.value = '';
+      uploadCsvFile(file);
+    });
+  }
 
   if (form) {
     form.addEventListener('submit', (e) => {
