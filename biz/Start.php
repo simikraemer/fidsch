@@ -1,5 +1,5 @@
 <?php
-// biz/Start.php
+// biz/Start_v2.php
 // Finanzdashboard. CSV-Uploads laufen zentral über upload_csv.php.
 
 require_once __DIR__ . '/../auth.php';
@@ -12,6 +12,146 @@ $bizconn->set_charset('utf8mb4');
 $CURRENT_YEAR   = (int)date('Y');
 $CURRENT_MONTH  = (int)date('n'); // 1..12
 $CLOSED_CUTOFF  = sprintf('%04d-%02d-01', $CURRENT_YEAR, $CURRENT_MONTH); // 1. Tag aktueller Monat
+
+
+function parseDashboardAmount(?string $value): ?float
+{
+    $value = trim((string)$value);
+
+    if ($value === '') {
+        return null;
+    }
+
+    $value = str_replace(["\xC2\xA0", ' ', '€'], '', $value);
+
+    if (str_contains($value, ',')) {
+        $value = str_replace('.', '', $value);
+        $value = str_replace(',', '.', $value);
+    }
+
+    if (!is_numeric($value)) {
+        return null;
+    }
+
+    return (float)$value;
+}
+
+/* =========================================================
+ * AJAX: externen Kontostand aktualisieren
+ * Wie in Konten.php wird kein bestehender Verlauf überschrieben,
+ * sondern ein neuer Kontostand für das Konto gespeichert.
+ * ========================================================= */
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST'
+    && isset($_GET['ajax'])
+    && $_GET['ajax'] === 'update_account_balance'
+) {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store, max-age=0');
+
+    $konto = trim((string)($_POST['konto'] ?? ''));
+    $betragRaw = trim((string)($_POST['betrag'] ?? ''));
+    $betrag = parseDashboardAmount($betragRaw);
+
+    if ($konto === '' || mb_strlen($konto, 'UTF-8') > 100) {
+        http_response_code(400);
+        echo json_encode([
+            'ok' => false,
+            'error' => 'bad_account',
+            'message' => 'Das ausgewählte Konto ist ungültig.'
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    if ($betrag === null) {
+        http_response_code(400);
+        echo json_encode([
+            'ok' => false,
+            'error' => 'bad_amount',
+            'message' => 'Bitte einen gültigen Kontostand angeben.'
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    $stmtExistingKonto = $bizconn->prepare("
+        SELECT 1
+        FROM konto_staende
+        WHERE konto = ?
+        LIMIT 1
+    ");
+
+    if ($stmtExistingKonto === false) {
+        http_response_code(500);
+        echo json_encode([
+            'ok' => false,
+            'error' => 'prepare_failed',
+            'message' => 'Das Konto konnte nicht geprüft werden.'
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    $stmtExistingKonto->bind_param('s', $konto);
+    $stmtExistingKonto->execute();
+    $stmtExistingKonto->store_result();
+    $kontoExists = $stmtExistingKonto->num_rows > 0;
+    $stmtExistingKonto->close();
+
+    if (!$kontoExists) {
+        http_response_code(404);
+        echo json_encode([
+            'ok' => false,
+            'error' => 'account_not_found',
+            'message' => 'Das ausgewählte Konto wurde nicht gefunden.'
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    $info = '';
+    $stmtUpdateKonto = $bizconn->prepare("
+        INSERT INTO konto_staende (
+            konto,
+            betrag,
+            info
+        ) VALUES (
+            ?, ?, ?
+        )
+    ");
+
+    if ($stmtUpdateKonto === false) {
+        http_response_code(500);
+        echo json_encode([
+            'ok' => false,
+            'error' => 'prepare_failed',
+            'message' => 'Der Kontostand konnte nicht gespeichert werden.'
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    try {
+        $stmtUpdateKonto->bind_param('sds', $konto, $betrag, $info);
+        $stmtUpdateKonto->execute();
+        $newId = (int)$stmtUpdateKonto->insert_id;
+        $stmtUpdateKonto->close();
+
+        echo json_encode([
+            'ok' => true,
+            'id' => $newId,
+            'konto' => $konto,
+            'betrag' => round($betrag, 2)
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    } catch (Throwable $e) {
+        $stmtUpdateKonto->close();
+
+        http_response_code(500);
+        echo json_encode([
+            'ok' => false,
+            'error' => 'save_failed',
+            'message' => 'Der Kontostand konnte nicht gespeichert werden.'
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+}
 
 /* =========================================================
  * AJAX: Kategorien-Jahresverlauf
@@ -451,8 +591,21 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'page_data') {
     $dashboardSaldoDetails = [];
     $dashboardSaldoDetails[] = euro($kontostandBisEndeDesJahres);
 
+    $dashboardSaldoAccounts = [[
+        'type' => 'main',
+        'konto' => 'Konto',
+        'betrag' => round($kontostandBisEndeDesJahres, 2),
+        'value' => euro($kontostandBisEndeDesJahres),
+    ]];
+
     foreach ($externeKontostaende as $kontoStand) {
         $dashboardSaldoDetails[] = $kontoStand['konto'] . ': ' . euro($kontoStand['betrag']);
+        $dashboardSaldoAccounts[] = [
+            'type' => 'external',
+            'konto' => (string)$kontoStand['konto'],
+            'betrag' => round((float)$kontoStand['betrag'], 2),
+            'value' => euro($kontoStand['betrag']),
+        ];
     }
 
     $toXY = static function(array $series): array {
@@ -471,6 +624,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'page_data') {
 
         'dashboard_saldo_gesamt' => round($dashboardSaldoGesamt, 2),
         'dashboard_saldo_details' => $dashboardSaldoDetails,
+        'dashboard_saldo_accounts' => $dashboardSaldoAccounts,
 
         'daily' => $toXY($dailySeries),
         'monthly' => $toXY($monthlyPoints),
@@ -804,8 +958,21 @@ $dashboardSaldoGesamt = (float)$kontostandBisEndeDesJahres + $summeExterneKontos
 $dashboardSaldoDetails = [];
 $dashboardSaldoDetails[] = euro($kontostandBisEndeDesJahres);
 
+$dashboardSaldoAccounts = [[
+    'type' => 'main',
+    'konto' => 'Konto',
+    'betrag' => round($kontostandBisEndeDesJahres, 2),
+    'value' => euro($kontostandBisEndeDesJahres),
+]];
+
 foreach ($externeKontostaende as $kontoStand) {
     $dashboardSaldoDetails[] = $kontoStand['konto'] . ': ' . euro($kontoStand['betrag']);
+    $dashboardSaldoAccounts[] = [
+        'type' => 'external',
+        'konto' => (string)$kontoStand['konto'],
+        'betrag' => round((float)$kontoStand['betrag'], 2),
+        'value' => euro($kontoStand['betrag']),
+    ];
 }
 
 function euro($v) { return number_format((float)$v, 2, ',', '.').' €'; }
@@ -846,9 +1013,8 @@ require_once __DIR__ . '/../navbar.php';
         </h1>
 
         <div class="dashboard-sober-counters" id="pageTitleSaldoDetails" aria-label="Saldo-Details">
-          <?php foreach ($dashboardSaldoDetails as $i => $detail): ?>
-            <?php [$detailLabel, $detailValue] = dashboardSaldoDetailParts((string)$detail, (int)$i); ?>
-            <?php if ((int)$i === 0): ?>
+          <?php foreach ($dashboardSaldoAccounts as $kontoData): ?>
+            <?php if (($kontoData['type'] ?? '') === 'main'): ?>
               <button
                 type="button"
                 class="dashboard-sober-counter dashboard-upload-trigger"
@@ -856,27 +1022,67 @@ require_once __DIR__ . '/../navbar.php';
                 title="CSV hochladen und direkt importieren"
                 aria-label="CSV hochladen und direkt importieren"
               >
-                <span class="dashboard-sober-label">
-                  <?= htmlspecialchars($detailLabel, ENT_QUOTES, 'UTF-8') ?>
-                </span>
+                <span class="dashboard-sober-label">Konto</span>
                 <span class="dashboard-sober-value">
-                  <?= htmlspecialchars($detailValue, ENT_QUOTES, 'UTF-8') ?>
+                  <?= htmlspecialchars((string)$kontoData['value'], ENT_QUOTES, 'UTF-8') ?>
                 </span>
               </button>
             <?php else: ?>
-              <div class="dashboard-sober-counter">
+              <button
+                type="button"
+                class="dashboard-sober-counter dashboard-upload-trigger dashboard-account-update-trigger"
+                data-konto="<?= htmlspecialchars((string)$kontoData['konto'], ENT_QUOTES, 'UTF-8') ?>"
+                data-betrag="<?= htmlspecialchars((string)$kontoData['betrag'], ENT_QUOTES, 'UTF-8') ?>"
+                title="Kontostand aktualisieren"
+                aria-label="Kontostand von <?= htmlspecialchars((string)$kontoData['konto'], ENT_QUOTES, 'UTF-8') ?> aktualisieren"
+              >
                 <span class="dashboard-sober-label">
-                  <?= htmlspecialchars($detailLabel, ENT_QUOTES, 'UTF-8') ?>
+                  <?= htmlspecialchars((string)$kontoData['konto'], ENT_QUOTES, 'UTF-8') ?>
                 </span>
                 <span class="dashboard-sober-value">
-                  <?= htmlspecialchars($detailValue, ENT_QUOTES, 'UTF-8') ?>
+                  <?= htmlspecialchars((string)$kontoData['value'], ENT_QUOTES, 'UTF-8') ?>
                 </span>
-              </div>
+              </button>
             <?php endif; ?>
           <?php endforeach; ?>
         </div>
 
         <input type="file" id="kontoCsvUploadInput" name="csv" accept=".csv,text/csv" hidden>
+
+        <div id="kontoUpdateModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="kontoUpdateModalTitle">
+          <div class="modal-content">
+            <span class="close-button" id="kontoUpdateModalClose" role="button" tabindex="0" aria-label="Modal schließen">&times;</span>
+
+            <h2 class="ueberschrift" id="kontoUpdateModalTitle">Kontostand aktualisieren</h2>
+
+            <form id="kontoUpdateForm" class="form-block">
+              <input type="hidden" id="kontoUpdateName" name="konto">
+
+              <div class="input-group">
+                <label for="kontoUpdateDisplay">Konto:</label>
+                <input type="text" id="kontoUpdateDisplay" readonly>
+              </div>
+
+              <div class="input-group">
+                <label for="kontoUpdateAmount">Neuer Kontostand:</label>
+                <input
+                  type="text"
+                  id="kontoUpdateAmount"
+                  name="betrag"
+                  inputmode="decimal"
+                  autocomplete="off"
+                  placeholder="z. B. 1.254,51"
+                  required
+                >
+              </div>
+
+              <div class="modal-actions">
+                <button type="button" class="btn-secondary" id="kontoUpdateCancel">Abbrechen</button>
+                <button type="submit" id="kontoUpdateSubmit">Kontostand speichern</button>
+              </div>
+            </form>
+          </div>
+        </div>
 
         <form method="get" class="dashboard-filterform" id="statsFilterForm">
           <div class="lt-yearwrap">
@@ -1288,7 +1494,9 @@ function splitSaldoDetail(detail, index) {
 
   if (index === 0) {
     return {
-      label: 'Konto',
+      type: 'main',
+      konto: 'Konto',
+      betrag: null,
       value: raw
     };
   }
@@ -1297,50 +1505,66 @@ function splitSaldoDetail(detail, index) {
 
   if (sep !== -1) {
     return {
-      label: raw.slice(0, sep).trim(),
+      type: 'external',
+      konto: raw.slice(0, sep).trim(),
+      betrag: null,
       value: raw.slice(sep + 1).trim()
     };
   }
 
   return {
-    label: 'Detail',
+    type: 'external',
+    konto: 'Detail',
+    betrag: null,
     value: raw
   };
 }
 
-function renderSaldoDetailBlocks(saldoDetails = []) {
+function renderSaldoDetailBlocks(saldoAccounts = [], saldoDetails = []) {
   const wrap = $('pageTitleSaldoDetails');
   if (!wrap) return;
 
   wrap.innerHTML = '';
 
-  if (!Array.isArray(saldoDetails) || saldoDetails.length === 0) {
+  let accounts = Array.isArray(saldoAccounts) ? saldoAccounts : [];
+
+  if (accounts.length === 0 && Array.isArray(saldoDetails)) {
+    accounts = saldoDetails.map((detail, index) => splitSaldoDetail(detail, index));
+  }
+
+  if (accounts.length === 0) {
     wrap.style.display = 'none';
     return;
   }
 
   wrap.style.display = '';
 
-  saldoDetails.forEach((detail, index) => {
-    const parts = splitSaldoDetail(detail, index);
+  accounts.forEach((account, index) => {
+    const isMain = account?.type === 'main' || index === 0;
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'dashboard-sober-counter dashboard-upload-trigger';
 
-    const card = document.createElement(index === 0 ? 'button' : 'div');
-    card.className = 'dashboard-sober-counter' + (index === 0 ? ' dashboard-upload-trigger' : '');
-
-    if (index === 0) {
-      card.type = 'button';
+    if (isMain) {
       card.id = 'kontoCsvUploadTrigger';
       card.title = 'CSV hochladen und direkt importieren';
       card.setAttribute('aria-label', 'CSV hochladen und direkt importieren');
+    } else {
+      const accountName = String(account?.konto ?? '').trim();
+      card.classList.add('dashboard-account-update-trigger');
+      card.dataset.konto = accountName;
+      card.dataset.betrag = String(account?.betrag ?? '');
+      card.title = 'Kontostand aktualisieren';
+      card.setAttribute('aria-label', `Kontostand von ${accountName} aktualisieren`);
     }
 
     const label = document.createElement('span');
     label.className = 'dashboard-sober-label';
-    label.textContent = parts.label;
+    label.textContent = isMain ? 'Konto' : String(account?.konto ?? 'Konto');
 
     const value = document.createElement('span');
     value.className = 'dashboard-sober-value';
-    value.textContent = parts.value;
+    value.textContent = String(account?.value ?? fmtEuro(account?.betrag ?? 0));
 
     card.appendChild(label);
     card.appendChild(value);
@@ -1348,7 +1572,7 @@ function renderSaldoDetailBlocks(saldoDetails = []) {
   });
 }
 
-function updateHeader(year, saldoGesamt, saldoDetails = []) {
+function updateHeader(year, saldoGesamt, saldoAccounts = [], saldoDetails = []) {
   const yEl = $('pageTitleYear');
   const sEl = $('pageTitleSaldo');
 
@@ -1360,7 +1584,7 @@ function updateHeader(year, saldoGesamt, saldoDetails = []) {
     sEl.textContent = `| ${fmtEuro(saldoGesamt)}`;
   }
 
-  renderSaldoDetailBlocks(saldoDetails);
+  renderSaldoDetailBlocks(saldoAccounts, saldoDetails);
 }
 
 async function applySelection(category, year, opts = {}) {
@@ -1404,6 +1628,7 @@ async function applySelection(category, year, opts = {}) {
   updateHeader(
     chartYear,
     j.dashboard_saldo_gesamt ?? j.kontostand_eoy,
+    j.dashboard_saldo_accounts || [],
     j.dashboard_saldo_details || []
   );
 
@@ -1428,6 +1653,109 @@ async function applySelection(category, year, opts = {}) {
   if (scrollTop) {
     const top = $('statsPage');
     if (top) top.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+/* =========================================================
+ * Externe Kontostände aktualisieren
+ * ========================================================= */
+let _accountUpdateRunning = false;
+
+function formatAccountAmountInput(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return '';
+
+  return new Intl.NumberFormat('de-DE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(number);
+}
+
+function openAccountUpdateModal(trigger) {
+  const modal = $('kontoUpdateModal');
+  const accountInput = $('kontoUpdateName');
+  const accountDisplay = $('kontoUpdateDisplay');
+  const amountInput = $('kontoUpdateAmount');
+
+  if (!modal || !accountInput || !accountDisplay || !amountInput) return;
+
+  const account = String(trigger?.dataset?.konto ?? '').trim();
+  const amount = trigger?.dataset?.betrag ?? '';
+
+  if (!account) return;
+
+  accountInput.value = account;
+  accountDisplay.value = account;
+  amountInput.value = formatAccountAmountInput(amount);
+
+  modal.classList.remove('hidden');
+
+  window.setTimeout(() => {
+    amountInput.focus();
+    amountInput.select();
+  }, 0);
+}
+
+function closeAccountUpdateModal() {
+  if (_accountUpdateRunning) return;
+
+  const modal = $('kontoUpdateModal');
+  const form = $('kontoUpdateForm');
+
+  if (modal) modal.classList.add('hidden');
+  if (form) form.reset();
+}
+
+async function submitAccountUpdate(form) {
+  if (!form || _accountUpdateRunning) return;
+
+  const submitButton = $('kontoUpdateSubmit');
+  const account = $('kontoUpdateName')?.value?.trim() ?? '';
+  const amount = $('kontoUpdateAmount')?.value?.trim() ?? '';
+
+  if (!account || !amount) return;
+
+  _accountUpdateRunning = true;
+  if (submitButton) submitButton.disabled = true;
+
+  try {
+    const formData = new FormData();
+    formData.append('konto', account);
+    formData.append('betrag', amount);
+
+    const updateUrl = new URL(window.location.pathname, window.location.origin);
+    updateUrl.searchParams.set('ajax', 'update_account_balance');
+
+    const response = await fetch(updateUrl.toString(), {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' },
+      body: formData
+    });
+
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok || !result?.ok) {
+      throw new Error(result?.message || result?.error || `http_${response.status}`);
+    }
+
+    const modal = $('kontoUpdateModal');
+    if (modal) modal.classList.add('hidden');
+    form.reset();
+
+    showCsvUploadToast(`Kontostand für ${result.konto} wurde gespeichert.`, 'success', true);
+
+    await applySelection(
+      $('kategorie')?.value ?? selectedCategory ?? 'all',
+      $('jahr')?.value ?? chartYear,
+      { pushHistory: false, scrollTop: false }
+    );
+  } catch (e) {
+    console.error(e);
+    showCsvUploadToast(e?.message || 'Kontostand konnte nicht gespeichert werden.', 'error', true);
+  } finally {
+    _accountUpdateRunning = false;
+    if (submitButton) submitButton.disabled = false;
   }
 }
 
@@ -1909,14 +2237,58 @@ document.addEventListener('DOMContentLoaded', () => {
   const form = $('statsFilterForm');
   const uploadInput = $('kontoCsvUploadInput');
   const saldoDetails = $('pageTitleSaldoDetails');
+  const accountUpdateModal = $('kontoUpdateModal');
+  const accountUpdateForm = $('kontoUpdateForm');
+  const accountUpdateClose = $('kontoUpdateModalClose');
+  const accountUpdateCancel = $('kontoUpdateCancel');
 
-  if (saldoDetails && uploadInput) {
+  if (saldoDetails) {
     saldoDetails.addEventListener('click', (e) => {
-      const trigger = e.target.closest('#kontoCsvUploadTrigger');
-      if (!trigger || _csvUploadRunning) return;
-      uploadInput.click();
+      const uploadTrigger = e.target.closest('#kontoCsvUploadTrigger');
+      if (uploadTrigger) {
+        if (!_csvUploadRunning && uploadInput) uploadInput.click();
+        return;
+      }
+
+      const accountTrigger = e.target.closest('.dashboard-account-update-trigger');
+      if (accountTrigger) {
+        openAccountUpdateModal(accountTrigger);
+      }
     });
   }
+
+  if (accountUpdateForm) {
+    accountUpdateForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      submitAccountUpdate(accountUpdateForm);
+    });
+  }
+
+  if (accountUpdateClose) {
+    accountUpdateClose.addEventListener('click', closeAccountUpdateModal);
+    accountUpdateClose.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        closeAccountUpdateModal();
+      }
+    });
+  }
+
+  if (accountUpdateCancel) {
+    accountUpdateCancel.addEventListener('click', closeAccountUpdateModal);
+  }
+
+  if (accountUpdateModal) {
+    accountUpdateModal.addEventListener('click', (e) => {
+      if (e.target === accountUpdateModal) closeAccountUpdateModal();
+    });
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && accountUpdateModal && !accountUpdateModal.classList.contains('hidden')) {
+      closeAccountUpdateModal();
+    }
+  });
 
   if (uploadInput) {
     uploadInput.addEventListener('change', () => {
