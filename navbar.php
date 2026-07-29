@@ -246,8 +246,6 @@ if ($isAuthed) {
                 </a>
             </li>
 
-            <div class="nav-divider"></div>
-
             <!-- Vault -->
             <li class="nav-item">
                 <a href="https://vault.fidsch.de" target="_blank" rel="noopener">
