@@ -64,3 +64,15 @@ if ($loginconn->connect_error) {
     die('Verbindung zur Login-DB fehlgeschlagen: ' . $loginconn->connect_error);
 }
 $loginconn->set_charset('utf8mb4');
+
+
+// Verbindung zur blog-Datenbank
+if (!isset($config_data['blogphp'])) {
+    die('blogphp-Konfiguration nicht gefunden.');
+}
+$blogconf = $config_data['blogphp'];
+$blogconn = new mysqli($blogconf['host'], $blogconf['user'], $blogconf['password'], $blogconf['database']);
+if ($blogconn->connect_error) {
+    die('Verbindung zur blog-DB fehlgeschlagen: ' . $blogconn->connect_error);
+}
+$blogconn->set_charset('utf8mb4');

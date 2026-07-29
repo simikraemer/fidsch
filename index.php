@@ -21,6 +21,11 @@ $routesBiz = [
     'konten' => 'Konten.php',
 ];
 
+$routesBlog = [
+    'new'    => 'New.php',
+    'manage' => 'Manage.php',
+];
+
 $routesSci = [
     'start'       => 'Lerntime.php',
     'fragen'      => 'Fragen.php',
@@ -91,6 +96,22 @@ if ($path === 'studienplan') {
     } else {
         http_response_code(404);
         echo "Seite nicht gefunden.";
+    }
+    
+
+} elseif (str_starts_with($path, 'blog')) {
+    $slug = trim(preg_replace('#^blog/?#', '', $path), '/');
+
+    // /blog führt direkt zur Beitragsverwaltung
+    if ($slug === '') {
+        $slug = 'manage';
+    }
+
+    if (array_key_exists($slug, $routesBlog)) {
+        require __DIR__ . '/blog/' . $routesBlog[$slug];
+    } else {
+        http_response_code(404);
+        echo 'Seite nicht gefunden.';
     }
 
 } elseif (str_starts_with($path, 'check')) {

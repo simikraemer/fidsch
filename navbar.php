@@ -156,6 +156,27 @@ if ($isAuthed) {
                 </ul> -->
             </li>
 
+            <!-- Blog -->
+            <li class="nav-item has-submenu">
+                <a href="/blog/manage">
+                    <img src="/img/blog.png" alt="Blog" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high">
+                </a>
+                <ul class="submenu">
+                    <li>
+                        <a href="/blog/new">
+                            <img src="/img/upload.png" alt="Neuer Beitrag" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high">
+                            <span class="submenu-text">Neuer Beitrag</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/blog/manage">
+                            <img src="/img/graph.png" alt="Beiträge verwalten" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high">
+                            <span class="submenu-text">Beiträge verwalten</span>
+                        </a>
+                    </li>
+                </ul>
+            </li>
+
             <!-- Check -->
             <li class="nav-item has-submenu">
                 <a href="/check/start">
