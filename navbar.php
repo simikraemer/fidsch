@@ -206,14 +206,14 @@ if ($isAuthed) {
 
             <!-- Audibook -->
             <li class="nav-item">
-                <a href="https://fidsch.de/audiobookshelf/" target="_blank" rel="noopener">
+                <a href="https://hub.fidsch.de/audiobookshelf/" target="_blank" rel="noopener">
                     <img src="/img/audiobook.png" alt="" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high">
                 </a>
             </li>
 
             <!-- Navidrome -->
             <li class="nav-item">
-                <a href="https://fidsch.de/navidrome/" target="_blank" rel="noopener">
+                <a href="https://hub.fidsch.de/navidrome/" target="_blank" rel="noopener">
                     <img src="/img/vinyl.png" alt="" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high">
                 </a>
             </li>
