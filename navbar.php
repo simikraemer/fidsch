@@ -158,6 +158,12 @@ if ($isAuthed) {
                             <span class="submenu-text">Beiträge verwalten</span>
                         </a>
                     </li>
+                    <li>
+                        <a href="https://fidsch.de">
+                            <img src="/img/link.png" alt="Blog" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high">
+                            <span class="submenu-text">Zum Blog</span>
+                        </a>
+                    </li>
                 </ul>
             </li>
 
