@@ -231,6 +231,60 @@ function blogManageSanitizeHtml(string $html): string
         }
     }
 
+    // Vom Editor nach einem Bild erzeugte Leerabsätze entfernen.
+    // Andere bewusst angelegte Absätze bleiben unverändert.
+    $imageParagraphList = $xpath->query(
+        './/p[.//img and not(normalize-space(string(.)))]',
+        $root
+    );
+
+    $imageParagraphs = [];
+
+    if ($imageParagraphList !== false) {
+        foreach ($imageParagraphList as $imageParagraph) {
+            if ($imageParagraph instanceof DOMElement) {
+                $imageParagraphs[] = $imageParagraph;
+            }
+        }
+    }
+
+    foreach ($imageParagraphs as $imageParagraph) {
+        while (true) {
+            $nextNode = $imageParagraph->nextSibling;
+
+            while (
+                $nextNode instanceof DOMText &&
+                trim((string)$nextNode->nodeValue) === ''
+            ) {
+                $nextNode = $nextNode->nextSibling;
+            }
+
+            if (
+                !$nextNode instanceof DOMElement ||
+                strtolower($nextNode->tagName) !== 'p'
+            ) {
+                break;
+            }
+
+            $paragraphText = trim(
+                str_replace(
+                    "\xC2\xA0",
+                    ' ',
+                    (string)$nextNode->textContent
+                )
+            );
+
+            if (
+                $paragraphText !== '' ||
+                $nextNode->getElementsByTagName('img')->length > 0
+            ) {
+                break;
+            }
+
+            $nextNode->parentNode?->removeChild($nextNode);
+        }
+    }
+
     $result = '';
 
     foreach ($root->childNodes as $childNode) {
@@ -260,6 +314,405 @@ function blogManageUploadErrorMessage(int $errorCode): string
         UPLOAD_ERR_EXTENSION => 'Der Upload wurde durch eine PHP-Erweiterung gestoppt.',
         default => 'Beim Hochladen ist ein unbekannter Fehler aufgetreten.',
     };
+}
+
+
+/**
+ * Erzeugt einen temporären Ausgabepfad mit derselben Dateiendung.
+ * Dadurch erkennt ImageMagick das gewünschte Zielformat zuverlässig.
+ */
+function blogManageCreateTemporaryImagePath(string $destinationPath): string
+{
+    $directory = dirname($destinationPath);
+    $filename = pathinfo($destinationPath, PATHINFO_FILENAME);
+    $extension = pathinfo($destinationPath, PATHINFO_EXTENSION);
+
+    return $directory
+        . '/.'
+        . $filename
+        . '.part-'
+        . bin2hex(random_bytes(8))
+        . '.'
+        . $extension;
+}
+
+function blogManageVerifyReencodedImage(
+    string $path,
+    string $expectedMimeType
+): void {
+    if (
+        !is_file($path) ||
+        filesize($path) === 0 ||
+        @getimagesize($path) === false
+    ) {
+        throw new RuntimeException('Das bereinigte Bild ist ungültig.');
+    }
+
+    $finfo = new finfo(FILEINFO_MIME_TYPE);
+    $actualMimeType = (string)$finfo->file($path);
+
+    if ($actualMimeType !== $expectedMimeType) {
+        throw new RuntimeException(
+            'Das bereinigte Bild besitzt ein unerwartetes Dateiformat.'
+        );
+    }
+}
+
+function blogManageFindImageMagickExecutable(): ?string
+{
+    $candidates = [
+        '/usr/bin/magick',
+        '/usr/local/bin/magick',
+        '/opt/imagemagick/bin/magick',
+        '/usr/bin/convert',
+        '/usr/local/bin/convert',
+        '/opt/imagemagick/bin/convert',
+    ];
+
+    foreach ($candidates as $candidate) {
+        if (is_file($candidate) && is_executable($candidate)) {
+            return $candidate;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Bereinigt das Bild mit ImageMagick. -auto-orient wird vor -strip
+ * ausgeführt, damit die EXIF-Ausrichtung sichtbar erhalten bleibt.
+ */
+function blogManageWriteMetadataFreeImageWithImageMagick(
+    string $sourcePath,
+    string $destinationPath,
+    string $mimeType
+): bool {
+    if (!function_exists('proc_open')) {
+        return false;
+    }
+
+    $executable = blogManageFindImageMagickExecutable();
+
+    if ($executable === null) {
+        return false;
+    }
+
+    $temporaryOutputPath = blogManageCreateTemporaryImagePath(
+        $destinationPath
+    );
+
+    $command = [
+        $executable,
+        $sourcePath,
+        '-auto-orient',
+        '-strip',
+    ];
+
+    if ($mimeType === 'image/png') {
+        $command[] = '-define';
+        $command[] = 'png:exclude-chunk=date,time';
+        $command[] = '-define';
+        $command[] = 'png:compression-level=6';
+    } else {
+        $command[] = '-quality';
+        $command[] = '92';
+    }
+
+    $command[] = $temporaryOutputPath;
+
+    $descriptorSpec = [
+        0 => ['pipe', 'r'],
+        1 => ['pipe', 'w'],
+        2 => ['pipe', 'w'],
+    ];
+
+    $pipes = [];
+    $process = @proc_open(
+        $command,
+        $descriptorSpec,
+        $pipes,
+        null,
+        null,
+        ['bypass_shell' => true]
+    );
+
+    if (!is_resource($process)) {
+        return false;
+    }
+
+    try {
+        fclose($pipes[0]);
+        $stdout = stream_get_contents($pipes[1]);
+        $stderr = stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+
+        $exitCode = proc_close($process);
+        $process = null;
+
+        if ($exitCode !== 0) {
+            $details = trim((string)$stderr);
+
+            throw new RuntimeException(
+                'ImageMagick konnte das Bild nicht bereinigen.'
+                . ($details !== '' ? ' ' . $details : '')
+            );
+        }
+
+        blogManageVerifyReencodedImage(
+            $temporaryOutputPath,
+            $mimeType
+        );
+
+        if (!rename($temporaryOutputPath, $destinationPath)) {
+            throw new RuntimeException(
+                'Das bereinigte Bild konnte nicht übernommen werden.'
+            );
+        }
+
+        return true;
+    } finally {
+        if (is_resource($process)) {
+            foreach ($pipes as $pipe) {
+                if (is_resource($pipe)) {
+                    fclose($pipe);
+                }
+            }
+
+            proc_terminate($process);
+            proc_close($process);
+        }
+
+        if (is_file($temporaryOutputPath)) {
+            @unlink($temporaryOutputPath);
+        }
+    }
+}
+
+/**
+ * Liest die JPEG-Ausrichtung, bevor GD das Bild pixelbasiert neu schreibt.
+ */
+function blogManageReadJpegOrientation(string $path): int
+{
+    if (!function_exists('exif_read_data')) {
+        return 1;
+    }
+
+    $exif = @exif_read_data($path, 'IFD0', true, false);
+
+    if (!is_array($exif)) {
+        return 1;
+    }
+
+    $orientation = (int)(
+        $exif['IFD0']['Orientation']
+        ?? $exif['Orientation']
+        ?? 1
+    );
+
+    return $orientation >= 1 && $orientation <= 8
+        ? $orientation
+        : 1;
+}
+
+function blogManageRotateGdImage(mixed $image, float $angle): mixed
+{
+    $rotatedImage = imagerotate($image, $angle, 0);
+
+    if ($rotatedImage === false) {
+        throw new RuntimeException(
+            'Die Bildausrichtung konnte nicht korrigiert werden.'
+        );
+    }
+
+    imagedestroy($image);
+
+    return $rotatedImage;
+}
+
+function blogManageApplyJpegOrientation(mixed $image, int $orientation): mixed
+{
+    switch ($orientation) {
+        case 2:
+            imageflip($image, IMG_FLIP_HORIZONTAL);
+            break;
+
+        case 3:
+            $image = blogManageRotateGdImage($image, 180);
+            break;
+
+        case 4:
+            imageflip($image, IMG_FLIP_VERTICAL);
+            break;
+
+        case 5:
+            imageflip($image, IMG_FLIP_HORIZONTAL);
+            $image = blogManageRotateGdImage($image, 90);
+            break;
+
+        case 6:
+            $image = blogManageRotateGdImage($image, -90);
+            break;
+
+        case 7:
+            imageflip($image, IMG_FLIP_HORIZONTAL);
+            $image = blogManageRotateGdImage($image, -90);
+            break;
+
+        case 8:
+            $image = blogManageRotateGdImage($image, 90);
+            break;
+    }
+
+    return $image;
+}
+
+function blogManageWriteMetadataFreeImageWithGd(
+    string $sourcePath,
+    string $destinationPath,
+    string $mimeType
+): bool {
+    if (!extension_loaded('gd')) {
+        return false;
+    }
+
+    $loaderFunction = match ($mimeType) {
+        'image/jpeg' => 'imagecreatefromjpeg',
+        'image/png' => 'imagecreatefrompng',
+        'image/webp' => 'imagecreatefromwebp',
+        default => null,
+    };
+
+    if (
+        $loaderFunction === null ||
+        !function_exists($loaderFunction)
+    ) {
+        return false;
+    }
+
+    $orientation = $mimeType === 'image/jpeg'
+        ? blogManageReadJpegOrientation($sourcePath)
+        : 1;
+
+    $image = @$loaderFunction($sourcePath);
+
+    if ($image === false) {
+        throw new RuntimeException(
+            'Das Bild konnte nicht sicher neu codiert werden.'
+        );
+    }
+
+    $temporaryOutputPath = blogManageCreateTemporaryImagePath(
+        $destinationPath
+    );
+
+    try {
+        if ($mimeType === 'image/jpeg') {
+            $image = blogManageApplyJpegOrientation(
+                $image,
+                $orientation
+            );
+            imageinterlace($image, true);
+            $written = imagejpeg($image, $temporaryOutputPath, 92);
+        } elseif ($mimeType === 'image/png') {
+            if (function_exists('imagepalettetotruecolor')) {
+                @imagepalettetotruecolor($image);
+            }
+
+            imagealphablending($image, false);
+            imagesavealpha($image, true);
+            $written = imagepng(
+                $image,
+                $temporaryOutputPath,
+                6,
+                PNG_ALL_FILTERS
+            );
+        } else {
+            imagealphablending($image, false);
+            imagesavealpha($image, true);
+            $written = imagewebp(
+                $image,
+                $temporaryOutputPath,
+                92
+            );
+        }
+
+        if (!$written) {
+            throw new RuntimeException(
+                'Das bereinigte Bild konnte nicht gespeichert werden.'
+            );
+        }
+
+        blogManageVerifyReencodedImage(
+            $temporaryOutputPath,
+            $mimeType
+        );
+
+        if (!rename($temporaryOutputPath, $destinationPath)) {
+            throw new RuntimeException(
+                'Das bereinigte Bild konnte nicht übernommen werden.'
+            );
+        }
+
+        return true;
+    } finally {
+        imagedestroy($image);
+
+        if (is_file($temporaryOutputPath)) {
+            @unlink($temporaryOutputPath);
+        }
+    }
+}
+
+/**
+ * Schreibt aus dem Upload eine vollständig neu codierte Bilddatei.
+ * EXIF, GPS, IPTC, XMP, ICC-Profile, Kommentare und sonstige eingebettete
+ * Metadaten werden nicht in die Ausgabedatei übernommen.
+ */
+function blogManageWriteMetadataFreeImage(
+    string $sourcePath,
+    string $destinationPath,
+    string $mimeType
+): void {
+    $errors = [];
+
+    try {
+        if (
+            blogManageWriteMetadataFreeImageWithImageMagick(
+                $sourcePath,
+                $destinationPath,
+                $mimeType
+            )
+        ) {
+            return;
+        }
+    } catch (Throwable $exception) {
+        $errors[] = $exception->getMessage();
+    }
+
+    try {
+        if (
+            blogManageWriteMetadataFreeImageWithGd(
+                $sourcePath,
+                $destinationPath,
+                $mimeType
+            )
+        ) {
+            return;
+        }
+    } catch (Throwable $exception) {
+        $errors[] = $exception->getMessage();
+    }
+
+    $details = $errors !== []
+        ? ' ' . implode(' ', array_unique($errors))
+        : '';
+
+    throw new RuntimeException(
+        'Das Bild konnte nicht ohne Metadaten gespeichert werden. '
+        . 'Benötigt wird ImageMagick oder PHP-GD.'
+        . $details
+    );
 }
 
 function blogManageCreateImageFilename(
@@ -425,9 +878,22 @@ if (
     );
     $finalPath = $blogUploadDirectory . '/' . $finalFilename;
 
-    if (!move_uploaded_file($temporaryPath, $finalPath)) {
+    try {
+        blogManageWriteMetadataFreeImage(
+            $temporaryPath,
+            $finalPath,
+            $mimeType
+        );
+    } catch (Throwable $exception) {
+        error_log(
+            '[blog-manage] Bildbereinigung fehlgeschlagen: '
+            . $exception->getMessage()
+        );
+
+        @unlink($finalPath);
+
         blogManageJsonResponse(
-            ['success' => false, 'message' => 'Das Bild konnte nicht gespeichert werden.'],
+            ['success' => false, 'message' => $exception->getMessage()],
             500
         );
     }
@@ -1153,12 +1619,51 @@ require_once __DIR__ . '/../navbar.php';
         editEditor.focus();
     }
 
-    function escapeHtmlAttribute(value) {
-        return String(value)
-            .replace(/&/g, '&amp;')
-            .replace(/"/g, '&quot;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;');
+    function insertUploadedImage(url, altText) {
+        restoreEditorSelection();
+
+        const selection = window.getSelection();
+
+        if (!selection || selection.rangeCount === 0) {
+            return;
+        }
+
+        const range = selection.getRangeAt(0);
+        const startNode = range.startContainer;
+        const startElement = startNode.nodeType === Node.ELEMENT_NODE
+            ? startNode
+            : startNode.parentElement;
+        const currentBlock = startElement instanceof Element
+            ? startElement.closest('p, div, h2, h3, blockquote, li, pre')
+            : null;
+        const replaceEmptyBlock =
+            currentBlock instanceof Element &&
+            editEditor.contains(currentBlock) &&
+            currentBlock.textContent.trim() === '' &&
+            !currentBlock.querySelector('img');
+
+        const image = document.createElement('img');
+        image.src = String(url);
+        image.alt = String(altText);
+        image.loading = 'lazy';
+        image.decoding = 'async';
+
+        range.deleteContents();
+
+        if (replaceEmptyBlock) {
+            currentBlock.replaceChildren(image);
+        } else {
+            range.insertNode(image);
+        }
+
+        const caretRange = document.createRange();
+        caretRange.setStartAfter(image);
+        caretRange.collapse(true);
+
+        selection.removeAllRanges();
+        selection.addRange(caretRange);
+        savedRange = caretRange.cloneRange();
+        editEditor.focus();
     }
 
     function showUploadMessage(message, isError = false) {
@@ -1343,18 +1848,10 @@ require_once __DIR__ . '/../navbar.php';
 
         try {
             const data = await requestJson(formData);
-            restoreEditorSelection();
-
-            const imageHtml =
-                '<p><img src="' + escapeHtmlAttribute(data.url) + '" alt="' +
-                escapeHtmlAttribute(title) +
-                '" loading="lazy" decoding="async"></p><p><br></p>';
-
-            document.execCommand('insertHTML', false, imageHtml);
-            saveEditorSelection();
+            insertUploadedImage(data.url, title);
 
             showUploadMessage(
-                'Bild ' + data.filename + ' wurde hochgeladen und eingefügt.'
+                'Bild ' + data.filename + ' wurde ohne Metadaten hochgeladen und eingefügt.'
             );
         } catch (error) {
             showUploadMessage(

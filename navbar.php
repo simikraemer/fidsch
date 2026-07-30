@@ -140,25 +140,9 @@ if ($isAuthed) {
                 </ul>
             </li>
 
-            <!-- Sci -->
-            <li class="nav-item has-submenu">
-                <a href="/sci/start"><img src="/img/uni.png" alt="Sci" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"></a>
-                <ul class="submenu">
-                    <li><a href="/sci/lerntime"><img src="/img/graph.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Übersicht</span></a></li>
-                    <li><a href="/sci/kartei"><img src="/img/kartei.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Kartei</span></a></li>
-                    <li><a href="/sci/plan"><img src="/img/plan.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Studienplan</span></a></li>
-                </ul>
-                <!-- <ul class="submenu">
-                    <li><a href="/sci/lerntime"><img src="/img/graph.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Übersicht</span></a></li>
-                    <!-- <li><a href="/sci/fragen"><img src="/img/fragezeichen.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Fragen</span></a></li>
-                    <li><a href="/sci/data"><img src="/img/table.png" alt="Daten" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Daten</span></a></li>
-                    <li><a href="/sci/insert"><img src="/img/upload.png" alt="Hochladen" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Hochladen</span></a></li>
-                </ul> -->
-            </li>
-
             <!-- Blog -->
             <li class="nav-item has-submenu">
-                <a href="/blog/manage">
+                <a href="/blog/new">
                     <img src="/img/blog.png" alt="Blog" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high">
                 </a>
                 <ul class="submenu">
@@ -175,6 +159,22 @@ if ($isAuthed) {
                         </a>
                     </li>
                 </ul>
+            </li>
+
+            <!-- Sci -->
+            <li class="nav-item has-submenu">
+                <a href="/sci/start"><img src="/img/uni.png" alt="Sci" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"></a>
+                <ul class="submenu">
+                    <li><a href="/sci/lerntime"><img src="/img/graph.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Übersicht</span></a></li>
+                    <li><a href="/sci/kartei"><img src="/img/kartei.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Kartei</span></a></li>
+                    <li><a href="/sci/plan"><img src="/img/plan.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Studienplan</span></a></li>
+                </ul>
+                <!-- <ul class="submenu">
+                    <li><a href="/sci/lerntime"><img src="/img/graph.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Übersicht</span></a></li>
+                    <!-- <li><a href="/sci/fragen"><img src="/img/fragezeichen.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Fragen</span></a></li>
+                    <li><a href="/sci/data"><img src="/img/table.png" alt="Daten" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Daten</span></a></li>
+                    <li><a href="/sci/insert"><img src="/img/upload.png" alt="Hochladen" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Hochladen</span></a></li>
+                </ul> -->
             </li>
 
             <!-- Check -->
@@ -225,33 +225,98 @@ if ($isAuthed) {
 
             <div class="nav-divider"></div>
 
-            <!-- Audibook -->
-            <li class="nav-item">
-                <a href="https://hub.fidsch.de/audiobookshelf/" target="_blank" rel="noopener">
-                    <img src="/img/audiobook.png" alt="" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high">
+            <!-- Externe Dienste -->
+            <li class="nav-item has-submenu">
+                <a
+                    href="https://hub.fidsch.de/audiobookshelf/"
+                    target="_blank"
+                    rel="noopener"
+                >
+                    <img
+                        src="/img/link.png"
+                        alt="Externe Dienste"
+                        class="nav-icon"
+                        loading="eager"
+                        decoding="sync"
+                        fetchpriority="high"
+                    >
                 </a>
-            </li>
 
-            <!-- Navidrome -->
-            <li class="nav-item">
-                <a href="https://hub.fidsch.de/navidrome/" target="_blank" rel="noopener">
-                    <img src="/img/vinyl.png" alt="" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high">
-                </a>
-            </li>
+                <ul class="submenu">
+                    <li>
+                        <a
+                            href="https://hub.fidsch.de/audiobookshelf/"
+                            target="_blank"
+                            rel="noopener"
+                        >
+                            <img
+                                src="/img/audiobook.png"
+                                alt="Audiobookshelf"
+                                class="nav-icon"
+                                loading="eager"
+                                decoding="sync"
+                                fetchpriority="high"
+                            >
+                            <span class="submenu-text">Hörbuch</span>
+                        </a>
+                    </li>
 
-            <!-- Photoprism -->
-            <li class="nav-item">
-                <a href="https://9.fidsch.de/photoprism/" target="_blank" rel="noopener">
-                    <img src="/img/image.png" alt="" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high">
-                </a>
-            </li>
+                    <li>
+                        <a
+                            href="https://hub.fidsch.de/navidrome/"
+                            target="_blank"
+                            rel="noopener"
+                        >
+                            <img
+                                src="/img/vinyl.png"
+                                alt="Navidrome"
+                                class="nav-icon"
+                                loading="eager"
+                                decoding="sync"
+                                fetchpriority="high"
+                            >
+                            <span class="submenu-text">Musik</span>
+                        </a>
+                    </li>
 
-            <!-- Vault -->
-            <li class="nav-item">
-                <a href="https://vault.fidsch.de" target="_blank" rel="noopener">
-                    <img src="/img/tresor.png" alt="" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high">
-                </a>
+                    <li>
+                        <a
+                            href="https://9.fidsch.de/photoprism/"
+                            target="_blank"
+                            rel="noopener"
+                        >
+                            <img
+                                src="/img/image.png"
+                                alt="PhotoPrism"
+                                class="nav-icon"
+                                loading="eager"
+                                decoding="sync"
+                                fetchpriority="high"
+                            >
+                            <span class="submenu-text">Fotos</span>
+                        </a>
+                    </li>
+
+                    <li>
+                        <a
+                            href="https://vault.fidsch.de"
+                            target="_blank"
+                            rel="noopener"
+                        >
+                            <img
+                                src="/img/tresor.png"
+                                alt="Vault"
+                                class="nav-icon"
+                                loading="eager"
+                                decoding="sync"
+                                fetchpriority="high"
+                            >
+                            <span class="submenu-text">Vault</span>
+                        </a>
+                    </li>
+                </ul>
             </li>
+            
         <?php else: ?>
             <!-- Not authed: show clickable "dots" login button -->
             <li class="nav-item">
