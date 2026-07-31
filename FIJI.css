@@ -1132,6 +1132,31 @@ tr.lt-dragging .lt-grip {
     opacity: 0.9;
 }
 
+.dashboard-pie-kpi-valuewrap {
+    margin-left: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    line-height: 1.05;
+}
+
+.dashboard-pie-kpi-valuewrap .dashboard-pie-kpi-value {
+    margin-left: 0;
+}
+
+.dashboard-pie-kpi-sub {
+    margin-top: 4px;
+    color: #777;
+    font-size: 0.68rem;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.dashboard-pie-kpi-sub[hidden] {
+    display: none;
+}
+
 .dashboard-page .dashboard-pie-wrap {
     position: relative;
     width: 100%;

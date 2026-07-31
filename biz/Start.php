@@ -1123,10 +1123,30 @@ require_once __DIR__ . '/../navbar.php';
     <div class="dashboard-pies dashboard-pies--asym">
       <div class="dashboard-pie-card">
         <div class="dashboard-pie-kpi">
-          <button type="button" class="chart-back" id="incomeBack" style="display:none" title="Zurück" aria-label="Zurück">&larr;</button>
-          <span class="dashboard-pie-kpi-label" id="incomeTitle">Einnahmen</span>
-          <span class="dashboard-pie-kpi-value" id="incomeKpi"><?= euro(array_sum($incomeByCat)) ?></span>
+          <button
+            type="button"
+            class="chart-back"
+            id="incomeBack"
+            style="display:none"
+            title="Zurück"
+            aria-label="Zurück"
+          >&larr;</button>
+
+          <span class="dashboard-pie-kpi-label" id="incomeTitle">
+            Einnahmen
+          </span>
+
+          <div class="dashboard-pie-kpi-valuewrap">
+            <span class="dashboard-pie-kpi-value" id="incomeKpi">
+              <?= euro(array_sum($incomeByCat)) ?>
+            </span>
+
+            <span class="dashboard-pie-kpi-sub" id="incomeKpiSub" hidden>
+              Ø pro Monat
+            </span>
+          </div>
         </div>
+
         <div class="dashboard-pie-wrap">
           <canvas id="incomePie"></canvas>
         </div>
@@ -1134,10 +1154,30 @@ require_once __DIR__ . '/../navbar.php';
 
       <div class="dashboard-pie-card">
         <div class="dashboard-pie-kpi">
-          <button type="button" class="chart-back" id="expenseBack" style="display:none" title="Zurück" aria-label="Zurück">&larr;</button>
-          <span class="dashboard-pie-kpi-label" id="expenseTitle">Ausgaben (Logarithmisch)</span>
-          <span class="dashboard-pie-kpi-value" id="expenseKpi"><?= euro(array_sum($expenseByCat)) ?></span>
+          <button
+            type="button"
+            class="chart-back"
+            id="expenseBack"
+            style="display:none"
+            title="Zurück"
+            aria-label="Zurück"
+          >&larr;</button>
+
+          <span class="dashboard-pie-kpi-label" id="expenseTitle">
+            Ausgaben (Logarithmisch)
+          </span>
+
+          <div class="dashboard-pie-kpi-valuewrap">
+            <span class="dashboard-pie-kpi-value" id="expenseKpi">
+              <?= euro(array_sum($expenseByCat)) ?>
+            </span>
+
+            <span class="dashboard-pie-kpi-sub" id="expenseKpiSub" hidden>
+              Ø pro Monat
+            </span>
+          </div>
         </div>
+
         <div class="dashboard-pie-wrap">
           <canvas id="expensePie"></canvas>
         </div>
@@ -1919,6 +1959,13 @@ function destroyChart(key) {
     ui[key].chart = null;
   }
 }
+function setKpiSubVisible(key, visible) {
+  const el = $(`${key}KpiSub`);
+
+  if (el) {
+    el.hidden = !visible;
+  }
+}
 
 function makeIncomeOverview() {
   const key = 'income';
@@ -1927,6 +1974,7 @@ function makeIncomeOverview() {
   setBackVisible(key, false);
   setTitle(key, ui[key].origTitle);
   setKpi(key, ui[key].origKpi);
+  setKpiSubVisible(key, false);
 
   const top = topNWithRestDual(incomeLabels, incomeValues, incomeValuesClosed, TOP_N_INCOME);
   const total = sumArr(top.values);
@@ -2011,6 +2059,7 @@ function makeExpenseOverview() {
   setBackVisible(key, false);
   setTitle(key, ui[key].origTitle);
   setKpi(key, ui[key].origKpi);
+  setKpiSubVisible(key, false);
 
   const top = topNWithRestDual(expenseLabels, expenseValues, expenseValuesClosed, TOP_N_EXPENSE);
   const total = sumArr(top.values);
@@ -2121,101 +2170,231 @@ async function showYearDetail(key, catLabel) {
 
   const kind = ui[key].kind;
   const titleBase = (key === 'income') ? 'Einnahmen' : 'Ausgaben';
+
   setTitle(key, `${titleBase} - ${catLabel}`);
   setKpi(key, '…');
+  setKpiSubVisible(key, false);
 
   let data;
+
   try {
     data = await fetchYearSeries(kind, catLabel);
   } catch (e) {
     console.error(e);
     setKpi(key, 'Fehler');
-    (key === 'income') ? makeIncomeOverview() : makeExpenseOverview();
+
+    if (key === 'income') {
+      makeIncomeOverview();
+    } else {
+      makeExpenseOverview();
+    }
+
     return;
   }
 
-  const catParamForJump = (data && data.cat_param != null) ? data.cat_param : null;
+  const catParamForJump =
+    data && data.cat_param != null
+      ? data.cat_param
+      : null;
 
-  const years = data.years || [];
-  let valuesFull   = (data.values || []).map(Number);
-  let valuesClosed = ((data.values_closed || data.values || [])).map(Number);
+  const years = (data.years || []).map(Number);
 
+  let valuesFull = (data.values || []).map(Number);
+  let valuesClosed = (
+    data.values_closed
+    || data.values
+    || []
+  ).map(Number);
+
+  /*
+   * Ausgaben kommen aus PHP als negative Werte.
+   * Für die Darstellung werden sie positiv angezeigt.
+   */
   if (key === 'expense') {
-    valuesFull   = valuesFull.map(v => v * -1);
-    valuesClosed = valuesClosed.map(v => v * -1);
+    valuesFull = valuesFull.map(value => value * -1);
+    valuesClosed = valuesClosed.map(value => value * -1);
   }
 
-  const total = sumArr(valuesFull);
-  setKpi(key, fmtEuro(total));
+  /*
+   * Grundlage des Diagramms:
+   * Jahreswert geteilt durch die Anzahl abgeschlossener Monate.
+   *
+   * Vergangene Jahre: 12 Monate
+   * Aktuelles Jahr: nur vollständig abgeschlossene Monate
+   */
+  const yearlyMonthlyAverages = years.map((year, index) => {
+    const months = completedMonthsForYear(year);
 
-  ui[key].chart = new Chart($(ui[key].canvasId).getContext('2d'), {
-    type: 'line',
-    data: {
-      labels: years.map(String),
-      datasets: [{
-        label: `${titleBase} (${catLabel})`,
-        data: valuesFull,
-        borderColor: PRIMARY,
-        borderWidth: 3,
-        tension: 1,
-        pointRadius: 5,
-        pointHoverRadius: 6,
-        pointHitRadius: 10,
-        fill: true,
-        backgroundColor: hexToRgba(PRIMARY, 0.12),
-        cubicInterpolationMode: 'monotone',
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: 'nearest', axis: 'x', intersect: false },
-      hover:       { mode: 'nearest', axis: 'x', intersect: false },
-      plugins: {
-        tooltip: {
-          mode: 'x',
-          intersect: false,
-          callbacks: {
-            label: (ctx) => {
-              const year = Number(ctx.label);
-              const val  = Number(ctx.parsed.y);
-              const idx  = ctx.dataIndex;
-
-              const valClosed = Number(valuesClosed?.[idx] ?? val);
-
-              const pct = total ? (val / total * 100) : 0;
-
-              const months = completedMonthsForYear(year);
-              const perMonth = fmtMonthlyAvg(valClosed, months);
-
-              return [
-                `Ø pro Monat: ${perMonth}`,
-                `Gesamt ${year}: ${fmtEuro(val)}`,
-                `Anteil ${titleBase}: ${pct.toFixed(1)} %`
-              ];
-            }
-          }
-        }
-      },
-      scales: {
-        x: { ticks: { maxRotation: 0, minRotation: 0 } },
-        y: { beginAtZero: true, ticks: { callback: (v) => fmtEuro(v) } }
-      },
-      onClick: (evt, elements, chart) => {
-        if (!elements?.length) return;
-        const year = Number(chart.data.labels?.[elements[0].index]);
-        if (!Number.isFinite(year) || year < 1900) return;
-        if (catParamForJump == null) return;
-        applySelection(catParamForJump, year, { pushHistory: true, scrollTop: true });
-      }
+    if (months <= 0) {
+      return null;
     }
+
+    const closedValue = Number(valuesClosed[index] ?? 0);
+    const average = closedValue / months;
+
+    return Math.round(average * 100) / 100;
   });
 
+  /*
+   * KPI oben rechts:
+   * arithmetischer Mittelwert aller dargestellten
+   * Jahres-Monatsdurchschnitte.
+   */
+  const validAverages = yearlyMonthlyAverages.filter(
+    value => Number.isFinite(value)
+  );
+
+  const overallAverage = validAverages.length > 0
+    ? sumArr(validAverages) / validAverages.length
+    : 0;
+
+  setKpi(key, fmtEuro(overallAverage));
+  setKpiSubVisible(key, true);
+
+  ui[key].chart = new Chart(
+    $(ui[key].canvasId).getContext('2d'),
+    {
+      type: 'line',
+
+      data: {
+        labels: years.map(String),
+
+        datasets: [{
+          label: `Ø pro Monat (${catLabel})`,
+          data: yearlyMonthlyAverages,
+
+          borderColor: PRIMARY,
+          borderWidth: 3,
+
+          tension: 1,
+
+          pointRadius: 5,
+          pointHoverRadius: 6,
+          pointHitRadius: 10,
+
+          fill: true,
+          backgroundColor: hexToRgba(PRIMARY, 0.12),
+
+          cubicInterpolationMode: 'monotone',
+          spanGaps: false
+        }]
+      },
+
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+
+        interaction: {
+          mode: 'nearest',
+          axis: 'x',
+          intersect: false
+        },
+
+        hover: {
+          mode: 'nearest',
+          axis: 'x',
+          intersect: false
+        },
+
+        plugins: {
+          tooltip: {
+            mode: 'x',
+            intersect: false,
+
+            callbacks: {
+              label: (ctx) => {
+                const index = ctx.dataIndex;
+                const year = Number(ctx.label);
+
+                const monthlyAverage = Number(
+                  yearlyMonthlyAverages[index] ?? 0
+                );
+
+                const absoluteValue = Number(
+                  valuesFull[index] ?? 0
+                );
+
+                const closedValue = Number(
+                  valuesClosed[index] ?? absoluteValue
+                );
+
+                const months = completedMonthsForYear(year);
+
+                const monthLabel = months === 12
+                  ? 'Gesamtes Jahr'
+                  : months === 1
+                    ? '1 abgeschlossener Monat'
+                    : `${months} abgeschlossene Monate`;
+
+                return [
+                  `Ø pro Monat: ${fmtEuro(monthlyAverage)}`,
+                  `Gesamt ${year}: ${fmtEuro(absoluteValue)}`,
+                  `Berechnungsbasis: ${fmtEuro(closedValue)}`,
+                  `Zeitraum: ${monthLabel}`
+                ];
+              }
+            }
+          }
+        },
+
+        scales: {
+          x: {
+            ticks: {
+              maxRotation: 0,
+              minRotation: 0
+            }
+          },
+
+          y: {
+            beginAtZero: true,
+
+            ticks: {
+              callback: value => fmtEuro(value)
+            }
+          }
+        },
+
+        onClick: (evt, elements, chart) => {
+          if (!elements?.length) {
+            return;
+          }
+
+          const year = Number(
+            chart.data.labels?.[elements[0].index]
+          );
+
+          if (!Number.isFinite(year) || year < 1900) {
+            return;
+          }
+
+          if (catParamForJump == null) {
+            return;
+          }
+
+          applySelection(
+            catParamForJump,
+            year,
+            {
+              pushHistory: true,
+              scrollTop: true
+            }
+          );
+        }
+      }
+    }
+  );
+
   const backBtn = $(ui[key].backId);
+
   if (backBtn) {
     backBtn.onclick = () => {
       backBtn.onclick = null;
-      (key === 'income') ? makeIncomeOverview() : makeExpenseOverview();
+
+      if (key === 'income') {
+        makeIncomeOverview();
+      } else {
+        makeExpenseOverview();
+      }
     };
   }
 }
