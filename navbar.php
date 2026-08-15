@@ -174,13 +174,8 @@ if ($isAuthed) {
                     <li><a href="/sci/lerntime"><img src="/img/graph.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Übersicht</span></a></li>
                     <li><a href="/sci/kartei"><img src="/img/kartei.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Kartei</span></a></li>
                     <li><a href="/sci/plan"><img src="/img/plan.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Studienplan</span></a></li>
+                    <li><a href="/sci/yolo"><img src="/img/graph.png" alt="YOLO-Auswertung" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">YOLO</span></a></li>
                 </ul>
-                <!-- <ul class="submenu">
-                    <li><a href="/sci/lerntime"><img src="/img/graph.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Übersicht</span></a></li>
-                    <!-- <li><a href="/sci/fragen"><img src="/img/fragezeichen.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Fragen</span></a></li>
-                    <li><a href="/sci/data"><img src="/img/table.png" alt="Daten" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Daten</span></a></li>
-                    <li><a href="/sci/insert"><img src="/img/upload.png" alt="Hochladen" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Hochladen</span></a></li>
-                </ul> -->
             </li>
 
             <!-- Check -->
