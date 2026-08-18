@@ -1,6 +1,6 @@
 <?php
 // sci/YOLO.php
-// VERSION: YOLO-Web v4
+// VERSION: YOLO-Web v5 – Bildervergleich der finalen realen Testauswertung
 // Liest ausschließlich die von yolo.py erzeugten Metadaten/CSVs aus dem Archiv
 // und stellt Trainingsläufe vergleichbar dar. Keine Schreibzugriffe auf YOLO-Daten.
 
@@ -500,6 +500,138 @@ function yolo_read_final_evaluations(string $runRoot): array
 }
 
 /* =========================================================
+ * Finale reale Testbilder
+ * ========================================================= */
+function yolo_final_test_image_identity(string $relativePath): array
+{
+    $relativePath = str_replace('\\', '/', ltrim($relativePath, '/'));
+    $dir = dirname($relativePath);
+    $stem = pathinfo($relativePath, PATHINFO_FILENAME);
+    $stem = preg_replace('/_2x2$/i', '', $stem) ?? $stem;
+
+    $id = ($dir !== '.' && $dir !== '')
+        ? $dir . '/' . $stem
+        : $stem;
+
+    return [
+        'id' => strtolower($id),
+        'label' => $stem,
+    ];
+}
+
+function yolo_final_test_images(string $runRoot, bool $includePath = false): array
+{
+    $base = $runRoot . '/Auswertung_Test';
+    if (!is_dir($base) || !is_readable($base)) {
+        return [];
+    }
+
+    $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+    $found = [];
+
+    try {
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($base, FilesystemIterator::SKIP_DOTS)
+        );
+
+        foreach ($iterator as $fileInfo) {
+            if (!$fileInfo instanceof SplFileInfo || !$fileInfo->isFile()) {
+                continue;
+            }
+
+            $extension = strtolower($fileInfo->getExtension());
+            if (!in_array($extension, $allowedExtensions, true)) {
+                continue;
+            }
+
+            $filename = $fileInfo->getFilename();
+            if (!preg_match('/_2x2\.(?:jpe?g|png|webp)$/i', $filename)) {
+                continue;
+            }
+
+            $fullPath = $fileInfo->getPathname();
+            $relative = ltrim(str_replace('\\', '/', substr($fullPath, strlen($base))), '/');
+            $identity = yolo_final_test_image_identity($relative);
+            $id = $identity['id'];
+
+            // Gleiche Bild-ID nur einmal; bei Dubletten gewinnt die neuere Datei.
+            $mtime = @filemtime($fullPath) ?: 0;
+            if (isset($found[$id]) && (int)$found[$id]['mtime'] >= $mtime) {
+                continue;
+            }
+
+            $entry = [
+                'id' => $id,
+                'label' => $identity['label'],
+                'mtime' => $mtime,
+            ];
+            if ($includePath) {
+                $entry['path'] = $fullPath;
+            }
+            $found[$id] = $entry;
+        }
+    } catch (Throwable $e) {
+        return [];
+    }
+
+    uasort($found, static function (array $a, array $b): int {
+        return strnatcasecmp((string)$a['label'], (string)$b['label']);
+    });
+
+    return array_values($found);
+}
+
+function yolo_public_final_test_images(string $runRoot): array
+{
+    return array_map(
+        static fn(array $item): array => [
+            'id' => (string)$item['id'],
+            'label' => (string)$item['label'],
+        ],
+        yolo_final_test_images($runRoot, false)
+    );
+}
+
+function yolo_find_final_test_image(string $runRoot, string $imageId): ?string
+{
+    $imageId = strtolower(trim($imageId));
+    if ($imageId === '') {
+        return null;
+    }
+
+    foreach (yolo_final_test_images($runRoot, true) as $item) {
+        if (($item['id'] ?? '') === $imageId) {
+            $path = $item['path'] ?? null;
+            return is_string($path) && is_file($path) && is_readable($path) ? $path : null;
+        }
+    }
+    return null;
+}
+
+function yolo_stream_test_image(string $path): void
+{
+    $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+    $contentTypes = [
+        'jpg' => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+        'png' => 'image/png',
+        'webp' => 'image/webp',
+    ];
+
+    if (!isset($contentTypes[$extension])) {
+        http_response_code(415);
+        exit;
+    }
+
+    header('Content-Type: ' . $contentTypes[$extension]);
+    header('Content-Length: ' . (string)(@filesize($path) ?: 0));
+    header('Cache-Control: private, max-age=3600');
+    header('X-Content-Type-Options: nosniff');
+    readfile($path);
+    exit;
+}
+
+/* =========================================================
  * Run-Erkennung
  * ========================================================= */
 function yolo_catalog_entry(
@@ -878,12 +1010,42 @@ function yolo_load_run(array $entry): array
         'results' => $results,
         'milestones' => $milestones,
         'final' => $final,
+        'test_images' => $entry['kind'] === 'detail'
+            ? yolo_public_final_test_images($entry['run_root'])
+            : [],
     ];
 }
 
 $catalog = yolo_discover_runs(YOLO_META_ROOT);
 $publicCatalog = yolo_public_catalog($catalog);
 $defaultKeys = yolo_default_keys($catalog, 2);
+
+/* =========================================================
+ * AJAX: finales reales Vergleichsbild ausliefern
+ * ========================================================= */
+if (isset($_GET['ajax']) && $_GET['ajax'] === 'test_image') {
+    $runKey = trim((string)($_GET['run'] ?? ''));
+    $imageId = trim((string)($_GET['image'] ?? ''));
+
+    if ($runKey === '' || $imageId === '' || !isset($catalog[$runKey])) {
+        http_response_code(404);
+        exit;
+    }
+
+    $entry = $catalog[$runKey];
+    if (($entry['kind'] ?? '') !== 'detail') {
+        http_response_code(404);
+        exit;
+    }
+
+    $imagePath = yolo_find_final_test_image($entry['run_root'], $imageId);
+    if ($imagePath === null) {
+        http_response_code(404);
+        exit;
+    }
+
+    yolo_stream_test_image($imagePath);
+}
 
 /* =========================================================
  * AJAX: ausgewählte Runs laden
@@ -956,7 +1118,8 @@ require_once __DIR__ . '/../navbar.php';
             <button type="button" class="yolo-tab" role="tab" aria-selected="false" data-yolo-tab="summary">2. Übersicht</button>
             <button type="button" class="yolo-tab" role="tab" aria-selected="false" data-yolo-tab="config">3. Konfiguration</button>
             <button type="button" class="yolo-tab" role="tab" aria-selected="false" data-yolo-tab="graphs">4. Graphen</button>
-            <button type="button" class="yolo-tab" role="tab" aria-selected="false" data-yolo-tab="glossary">5. Begriffe</button>
+            <button type="button" class="yolo-tab" role="tab" aria-selected="false" data-yolo-tab="images">5. Bilder</button>
+            <button type="button" class="yolo-tab" role="tab" aria-selected="false" data-yolo-tab="glossary">6. Begriffe</button>
         </nav>
 
         <div id="yoloLoading" class="yolo-notice" hidden>Run-Daten werden gelesen …</div>
@@ -1039,6 +1202,19 @@ require_once __DIR__ . '/../navbar.php';
                 </div>
             </section>
 
+            <section class="yolo-tab-panel" role="tabpanel" data-yolo-panel="images" hidden>
+                <div class="yolo-section yolo-images-section">
+                    <div class="yolo-section-head">
+                        <div>
+                            <h2>Reale Testbilder im Vergleich</h2>
+                            <p>Die 2x2-Ausgaben aus <code>Auswertung_Test</code> werden bildweise gruppiert. Gleiche Testbilder der ausgewählten Runs stehen jeweils nebeneinander.</p>
+                        </div>
+                    </div>
+                    <div id="yoloImagesEmpty" class="yolo-tab-empty">Wähle im ersten Tab mindestens einen Run aus.</div>
+                    <div id="yoloImagesComparison" class="yolo-image-comparison" hidden></div>
+                </div>
+            </section>
+
             <section class="yolo-tab-panel" role="tabpanel" data-yolo-panel="glossary" hidden>
                 <div class="yolo-section yolo-glossary-section">
                     <div class="yolo-section-head yolo-glossary-head">
@@ -1106,6 +1282,9 @@ require_once __DIR__ . '/../navbar.php';
     const elMilestoneMetricPicker = document.getElementById('yoloMilestoneMetricPicker');
     const elTrainingCharts = document.getElementById('yoloTrainingCharts');
     const elMilestoneCharts = document.getElementById('yoloMilestoneCharts');
+
+    const elImagesEmpty = document.getElementById('yoloImagesEmpty');
+    const elImagesComparison = document.getElementById('yoloImagesComparison');
 
     const elGlossarySearch = document.getElementById('yoloGlossarySearch');
     const elGlossaryList = document.getElementById('yoloGlossaryList');
@@ -2205,6 +2384,10 @@ require_once __DIR__ . '/../navbar.php';
         if (!hasRuns) {
             elTrainingSection.hidden = true;
             elMilestoneSection.hidden = true;
+            elImagesComparison.innerHTML = '';
+            elImagesComparison.hidden = true;
+            elImagesEmpty.hidden = false;
+            elImagesEmpty.textContent = 'Wähle im ersten Tab mindestens einen Run aus.';
         }
     }
 
@@ -2229,6 +2412,7 @@ require_once __DIR__ . '/../navbar.php';
             elMetaTable.innerHTML = '';
             elTrainingCharts.innerHTML = '';
             elMilestoneCharts.innerHTML = '';
+            elImagesComparison.innerHTML = '';
             setDataVisible(false);
             renderGlossary();
             return;
@@ -2259,6 +2443,7 @@ require_once __DIR__ . '/../navbar.php';
             renderMetaTable();
             rebuildTrainingMetrics();
             rebuildMilestoneMetrics();
+            renderImages();
             renderGlossary();
         } catch (error) {
             if (serial !== loadSerial) return;
@@ -2273,6 +2458,116 @@ require_once __DIR__ . '/../navbar.php';
         updateUrl();
         elSelectedCount.textContent = String(selected.size);
         loadSelectedRuns();
+    }
+
+    /* =====================================================
+     * Bildervergleich
+     * ===================================================== */
+    function finalTestImageUrl(runKey, imageId) {
+        const url = new URL(location.href);
+        url.search = '';
+        url.searchParams.set('ajax', 'test_image');
+        url.searchParams.set('run', runKey);
+        url.searchParams.set('image', imageId);
+        return url.toString();
+    }
+
+    function renderImages() {
+        elImagesComparison.innerHTML = '';
+
+        if (!loadedRuns.length) {
+            elImagesComparison.hidden = true;
+            elImagesEmpty.hidden = false;
+            elImagesEmpty.textContent = 'Wähle im ersten Tab mindestens einen Run aus.';
+            return;
+        }
+
+        const imageCatalog = new Map();
+        const runImageMaps = loadedRuns.map(run => {
+            const map = new Map();
+            (run.test_images || []).forEach(item => {
+                if (!item || !item.id) return;
+                const id = String(item.id).toLowerCase();
+                map.set(id, item);
+                if (!imageCatalog.has(id)) {
+                    imageCatalog.set(id, String(item.label || item.id));
+                }
+            });
+            return map;
+        });
+
+        const imageIds = [...imageCatalog.keys()].sort((a, b) =>
+            String(imageCatalog.get(a)).localeCompare(
+                String(imageCatalog.get(b)),
+                'de',
+                { numeric: true, sensitivity: 'base' }
+            )
+        );
+
+        if (!imageIds.length) {
+            elImagesComparison.hidden = true;
+            elImagesEmpty.hidden = false;
+            elImagesEmpty.innerHTML =
+                'Für die ausgewählten Runs wurden im Serverarchiv keine <code>Auswertung_Test/*_2x2</code>-Bilder gefunden.';
+            return;
+        }
+
+        elImagesEmpty.hidden = true;
+        elImagesComparison.hidden = false;
+
+        elImagesComparison.innerHTML = imageIds.map(imageId => {
+            const label = imageCatalog.get(imageId) || imageId;
+            const cards = loadedRuns.map((run, runIndex) => {
+                const image = runImageMaps[runIndex].get(imageId);
+                const color = colors[runIndex % colors.length];
+
+                if (!image) {
+                    return `
+                        <article class="yolo-image-card is-missing" style="--run-color:${color}">
+                            <div class="yolo-image-card-head">
+                                <span class="yolo-run-color" aria-hidden="true"></span>
+                                <strong>${esc(run.name)}</strong>
+                            </div>
+                            <div class="yolo-image-missing">Bild in diesem Run nicht vorhanden.</div>
+                        </article>
+                    `;
+                }
+
+                const src = finalTestImageUrl(run.key, image.id);
+                return `
+                    <article class="yolo-image-card" style="--run-color:${color}">
+                        <div class="yolo-image-card-head">
+                            <span class="yolo-run-color" aria-hidden="true"></span>
+                            <strong>${esc(run.name)}</strong>
+                        </div>
+                        <a class="yolo-image-link" href="${esc(src)}" target="_blank" rel="noopener">
+                            <img
+                                class="yolo-comparison-image"
+                                src="${esc(src)}"
+                                alt="${esc(label)} – ${esc(run.name)}"
+                                loading="lazy"
+                                decoding="async"
+                            >
+                        </a>
+                    </article>
+                `;
+            }).join('');
+
+            return `
+                <section class="yolo-image-row">
+                    <div class="yolo-image-row-head">
+                        <h3>${esc(label)}</h3>
+                        <span>${loadedRuns.length} Run${loadedRuns.length === 1 ? '' : 's'}</span>
+                    </div>
+                    <div
+                        class="yolo-image-run-grid"
+                        style="--yolo-image-cols:${Math.max(1, loadedRuns.length)}"
+                    >
+                        ${cards}
+                    </div>
+                </section>
+            `;
+        }).join('');
     }
 
     /* =====================================================

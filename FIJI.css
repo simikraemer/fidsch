@@ -3127,10 +3127,10 @@ button.chart-back:focus-visible {
 
 .yolo-metric-picker {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, max-content));
-    justify-content: end;
+    grid-template-columns: repeat(auto-fit, minmax(203px, max-content));
+    /* justify-content: end; */
     gap: 7px;
-    width: min(100%, 980px);
+    width: min(100%);
 }
 
 /*
@@ -3444,5 +3444,128 @@ button.chart-back:focus-visible {
     .yolo-final-report-row > span:nth-child(2) {
         grid-column: 1 / -1;
         grid-row: 2;
+    }
+}
+
+.yolo-images-section {
+    min-width: 0;
+}
+
+.yolo-image-comparison {
+    display: grid;
+    gap: 18px;
+    min-width: 0;
+}
+
+.yolo-image-row {
+    min-width: 0;
+    padding: 12px;
+    border: 1px solid rgba(0, 0, 0, .08);
+    border-radius: var(--border-radius);
+    background: var(--bg-light);
+}
+
+.yolo-image-row-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.yolo-image-row-head h3 {
+    margin: 0;
+    font-size: 1rem;
+    line-height: 1.25;
+}
+
+.yolo-image-row-head > span {
+    color: rgba(0, 0, 0, .55);
+    font-size: .78rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.yolo-image-run-grid {
+    display: grid;
+    grid-template-columns: repeat(var(--yolo-image-cols, 1), minmax(280px, 1fr));
+    gap: 10px;
+    min-width: calc(var(--yolo-image-cols, 1) * 280px);
+    overflow-x: auto;
+    padding-bottom: 3px;
+    scrollbar-width: thin;
+}
+
+.yolo-image-card {
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid rgba(0, 0, 0, .08);
+    border-top: 4px solid var(--run-color, var(--primary));
+    border-radius: var(--border-radius);
+    background: #fff;
+}
+
+.yolo-image-card-head {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 34px;
+    padding: 7px 9px;
+    border-bottom: 1px solid rgba(0, 0, 0, .07);
+    font-size: .78rem;
+}
+
+.yolo-image-card-head strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.yolo-image-card-head .yolo-run-color {
+    width: 9px;
+    height: 9px;
+}
+
+.yolo-image-link {
+    display: block;
+    background: #fff;
+    line-height: 0;
+}
+
+.yolo-comparison-image {
+    display: block;
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+    background: #fff;
+}
+
+.yolo-image-card.is-missing {
+    display: flex;
+    flex-direction: column;
+}
+
+.yolo-image-missing {
+    flex: 1 1 auto;
+    min-height: 180px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    color: rgba(0, 0, 0, .52);
+    text-align: center;
+    font-size: .82rem;
+    font-weight: 650;
+}
+
+@media (max-width: 760px) {
+    .yolo-image-row {
+        padding: 9px;
+    }
+
+    .yolo-image-run-grid {
+        grid-template-columns: repeat(var(--yolo-image-cols, 1), minmax(245px, 1fr));
+        min-width: calc(var(--yolo-image-cols, 1) * 245px);
     }
 }
