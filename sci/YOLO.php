@@ -1,6 +1,6 @@
 <?php
 // sci/YOLO.php
-// VERSION: YOLO-Web v5 – Bildervergleich der finalen realen Testauswertung
+// VERSION: YOLO-Web v6 – Bildervergleich + fehlertyp-spezifische Renderauswertung (Fxx)
 // Liest ausschließlich die von yolo.py erzeugten Metadaten/CSVs aus dem Archiv
 // und stellt Trainingsläufe vergleichbar dar. Keine Schreibzugriffe auf YOLO-Daten.
 
@@ -466,6 +466,64 @@ function yolo_read_milestones(string $trainingDir): array
     ];
 }
 
+function yolo_normalize_per_defect_type_metrics(array $report): array
+{
+    $raw = $report['per_defect_type_metrics'] ?? [];
+    if (!is_array($raw)) {
+        return [];
+    }
+
+    $out = [];
+    foreach ($raw as $defectId => $values) {
+        $defectId = strtoupper(trim((string)$defectId));
+        if (!preg_match('/^F\d{2}$/', $defectId) || !is_array($values)) {
+            continue;
+        }
+
+        $entry = [];
+        foreach (['iou', 'dice', 'recall'] as $metric) {
+            $value = $values[$metric] ?? null;
+            if (is_numeric($value)) {
+                $entry[$metric] = (float)$value;
+            }
+        }
+
+        $imagesWithGt = $values['images_with_gt'] ?? null;
+        if (is_numeric($imagesWithGt)) {
+            $entry['images_with_gt'] = (int)$imagesWithGt;
+        }
+
+        $counts = $values['counts'] ?? null;
+        if (is_array($counts)) {
+            $normalizedCounts = [];
+            foreach (['intersection', 'union', 'prediction', 'ground_truth'] as $key) {
+                if (isset($counts[$key]) && is_numeric($counts[$key])) {
+                    $normalizedCounts[$key] = (int)$counts[$key];
+                }
+            }
+            if ($normalizedCounts) {
+                $entry['counts'] = $normalizedCounts;
+            }
+        }
+
+        if (array_key_exists('other_defect_pixels_ignored', $values)) {
+            $entry['other_defect_pixels_ignored'] = (bool)$values['other_defect_pixels_ignored'];
+        }
+
+        if ($entry) {
+            $out[$defectId] = $entry;
+        }
+    }
+
+    uksort($out, static function (string $a, string $b): int {
+        $na = (int)substr($a, 1);
+        $nb = (int)substr($b, 1);
+        return $na <=> $nb;
+    });
+
+    return $out;
+}
+
 function yolo_read_final_evaluations(string $runRoot): array
 {
     $sources = [
@@ -476,9 +534,12 @@ function yolo_read_final_evaluations(string $runRoot): array
 
     $reports = [];
     $flat = [];
+    $perDefectTypes = [];
+
     foreach ($sources as $source => $path) {
         $report = yolo_read_json($path);
         if (!$report) continue;
+
         $reports[$source] = [
             'epoch_label' => $report['epoch_label'] ?? null,
             'ground_truth_enabled' => $report['ground_truth_enabled'] ?? null,
@@ -490,13 +551,28 @@ function yolo_read_final_evaluations(string $runRoot): array
                 ? array_values($report['active_detail_classes'])
                 : [],
             'created_at' => $report['created_at'] ?? null,
+            'per_defect_type_metric_note' => $report['per_defect_type_metric_note'] ?? null,
         ];
+
         foreach (yolo_flatten_aggregate_metrics($report, $source) as $key => $value) {
             $flat[$key] = $value;
         }
+
+        // v7.6: Fxx-Einzelmasken existieren nur als Diagnose-GT auf Renderdaten.
+        // Sie bleiben im Training gemeinsam die eine Klasse "Fehler".
+        if ($source === 'render_val' || $source === 'render_test') {
+            $normalized = yolo_normalize_per_defect_type_metrics($report);
+            if ($normalized) {
+                $perDefectTypes[$source] = $normalized;
+            }
+        }
     }
 
-    return ['reports' => $reports, 'metrics' => $flat];
+    return [
+        'reports' => $reports,
+        'metrics' => $flat,
+        'per_defect_types' => $perDefectTypes,
+    ];
 }
 
 /* =========================================================
@@ -884,7 +960,7 @@ function yolo_load_run(array $entry): array
     $milestones = yolo_read_milestones($entry['training_dir']);
     $final = $entry['kind'] === 'detail'
         ? yolo_read_final_evaluations($entry['run_root'])
-        : ['reports' => [], 'metrics' => []];
+        : ['reports' => [], 'metrics' => [], 'per_defect_types' => []];
 
     $maskConfiguration = yolo_first_nonempty(
         $manifest['mask_configuration'] ?? null,
@@ -1158,6 +1234,18 @@ require_once __DIR__ . '/../navbar.php';
                     </div>
                     <div id="yoloSummaryGrid" class="yolo-summary-grid"></div>
                     <div id="yoloSummaryEmpty" class="yolo-tab-empty" hidden>Wähle im ersten Tab mindestens einen Run aus.</div>
+
+                    <div id="yoloDefectTypeSection" hidden>
+                        <div class="yolo-final-title">Fehlertypen auf Renderdaten</div>
+                        <p style="margin:0 0 12px; opacity:.72; font-size:.9rem; line-height:1.45">
+                            Fehlertyp-spezifische Diagnose aus den separaten Fxx-Masken von v7.6.
+                            Alle Fxx werden weiterhin gemeinsam als <strong>eine Trainingsklasse „Fehler“</strong> gelernt;
+                            die Einzelmasken dienen nur der Auswertung. Andere gleichzeitig sichtbare Fehlertypen werden
+                            bei der jeweiligen Fxx-Metrik ignoriert. Die Werte gelten ausschließlich für Renderdaten
+                            und messen daher nicht den Sim-to-Real-Gap.
+                        </p>
+                        <div id="yoloDefectTypeTables"></div>
+                    </div>
                 </div>
             </section>
 
@@ -1272,6 +1360,8 @@ require_once __DIR__ . '/../navbar.php';
 
     const elSummaryGrid = document.getElementById('yoloSummaryGrid');
     const elSummaryEmpty = document.getElementById('yoloSummaryEmpty');
+    const elDefectTypeSection = document.getElementById('yoloDefectTypeSection');
+    const elDefectTypeTables = document.getElementById('yoloDefectTypeTables');
     const elMetaTableWrap = document.getElementById('yoloMetaTableWrap');
     const elMetaTable = document.getElementById('yoloMetaTable');
     const elMetaEmpty = document.getElementById('yoloMetaEmpty');
@@ -2409,6 +2499,8 @@ require_once __DIR__ . '/../navbar.php';
             loadedRuns = [];
             destroyCharts();
             elSummaryGrid.innerHTML = '';
+            elDefectTypeTables.innerHTML = '';
+            elDefectTypeSection.hidden = true;
             elMetaTable.innerHTML = '';
             elTrainingCharts.innerHTML = '';
             elMilestoneCharts.innerHTML = '';
@@ -2440,6 +2532,7 @@ require_once __DIR__ . '/../navbar.php';
 
             loadedRuns = Array.isArray(data.runs) ? data.runs : [];
             renderSummary();
+            renderDefectTypeMetrics();
             renderMetaTable();
             rebuildTrainingMetrics();
             rebuildMilestoneMetrics();
@@ -2671,6 +2764,108 @@ require_once __DIR__ . '/../navbar.php';
                 </article>
             `;
         }).join('');
+    }
+
+    /* =====================================================
+     * Fehlertyp-spezifische Renderauswertung (v7.6+)
+     * ===================================================== */
+    function defectTypeMetricCell(values) {
+        if (!values || typeof values !== 'object') {
+            return '<span style="opacity:.55">—</span>';
+        }
+
+        const iou = Number(values.iou);
+        const dice = Number(values.dice);
+        const recall = Number(values.recall);
+        const images = Number(values.images_with_gt);
+
+        const lines = [];
+        if (Number.isFinite(iou)) {
+            lines.push(`<strong>IoU ${fmtPercent(iou, 1)}</strong>`);
+        }
+
+        const secondary = [];
+        if (Number.isFinite(dice)) secondary.push(`Dice ${fmtPercent(dice, 1)}`);
+        if (Number.isFinite(recall)) secondary.push(`Recall ${fmtPercent(recall, 1)}`);
+        if (secondary.length) {
+            lines.push(`<span style="font-size:.78rem; opacity:.78">${secondary.join(' · ')}</span>`);
+        }
+
+        if (Number.isFinite(images)) {
+            lines.push(`<span style="font-size:.72rem; opacity:.58">${images} Bild${images === 1 ? '' : 'er'} mit GT</span>`);
+        }
+
+        return lines.length
+            ? `<div style="display:grid; gap:3px">${lines.join('')}</div>`
+            : '<span style="opacity:.55">—</span>';
+    }
+
+    function defectTypeIdsForSource(source) {
+        const ids = new Set();
+        loadedRuns.forEach(run => {
+            const values = run.final?.per_defect_types?.[source] || {};
+            Object.keys(values).forEach(id => ids.add(String(id).toUpperCase()));
+        });
+
+        return [...ids].sort((a, b) => {
+            const na = Number(String(a).replace(/\D/g, ''));
+            const nb = Number(String(b).replace(/\D/g, ''));
+            if (Number.isFinite(na) && Number.isFinite(nb) && na !== nb) return na - nb;
+            return String(a).localeCompare(String(b), 'de', { numeric: true });
+        });
+    }
+
+    function defectTypeSourceTable(source, title) {
+        const defectIds = defectTypeIdsForSource(source);
+        if (!defectIds.length) return '';
+
+        const head = `
+            <thead><tr>
+                <th>Fehlertyp</th>
+                ${loadedRuns.map((run, i) => `
+                    <th>
+                        <span class="yolo-table-run-dot" style="--run-color:${colors[i % colors.length]}"></span>
+                        ${esc(run.name)}
+                    </th>
+                `).join('')}
+            </tr></thead>`;
+
+        const body = defectIds.map(defectId => `
+            <tr>
+                <th scope="row">${esc(defectId)}</th>
+                ${loadedRuns.map(run => {
+                    const values = run.final?.per_defect_types?.[source]?.[defectId] || null;
+                    return `<td>${defectTypeMetricCell(values)}</td>`;
+                }).join('')}
+            </tr>
+        `).join('');
+
+        return `
+            <div style="margin-top:14px">
+                <h3 style="margin:0 0 8px; font-size:1rem">${esc(title)}</h3>
+                <div class="yolo-meta-table-wrap">
+                    <table class="yolo-meta-table">
+                        ${head}
+                        <tbody>${body}</tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderDefectTypeMetrics() {
+        const renderVal = defectTypeSourceTable('render_val', 'Render-Val · pro Fehlertyp');
+        const renderTest = defectTypeSourceTable('render_test', 'Render-Test · pro Fehlertyp');
+        const html = renderVal + renderTest;
+
+        if (!html) {
+            elDefectTypeTables.innerHTML = '';
+            elDefectTypeSection.hidden = true;
+            return;
+        }
+
+        elDefectTypeTables.innerHTML = html;
+        elDefectTypeSection.hidden = false;
     }
 
     /* =====================================================
