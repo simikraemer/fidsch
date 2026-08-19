@@ -208,6 +208,65 @@ if ($isAuthed) {
                     </li>
                 </ul>
             </li>
+
+            
+
+            <!-- PHAN -->
+            <li class="nav-item has-submenu">
+                <a href="/phan/chars">
+                    <img
+                        src="/img/phan.png"
+                        alt="PHAN"
+                        class="nav-icon"
+                        loading="eager"
+                        decoding="sync"
+                        fetchpriority="high"
+                    >
+                </a>
+
+                <ul class="submenu">
+                    <li>
+                        <a href="/phan/chars">
+                            <img
+                                src="/img/char.png"
+                                alt="Charaktere"
+                                class="nav-icon"
+                                loading="eager"
+                                decoding="sync"
+                                fetchpriority="high"
+                            >
+                            <span class="submenu-text">Charaktere</span>
+                        </a>
+                    </li>
+
+                    <li>
+                        <a href="/phan/regions">
+                            <img
+                                src="/img/region.png"
+                                alt="Regionen"
+                                class="nav-icon"
+                                loading="eager"
+                                decoding="sync"
+                                fetchpriority="high"
+                            >
+                            <span class="submenu-text">Regionen</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/phan/relations">                            
+                            <img
+                                src="/img/relation.png"
+                                alt="Relations"
+                                class="nav-icon"
+                                loading="eager"
+                                decoding="sync"
+                                fetchpriority="high"
+                            >
+                            <span class="submenu-text">Beziehungen</span>
+                        </a>
+                    </li>
+                </ul>
+            </li>
             
             <!-- Tools -->
             <li class="nav-item has-submenu">

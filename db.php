@@ -66,6 +66,23 @@ if ($loginconn->connect_error) {
 $loginconn->set_charset('utf8mb4');
 
 
+// Verbindung zur phan-Datenbank
+if (!isset($config_data['phanphp'])) {
+    die('phanphp-Konfiguration nicht gefunden.');
+}
+$phanconf = $config_data['phanphp'];
+$phanconn = new mysqli(
+    $phanconf['host'],
+    $phanconf['user'],
+    $phanconf['password'],
+    $phanconf['database']
+);
+if ($phanconn->connect_error) {
+    die('Verbindung zur PHAN-Datenbank fehlgeschlagen: ' . $phanconn->connect_error);
+}
+$phanconn->set_charset('utf8mb4');
+
+
 // Verbindung zur blog-Datenbank
 if (!isset($config_data['blogphp'])) {
     die('blogphp-Konfiguration nicht gefunden.');

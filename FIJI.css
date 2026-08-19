@@ -3569,3 +3569,2273 @@ button.chart-back:focus-visible {
         min-width: calc(var(--yolo-image-cols, 1) * 245px);
     }
 }
+
+/* =========================================================
+ * PHAN / Charaktere + Regionen
+ * ========================================================= */
+
+/* ---------------------------------------------------------
+ * Gemeinsame PHAN-Grundstruktur
+ * --------------------------------------------------------- */
+
+.phan-page,
+.phan-region-page {
+    max-width: 1450px;
+    margin: 28px auto 70px;
+    padding: 0 18px;
+}
+
+.phan-region-page {
+    position: relative;
+    isolation: isolate;
+}
+
+.phan-head,
+.phan-region-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 16px;
+}
+
+.phan-title,
+.phan-card-title {
+    margin-top: 0;
+}
+
+.phan-title {
+    margin-bottom: 0;
+}
+
+.phan-actions,
+.phan-region-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+}
+
+.phan-actions--top {
+    margin: 0;
+}
+
+.phan-autosave-status {
+    display: inline-flex;
+    align-items: center;
+    min-height: 38px;
+    color: rgba(34, 34, 34, 0.60);
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+.phan-autosave-status.is-error {
+    color: #c0392b;
+}
+
+.phan-msg,
+.phan-region-msg {
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    border-left: 6px solid var(--primary);
+    background: #fff;
+    box-shadow: var(--shadow);
+}
+
+.phan-error,
+.phan-region-error {
+    border-color: #c0392b;
+    color: #922b21;
+}
+
+.phan-danger,
+.phan-region-danger {
+    border: 2px solid #c0392b;
+    background: #fff;
+    color: #c0392b;
+    box-shadow: none;
+}
+
+.phan-danger:hover,
+.phan-region-danger:hover {
+    background: #c0392b;
+    color: #fff;
+}
+
+
+/* ---------------------------------------------------------
+ * Charaktere: Detail-Kopf
+ * --------------------------------------------------------- */
+
+.phan-detail-head {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 18px;
+    min-height: 42px;
+    margin-bottom: 16px;
+}
+
+.phan-detail-head-left {
+    justify-self: start;
+}
+
+.phan-detail-head .phan-autosave-status {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+.phan-last-saved {
+    justify-self: end;
+    color: rgba(34, 34, 34, 0.62);
+    font-size: 0.82rem;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.phan-last-saved span {
+    color: rgba(34, 34, 34, 0.78);
+    font-weight: 700;
+}
+
+
+/* ---------------------------------------------------------
+ * Charaktere: Regions-Tabs
+ * --------------------------------------------------------- */
+
+.phan-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 18px;
+    padding: 10px;
+    border-radius: var(--border-radius);
+    background: #fff;
+    box-shadow: var(--shadow);
+}
+
+.phan-tab {
+    width: auto;
+    border: 2px solid rgba(0, 0, 0, 0.10);
+    background: #fff;
+    color: var(--text);
+    box-shadow: none;
+}
+
+.phan-tab.active,
+.phan-tab:hover {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: #fff;
+}
+
+
+/* ---------------------------------------------------------
+ * Charaktere: Tabelle
+ * --------------------------------------------------------- */
+
+.phan-table-wrap,
+.phan-card,
+.phan-region-list,
+.phan-region-card {
+    border-radius: var(--border-radius);
+    background: #fff;
+    box-shadow: var(--shadow);
+}
+
+.phan-table-wrap {
+    overflow: hidden;
+}
+
+.phan-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.phan-table th,
+.phan-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #eee;
+    text-align: left;
+    vertical-align: middle;
+}
+
+.phan-table th {
+    background: var(--accent);
+}
+
+.phan-row {
+    cursor: pointer;
+}
+
+.phan-row:hover {
+    background: #fff2e5;
+}
+
+.phan-empty-table {
+    padding: 28px !important;
+    text-align: center !important;
+}
+
+.phan-face {
+    display: block;
+    width: 58px;
+    height: 58px;
+    border-radius: 10px;
+    background: #eee;
+}
+
+.phan-face-thumb {
+    display: block;
+    width: 58px;
+    height: 58px;
+    object-fit: cover;
+}
+
+.phan-noimg,
+.phan-region-noimg {
+    display: grid;
+    place-items: center;
+    color: #777;
+}
+
+.phan-noimg {
+    font-size: 0.72rem;
+}
+
+
+/* Sortierbare Tabellenköpfe */
+
+.phan-table th.phan-sortable {
+    padding: 0;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.phan-table th.phan-sortable:hover {
+    filter: brightness(0.96);
+}
+
+.phan-table th.phan-sortable > a {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.phan-table th.phan-sortable > a:hover {
+    text-decoration: none;
+}
+
+.phan-sort-indicator {
+    display: inline-block;
+    min-width: 1em;
+    margin-left: 5px;
+    font-size: 0.72em;
+    vertical-align: 0.08em;
+}
+
+
+/* Pagination */
+
+.phan-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+}
+
+.phan-page-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 38px;
+    min-height: 38px;
+    box-sizing: border-box;
+    padding: 7px 10px;
+    border: 2px solid rgba(0, 0, 0, 0.10);
+    border-radius: 7px;
+    background: #fff;
+    color: var(--text);
+    text-decoration: none;
+    font-weight: 700;
+}
+
+.phan-page-button:hover,
+.phan-page-button.active {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: #fff;
+    text-decoration: none;
+}
+
+.phan-page-button.disabled {
+    opacity: 0.35;
+    pointer-events: none;
+}
+
+.phan-page-ellipsis {
+    padding: 0 3px;
+    color: rgba(34, 34, 34, 0.50);
+}
+
+.phan-pagination-info {
+    margin-left: 8px;
+    color: rgba(34, 34, 34, 0.62);
+    font-size: 0.86rem;
+    white-space: nowrap;
+}
+
+
+/* ---------------------------------------------------------
+ * Charaktere: Detailansicht
+ * --------------------------------------------------------- */
+
+.phan-detail {
+    display: grid;
+    grid-template-columns: minmax(320px, 430px) 1fr;
+    gap: 20px;
+}
+
+.phan-card {
+    padding: 18px;
+    overflow: hidden;
+}
+
+.phan-image-card {
+    align-self: start;
+}
+
+.phan-image {
+    box-sizing: border-box;
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    border-radius: var(--border-radius);
+}
+
+.phan-image-upload-input {
+    display: none !important;
+}
+
+.phan-image-empty {
+    appearance: none;
+    padding: 18px;
+    border: 2px dashed rgba(0, 0, 0, 0.18);
+    background: #fff;
+    color: #777;
+    box-shadow: none;
+    cursor: pointer;
+    font: inherit;
+    text-align: center;
+}
+
+.phan-image-empty:hover,
+.phan-image-empty.is-dragover {
+    border-color: var(--primary);
+    background: var(--bg-light);
+    color: var(--primary-dark);
+}
+
+.phan-image-empty-sub {
+    display: block;
+    margin-top: 7px;
+    font-size: 0.82rem;
+    opacity: 0.72;
+}
+
+.phan-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 14px;
+}
+
+.phan-wide {
+    grid-column: 1 / -1;
+}
+
+
+/* Charakterbild / Drag & Drop / Gesichtscrop */
+
+.phan-image-dropzone {
+    position: relative;
+}
+
+.phan-cropbox {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    border-radius: var(--border-radius);
+    background: transparent;
+}
+
+.phan-cropbox img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: none;
+    object-fit: initial;
+    background: transparent;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+.phan-cropbox.is-crop-mode {
+    cursor: crosshair;
+    touch-action: none;
+}
+
+.phan-crop-overlay {
+    position: absolute;
+    z-index: 3;
+    box-sizing: border-box;
+    border: 3px solid var(--primary);
+    background: rgba(255, 107, 0, 0.12);
+    pointer-events: none;
+}
+
+.phan-crop-overlay[hidden] {
+    display: none !important;
+}
+
+.phan-image-drop-hint {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    display: grid;
+    place-items: center;
+    background: rgba(255, 255, 255, 0.88);
+    color: var(--primary-dark);
+    font-weight: 800;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.12s ease;
+}
+
+.phan-cropbox.is-dragover .phan-image-drop-hint {
+    opacity: 1;
+}
+
+.phan-cropbox.is-dragover {
+    outline: 3px solid var(--primary);
+    outline-offset: -3px;
+}
+
+.phan-image-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+}
+
+
+.phan-image-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.phan-image-card-head > div {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.phan-image-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 24px;
+    padding: 0 7px;
+    border-radius: 999px;
+    background: var(--bg-light);
+    color: rgba(34, 34, 34, 0.68);
+    font-size: 0.78rem;
+    font-weight: 800;
+}
+
+.phan-image-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+    padding-bottom: 2px;
+}
+
+.phan-image-gallery-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+    padding: 5px;
+    border: 2px solid transparent;
+    border-radius: 9px;
+    background: var(--bg-light);
+    color: var(--text);
+    box-shadow: none;
+    text-align: left;
+}
+
+.phan-image-gallery-item:hover {
+    border-color: rgba(255, 107, 0, 0.46);
+    background: #fff4e9;
+    color: var(--text);
+}
+
+.phan-image-gallery-item.active {
+    border-color: var(--primary);
+    background: #fff2e5;
+}
+
+.phan-image-gallery-item img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 6px;
+    object-fit: cover;
+    background: #eee;
+}
+
+.phan-image-gallery-item span {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    font-size: 0.72rem;
+    font-weight: 750;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.phan-image-gallery-item.active span {
+    color: var(--primary-dark);
+}
+
+.phan-image-meta {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 10px 14px;
+    margin-top: 12px;
+}
+
+.phan-image-meta label {
+    min-width: 0;
+}
+
+.phan-image-filename {
+    min-width: 0;
+    padding-bottom: 8px;
+    color: rgba(34, 34, 34, 0.58);
+    font-size: 0.76rem;
+    text-align: right;
+    overflow-wrap: anywhere;
+}
+
+.phan-image-filename strong {
+    color: rgba(34, 34, 34, 0.76);
+}
+
+
+/* Prompt + untere Aktionen */
+
+.phan-prompt-editor[hidden] {
+    display: none !important;
+}
+
+.phan-prompt-editor {
+    padding-top: 4px;
+}
+
+.phan-bottom-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px 18px;
+    flex-wrap: wrap;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.phan-bottom-actions-left,
+.phan-bottom-actions-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.phan-bottom-actions-right {
+    margin-left: auto;
+}
+
+.phan-copy-status {
+    color: var(--primary-dark);
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+
+/* ---------------------------------------------------------
+ * Regionen: Seitenlayout
+ * --------------------------------------------------------- */
+
+.phan-region-head-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.phan-region-head-actions .phan-autosave-status {
+    min-width: 88px;
+    justify-content: center;
+}
+
+.phan-region-layout {
+    display: grid;
+    grid-template-columns:
+        minmax(280px, 0.52fr)
+        minmax(620px, 1.48fr);
+    gap: 20px;
+}
+
+.phan-region-list,
+.phan-region-card {
+    align-self: start;
+}
+
+.phan-region-list {
+    padding: 10px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.54);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+}
+
+.phan-region-card {
+    padding: 18px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.50);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+}
+
+
+/* Regionsbild als Hintergrund der gesamten Regionsseite */
+
+.phan-region-page.has-region-page-background::before {
+    content: "";
+    position: fixed;
+    inset: 66px 0 0 0;
+    z-index: -2;
+    background-image: var(--region-background-image);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    opacity: 0.72;
+    pointer-events: none;
+}
+
+.phan-region-page.has-region-page-background::after {
+    content: "";
+    position: fixed;
+    inset: 66px 0 0 0;
+    z-index: -1;
+    background: rgba(255, 250, 246, 0.18);
+    pointer-events: none;
+}
+
+.phan-region-page:not(.has-region-page-background)::before,
+.phan-region-page:not(.has-region-page-background)::after {
+    content: none;
+}
+
+
+/* Regionsliste */
+
+.phan-region-item {
+    display: grid;
+    grid-template-columns: 110px minmax(0, 1fr);
+    gap: 12px;
+    padding: 10px;
+    border: 2px solid transparent;
+    border-radius: var(--border-radius);
+    background: rgba(255, 255, 255, 0.30);
+    cursor: pointer;
+}
+
+.phan-region-item:hover,
+.phan-region-item.active {
+    border-color: var(--accent);
+    background: rgba(255, 241, 226, 0.70);
+}
+
+.phan-region-thumb {
+    width: 110px;
+    height: 62px;
+    aspect-ratio: auto;
+    border-radius: 6px;
+    background: #eee;
+    object-fit: cover;
+}
+
+.phan-region-noimg {
+    font-size: 0.8rem;
+}
+
+.phan-region-meta {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    min-width: 0;
+}
+
+.phan-region-meta strong {
+    font-size: 1.08rem;
+}
+
+
+/* Kompakte Regionsbild-Steuerung */
+
+.phan-region-image-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px 14px;
+    flex-wrap: wrap;
+    width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 18px;
+    padding: 12px;
+    border: 2px dashed rgba(0, 0, 0, 0.16);
+    border-radius: var(--border-radius);
+    background: rgba(255, 255, 255, 0.52);
+}
+
+.phan-region-image-controls.is-dragover {
+    border-color: var(--primary);
+    background: rgba(255, 255, 255, 0.88);
+}
+
+.phan-region-image-droptext {
+    color: rgba(34, 34, 34, 0.56);
+    font-size: 0.86rem;
+}
+
+.phan-region-image-controls .phan-region-danger {
+    margin-left: auto;
+}
+
+
+/* Regionsformular */
+
+.phan-region-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 16px;
+    margin-top: 18px;
+}
+
+.phan-region-form label {
+    padding: 5px 6px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.20);
+}
+
+.phan-region-form input,
+.phan-region-form textarea {
+    background: rgba(255, 255, 255, 0.76);
+}
+
+.phan-region-form textarea {
+    min-height: 120px;
+    resize: vertical;
+}
+
+.phan-region-wide {
+    grid-column: 1 / -1;
+}
+
+.phan-region-bottom-actions {
+    display: flex;
+    align-items: center;
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.phan-region-empty {
+    padding: 25px;
+    text-align: center;
+}
+
+.phan-region-select-hint {
+    padding: 45px;
+    text-align: center;
+}
+
+
+/* ---------------------------------------------------------
+ * PHAN Responsive
+ * --------------------------------------------------------- */
+
+@media (max-width: 1050px) {
+    .phan-region-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .phan-region-list {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+    }
+}
+
+@media (max-width: 900px) {
+    .phan-detail {
+        grid-template-columns: 1fr;
+    }
+
+    .phan-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .phan-table-wrap {
+        overflow-x: auto;
+    }
+
+    .phan-table {
+        min-width: 850px;
+    }
+
+    .phan-bottom-actions-right {
+        margin-left: 0;
+    }
+}
+
+@media (max-width: 700px) {
+    .phan-detail-head {
+        grid-template-columns: 1fr;
+        padding-bottom: 30px;
+    }
+
+    .phan-last-saved {
+        justify-self: start;
+        text-align: left;
+        white-space: normal;
+    }
+
+    .phan-detail-head .phan-autosave-status {
+        top: auto;
+        bottom: 0;
+        transform: translateX(-50%);
+    }
+
+    .phan-pagination-info {
+        width: 100%;
+        margin-left: 0;
+        text-align: center;
+    }
+
+    .phan-region-list,
+    .phan-region-form {
+        grid-template-columns: 1fr;
+    }
+
+    .phan-region-wide {
+        grid-column: auto;
+    }
+
+    .phan-region-head-actions {
+        justify-content: flex-start;
+    }
+
+    .phan-region-image-controls .phan-region-danger {
+        margin-left: 0;
+    }
+
+    .phan-region-page.has-region-page-background::before,
+    .phan-region-page.has-region-page-background::after {
+        inset: 0;
+    }
+}
+
+
+
+
+@media (max-width: 700px) {
+    .phan-image-gallery {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .phan-image-meta {
+        grid-template-columns: 1fr;
+    }
+
+    .phan-image-filename {
+        padding-bottom: 0;
+        text-align: left;
+    }
+}
+
+/* =========================================================
+ * PHAN / Beziehungen
+ * ========================================================= */
+
+/* ---------------------------------------------------------
+ * Seitenlayout
+ * --------------------------------------------------------- */
+
+body.relations-page-active {
+    overflow: hidden;
+}
+
+.relations-page {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+
+    width: min(1800px, calc(100vw - 28px));
+    height: calc(100dvh - 130px);
+
+    margin: 8px auto 0;
+    padding: 0;
+
+    overflow: hidden;
+}
+
+
+/* ---------------------------------------------------------
+ * Regions-Tabs
+ * --------------------------------------------------------- */
+
+.relations-region-tabs {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+
+    flex: 0 0 auto;
+
+    width: 100%;
+    box-sizing: border-box;
+
+    margin: 0 0 8px;
+    padding: 6px 7px;
+
+    overflow-x: auto;
+    overflow-y: hidden;
+
+    scrollbar-width: thin;
+}
+
+.relations-region-tab {
+    flex: 0 0 auto;
+
+    padding: 7px 13px;
+
+    border: 1px solid rgba(0, 0, 0, 0.10);
+    border-radius: 999px;
+
+    background: #fff;
+    color: var(--text);
+
+    box-shadow: none;
+
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.relations-region-tab:hover {
+    border-color: var(--primary);
+    background: #fff4e9;
+    color: var(--text);
+}
+
+.relations-region-tab.active {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: #fff;
+}
+
+
+/* ---------------------------------------------------------
+ * Diagrammcontainer
+ *
+ * Kein calc(100% - Tabs-Höhe):
+ * Flexbox gibt dem Diagramm exakt den real verbleibenden Platz.
+ * Dadurch bleiben alle vier Borderkanten sichtbar.
+ * --------------------------------------------------------- */
+
+.relations-shell {
+    position: relative;
+
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+
+    width: 100%;
+    box-sizing: border-box;
+
+    overflow: hidden;
+
+    border: 1px solid rgba(0, 0, 0, 0.18);
+    border-radius: var(--border-radius);
+
+    background:
+        radial-gradient(
+            circle at 50% 45%,
+            #fff 0%,
+            #f5f5f5 72%,
+            #ededed 100%
+        );
+
+    box-shadow:
+        0 2px 12px
+        rgba(0, 0, 0, 0.13),
+        inset 0 0 0 1px
+        rgba(255, 255, 255, 0.42);
+
+    transition:
+        border-color 0.18s ease,
+        box-shadow 0.18s ease;
+}
+
+.relations-shell.is-center-mode {
+    border-color: color-mix(
+        in srgb,
+        var(--primary) 72%,
+        #000 28%
+    );
+
+    box-shadow:
+        0 4px 18px
+        rgba(0, 0, 0, 0.16),
+        0 0 0 2px
+        color-mix(
+            in srgb,
+            var(--primary) 28%,
+            transparent
+        );
+}
+
+
+/* Regionsbild im Diagramm */
+
+.relations-shell::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+
+    border-radius: inherit;
+
+    background-image:
+        var(--relations-region-background);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+
+    opacity: 0;
+    pointer-events: none;
+
+    transition: opacity 0.18s ease;
+}
+
+.relations-shell::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+
+    border-radius: inherit;
+
+    background: rgba(255, 255, 255, 0);
+    pointer-events: none;
+
+    transition: background 0.18s ease;
+}
+
+.relations-shell.has-region-background::before {
+    opacity: 0.58;
+}
+
+.relations-shell.has-region-background::after {
+    background: rgba(255, 255, 255, 0.40);
+}
+
+
+/* ---------------------------------------------------------
+ * Aktiver Center-Modus
+ * --------------------------------------------------------- */
+
+.relations-center-indicator {
+    position: absolute;
+    left: 50%;
+    top: 12px;
+    z-index: 75;
+
+    display: flex;
+    align-items: center;
+    gap: 7px;
+
+    max-width: min(560px, calc(100% - 520px));
+    box-sizing: border-box;
+
+    padding: 7px 9px 7px 10px;
+
+    border: 1px solid
+        color-mix(
+            in srgb,
+            var(--primary) 60%,
+            #fff 40%
+        );
+    border-radius: 999px;
+
+    background: rgba(255, 255, 255, 0.94);
+
+    box-shadow:
+        0 4px 18px
+        rgba(0, 0, 0, 0.17),
+        0 0 0 2px
+        color-mix(
+            in srgb,
+            var(--primary) 12%,
+            transparent
+        );
+
+    transform: translateX(-50%);
+
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.relations-center-indicator[hidden] {
+    display: none !important;
+}
+
+.relations-center-indicator-dot {
+    width: 9px;
+    height: 9px;
+
+    flex: 0 0 auto;
+
+    border-radius: 50%;
+    background: var(--primary);
+
+    box-shadow:
+        0 0 0 4px
+        color-mix(
+            in srgb,
+            var(--primary) 18%,
+            transparent
+        );
+}
+
+.relations-center-indicator-label {
+    color: rgba(34, 34, 34, 0.58);
+    font-size: 0.80rem;
+    font-weight: 800;
+}
+
+.relations-center-indicator strong {
+    min-width: 0;
+
+    overflow: hidden;
+
+    color: var(--text);
+
+    font-size: 0.86rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.relations-center-indicator-hint {
+    padding-left: 7px;
+
+    border-left:
+        1px solid
+        rgba(0, 0, 0, 0.10);
+
+    color: rgba(34, 34, 34, 0.50);
+
+    font-size: 0.72rem;
+    white-space: nowrap;
+}
+
+.relations-center-indicator-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 26px;
+    min-width: 26px;
+    height: 26px;
+
+    padding: 0;
+
+    border: 0;
+    border-radius: 50%;
+
+    background: transparent;
+    color: rgba(34, 34, 34, 0.58);
+
+    box-shadow: none;
+
+    font-size: 1.05rem;
+    line-height: 1;
+}
+
+.relations-center-indicator-close:hover {
+    background:
+        color-mix(
+            in srgb,
+            var(--primary) 12%,
+            #fff 88%
+        );
+
+    color: var(--primary);
+}
+
+
+/* ---------------------------------------------------------
+ * Graph-Aktionen
+ * --------------------------------------------------------- */
+
+.relations-graph-actions {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 70;
+
+    display: flex;
+    align-items: center;
+    gap: 7px;
+
+    padding: 7px;
+
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.90);
+
+    box-shadow:
+        0 2px 12px
+        rgba(0, 0, 0, 0.16);
+
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
+}
+
+.relations-graph-actions button {
+    white-space: nowrap;
+}
+
+.relations-status {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 5px);
+
+    min-width: 180px;
+
+    color: rgba(34, 34, 34, 0.64);
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-align: right;
+    white-space: nowrap;
+
+    pointer-events: none;
+}
+
+.relations-status.error {
+    color: #c0392b;
+}
+
+
+/* ---------------------------------------------------------
+ * Graph
+ * --------------------------------------------------------- */
+
+.relations-viewport {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+
+    overflow: hidden;
+
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+}
+
+.relations-viewport.panning {
+    cursor: grabbing;
+}
+
+.relations-world {
+    position: absolute;
+    left: 0;
+    top: 0;
+
+    width: 4000px;
+    height: 3000px;
+
+    transform-origin: 0 0;
+}
+
+.relations-svg {
+    position: absolute;
+    inset: 0;
+
+    width: 4000px;
+    height: 3000px;
+
+    overflow: visible;
+    pointer-events: none;
+}
+
+.relation-edge-hit {
+    stroke: transparent;
+    stroke-width: 20;
+
+    pointer-events: stroke;
+    cursor: pointer;
+}
+
+.relation-edge {
+    fill: none;
+
+    stroke-width: 4;
+    stroke-linecap: round;
+
+    pointer-events: none;
+
+    transition:
+        opacity 0.18s ease,
+        stroke-width 0.18s ease;
+}
+
+.relations-shell.is-center-mode
+.relation-edge {
+    opacity: 0.34;
+}
+
+.relations-shell.is-center-mode
+.is-center-connected
+.relation-edge {
+    opacity: 1;
+    stroke-width: 5;
+}
+
+.relation-edge.parent_child {
+    stroke-dasharray: 10 7;
+}
+
+
+/* ---------------------------------------------------------
+ * Charakter-Nodes
+ * --------------------------------------------------------- */
+
+.relation-node {
+    position: absolute;
+
+    width: 104px;
+
+    transform: translate(-50%, -50%);
+
+    cursor: pointer;
+    touch-action: none;
+    text-align: center;
+
+    transition:
+        opacity 0.18s ease;
+}
+
+.relation-node:hover {
+    z-index: 25;
+}
+
+.relation-node.dragging {
+    z-index: 30;
+    cursor: grabbing;
+}
+
+.relation-node-face,
+.relation-node-name {
+    cursor: pointer;
+}
+
+.relation-node.dragging
+.relation-node-face,
+.relation-node.dragging
+.relation-node-name {
+    cursor: grabbing;
+}
+
+.relation-node-face {
+    width: 74px;
+    height: 74px;
+
+    margin: 0 auto 6px;
+    overflow: hidden;
+
+    border: 4px solid #fff;
+    border-radius: 50%;
+
+    background: #ddd;
+
+    box-shadow:
+        0 2px 9px
+        rgba(0, 0, 0, 0.23);
+
+    transform: translateY(0) scale(1);
+
+    transition:
+        transform 0.16s ease,
+        border-color 0.16s ease,
+        box-shadow 0.16s ease,
+        opacity 0.16s ease,
+        filter 0.16s ease;
+}
+
+.relation-node:hover
+.relation-node-face {
+    border-color:
+        color-mix(
+            in srgb,
+            var(--primary) 70%,
+            #fff 30%
+        );
+
+    box-shadow:
+        0 5px 15px
+        rgba(0, 0, 0, 0.24),
+        0 0 0 4px
+        color-mix(
+            in srgb,
+            var(--primary) 20%,
+            transparent
+        );
+
+    transform:
+        translateY(-3px)
+        scale(1.08);
+}
+
+.relation-node.is-centered
+.relation-node-face {
+    border-color: var(--primary);
+
+    box-shadow:
+        0 6px 18px
+        rgba(0, 0, 0, 0.26),
+        0 0 0 5px
+        color-mix(
+            in srgb,
+            var(--primary) 28%,
+            transparent
+        ),
+        0 0 0 9px
+        color-mix(
+            in srgb,
+            var(--primary) 10%,
+            transparent
+        );
+
+    transform:
+        translateY(-4px)
+        scale(1.12);
+}
+
+.relation-node-face img {
+    display: block;
+
+    width: 100%;
+    height: 100%;
+
+    object-fit: cover;
+}
+
+.relation-node-initial {
+    display: grid;
+    place-items: center;
+
+    width: 100%;
+    height: 100%;
+
+    font-size: 1.3rem;
+    font-weight: 900;
+}
+
+.relation-node-name {
+    display: inline-block;
+
+    max-width: 118px;
+    padding: 3px 6px;
+
+    overflow: hidden;
+
+    border: 1px solid transparent;
+    border-radius: 6px;
+
+    background: rgba(255, 255, 255, 0.92);
+
+    box-shadow:
+        0 1px 5px
+        rgba(0, 0, 0, 0.14);
+
+    font-size: 0.82rem;
+    font-weight: 800;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    transition:
+        background 0.16s ease,
+        border-color 0.16s ease,
+        box-shadow 0.16s ease,
+        opacity 0.16s ease,
+        transform 0.16s ease;
+}
+
+.relation-node:hover
+.relation-node-name {
+    border-color:
+        color-mix(
+            in srgb,
+            var(--primary) 35%,
+            transparent
+        );
+
+    background: #fff;
+
+    box-shadow:
+        0 3px 10px
+        rgba(0, 0, 0, 0.15);
+
+    transform: translateY(-1px);
+}
+
+.relation-node.is-centered
+.relation-node-name {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: #fff;
+
+    box-shadow:
+        0 4px 12px
+        color-mix(
+            in srgb,
+            var(--primary) 34%,
+            transparent
+        );
+}
+
+
+/*
+ * Im Center-Modus:
+ * - Mittelpunkt: maximal hervorgehoben
+ * - direkte Nachbarn: vollständig sichtbar
+ * - erst Charaktere ab Distanz 2 werden zurückgenommen
+ */
+.relations-shell.is-center-mode
+.relation-node:not(.is-centered):not(.is-center-neighbor)
+.relation-node-face {
+    opacity: 0.72;
+    filter: saturate(0.82);
+}
+
+.relations-shell.is-center-mode
+.relation-node:not(.is-centered):not(.is-center-neighbor)
+.relation-node-name {
+    opacity: 0.68;
+}
+
+.relations-shell.is-center-mode
+.relation-node.is-center-neighbor
+.relation-node-face,
+.relations-shell.is-center-mode
+.relation-node.is-center-neighbor
+.relation-node-name {
+    opacity: 1;
+    filter: none;
+}
+
+.relations-shell.is-center-mode
+.relation-node:not(.is-centered):hover
+.relation-node-face,
+.relations-shell.is-center-mode
+.relation-node:not(.is-centered):hover
+.relation-node-name {
+    opacity: 1;
+    filter: none;
+}
+
+
+/* ---------------------------------------------------------
+ * Legende
+ * --------------------------------------------------------- */
+
+.relations-legend {
+    position: absolute;
+    left: 12px;
+    top: 12px;
+    z-index: 70;
+
+    min-width: 205px;
+    padding: 10px 11px;
+
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.90);
+
+    box-shadow:
+        0 2px 12px
+        rgba(0, 0, 0, 0.16);
+
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
+}
+
+.relations-legend-title {
+    margin-bottom: 7px;
+    font-weight: 900;
+}
+
+.relations-legend label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    margin: 4px 0;
+
+    cursor: pointer;
+    font-size: 0.84rem;
+}
+
+.relations-legend input {
+    width: auto;
+}
+
+.relations-legend-color {
+    width: 25px;
+    height: 5px;
+
+    flex: 0 0 auto;
+
+    border-radius: 4px;
+}
+
+.relations-empty {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+
+    transform: translate(-50%, -50%);
+
+    color: rgba(34, 34, 34, 0.50);
+    text-align: center;
+}
+
+
+/* =========================================================
+ * Relations-Modals
+ * ========================================================= */
+
+body.relations-modal-open {
+    overflow: hidden;
+}
+
+.relations-modal[hidden] {
+    display: none !important;
+}
+
+.relations-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+
+    display: grid;
+    place-items: center;
+
+    padding: 24px;
+}
+
+.relations-modal-backdrop {
+    position: absolute;
+    inset: 0;
+
+    background: rgba(0, 0, 0, 0.54);
+
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+.relations-modal-dialog {
+    position: relative;
+    z-index: 1;
+
+    display: flex;
+    flex-direction: column;
+
+    width: min(1620px, calc(100vw - 40px));
+    height: min(760px, calc(100dvh - 60px));
+
+    overflow: hidden;
+
+    border-radius: var(--border-radius);
+    background: #fff;
+
+    box-shadow:
+        0 18px 55px
+        rgba(0, 0, 0, 0.34);
+}
+
+.relations-modal-dialog--add {
+    width: min(1260px, calc(100vw - 40px));
+    height: min(780px, calc(100dvh - 60px));
+}
+
+.relations-modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+
+    flex: 0 0 auto;
+
+    padding: 14px 16px;
+
+    border-bottom:
+        1px solid
+        rgba(0, 0, 0, 0.08);
+}
+
+.relations-modal-head h2 {
+    margin: 0;
+}
+
+.relations-modal-close {
+    min-width: 40px;
+    padding: 5px 10px;
+
+    font-size: 1.45rem;
+    line-height: 1;
+}
+
+
+/* ---------------------------------------------------------
+ * Suchbare Charakterauswahl
+ * --------------------------------------------------------- */
+
+.relations-char-picker {
+    display: flex;
+    flex-direction: column;
+
+    min-width: 0;
+    min-height: 0;
+}
+
+.relations-char-picker-title {
+    margin-bottom: 6px;
+
+    font-size: 0.9rem;
+    font-weight: 800;
+}
+
+.relations-char-search {
+    flex: 0 0 auto;
+
+    width: 100%;
+    box-sizing: border-box;
+
+    margin-bottom: 8px;
+}
+
+.relations-char-results {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+
+    flex: 1 1 auto;
+    min-height: 0;
+
+    padding-right: 3px;
+    overflow-y: auto;
+}
+
+.relations-char-result {
+    display: grid;
+    grid-template-columns:
+        48px
+        minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+
+    width: 100%;
+    padding: 7px 9px;
+
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 8px;
+
+    background: #fff;
+    color: var(--text);
+
+    box-shadow: none;
+
+    text-align: left;
+    cursor: pointer;
+}
+
+.relations-char-result:hover {
+    border-color: var(--primary);
+    background: #fff2e5;
+    color: var(--text);
+}
+
+.relations-char-avatar {
+    display: grid;
+    place-items: center;
+
+    width: 44px;
+    height: 44px;
+
+    overflow: hidden;
+
+    border-radius: 50%;
+    background: #e5e5e5;
+
+    font-size: 0.85rem;
+    font-weight: 900;
+}
+
+.relations-char-avatar img {
+    display: block;
+
+    width: 100%;
+    height: 100%;
+
+    object-fit: cover;
+}
+
+.relations-char-result-text,
+.relations-char-selected-text {
+    display: flex;
+    flex-direction: column;
+
+    min-width: 0;
+}
+
+.relations-char-result-text strong,
+.relations-char-selected-text strong,
+.relations-char-result-text span,
+.relations-char-selected-text span {
+    overflow: hidden;
+
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.relations-char-result-text span,
+.relations-char-selected-text span {
+    margin-top: 2px;
+
+    color: rgba(34, 34, 34, 0.58);
+
+    font-size: 0.77rem;
+}
+
+.relations-char-selected {
+    margin-bottom: 8px;
+}
+
+.relations-char-selected-card {
+    display: grid;
+    grid-template-columns:
+        48px
+        minmax(0, 1fr)
+        auto;
+    align-items: center;
+    gap: 10px;
+
+    padding: 9px;
+
+    border: 2px solid var(--primary);
+    border-radius: 9px;
+
+    background: #fff2e5;
+}
+
+.relations-char-selected-card button {
+    white-space: nowrap;
+}
+
+.relations-char-empty {
+    padding: 18px 10px;
+
+    color: rgba(34, 34, 34, 0.48);
+    text-align: center;
+}
+
+
+/* ---------------------------------------------------------
+ * Add-Modal
+ * --------------------------------------------------------- */
+
+.relations-add-form {
+    display: flex;
+    flex-direction: column;
+
+    flex: 1 1 auto;
+    min-height: 0;
+
+    padding: 16px;
+}
+
+.relations-add-grid {
+    display: grid;
+    grid-template-columns:
+        minmax(300px, 1fr)
+        minmax(190px, 0.50fr)
+        minmax(300px, 1fr);
+    gap: 16px;
+
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.relations-add-type {
+    display: flex;
+    align-items: flex-start;
+}
+
+.relations-add-type label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    width: 100%;
+}
+
+.relations-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+
+    flex: 0 0 auto;
+
+    margin-top: 14px;
+    padding-top: 14px;
+
+    border-top:
+        1px solid
+        rgba(0, 0, 0, 0.08);
+}
+
+
+/* ---------------------------------------------------------
+ * Edit-Modal
+ * --------------------------------------------------------- */
+
+.relations-modal-body {
+    display: grid;
+    grid-template-columns:
+        minmax(320px, 0.90fr)
+        minmax(520px, 1.35fr);
+
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.relations-manager-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    min-height: 0;
+    padding: 14px;
+
+    border-right:
+        1px solid
+        rgba(0, 0, 0, 0.08);
+}
+
+.relations-manager-results {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+
+    flex: 1 1 auto;
+    min-height: 0;
+
+    overflow-y: auto;
+}
+
+.relations-manager-result {
+    display: grid;
+    grid-template-columns:
+        24px
+        minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+
+    width: 100%;
+    padding: 9px 10px;
+
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 7px;
+
+    background: #fff;
+    color: var(--text);
+
+    box-shadow: none;
+
+    text-align: left;
+    cursor: pointer;
+}
+
+.relations-manager-result:hover,
+.relations-manager-result.active {
+    border-color: var(--primary);
+    background: #fff2e5;
+    color: var(--text);
+}
+
+.relations-manager-color {
+    width: 22px;
+    height: 5px;
+
+    border-radius: 5px;
+}
+
+.relations-manager-empty {
+    padding: 18px;
+
+    color: rgba(34, 34, 34, 0.50);
+    text-align: center;
+}
+
+.relations-manager-editor {
+    min-width: 0;
+    min-height: 0;
+
+    padding: 16px;
+
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+.relations-manager-placeholder {
+    display: grid;
+    place-items: center;
+
+    min-height: 100%;
+
+    color: rgba(34, 34, 34, 0.50);
+    text-align: center;
+}
+
+.relations-manager-placeholder[hidden] {
+    display: none !important;
+}
+
+.relations-manager-fields {
+    display: grid;
+    grid-template-columns:
+        minmax(230px, 1fr)
+        minmax(170px, 0.65fr)
+        minmax(230px, 1fr);
+    gap: 14px;
+
+    height: auto;
+    min-height: 0;
+    align-content: start;
+}
+
+.relations-manager-fields[hidden] {
+    display: none !important;
+}
+
+.relations-manager-type {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.relations-manager-editor .relations-char-picker {
+    min-height: 0;
+}
+
+.relations-manager-editor .relations-char-results {
+    flex: 0 1 auto;
+
+    max-height: 330px;
+    overflow-y: auto;
+}
+
+.relations-manager-buttons {
+    grid-column: 1 / -1;
+
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+
+    align-self: auto;
+
+    padding-top: 14px;
+
+    border-top:
+        1px solid
+        rgba(0, 0, 0, 0.08);
+}
+
+
+/* ---------------------------------------------------------
+ * Relations Responsive
+ * --------------------------------------------------------- */
+
+@media (max-width: 950px) {
+    .relations-add-grid {
+        grid-template-columns:
+            1fr
+            180px
+            1fr;
+    }
+
+    .relations-modal-body {
+        grid-template-columns:
+            300px
+            minmax(0, 1fr);
+    }
+
+    .relations-manager-fields {
+        grid-template-columns:
+            1fr
+            160px
+            1fr;
+    }
+}
+
+@media (max-width: 950px) {
+    .relations-center-indicator {
+        max-width: calc(100% - 330px);
+    }
+
+    .relations-center-indicator-hint {
+        display: none;
+    }
+}
+
+@media (max-width: 760px) {
+    .relations-page {
+        width: calc(100vw - 16px);
+        height: calc(100dvh - 110px);
+        margin-top: 5px;
+    }
+
+    .relations-graph-actions {
+        top: 8px;
+        right: 8px;
+    }
+
+    .relations-modal {
+        padding: 10px;
+    }
+
+    .relations-modal-dialog,
+    .relations-modal-dialog--add {
+        width: calc(100vw - 20px);
+        height: calc(100dvh - 20px);
+    }
+
+    .relations-add-grid,
+    .relations-modal-body,
+    .relations-manager-fields {
+        grid-template-columns: 1fr;
+    }
+
+    .relations-add-grid,
+    .relations-manager-fields {
+        overflow-y: auto;
+    }
+
+    .relations-add-type {
+        display: block;
+    }
+
+    .relations-manager-list {
+        max-height: 34vh;
+
+        border-right: 0;
+        border-bottom:
+            1px solid
+            rgba(0, 0, 0, 0.08);
+    }
+
+    .relations-manager-buttons {
+        grid-column: auto;
+    }
+}
+
+@media (max-width: 620px) {
+    .relations-center-indicator {
+        top: 8px;
+
+        max-width:
+            calc(100% - 150px);
+
+        padding-left: 8px;
+    }
+
+    .relations-center-indicator-label {
+        display: none;
+    }
+
+    .relations-legend {
+        left: 8px;
+        top: 8px;
+
+        min-width: 180px;
+    }
+
+    .relations-graph-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .relation-node-face {
+        width: 64px;
+        height: 64px;
+    }
+
+    .relation-node-name {
+        max-width: 100px;
+    }
+}
+
+@media (max-height: 800px) {
+    .relations-manager-editor .relations-char-results {
+        max-height: 220px;
+    }
+}
+
+@media (max-height: 680px) {
+    .relations-manager-editor .relations-char-results {
+        max-height: 150px;
+    }
+}

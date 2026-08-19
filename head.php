@@ -86,5 +86,8 @@ if (!isset($page_title) || $page_title === '') {
     <link rel="preload" href="/img/waage.png" as="image">
     <link rel="preload" href="/img/cardio.png" as="image">
     <link rel="preload" href="/img/pizza.png" as="image">
+    <link rel="preload" href="/img/phan.png" as="image" fetchpriority="high">
+    <link rel="preload" href="/img/char.png" as="image">
+    <link rel="preload" href="/img/region.png" as="image">
 </head>
 <body>

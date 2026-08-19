@@ -55,6 +55,12 @@ $routesTool = [
     'pdfmerge' => 'PDFMERGE.php',
 ];
 
+$routesPhan = [
+    'chars'   => 'Chars.php',
+    'regions' => 'Regions.php',
+    'relations' => 'Relations.php',
+];
+
 // --- Sonderfall: öffentliche Pretty-URL ohne /sci/ ---
 if ($path === 'studienplan') {
     require __DIR__ . '/sci/LifePublic.php';
@@ -99,6 +105,19 @@ if ($path === 'studienplan') {
         echo "Seite nicht gefunden.";
     }
     
+} elseif (str_starts_with($path, 'phan')) {
+    $slug = trim(preg_replace('#^phan/?#', '', $path), '/');
+
+    if ($slug === '') {
+        $slug = 'chars';
+    }
+
+    if (array_key_exists($slug, $routesPhan)) {
+        require __DIR__ . '/phan/' . $routesPhan[$slug];
+    } else {
+        http_response_code(404);
+        echo "Seite nicht gefunden.";
+    }
 
 } elseif (str_starts_with($path, 'blog')) {
     $slug = trim(preg_replace('#^blog/?#', '', $path), '/');
