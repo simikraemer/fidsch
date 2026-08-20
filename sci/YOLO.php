@@ -2779,24 +2779,22 @@ require_once __DIR__ . '/../navbar.php';
         const recall = Number(values.recall);
         const images = Number(values.images_with_gt);
 
-        const lines = [];
+        const parts = [];
+
         if (Number.isFinite(iou)) {
-            lines.push(`<strong>IoU ${fmtPercent(iou, 1)}</strong>`);
+            parts.push(`<strong>IoU ${fmtPercent(iou, 1)}</strong>`);
         }
 
-        const secondary = [];
-        if (Number.isFinite(dice)) secondary.push(`Dice ${fmtPercent(dice, 1)}`);
-        if (Number.isFinite(recall)) secondary.push(`Recall ${fmtPercent(recall, 1)}`);
-        if (secondary.length) {
-            lines.push(`<span style="font-size:.78rem; opacity:.78">${secondary.join(' · ')}</span>`);
+        if (Number.isFinite(dice)) {
+            parts.push(`Dice ${fmtPercent(dice, 1)}`);
         }
 
-        if (Number.isFinite(images)) {
-            lines.push(`<span style="font-size:.72rem; opacity:.58">${images} Bild${images === 1 ? '' : 'er'} mit GT</span>`);
+        if (Number.isFinite(recall)) {
+            parts.push(`Recall ${fmtPercent(recall, 1)}`);
         }
 
-        return lines.length
-            ? `<div style="display:grid; gap:3px">${lines.join('')}</div>`
+        return parts.length
+            ? `<span style="white-space:nowrap">${parts.join(' · ')}</span>`
             : '<span style="opacity:.55">—</span>';
     }
 
