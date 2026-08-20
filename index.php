@@ -58,6 +58,7 @@ $routesTool = [
 $routesPhan = [
     'chars'     => 'Chars.php',
     'regions'   => 'Regions.php',
+    'factions'  => 'Fraktion.php',
     'relations' => 'Relations.php',
     'stories'   => 'Stories.php',
 ];

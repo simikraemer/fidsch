@@ -279,6 +279,21 @@ if ($isAuthed) {
                             <span class="submenu-text">Beziehungen</span>
                         </a>
                     </li>
+                    <li>
+                        <a href="/phan/factions">
+                            <img
+                                src="/img/factions.png"
+                                alt="Fraktionen"
+                                class="nav-icon"
+                                loading="eager"
+                                decoding="sync"
+                                fetchpriority="high"
+                            >
+                            <span class="submenu-text">
+                                Fraktionen
+                            </span>
+                        </a>
+                    </li>
                 </ul>
             </li>
             

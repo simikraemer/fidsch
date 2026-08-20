@@ -107,6 +107,151 @@ function phan_all(
     return $rows;
 }
 
+function phan_normalize_faction_ids(
+    mysqli $db,
+    mixed $rawIds
+): array {
+    if (!is_array($rawIds)) {
+        $rawIds = [$rawIds];
+    }
+
+    $normalized = [];
+
+    foreach ($rawIds as $rawId) {
+        $id = max(0, (int)$rawId);
+
+        if ($id > 0) {
+            $normalized[$id] = $id;
+        }
+    }
+
+    $ids = array_values($normalized);
+
+    if (!$ids) {
+        return [];
+    }
+
+    $placeholders = implode(
+        ',',
+        array_fill(0, count($ids), '?')
+    );
+
+    $rows = phan_all(
+        $db,
+        "SELECT id
+         FROM factions
+         WHERE id IN ($placeholders)",
+        $ids
+    );
+
+    $validIds = array_map(
+        static fn(array $row): int =>
+            (int)$row['id'],
+        $rows
+    );
+
+    sort($validIds);
+
+    $wanted = $ids;
+    sort($wanted);
+
+    if ($validIds !== $wanted) {
+        throw new RuntimeException(
+            'Mindestens eine ausgewählte Fraktion existiert nicht mehr.'
+        );
+    }
+
+    return $ids;
+}
+
+
+function phan_sync_char_factions(
+    mysqli $db,
+    int $charId,
+    mixed $rawFactionIds
+): array {
+    if ($charId <= 0) {
+        return [];
+    }
+
+    $factionIds = phan_normalize_faction_ids(
+        $db,
+        $rawFactionIds
+    );
+
+    phan_exec(
+        $db,
+        'DELETE FROM char_factions
+         WHERE char_id = ?',
+        [$charId]
+    )->close();
+
+    foreach ($factionIds as $factionId) {
+        phan_exec(
+            $db,
+            'INSERT INTO char_factions (
+                char_id,
+                faction_id
+             ) VALUES (?, ?)',
+            [
+                $charId,
+                $factionId,
+            ]
+        )->close();
+    }
+
+    $titles = array_map(
+        static fn(array $row): string =>
+            (string)$row['title'],
+        phan_all(
+            $db,
+            'SELECT f.title
+             FROM char_factions cf
+             INNER JOIN factions f
+                ON f.id = cf.faction_id
+             WHERE cf.char_id = ?
+             ORDER BY f.title',
+            [$charId]
+        )
+    );
+
+    /*
+     * Das alte chars.faction-Feld bleibt als Kompatibilitäts-
+     * Spiegel bestehen, damit z. B. Relations.php weiterhin
+     * ohne Umbau nach Fraktionen suchen/anzeigen kann.
+     */
+    $legacyText = implode(', ', $titles);
+
+    if (function_exists('mb_substr')) {
+        $legacyText = mb_substr(
+            $legacyText,
+            0,
+            255,
+            'UTF-8'
+        );
+    } else {
+        $legacyText = substr(
+            $legacyText,
+            0,
+            255
+        );
+    }
+
+    phan_exec(
+        $db,
+        'UPDATE chars
+         SET faction = ?
+         WHERE id = ?',
+        [
+            $legacyText,
+            $charId,
+        ]
+    )->close();
+
+    return $factionIds;
+}
+
+
 function phan_char_disk_path(?string $publicPath): ?string
 {
     if (
@@ -1159,6 +1304,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
         }
 
+        $factionIdsRaw =
+            $_POST['faction_ids']
+            ?? [];
+
         $fields = [
             trim((string)($_POST['call_name'] ?? '')),
             trim((string)($_POST['first_name'] ?? '')),
@@ -1169,7 +1318,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             trim((string)($_POST['occupation'] ?? '')),
             max(0, (int)($_POST['region_id'] ?? 0)),
             trim((string)($_POST['age_text'] ?? '')),
-            trim((string)($_POST['faction'] ?? '')),
+            '', // Legacy-Feld; wird nachher aus char_factions synchronisiert.
             trim((string)($_POST['height_cm'] ?? '')),
             trim((string)($_POST['weight_kg'] ?? '')),
             trim((string)($_POST['personality'] ?? '')),
@@ -1192,67 +1341,83 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
         }
 
-        if ($id > 0) {
-            phan_exec(
-                $phanconn,
-                '
-                UPDATE chars
-                SET
-                    call_name = ?,
-                    first_name = ?,
-                    last_name = ?,
-                    gender = ?,
-                    species = ?,
-                    accent = ?,
-                    occupation = ?,
-                    region_id = NULLIF(?, 0),
-                    age_text = ?,
-                    faction = ?,
-                    height_cm = NULLIF(?, \'\'),
-                    weight_kg = NULLIF(?, \'\'),
-                    personality = ?,
-                    notes = ?,
-                    prompt = ?
-                WHERE id = ?
-                ',
-                [...$fields, $id]
-            )->close();
+        $phanconn->begin_transaction();
 
-        } else {
-            $stmt = phan_exec(
+        try {
+            if ($id > 0) {
+                phan_exec(
+                    $phanconn,
+                    '
+                    UPDATE chars
+                    SET
+                        call_name = ?,
+                        first_name = ?,
+                        last_name = ?,
+                        gender = ?,
+                        species = ?,
+                        accent = ?,
+                        occupation = ?,
+                        region_id = NULLIF(?, 0),
+                        age_text = ?,
+                        faction = ?,
+                        height_cm = NULLIF(?, \'\'),
+                        weight_kg = NULLIF(?, \'\'),
+                        personality = ?,
+                        notes = ?,
+                        prompt = ?
+                    WHERE id = ?
+                    ',
+                    [...$fields, $id]
+                )->close();
+
+            } else {
+                $stmt = phan_exec(
+                    $phanconn,
+                    '
+                    INSERT INTO chars (
+                        call_name,
+                        first_name,
+                        last_name,
+                        gender,
+                        species,
+                        accent,
+                        occupation,
+                        region_id,
+                        age_text,
+                        faction,
+                        height_cm,
+                        weight_kg,
+                        personality,
+                        notes,
+                        prompt
+                    )
+                    VALUES (
+                        ?, ?, ?, ?, ?, ?, ?,
+                        NULLIF(?, 0),
+                        ?, ?,
+                        NULLIF(?, \'\'),
+                        NULLIF(?, \'\'),
+                        ?, ?, ?
+                    )
+                    ',
+                    $fields
+                );
+
+                $id = (int)$stmt->insert_id;
+                $stmt->close();
+            }
+
+            phan_sync_char_factions(
                 $phanconn,
-                '
-                INSERT INTO chars (
-                    call_name,
-                    first_name,
-                    last_name,
-                    gender,
-                    species,
-                    accent,
-                    occupation,
-                    region_id,
-                    age_text,
-                    faction,
-                    height_cm,
-                    weight_kg,
-                    personality,
-                    notes,
-                    prompt
-                )
-                VALUES (
-                    ?, ?, ?, ?, ?, ?, ?,
-                    NULLIF(?, 0),
-                    ?, ?,
-                    NULLIF(?, \'\'),
-                    NULLIF(?, \'\'),
-                    ?, ?, ?
-                )
-                ',
-                $fields
+                $id,
+                $factionIdsRaw
             );
 
-            $id = (int)$stmt->insert_id;
-            $stmt->close();
+            $phanconn->commit();
+
+        } catch (Throwable $e) {
+            $phanconn->rollback();
+            throw $e;
         }
 
         $imageChanged = false;
@@ -1395,9 +1560,23 @@ $regions = phan_all(
     '
 );
 
+$factions = phan_all(
+    $phanconn,
+    '
+    SELECT id, title
+    FROM factions
+    ORDER BY title
+    '
+);
+
 $selectedRegion = max(
     0,
     (int)($_GET['region'] ?? 0)
+);
+
+$selectedFaction = max(
+    0,
+    (int)($_GET['faction'] ?? 0)
 );
 
 $detailId = max(
@@ -1441,6 +1620,7 @@ if (!in_array($listDir, ['asc', 'desc'], true)) {
 
 $charImages = [];
 $activeImage = null;
+$charFactionIds = [];
 
 if ($detailId > 0 || $isNew) {
     $char = $detailId > 0
@@ -1478,6 +1658,28 @@ if ($detailId > 0 || $isNew) {
         'active_image_id' => null,
         'updated_at' => null,
     ];
+
+    if ((int)$char['id'] > 0) {
+        $charFactionIds = array_map(
+            static fn(array $row): int =>
+                (int)$row['faction_id'],
+            phan_all(
+                $phanconn,
+                'SELECT faction_id
+                 FROM char_factions
+                 WHERE char_id = ?',
+                [(int)$char['id']]
+            )
+        );
+    } elseif ($selectedFaction > 0) {
+        /*
+         * Wie bei der Region wird ein aktiver Listenfilter
+         * beim Anlegen direkt vorausgewählt.
+         */
+        $charFactionIds = [
+            $selectedFaction,
+        ];
+    }
 
     if ((int)$char['id'] > 0) {
         $charImages = phan_all(
@@ -1542,13 +1744,36 @@ if ($detailId > 0 || $isNew) {
     }
 
 } else {
-    $where = $selectedRegion > 0
-        ? 'WHERE c.region_id = ?'
-        : '';
+    $whereParts = [];
+    $filterParams = [];
 
-    $countParams = $selectedRegion > 0
-        ? [$selectedRegion]
-        : [];
+    if ($selectedRegion > 0) {
+        $whereParts[] =
+            'c.region_id = ?';
+
+        $filterParams[] =
+            $selectedRegion;
+    }
+
+    if ($selectedFaction > 0) {
+        $whereParts[] =
+            'EXISTS (
+                SELECT 1
+                FROM char_factions cf_filter
+                WHERE cf_filter.char_id = c.id
+                  AND cf_filter.faction_id = ?
+            )';
+
+        $filterParams[] =
+            $selectedFaction;
+    }
+
+    $where = $whereParts
+        ? 'WHERE ' . implode(
+            ' AND ',
+            $whereParts
+        )
+        : '';
 
     $countRow = phan_one(
         $phanconn,
@@ -1557,7 +1782,7 @@ if ($detailId > 0 || $isNew) {
         FROM chars c
         $where
         ",
-        $countParams
+        $filterParams
     );
 
     $totalChars = (int)($countRow['total'] ?? 0);
@@ -1582,16 +1807,13 @@ if ($detailId > 0 || $isNew) {
     $dirSql =
         strtoupper($listDir);
 
-    $params = $selectedRegion > 0
-        ? [
-            $selectedRegion,
+    $params = array_merge(
+        $filterParams,
+        [
             $listPerPage,
             $listOffset,
         ]
-        : [
-            $listPerPage,
-            $listOffset,
-        ];
+    );
 
     $chars = phan_all(
         $phanconn,
@@ -1641,11 +1863,14 @@ if (isset($_GET['deleted'])) {
 
 function phan_list_url(array $changes = []): string
 {
-    global $selectedRegion, $listPage, $listSort, $listDir;
+    global $selectedRegion, $selectedFaction, $listPage, $listSort, $listDir;
 
     $query = [
         'region' => $selectedRegion > 0
             ? $selectedRegion
+            : null,
+        'faction' => $selectedFaction > 0
+            ? $selectedFaction
             : null,
         'page' => $listPage > 1
             ? $listPage
@@ -1717,11 +1942,12 @@ function phan_sort_symbol(string $column): string
 
 function phan_detail_url(int $charId): string
 {
-    global $selectedRegion, $listPage, $listSort, $listDir;
+    global $selectedRegion, $selectedFaction, $listPage, $listSort, $listDir;
 
     $query = [
         'id' => $charId,
         'region' => $selectedRegion > 0 ? $selectedRegion : null,
+        'faction' => $selectedFaction > 0 ? $selectedFaction : null,
         'page' => $listPage > 1 ? $listPage : null,
         'sort' => $listSort !== 'call_name' ? $listSort : null,
         'dir' => $listDir !== 'asc' ? $listDir : null,
@@ -1747,11 +1973,12 @@ function phan_detail_url(int $charId): string
 
 function phan_new_url(): string
 {
-    global $selectedRegion, $listPage, $listSort, $listDir;
+    global $selectedRegion, $selectedFaction, $listPage, $listSort, $listDir;
 
     $query = [
         'new' => 1,
         'region' => $selectedRegion > 0 ? $selectedRegion : null,
+        'faction' => $selectedFaction > 0 ? $selectedFaction : null,
         'page' => $listPage > 1 ? $listPage : null,
         'sort' => $listSort !== 'call_name' ? $listSort : null,
         'dir' => $listDir !== 'asc' ? $listDir : null,
@@ -1860,33 +2087,76 @@ require_once __DIR__ . '/../navbar.php';
 
         <div class="phan-tabs">
 
-            <button
-                class="phan-tab <?= $selectedRegion === 0 ? 'active' : '' ?>"
-                onclick="location.href='<?= phan_h(
-                    phan_list_url([
-                        'region' => null,
-                        'page' => null,
-                    ])
-                ) ?>'"
+            <div
+                class="phan-actions"
+                style="width:100%; margin:0;"
             >
-                Alle
-            </button>
-
-            <?php foreach ($regions as $region): ?>
-
                 <button
-                    class="phan-tab <?= $selectedRegion === (int)$region['id'] ? 'active' : '' ?>"
+                    type="button"
+                    class="phan-tab <?= $selectedRegion === 0 ? 'active' : '' ?>"
                     onclick="location.href='<?= phan_h(
                         phan_list_url([
-                            'region' => (int)$region['id'],
+                            'region' => null,
                             'page' => null,
                         ])
                     ) ?>'"
                 >
-                    <?= phan_h($region['title']) ?>
+                    Alle
                 </button>
 
-            <?php endforeach; ?>
+                <?php foreach ($regions as $region): ?>
+
+                    <button
+                        type="button"
+                        class="phan-tab <?= $selectedRegion === (int)$region['id'] ? 'active' : '' ?>"
+                        onclick="location.href='<?= phan_h(
+                            phan_list_url([
+                                'region' => (int)$region['id'],
+                                'page' => null,
+                            ])
+                        ) ?>'"
+                    >
+                        <?= phan_h($region['title']) ?>
+                    </button>
+
+                <?php endforeach; ?>
+            </div>
+
+
+            <div
+                class="phan-actions"
+                style="width:100%; margin:0;"
+            >
+                <button
+                    type="button"
+                    class="phan-tab <?= $selectedFaction === 0 ? 'active' : '' ?>"
+                    onclick="location.href='<?= phan_h(
+                        phan_list_url([
+                            'faction' => null,
+                            'page' => null,
+                        ])
+                    ) ?>'"
+                >
+                    Alle
+                </button>
+
+                <?php foreach ($factions as $faction): ?>
+
+                    <button
+                        type="button"
+                        class="phan-tab <?= $selectedFaction === (int)$faction['id'] ? 'active' : '' ?>"
+                        onclick="location.href='<?= phan_h(
+                            phan_list_url([
+                                'faction' => (int)$faction['id'],
+                                'page' => null,
+                            ])
+                        ) ?>'"
+                    >
+                        <?= phan_h($faction['title']) ?>
+                    </button>
+
+                <?php endforeach; ?>
+            </div>
 
         </div>
 
@@ -2636,6 +2906,85 @@ require_once __DIR__ . '/../navbar.php';
                         </select>
                     </label>
 
+                    
+
+
+                    <div id="charFactionField">
+                        <span>Fraktion</span>
+
+                        <div
+                            id="charFactionInputs"
+                            hidden
+                        >
+                            <?php foreach ($charFactionIds as $factionId): ?>
+                                <input
+                                    type="hidden"
+                                    name="faction_ids[]"
+                                    value="<?= (int)$factionId ?>"
+                                >
+                            <?php endforeach; ?>
+                        </div>
+
+                        <div
+                            class="story-selected-chars"
+                            id="charSelectedFactions"
+                        ></div>
+
+                        <div
+                            class="story-editor-picker"
+                            id="charFactionPicker"
+                        >
+                            <button
+                                type="button"
+                                class="story-editor-picker-trigger"
+                                id="charFactionTrigger"
+                            ></button>
+
+                            <div
+                                class="story-editor-picker-menu"
+                                id="charFactionMenu"
+                                hidden
+                            >
+                                <input
+                                    type="search"
+                                    id="charFactionSearch"
+                                    placeholder="Fraktion suchen …"
+                                    autocomplete="off"
+                                >
+
+                                <div
+                                    class="story-editor-picker-results"
+                                    id="charFactionResults"
+                                ></div>
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <label>
+                        Notizen
+
+                        <textarea
+                            name="notes"
+                            rows="3"
+                        ><?= phan_h($char['notes']) ?></textarea>
+                    </label>
+
+
+                    <!-- versteckt lassen, damit alte Werte nicht
+                         bei jedem Autosave versehentlich geleert werden -->
+                    <input
+                        type="hidden"
+                        name="accent"
+                        value="<?= phan_h($char['accent']) ?>"
+                    >
+
+                    <input
+                        type="hidden"
+                        name="personality"
+                        value="<?= phan_h($char['personality']) ?>"
+                    >
+
 
                     <label>
                         Alter
@@ -2648,16 +2997,6 @@ require_once __DIR__ . '/../navbar.php';
 
 
                     <label>
-                        Akzent
-
-                        <input
-                            name="accent"
-                            value="<?= phan_h($char['accent']) ?>"
-                        >
-                    </label>
-
-
-                    <label>
                         Beruf
 
                         <input
@@ -2665,16 +3004,6 @@ require_once __DIR__ . '/../navbar.php';
                             value="<?= phan_h($char['occupation']) ?>"
                         >
                     </label>
-
-                    <label>
-                        Fraktion / Zugehörigkeit
-
-                        <input
-                            name="faction"
-                            value="<?= phan_h($char['faction']) ?>"
-                        >
-                    </label>
-
 
 
                     <label>
@@ -2712,26 +3041,6 @@ require_once __DIR__ . '/../navbar.php';
                                     : ''
                             ) ?>"
                         >
-                    </label>
-
-
-                    <label>
-                        Persönlichkeit
-
-                        <textarea
-                            name="personality"
-                            rows="2"
-                        ><?= phan_h($char['personality']) ?></textarea>
-                    </label>
-
-
-                    <label>
-                        Notizen
-
-                        <textarea
-                            name="notes"
-                            rows="2"
-                        ><?= phan_h($char['notes']) ?></textarea>
                     </label>
 
 
@@ -2811,6 +3120,19 @@ require_once __DIR__ . '/../navbar.php';
 (() => {
     'use strict';
 
+    const FACTIONS =
+        <?= json_encode(
+            array_map(
+                static fn(array $faction): array => [
+                    'id' => (int)$faction['id'],
+                    'title' => (string)$faction['title'],
+                ],
+                $factions
+            ),
+            JSON_UNESCAPED_UNICODE
+            | JSON_UNESCAPED_SLASHES
+        ) ?>;
+
 
     /* =====================================================
      * Listenansicht
@@ -2865,6 +3187,53 @@ require_once __DIR__ . '/../navbar.php';
 
     const imageTitle =
         document.getElementById('imageTitle');
+
+    const factionInputs =
+        document.getElementById(
+            'charFactionInputs'
+        );
+
+    const selectedFactionsEl =
+        document.getElementById(
+            'charSelectedFactions'
+        );
+
+    const factionPicker =
+        document.getElementById(
+            'charFactionPicker'
+        );
+
+    const factionTrigger =
+        document.getElementById(
+            'charFactionTrigger'
+        );
+
+    const factionMenu =
+        document.getElementById(
+            'charFactionMenu'
+        );
+
+    const factionSearch =
+        document.getElementById(
+            'charFactionSearch'
+        );
+
+    const factionResults =
+        document.getElementById(
+            'charFactionResults'
+        );
+
+    let selectedFactionIds =
+        new Set(
+            Array.from(
+                factionInputs?.querySelectorAll(
+                    'input[name="faction_ids[]"]'
+                )
+                || []
+            ).map(
+                input => Number(input.value)
+            )
+        );
 
     let saveTimer = null;
     let imageSaveTimer = null;
@@ -3075,9 +3444,414 @@ require_once __DIR__ . '/../navbar.php';
     }
 
 
+    /* =====================================================
+     * Fraktionen: Multi-Dropdown
+     * ===================================================== */
+
+    function normalizeFactionText(value) {
+        return String(value ?? '')
+            .normalize('NFKD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .trim()
+            .toLocaleLowerCase('de');
+    }
+
+
+    function factionInitial(title) {
+        return Array.from(
+            String(title ?? '').trim()
+        )[0]?.toUpperCase() || '?';
+    }
+
+
+    function selectedFactionsArray() {
+        return FACTIONS.filter(
+            faction =>
+                selectedFactionIds.has(
+                    faction.id
+                )
+        );
+    }
+
+
+    function makeFactionAvatar(faction) {
+        const avatar =
+            document.createElement('span');
+
+        avatar.className =
+            'relations-char-avatar';
+
+        avatar.textContent =
+            factionInitial(
+                faction?.title
+            );
+
+        return avatar;
+    }
+
+
+    function syncFactionInputs() {
+        if (!factionInputs) {
+            return;
+        }
+
+        factionInputs.innerHTML = '';
+
+        selectedFactionsArray()
+            .forEach(faction => {
+                const input =
+                    document.createElement(
+                        'input'
+                    );
+
+                input.type = 'hidden';
+                input.name = 'faction_ids[]';
+                input.value =
+                    String(faction.id);
+
+                factionInputs.appendChild(
+                    input
+                );
+            });
+    }
+
+
+    function renderFactionTrigger() {
+        if (!factionTrigger) {
+            return;
+        }
+
+        const selected =
+            selectedFactionsArray();
+
+        factionTrigger.innerHTML = '';
+
+        if (selected.length) {
+            factionTrigger.appendChild(
+                makeFactionAvatar(
+                    selected[0]
+                )
+            );
+        } else {
+            const blank =
+                document.createElement('span');
+
+            blank.className =
+                'relations-char-avatar';
+
+            blank.textContent = '+';
+
+            factionTrigger.appendChild(
+                blank
+            );
+        }
+
+        const text =
+            document.createElement('span');
+
+        text.className =
+            'relations-char-selected-text';
+
+        const strong =
+            document.createElement('strong');
+
+        strong.textContent =
+            selected.length === 0
+                ? 'Keine Fraktion'
+                : selected.length === 1
+                    ? selected[0].title
+                    : selected.length
+                        + ' Fraktionen';
+
+        const small =
+            document.createElement('span');
+
+        small.textContent =
+            'Fraktionen auswählen';
+
+        text.appendChild(strong);
+        text.appendChild(small);
+        factionTrigger.appendChild(text);
+
+        const arrow =
+            document.createElement('span');
+
+        arrow.textContent = '▾';
+        arrow.setAttribute(
+            'aria-hidden',
+            'true'
+        );
+
+        factionTrigger.appendChild(arrow);
+    }
+
+
+    function renderSelectedFactions() {
+        if (!selectedFactionsEl) {
+            return;
+        }
+
+        selectedFactionsEl.innerHTML = '';
+
+        const selected =
+            selectedFactionsArray();
+
+        if (!selected.length) {
+            const empty =
+                document.createElement('div');
+
+            empty.className =
+                'relations-char-empty';
+
+            empty.textContent =
+                'Keine Fraktion zugewiesen.';
+
+            selectedFactionsEl.appendChild(
+                empty
+            );
+
+            return;
+        }
+
+        selected.forEach(faction => {
+            const card =
+                document.createElement('div');
+
+            card.className =
+                'relations-char-selected-card';
+
+            card.appendChild(
+                makeFactionAvatar(faction)
+            );
+
+            const text =
+                document.createElement('span');
+
+            text.className =
+                'relations-char-selected-text';
+
+            const strong =
+                document.createElement('strong');
+
+            strong.textContent =
+                faction.title;
+
+            text.appendChild(strong);
+            card.appendChild(text);
+
+            const remove =
+                document.createElement('button');
+
+            remove.type = 'button';
+            remove.className =
+                'story-selected-char-remove';
+            remove.textContent = '×';
+            remove.title =
+                'Fraktion entfernen';
+
+            remove.addEventListener(
+                'click',
+                () => {
+                    selectedFactionIds.delete(
+                        faction.id
+                    );
+
+                    syncFactionInputs();
+                    renderFactionTrigger();
+                    renderSelectedFactions();
+                    renderFactionResults(
+                        factionSearch?.value
+                        || ''
+                    );
+
+                    window.clearTimeout(
+                        saveTimer
+                    );
+
+                    queueRequest('save')
+                        .catch(() => {});
+                }
+            );
+
+            card.appendChild(remove);
+            selectedFactionsEl.appendChild(
+                card
+            );
+        });
+    }
+
+
+    function renderFactionResults(
+        query = ''
+    ) {
+        if (!factionResults) {
+            return;
+        }
+
+        const needle =
+            normalizeFactionText(query);
+
+        factionResults.innerHTML = '';
+
+        const filtered =
+            FACTIONS.filter(faction =>
+                !needle
+                || normalizeFactionText(
+                    faction.title
+                ).includes(needle)
+            );
+
+        if (!filtered.length) {
+            const empty =
+                document.createElement('div');
+
+            empty.className =
+                'relations-char-empty';
+
+            empty.textContent =
+                'Keine Fraktion gefunden.';
+
+            factionResults.appendChild(
+                empty
+            );
+
+            return;
+        }
+
+        filtered.forEach(faction => {
+            const selected =
+                selectedFactionIds.has(
+                    faction.id
+                );
+
+            const button =
+                document.createElement('button');
+
+            button.type = 'button';
+            button.className =
+                'relations-char-result';
+
+            button.appendChild(
+                makeFactionAvatar(faction)
+            );
+
+            const text =
+                document.createElement('span');
+
+            text.className =
+                'relations-char-result-text';
+
+            const strong =
+                document.createElement('strong');
+
+            strong.textContent =
+                faction.title;
+
+            const meta =
+                document.createElement('span');
+
+            meta.textContent = selected
+                ? 'Ausgewählt · klicken zum Entfernen'
+                : 'Klicken zum Hinzufügen';
+
+            text.appendChild(strong);
+            text.appendChild(meta);
+            button.appendChild(text);
+
+            button.addEventListener(
+                'click',
+                () => {
+                    if (selected) {
+                        selectedFactionIds.delete(
+                            faction.id
+                        );
+                    } else {
+                        selectedFactionIds.add(
+                            faction.id
+                        );
+                    }
+
+                    syncFactionInputs();
+                    renderFactionTrigger();
+                    renderSelectedFactions();
+                    renderFactionResults(
+                        factionSearch?.value
+                        || ''
+                    );
+
+                    window.clearTimeout(
+                        saveTimer
+                    );
+
+                    queueRequest('save')
+                        .catch(() => {});
+                }
+            );
+
+            factionResults.appendChild(
+                button
+            );
+        });
+    }
+
+
+    factionTrigger?.addEventListener(
+        'click',
+        event => {
+            event.stopPropagation();
+
+            if (!factionMenu) {
+                return;
+            }
+
+            factionMenu.hidden =
+                !factionMenu.hidden;
+
+            if (!factionMenu.hidden) {
+                renderFactionResults(
+                    factionSearch?.value
+                    || ''
+                );
+
+                factionSearch?.focus();
+            }
+        }
+    );
+
+
+    factionSearch?.addEventListener(
+        'input',
+        () => renderFactionResults(
+            factionSearch.value
+        )
+    );
+
+
+    document.addEventListener(
+        'click',
+        event => {
+            if (
+                factionMenu
+                && !factionMenu.hidden
+                && !event.target.closest(
+                    '#charFactionPicker'
+                )
+            ) {
+                factionMenu.hidden = true;
+            }
+        }
+    );
+
+
+    syncFactionInputs();
+    renderFactionTrigger();
+    renderSelectedFactions();
+    renderFactionResults();
+
+
     form
         .querySelectorAll(
-            'input:not([type="hidden"]):not([type="file"]):not(.phan-image-title-input), textarea'
+            'input:not([type="hidden"]):not([type="file"]):not(.phan-image-title-input):not(#charFactionSearch), textarea'
         )
         .forEach(field => {
             field.addEventListener(

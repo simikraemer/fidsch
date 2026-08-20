@@ -961,12 +961,12 @@ require_once __DIR__ . '/../navbar.php';
                             <?= preg_h($r['title']) ?>
                         </strong>
 
-                        <span>
+                        <!-- <span>
                             <?= preg_h(
                                 $r['population']
                                     ?: 'Population: —'
                             ) ?>
-                        </span>
+                        </span> -->
 
                         <span>
                             <?= (int)$r['char_count'] ?>
