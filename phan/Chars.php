@@ -1412,7 +1412,7 @@ $listPage = max(
     (int)($_GET['page'] ?? 1)
 );
 
-$listPerPage = 50;
+$listPerPage = 20;
 
 $allowedSorts = [
     'face' => 'ai.id',
@@ -1599,7 +1599,12 @@ if ($detailId > 0 || $isNew) {
         SELECT
             c.*,
             ai.image_path AS active_image_path,
-            r.title AS region_title
+            r.title AS region_title,
+            EXISTS (
+                SELECT 1
+                FROM char_images ci_check
+                WHERE ci_check.char_id = c.id
+            ) AS has_image
         FROM chars c
         LEFT JOIN regions r
             ON r.id = c.region_id
@@ -2021,9 +2026,26 @@ require_once __DIR__ . '/../navbar.php';
                         <td
                             data-sort-value="<?= phan_h($c['call_name']) ?>"
                         >
-                            <strong>
-                                <?= phan_h($c['call_name']) ?>
-                            </strong>
+                            <div class="phan-char-name-cell">
+                                <strong>
+                                    <?= phan_h($c['call_name']) ?>
+                                </strong>
+
+                                <?php if (
+                                    !empty($c['has_image'])
+                                    && trim(
+                                        (string)($c['prompt'] ?? '')
+                                    ) === ''
+                                ): ?>
+                                    <span
+                                        class="phan-char-warning"
+                                        title="Charakter hat ein Bild, aber keinen Prompt."
+                                        aria-label="Bild vorhanden, Prompt fehlt"
+                                    >
+                                        !
+                                    </span>
+                                <?php endif; ?>
+                            </div>
                         </td>
 
                         <td
@@ -3101,6 +3123,12 @@ require_once __DIR__ . '/../navbar.php';
     const copyStatus =
         document.getElementById('copyStatus');
 
+    const PROMPT_STYLE_PREFIX =
+        "Heller (weiß/grau), Monotoner Hintergrund. kein text.\n"
+        + "Skizze-Stil, Anime-Stil, Konzept Art, KEIN Photorealismus!\n"
+        + "GROBE SKIZZE (mit farbe).\n"
+        + "gesamtansicht, also von füßen bis kopf.\n\n";
+
 
     if (
         promptEditor
@@ -3167,7 +3195,8 @@ require_once __DIR__ . '/../navbar.php';
             async () => {
                 try {
                     await copyText(
-                        promptField.value
+                        PROMPT_STYLE_PREFIX
+                        + promptField.value
                     );
 
                     copyStatus.textContent =

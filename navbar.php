@@ -213,7 +213,7 @@ if ($isAuthed) {
 
             <!-- PHAN -->
             <li class="nav-item has-submenu">
-                <a href="/phan/chars">
+                <a href="/phan/stories">
                     <img
                         src="/img/phan.png"
                         alt="PHAN"
@@ -225,6 +225,20 @@ if ($isAuthed) {
                 </a>
 
                 <ul class="submenu">
+                    <li>
+                        <a href="/phan/stories">
+                            <img
+                                src="/img/blog.png"
+                                alt="Stories"
+                                class="nav-icon"
+                                loading="eager"
+                                decoding="sync"
+                                fetchpriority="high"
+                            >
+                            <span class="submenu-text">Storys</span>
+                        </a>
+                    </li>
+
                     <li>
                         <a href="/phan/chars">
                             <img

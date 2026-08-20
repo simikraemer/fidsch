@@ -163,6 +163,12 @@ function rel_types(): array
             'symmetric' => true,
         ],
 
+        'colleges' => [
+            'label' => 'Kollegen',
+            'color' => '#727272',
+            'symmetric' => true,
+        ],
+
         'enemies' => [
             'label' => 'Verfeindet',
             'color' => '#c93c32',
@@ -570,6 +576,12 @@ $graphChars = array_map(
         'thumb' =>
             !empty($char['image_path'])
                 ? '/phan/chars?thumb='
+                    . (int)$char['id']
+                : null,
+
+        'image' =>
+            !empty($char['image_path'])
+                ? '/phan/chars?image='
                     . (int)$char['id']
                 : null,
     ],
@@ -3310,6 +3322,13 @@ require_once __DIR__ . '/../navbar.php';
                     img.decoding =
                         'async';
 
+                    img.dataset.thumbSrc =
+                        char.thumb;
+
+                    img.dataset.fullSrc =
+                        char.image
+                        || char.thumb;
+
                     face.appendChild(
                         img
                     );
@@ -3962,6 +3981,43 @@ require_once __DIR__ . '/../navbar.php';
         }
     }
 
+    function updateCenteredNodeImages() {
+        nodeMap.forEach(
+            node => {
+                const img =
+                    node.el.querySelector(
+                        '.relation-node-face img'
+                    );
+
+                if (!img) {
+                    return;
+                }
+
+                const isCentered =
+                    centeredCharId !== null
+                    && node.char.id
+                        === centeredCharId;
+
+                const targetSrc =
+                    isCentered
+                        ? (
+                            img.dataset.fullSrc
+                            || img.dataset.thumbSrc
+                        )
+                        : img.dataset.thumbSrc;
+
+                if (
+                    targetSrc
+                    && img.getAttribute('src')
+                        !== targetSrc
+                ) {
+                    img.src =
+                        targetSrc;
+                }
+            }
+        );
+    }
+
 
     function markCenteredNode() {
         clearCenteredNodeState();
@@ -3969,6 +4025,7 @@ require_once __DIR__ . '/../navbar.php';
         if (
             centeredCharId === null
         ) {
+            updateCenteredNodeImages();
             updateCenteredModeUi();
             return;
         }
@@ -4018,6 +4075,7 @@ require_once __DIR__ . '/../navbar.php';
         );
 
 
+        updateCenteredNodeImages();
         updateCenteredModeUi();
     }
 

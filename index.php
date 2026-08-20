@@ -56,9 +56,10 @@ $routesTool = [
 ];
 
 $routesPhan = [
-    'chars'   => 'Chars.php',
-    'regions' => 'Regions.php',
+    'chars'     => 'Chars.php',
+    'regions'   => 'Regions.php',
     'relations' => 'Relations.php',
+    'stories'   => 'Stories.php',
 ];
 
 // --- Sonderfall: öffentliche Pretty-URL ohne /sci/ ---
