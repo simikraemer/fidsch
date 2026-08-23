@@ -4074,7 +4074,7 @@ button.chart-back:focus-visible {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
     gap: 8px;
-    margin-bottom: 12px;
+    margin-top: 12px;
     padding-bottom: 2px;
 }
 
@@ -7666,3 +7666,401 @@ body.relations-modal-open {
 #charFactionResults.story-editor-picker-results {
     max-height: 220px;
 }
+
+/* =========================================================
+ * PHAN / Chars – Listenfilter
+ * Region · Fraktion · Geschlecht · Sofortsuche
+ * ========================================================= */
+
+.phan-list-filterbar {
+    position: relative;
+    z-index: 120;
+
+    display: grid;
+    grid-template-columns:
+        minmax(190px, 1fr)
+        minmax(190px, 1fr)
+        minmax(170px, .82fr)
+        minmax(300px, 1.65fr);
+    gap: 8px;
+
+    margin-bottom: 18px;
+    padding: 10px;
+
+    border-radius: var(--border-radius);
+
+    background: #fff;
+    box-shadow: var(--shadow);
+}
+
+.phan-list-filter-dropdown {
+    position: relative;
+    min-width: 0;
+}
+
+button.phan-list-filter-trigger {
+    display: grid;
+    grid-template-columns:
+        32px
+        minmax(0, 1fr)
+        auto;
+    align-items: center;
+    gap: 8px;
+
+    width: 100%;
+    height: 48px;
+    min-width: 0;
+
+    padding: 5px 9px;
+
+    border: 2px solid rgba(0, 0, 0, .10);
+    border-radius: var(--border-radius);
+
+    background: #fff;
+    color: var(--text);
+
+    box-shadow: none;
+
+    text-align: left;
+}
+
+button.phan-list-filter-trigger:hover,
+.phan-list-filter-dropdown.is-open
+button.phan-list-filter-trigger {
+    border-color: var(--primary);
+    background: #fff4e9;
+    color: var(--text);
+}
+
+.phan-list-filter-thumb,
+.phan-list-filter-icon,
+.phan-list-gender-symbol {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+
+    box-sizing: border-box;
+}
+
+.phan-list-filter-thumb {
+    display: block;
+
+    border-radius: 7px;
+
+    background: #eee;
+
+    object-fit: cover;
+}
+
+.phan-list-filter-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(0, 0, 0, .08);
+    border-radius: 50%;
+    background: var(--bg-light);
+    color: rgba(34, 34, 34, .72);
+    font-size: 1.25rem;
+    font-weight: 900;
+}
+
+.phan-list-filter-icon-symbol {
+    display: inline-block;
+    transform: translateY(-2px);
+}
+
+.phan-list-filter-text {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+
+    min-width: 0;
+
+    line-height: 1.05;
+}
+
+.phan-list-filter-text > span {
+    margin-bottom: 3px;
+
+    color: rgba(34, 34, 34, .52);
+
+    font-size: .68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .025em;
+}
+
+.phan-list-filter-text > strong {
+    display: block;
+
+    min-width: 0;
+
+    overflow: hidden;
+
+    color: var(--text);
+
+    font-size: .84rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.phan-list-filter-arrow {
+    color: rgba(34, 34, 34, .58);
+
+    font-size: .72rem;
+    line-height: 1;
+}
+
+.phan-list-filter-menu {
+    position: absolute;
+    top: calc(100% + 5px);
+    left: 0;
+    z-index: 300;
+
+    width: max(100%, 250px);
+    max-width: min(360px, calc(100vw - 36px));
+    max-height: 360px;
+
+    box-sizing: border-box;
+    padding: 6px;
+
+    overflow-y: auto;
+
+    border: 1px solid rgba(0, 0, 0, .12);
+    border-radius: var(--border-radius);
+
+    background: #fff;
+
+    box-shadow:
+        0 12px 32px
+        rgba(0, 0, 0, .18);
+}
+
+.phan-list-filter-menu[hidden] {
+    display: none !important;
+}
+
+button.phan-list-filter-option {
+    display: grid;
+    grid-template-columns:
+        34px
+        minmax(0, 1fr);
+    align-items: center;
+    gap: 9px;
+
+    width: 100%;
+    min-width: 0;
+
+    padding: 6px 7px;
+
+    border: 1px solid transparent;
+    border-radius: 8px;
+
+    background: transparent;
+    color: var(--text);
+
+    box-shadow: none;
+
+    text-align: left;
+}
+
+button.phan-list-filter-option:hover {
+    border-color: rgba(255, 107, 0, .28);
+    background: #fff4e9;
+    color: var(--text);
+}
+
+button.phan-list-filter-option.active {
+    border-color: var(--primary);
+    background: #fff2e5;
+    color: var(--text);
+}
+
+.phan-list-filter-option > strong {
+    min-width: 0;
+
+    overflow: hidden;
+
+    font-size: .84rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.phan-list-filter-option-copy {
+    display: flex;
+    flex-direction: column;
+
+    min-width: 0;
+
+    line-height: 1.05;
+}
+
+.phan-list-filter-option-copy strong {
+    font-size: .86rem;
+}
+
+.phan-list-filter-option-copy small {
+    margin-top: 3px;
+
+    color: rgba(34, 34, 34, .55);
+
+    font-size: .68rem;
+    font-weight: 650;
+}
+
+.phan-list-gender-symbol {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    color: var(--phan-gender-color, #727272);
+
+    font-size: 1.55rem;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.phan-list-gender-symbol.is-stroked {
+    -webkit-text-stroke:
+        .7px
+        var(--phan-gender-color, currentColor);
+}
+
+
+/* Gender-Gruppentrenner */
+
+.phan-list-filter-separator {
+    height: 1px;
+    margin: 5px 7px;
+    background: rgba(0, 0, 0, .12);
+}
+
+
+/* Gender-Farben und Strichstärken
+ *
+ * Die PHP-Datei liefert nur semantische Klassen.
+ * Sämtliche Darstellung liegt hier in FIJI.css.
+ */
+
+.phan-gender--unset {
+    color: #a0a0a0;
+}
+
+.phan-gender--cis-frau {
+    color: #c93c32;
+    -webkit-text-stroke: 2px #c93c32;
+}
+
+.phan-gender--trans-frau {
+    color: #e03d81;
+}
+
+.phan-gender--transfem {
+    color: #d28ff8;
+}
+
+.phan-gender--nonbinaer {
+    color: #727272;
+}
+
+.phan-gender--transmasc {
+    color: #977df7;
+}
+
+.phan-gender--trans-mann {
+    color: #2c81f0;
+}
+
+.phan-gender--cis-mann {
+    color: #1f60a5;
+    -webkit-text-stroke: 2px #3178c6;
+}
+
+.phan-gender--drittes-geschlecht {
+    color: #2e9f52;
+}
+
+
+/* Geschlechtsspalte der Charaktertabelle */
+
+.phan-table td.phan-table-gender-cell {
+    text-align: center;
+}
+
+.phan-table-gender-symbol {
+    display: inline-block;
+    min-width: 28px;
+    font-size: 1.65rem;
+    font-weight: 900;
+    line-height: 1;
+    text-align: center;
+}
+
+
+/* Verstecktes Hilfsfeld für Clipboard-Fallback */
+
+.phan-clipboard-helper {
+    position: fixed;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.phan-list-search-wrap {
+    min-width: 0;
+}
+
+input.phan-list-search {
+    height: 48px;
+    margin: 0;
+    padding: 0 13px;
+
+    border: 2px solid rgba(0, 0, 0, .10);
+    border-radius: var(--border-radius);
+
+    background: #fff;
+
+    box-shadow: none;
+
+    font-size: .90rem;
+}
+
+input.phan-list-search:hover {
+    border-color: rgba(255, 107, 0, .42);
+}
+
+input.phan-list-search:focus {
+    border-color: var(--primary);
+    outline: none;
+
+    background: #fffdfb;
+
+    box-shadow:
+        0 0 0 2px
+        color-mix(
+            in srgb,
+            var(--primary) 12%,
+            transparent
+        );
+}
+
+@media (max-width: 900px) {
+    .phan-list-filterbar {
+        grid-template-columns:
+            repeat(3, minmax(160px, 1fr));
+    }
+
+    .phan-list-search-wrap {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 620px) {
+    .phan-list-filterbar {
+        grid-template-columns: 1fr;
+    }
+
+    .phan-list-search-wrap {
+        grid-column: auto;
+    }
+}
+

@@ -38,6 +38,108 @@ function phan_h(mixed $value): string
     );
 }
 
+
+function phan_all_filter_icon(): string
+{
+    return '
+        <span class="phan-list-filter-icon">
+            <span class="phan-list-filter-icon-symbol">
+                ∞
+            </span>
+        </span>
+    ';
+}
+
+function phan_gender_options(): array
+{
+    static $options = [
+        '♀' => [
+            'symbol' => '♀',
+            'label' => 'Cis Frau',
+            'css_class' => 'phan-gender--cis-frau',
+            'separator_before' => true,
+        ],
+
+        '⚧♀' => [
+            'symbol' => '⯱',
+            'label' => 'Trans Frau',
+            'css_class' => 'phan-gender--trans-frau',
+        ],
+
+        '⊕' => [
+            'symbol' => '⊕',
+            'label' => 'Transfem',
+            'css_class' => 'phan-gender--transfem',
+        ],
+
+        '—' => [
+            'symbol' => '—',
+            'label' => 'Nonbinär',
+            'css_class' => 'phan-gender--nonbinaer',
+            'separator_before' => true,
+        ],
+
+        '⚦' => [
+            'symbol' => '⚦',
+            'label' => 'Transmasc',
+            'css_class' => 'phan-gender--transmasc',
+            'separator_before' => true,
+        ],
+
+        '⚧♂' => [
+            'symbol' => '⚧',
+            'label' => 'Trans Mann',
+            'css_class' => 'phan-gender--trans-mann',
+        ],
+
+        '♂' => [
+            'symbol' => '♂',
+            'label' => 'Cis Mann',
+            'css_class' => 'phan-gender--cis-mann',
+        ],
+
+        '⚥' => [
+            'symbol' => '⚥',
+            'label' => '3. Geschlecht',
+            'css_class' => 'phan-gender--drittes-geschlecht',
+            'separator_before' => true,
+        ],
+    ];
+
+    return $options;
+}
+
+
+function phan_gender_info(?string $value): array
+{
+    $value = trim(
+        (string)$value
+    );
+
+    $options =
+        phan_gender_options();
+
+    if (
+        $value !== ''
+        && isset(
+            $options[$value]
+        )
+    ) {
+        return $options[$value]
+            + [
+                'value' => $value,
+            ];
+    }
+
+    return [
+        'value' => '',
+        'symbol' => '∅',
+        'label' => 'Nicht gesetzt',
+        'css_class' => 'phan-gender--unset',
+    ];
+}
+
+
 function phan_json_out(array $payload, int $status = 200): never
 {
     http_response_code($status);
@@ -1326,14 +1428,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             trim((string)($_POST['prompt'] ?? '')),
         ];
 
-        $validGenders = [
-            '',
-            '♀',
-            '⊕',
-            '▬',
-            '⚥',
-            '♂',
-        ];
+        $validGenders =
+            array_merge(
+                [''],
+                array_keys(
+                    phan_gender_options()
+                )
+            );
 
         if (!in_array($fields[3], $validGenders, true)) {
             throw new RuntimeException(
@@ -1554,7 +1655,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $regions = phan_all(
     $phanconn,
     '
-    SELECT id, title
+    SELECT
+        id,
+        title,
+        image_path
     FROM regions
     ORDER BY sort_order, title
     '
@@ -1563,7 +1667,10 @@ $regions = phan_all(
 $factions = phan_all(
     $phanconn,
     '
-    SELECT id, title
+    SELECT
+        id,
+        title,
+        image_path
     FROM factions
     ORDER BY title
     '
@@ -1578,6 +1685,47 @@ $selectedFaction = max(
     0,
     (int)($_GET['faction'] ?? 0)
 );
+
+$selectedGender = trim(
+    (string)($_GET['gender'] ?? '')
+);
+
+$allowedGenderFilters =
+    array_merge(
+        [''],
+        array_keys(
+            phan_gender_options()
+        )
+    );
+
+if (
+    !in_array(
+        $selectedGender,
+        $allowedGenderFilters,
+        true
+    )
+) {
+    $selectedGender = '';
+}
+
+$listSearch = trim(
+    (string)($_GET['q'] ?? '')
+);
+
+if (function_exists('mb_substr')) {
+    $listSearch = mb_substr(
+        $listSearch,
+        0,
+        200,
+        'UTF-8'
+    );
+} else {
+    $listSearch = substr(
+        $listSearch,
+        0,
+        200
+    );
+}
 
 $detailId = max(
     0,
@@ -1596,6 +1744,7 @@ $listPerPage = 20;
 $allowedSorts = [
     'face' => 'ai.id',
     'call_name' => 'c.call_name',
+    'gender' => 'c.gender',
     'name' => "CONCAT_WS(' ', c.last_name, c.first_name)",
     'species' => 'c.species',
     'occupation' => 'c.occupation',
@@ -1643,7 +1792,10 @@ if ($detailId > 0 || $isNew) {
         'call_name' => '',
         'first_name' => '',
         'last_name' => '',
-        'gender' => '',
+        'gender' =>
+            $selectedGender !== '—'
+                ? $selectedGender
+                : '',
         'species' => '',
         'accent' => '',
         'occupation' => '',
@@ -1768,6 +1920,58 @@ if ($detailId > 0 || $isNew) {
             $selectedFaction;
     }
 
+    if ($selectedGender !== '') {
+        if ($selectedGender === '—') {
+            $whereParts[] =
+                '(c.gender IS NULL
+                  OR c.gender = \'\'
+                  OR c.gender = \'—\')';
+        } else {
+            $whereParts[] =
+                'c.gender = ?';
+
+            $filterParams[] =
+                $selectedGender;
+        }
+    }
+
+    if ($listSearch !== '') {
+        $searchLike =
+            '%' . $listSearch . '%';
+
+        $whereParts[] =
+            '(
+                c.call_name LIKE ?
+                OR c.first_name LIKE ?
+                OR c.last_name LIKE ?
+                OR CONCAT_WS(
+                    \' \',
+                    c.first_name,
+                    c.last_name
+                ) LIKE ?
+                OR CONCAT_WS(
+                    \' \',
+                    c.last_name,
+                    c.first_name
+                ) LIKE ?
+                OR c.gender LIKE ?
+                OR c.species LIKE ?
+                OR c.occupation LIKE ?
+                OR c.age_text LIKE ?
+                OR c.faction LIKE ?
+                OR r.title LIKE ?
+                OR c.notes LIKE ?
+                OR c.prompt LIKE ?
+                OR CAST(c.height_cm AS CHAR) LIKE ?
+                OR CAST(c.weight_kg AS CHAR) LIKE ?
+            )';
+
+        for ($i = 0; $i < 15; $i++) {
+            $filterParams[] =
+                $searchLike;
+        }
+    }
+
     $where = $whereParts
         ? 'WHERE ' . implode(
             ' AND ',
@@ -1780,6 +1984,8 @@ if ($detailId > 0 || $isNew) {
         "
         SELECT COUNT(*) AS total
         FROM chars c
+        LEFT JOIN regions r
+            ON r.id = c.region_id
         $where
         ",
         $filterParams
@@ -1863,7 +2069,14 @@ if (isset($_GET['deleted'])) {
 
 function phan_list_url(array $changes = []): string
 {
-    global $selectedRegion, $selectedFaction, $listPage, $listSort, $listDir;
+    global
+        $selectedRegion,
+        $selectedFaction,
+        $selectedGender,
+        $listSearch,
+        $listPage,
+        $listSort,
+        $listDir;
 
     $query = [
         'region' => $selectedRegion > 0
@@ -1871,6 +2084,12 @@ function phan_list_url(array $changes = []): string
             : null,
         'faction' => $selectedFaction > 0
             ? $selectedFaction
+            : null,
+        'gender' => $selectedGender !== ''
+            ? $selectedGender
+            : null,
+        'q' => $listSearch !== ''
+            ? $listSearch
             : null,
         'page' => $listPage > 1
             ? $listPage
@@ -1942,12 +2161,21 @@ function phan_sort_symbol(string $column): string
 
 function phan_detail_url(int $charId): string
 {
-    global $selectedRegion, $selectedFaction, $listPage, $listSort, $listDir;
+    global
+        $selectedRegion,
+        $selectedFaction,
+        $selectedGender,
+        $listSearch,
+        $listPage,
+        $listSort,
+        $listDir;
 
     $query = [
         'id' => $charId,
         'region' => $selectedRegion > 0 ? $selectedRegion : null,
         'faction' => $selectedFaction > 0 ? $selectedFaction : null,
+        'gender' => $selectedGender !== '' ? $selectedGender : null,
+        'q' => $listSearch !== '' ? $listSearch : null,
         'page' => $listPage > 1 ? $listPage : null,
         'sort' => $listSort !== 'call_name' ? $listSort : null,
         'dir' => $listDir !== 'asc' ? $listDir : null,
@@ -1973,12 +2201,21 @@ function phan_detail_url(int $charId): string
 
 function phan_new_url(): string
 {
-    global $selectedRegion, $selectedFaction, $listPage, $listSort, $listDir;
+    global
+        $selectedRegion,
+        $selectedFaction,
+        $selectedGender,
+        $listSearch,
+        $listPage,
+        $listSort,
+        $listDir;
 
     $query = [
         'new' => 1,
         'region' => $selectedRegion > 0 ? $selectedRegion : null,
         'faction' => $selectedFaction > 0 ? $selectedFaction : null,
+        'gender' => $selectedGender !== '' ? $selectedGender : null,
+        'q' => $listSearch !== '' ? $listSearch : null,
         'page' => $listPage > 1 ? $listPage : null,
         'sort' => $listSort !== 'call_name' ? $listSort : null,
         'dir' => $listDir !== 'asc' ? $listDir : null,
@@ -1999,6 +2236,35 @@ function phan_new_url(): string
             '&',
             PHP_QUERY_RFC3986
         );
+}
+
+
+$selectedRegionRow = null;
+
+foreach ($regions as $region) {
+    if (
+        (int)$region['id']
+        === $selectedRegion
+    ) {
+        $selectedRegionRow =
+            $region;
+
+        break;
+    }
+}
+
+$selectedFactionRow = null;
+
+foreach ($factions as $faction) {
+    if (
+        (int)$faction['id']
+        === $selectedFaction
+    ) {
+        $selectedFactionRow =
+            $faction;
+
+        break;
+    }
 }
 
 
@@ -2085,81 +2351,390 @@ require_once __DIR__ . '/../navbar.php';
 
     <?php if (!$detailId && !$isNew): ?>
 
-        <div class="phan-tabs">
+        <div
+            class="phan-list-filterbar"
+            id="charListFilters"
+        >
+
+            <!-- Region -->
 
             <div
-                class="phan-actions"
-                style="width:100%; margin:0;"
+                class="phan-list-filter-dropdown"
+                data-phan-filter-dropdown
             >
                 <button
                     type="button"
-                    class="phan-tab <?= $selectedRegion === 0 ? 'active' : '' ?>"
-                    onclick="location.href='<?= phan_h(
-                        phan_list_url([
-                            'region' => null,
-                            'page' => null,
-                        ])
-                    ) ?>'"
+                    class="phan-list-filter-trigger"
+                    data-phan-filter-trigger
+                    aria-haspopup="listbox"
+                    aria-expanded="false"
                 >
-                    Alle
+                    <?php if (
+                        $selectedRegionRow
+                        && !empty(
+                            $selectedRegionRow['image_path']
+                        )
+                    ): ?>
+                        <img
+                            class="phan-list-filter-thumb"
+                            src="/phan/regions?thumb=<?= (int)$selectedRegionRow['id'] ?>"
+                            alt=""
+                            loading="lazy"
+                            decoding="async"
+                        >
+                    <?php else: ?>
+                        <?= phan_all_filter_icon() ?>
+                    <?php endif; ?>
+
+                    <span class="phan-list-filter-text">
+                        <span>Region</span>
+
+                        <strong>
+                            <?= phan_h(
+                                $selectedRegionRow['title']
+                                ?? 'Alle'
+                            ) ?>
+                        </strong>
+                    </span>
+
+                    <span
+                        class="phan-list-filter-arrow"
+                        aria-hidden="true"
+                    >
+                        ▾
+                    </span>
                 </button>
 
-                <?php foreach ($regions as $region): ?>
-
+                <div
+                    class="phan-list-filter-menu"
+                    data-phan-filter-menu
+                    role="listbox"
+                    hidden
+                >
                     <button
                         type="button"
-                        class="phan-tab <?= $selectedRegion === (int)$region['id'] ? 'active' : '' ?>"
-                        onclick="location.href='<?= phan_h(
-                            phan_list_url([
-                                'region' => (int)$region['id'],
-                                'page' => null,
-                            ])
-                        ) ?>'"
+                        class="phan-list-filter-option <?= $selectedRegion === 0 ? 'active' : '' ?>"
+                        data-filter-param="region"
+                        data-filter-value=""
                     >
-                        <?= phan_h($region['title']) ?>
+                        <?= phan_all_filter_icon() ?>
+
+                        <strong>Alle</strong>
                     </button>
 
-                <?php endforeach; ?>
+                    <?php foreach ($regions as $region): ?>
+
+                        <button
+                            type="button"
+                            class="phan-list-filter-option <?= $selectedRegion === (int)$region['id'] ? 'active' : '' ?>"
+                            data-filter-param="region"
+                            data-filter-value="<?= (int)$region['id'] ?>"
+                        >
+                            <?php if (!empty($region['image_path'])): ?>
+                                <img
+                                    class="phan-list-filter-thumb"
+                                    src="/phan/regions?thumb=<?= (int)$region['id'] ?>"
+                                    alt=""
+                                    loading="lazy"
+                                    decoding="async"
+                                >
+                            <?php else: ?>
+                                <span class="phan-list-filter-icon">
+                                    <?= phan_h(
+                                        function_exists('mb_substr')
+                                            ? mb_substr(
+                                                (string)$region['title'],
+                                                0,
+                                                1,
+                                                'UTF-8'
+                                            )
+                                            : substr(
+                                                (string)$region['title'],
+                                                0,
+                                                1
+                                            )
+                                    ) ?>
+                                </span>
+                            <?php endif; ?>
+
+                            <strong>
+                                <?= phan_h($region['title']) ?>
+                            </strong>
+                        </button>
+
+                    <?php endforeach; ?>
+                </div>
             </div>
 
 
+            <!-- Fraktion -->
+
             <div
-                class="phan-actions"
-                style="width:100%; margin:0;"
+                class="phan-list-filter-dropdown"
+                data-phan-filter-dropdown
             >
                 <button
                     type="button"
-                    class="phan-tab <?= $selectedFaction === 0 ? 'active' : '' ?>"
-                    onclick="location.href='<?= phan_h(
-                        phan_list_url([
-                            'faction' => null,
-                            'page' => null,
-                        ])
-                    ) ?>'"
+                    class="phan-list-filter-trigger"
+                    data-phan-filter-trigger
+                    aria-haspopup="listbox"
+                    aria-expanded="false"
                 >
-                    Alle
+                    <?php if (
+                        $selectedFactionRow
+                        && !empty(
+                            $selectedFactionRow['image_path']
+                        )
+                    ): ?>
+                        <img
+                            class="phan-list-filter-thumb"
+                            src="/phan/factions?thumb=<?= (int)$selectedFactionRow['id'] ?>"
+                            alt=""
+                            loading="lazy"
+                            decoding="async"
+                        >
+                    <?php elseif ($selectedFactionRow): ?>
+                        <span class="phan-list-filter-icon">
+                            <?= phan_h(
+                                function_exists('mb_substr')
+                                    ? mb_substr(
+                                        (string)$selectedFactionRow['title'],
+                                        0,
+                                        1,
+                                        'UTF-8'
+                                    )
+                                    : substr(
+                                        (string)$selectedFactionRow['title'],
+                                        0,
+                                        1
+                                    )
+                            ) ?>
+                        </span>
+                    <?php else: ?>
+                        <?= phan_all_filter_icon() ?>
+                    <?php endif; ?>
+
+                    <span class="phan-list-filter-text">
+                        <span>Fraktion</span>
+
+                        <strong>
+                            <?= phan_h(
+                                $selectedFactionRow['title']
+                                ?? 'Alle'
+                            ) ?>
+                        </strong>
+                    </span>
+
+                    <span
+                        class="phan-list-filter-arrow"
+                        aria-hidden="true"
+                    >
+                        ▾
+                    </span>
                 </button>
 
-                <?php foreach ($factions as $faction): ?>
-
+                <div
+                    class="phan-list-filter-menu"
+                    data-phan-filter-menu
+                    role="listbox"
+                    hidden
+                >
                     <button
                         type="button"
-                        class="phan-tab <?= $selectedFaction === (int)$faction['id'] ? 'active' : '' ?>"
-                        onclick="location.href='<?= phan_h(
-                            phan_list_url([
-                                'faction' => (int)$faction['id'],
-                                'page' => null,
-                            ])
-                        ) ?>'"
+                        class="phan-list-filter-option <?= $selectedFaction === 0 ? 'active' : '' ?>"
+                        data-filter-param="faction"
+                        data-filter-value=""
                     >
-                        <?= phan_h($faction['title']) ?>
+                        <?= phan_all_filter_icon() ?>
+
+                        <strong>Alle</strong>
                     </button>
 
-                <?php endforeach; ?>
+                    <?php foreach ($factions as $faction): ?>
+
+                        <button
+                            type="button"
+                            class="phan-list-filter-option <?= $selectedFaction === (int)$faction['id'] ? 'active' : '' ?>"
+                            data-filter-param="faction"
+                            data-filter-value="<?= (int)$faction['id'] ?>"
+                        >
+                            <?php if (!empty($faction['image_path'])): ?>
+                                <img
+                                    class="phan-list-filter-thumb"
+                                    src="/phan/factions?thumb=<?= (int)$faction['id'] ?>"
+                                    alt=""
+                                    loading="lazy"
+                                    decoding="async"
+                                >
+                            <?php else: ?>
+                                <span class="phan-list-filter-icon">
+                                    <?= phan_h(
+                                        function_exists('mb_substr')
+                                            ? mb_substr(
+                                                (string)$faction['title'],
+                                                0,
+                                                1,
+                                                'UTF-8'
+                                            )
+                                            : substr(
+                                                (string)$faction['title'],
+                                                0,
+                                                1
+                                            )
+                                    ) ?>
+                                </span>
+                            <?php endif; ?>
+
+                            <strong>
+                                <?= phan_h($faction['title']) ?>
+                            </strong>
+                        </button>
+
+                    <?php endforeach; ?>
+                </div>
+            </div>
+
+
+            <!-- Geschlecht -->
+
+            <?php
+            $selectedGenderInfo =
+                phan_gender_info(
+                    $selectedGender
+                );
+            ?>
+
+            <div
+                class="phan-list-filter-dropdown"
+                data-phan-filter-dropdown
+            >
+                <button
+                    type="button"
+                    class="phan-list-filter-trigger"
+                    data-phan-filter-trigger
+                    aria-haspopup="listbox"
+                    aria-expanded="false"
+                >
+                    <?php if ($selectedGender !== ''): ?>
+                        <span
+                            class="phan-list-gender-symbol <?= phan_h(
+                                $selectedGenderInfo['css_class']
+                                ?? 'phan-gender--unset'
+                            ) ?>"
+                            title="<?= phan_h(
+                                $selectedGenderInfo['label']
+                            ) ?>"
+                        >
+                            <?= phan_h(
+                                $selectedGenderInfo['symbol']
+                            ) ?>
+                        </span>
+                    <?php else: ?>
+                        <?= phan_all_filter_icon() ?>
+                    <?php endif; ?>
+
+                    <span class="phan-list-filter-text">
+                        <span>Geschlecht</span>
+
+                        <strong>
+                            <?= $selectedGender !== ''
+                                ? phan_h(
+                                    $selectedGenderInfo['label']
+                                )
+                                : 'Alle'
+                            ?>
+                        </strong>
+                    </span>
+
+                    <span
+                        class="phan-list-filter-arrow"
+                        aria-hidden="true"
+                    >
+                        ▾
+                    </span>
+                </button>
+
+                <div
+                    class="phan-list-filter-menu phan-list-filter-menu--gender"
+                    data-phan-filter-menu
+                    role="listbox"
+                    hidden
+                >
+                    <button
+                        type="button"
+                        class="phan-list-filter-option <?= $selectedGender === '' ? 'active' : '' ?>"
+                        data-filter-param="gender"
+                        data-filter-value=""
+                    >
+                        <?= phan_all_filter_icon() ?>
+
+                        <strong>Alle</strong>
+                    </button>
+
+                    <?php foreach (
+                        phan_gender_options()
+                        as $genderValue => $genderInfo
+                    ): ?>
+
+                        <?php if (!empty($genderInfo['separator_before'])): ?>
+                            <div
+                                class="phan-list-filter-separator"
+                                role="separator"
+                                aria-hidden="true"
+                            ></div>
+                        <?php endif; ?>
+
+                        <button
+                            type="button"
+                            class="phan-list-filter-option <?= $selectedGender === $genderValue ? 'active' : '' ?>"
+                            data-filter-param="gender"
+                            data-filter-value="<?= phan_h($genderValue) ?>"
+                        >
+                            <span
+                                class="phan-list-gender-symbol <?= phan_h(
+                                    $genderInfo['css_class']
+                                    ?? 'phan-gender--unset'
+                                ) ?>"
+                            >
+                                <?= phan_h(
+                                    $genderInfo['symbol']
+                                ) ?>
+                            </span>
+
+                            <span class="phan-list-filter-option-copy">
+                                <strong>
+                                    <?= phan_h($genderInfo['label']) ?>
+                                </strong>
+
+                                <small>
+                                    <?= phan_h(
+                                        $genderInfo['symbol']
+                                    ) ?>
+                                </small>
+                            </span>
+                        </button>
+
+                    <?php endforeach; ?>
+                </div>
+            </div>
+
+
+            <!-- Sofortsuche -->
+
+            <div class="phan-list-search-wrap">
+                <input
+                    type="search"
+                    class="phan-list-search"
+                    id="charListSearch"
+                    value="<?= phan_h($listSearch) ?>"
+                    placeholder="Suchen: Name, Art, Beruf, Fraktion, Region …"
+                    autocomplete="off"
+                    spellcheck="false"
+                    aria-label="Charaktere durchsuchen"
+                >
             </div>
 
         </div>
-
 
         <div class="phan-table-wrap">
             <table class="phan-table">
@@ -2181,6 +2756,15 @@ require_once __DIR__ . '/../navbar.php';
                                 Rufname
                                 <span class="phan-sort-indicator">
                                     <?= phan_h(phan_sort_symbol('call_name')) ?>
+                                </span>
+                            </a>
+                        </th>
+
+                        <th class="phan-sortable">
+                            <a href="<?= phan_h(phan_sort_url('gender')) ?>">
+                                Geschlecht
+                                <span class="phan-sort-indicator">
+                                    <?= phan_h(phan_sort_symbol('gender')) ?>
                                 </span>
                             </a>
                         </th>
@@ -2248,7 +2832,7 @@ require_once __DIR__ . '/../navbar.php';
 
                     <tr>
                         <td
-                            colspan="8"
+                            colspan="9"
                             class="phan-empty-table"
                         >
                             Noch keine Charaktere in dieser Auswahl.
@@ -2316,6 +2900,53 @@ require_once __DIR__ . '/../navbar.php';
                                     </span>
                                 <?php endif; ?>
                             </div>
+                        </td>
+
+                        <?php
+                        $gender =
+                            trim(
+                                (string)(
+                                    $c['gender']
+                                    ?? ''
+                                )
+                            );
+
+                        $genderInfo =
+                            phan_gender_info(
+                                $gender
+                            );
+
+                        $genderValue =
+                            (string)(
+                                $genderInfo['value']
+                                ?? ''
+                            );
+
+                        $genderSymbol =
+                            (string)(
+                                $genderInfo['symbol']
+                                ?? '—'
+                            );
+                        ?>
+
+                        <td
+                            class="phan-table-gender-cell"
+                            data-sort-value="<?= phan_h($genderValue) ?>"
+                        >
+                            <span
+                                class="phan-table-gender-symbol <?= phan_h(
+                                    $genderInfo['css_class']
+                                    ?? 'phan-gender--unset'
+                                ) ?>"
+                                title="<?= phan_h(
+                                    $genderInfo['label']
+                                ) ?>"
+                                aria-label="<?= phan_h(
+                                    $genderInfo['label']
+                                ) ?>"
+                            >
+                                <?= phan_h($genderSymbol) ?>
+                            </span>
                         </td>
 
                         <td
@@ -2653,6 +3284,34 @@ require_once __DIR__ . '/../navbar.php';
                 </div>
 
 
+                <?php if ($activeImage): ?>
+
+                    <div
+                        class="phan-cropbox phan-image-dropzone"
+                        id="cropBox"
+                    >
+
+                        <img
+                            src="/phan/chars?image_id=<?= (int)$activeImage['id'] ?>"
+                            alt="<?= phan_h($char['call_name']) ?>"
+                            id="cropImage"
+                            draggable="false"
+                        >
+
+                        <div
+                            class="phan-crop-overlay"
+                            id="cropOverlay"
+                        ></div>
+
+                        <div class="phan-image-drop-hint">
+                            Bilder hier ablegen zum Hinzufügen
+                        </div>
+
+                    </div>
+
+                    
+
+
                 <?php if (count($charImages) > 1): ?>
 
                     <div
@@ -2697,32 +3356,6 @@ require_once __DIR__ . '/../navbar.php';
                     </div>
 
                 <?php endif; ?>
-
-
-                <?php if ($activeImage): ?>
-
-                    <div
-                        class="phan-cropbox phan-image-dropzone"
-                        id="cropBox"
-                    >
-
-                        <img
-                            src="/phan/chars?image_id=<?= (int)$activeImage['id'] ?>"
-                            alt="<?= phan_h($char['call_name']) ?>"
-                            id="cropImage"
-                            draggable="false"
-                        >
-
-                        <div
-                            class="phan-crop-overlay"
-                            id="cropOverlay"
-                        ></div>
-
-                        <div class="phan-image-drop-hint">
-                            Bilder hier ablegen zum Hinzufügen
-                        </div>
-
-                    </div>
 
 
                     <?php if (count($charImages) > 1): ?>
@@ -2885,21 +3518,35 @@ require_once __DIR__ . '/../navbar.php';
                         Geschlecht
 
                         <select name="gender">
-                            <option value="">—</option>
+                            <option value="">∅ Nicht gesetzt</option>
 
                             <?php foreach (
-                                ['♀', '⊕', '⚥', '♂']
-                                as $gender
+                                phan_gender_options()
+                                as $genderValue => $genderInfo
                             ): ?>
 
+                                <?php if (!empty($genderInfo['separator_before'])): ?>
+                                    <option
+                                        disabled
+                                        aria-hidden="true"
+                                    >
+                                        ──────────────
+                                    </option>
+                                <?php endif; ?>
+
                                 <option
-                                    value="<?= phan_h($gender) ?>"
-                                    <?= ($char['gender'] ?? '') === $gender
-                                        ? 'selected'
-                                        : ''
+                                    value="<?= phan_h($genderValue) ?>"
+                                    <?= ($char['gender'] ?? '')
+                                        === $genderValue
+                                            ? 'selected'
+                                            : ''
                                     ?>
                                 >
-                                    <?= phan_h($gender) ?>
+                                    <?= phan_h(
+                                        $genderInfo['symbol']
+                                        . ' '
+                                        . $genderInfo['label']
+                                    ) ?>
                                 </option>
 
                             <?php endforeach; ?>
@@ -3126,6 +3773,10 @@ require_once __DIR__ . '/../navbar.php';
                 static fn(array $faction): array => [
                     'id' => (int)$faction['id'],
                     'title' => (string)$faction['title'],
+                    'thumb' => !empty($faction['image_path'])
+                        ? '/phan/factions?thumb='
+                            . (int)$faction['id']
+                        : null,
                 ],
                 $factions
             ),
@@ -3145,6 +3796,245 @@ require_once __DIR__ . '/../navbar.php';
                 location.href = row.dataset.href;
             });
         });
+
+
+    function navigateListFilter(
+        param,
+        value
+    ) {
+        const url =
+            new URL(
+                window.location.href
+            );
+
+        url.searchParams.delete(
+            'page'
+        );
+
+        if (
+            value === null
+            || value === undefined
+            || String(value) === ''
+        ) {
+            url.searchParams.delete(
+                param
+            );
+        } else {
+            url.searchParams.set(
+                param,
+                String(value)
+            );
+        }
+
+        location.href =
+            url.pathname
+            + url.search;
+    }
+
+
+    const listFilterDropdowns =
+        Array.from(
+            document.querySelectorAll(
+                '[data-phan-filter-dropdown]'
+            )
+        );
+
+
+    function closeListFilterDropdowns(
+        except = null
+    ) {
+        listFilterDropdowns.forEach(
+            dropdown => {
+                if (
+                    except
+                    && dropdown === except
+                ) {
+                    return;
+                }
+
+                const trigger =
+                    dropdown.querySelector(
+                        '[data-phan-filter-trigger]'
+                    );
+
+                const menu =
+                    dropdown.querySelector(
+                        '[data-phan-filter-menu]'
+                    );
+
+                dropdown.classList.remove(
+                    'is-open'
+                );
+
+                trigger?.setAttribute(
+                    'aria-expanded',
+                    'false'
+                );
+
+                if (menu) {
+                    menu.hidden = true;
+                }
+            }
+        );
+    }
+
+
+    listFilterDropdowns.forEach(
+        dropdown => {
+            const trigger =
+                dropdown.querySelector(
+                    '[data-phan-filter-trigger]'
+                );
+
+            const menu =
+                dropdown.querySelector(
+                    '[data-phan-filter-menu]'
+                );
+
+            trigger?.addEventListener(
+                'click',
+                event => {
+                    event.stopPropagation();
+
+                    const opening =
+                        menu?.hidden
+                        ?? false;
+
+                    closeListFilterDropdowns(
+                        dropdown
+                    );
+
+                    dropdown.classList.toggle(
+                        'is-open',
+                        opening
+                    );
+
+                    trigger.setAttribute(
+                        'aria-expanded',
+                        opening
+                            ? 'true'
+                            : 'false'
+                    );
+
+                    if (menu) {
+                        menu.hidden =
+                            !opening;
+                    }
+                }
+            );
+
+            menu
+                ?.querySelectorAll(
+                    '[data-filter-param]'
+                )
+                .forEach(
+                    option => {
+                        option.addEventListener(
+                            'click',
+                            () => {
+                                navigateListFilter(
+                                    option.dataset
+                                        .filterParam,
+                                    option.dataset
+                                        .filterValue
+                                        ?? ''
+                                );
+                            }
+                        );
+                    }
+                );
+        }
+    );
+
+
+    document.addEventListener(
+        'click',
+        event => {
+            if (
+                !event.target.closest(
+                    '[data-phan-filter-dropdown]'
+                )
+            ) {
+                closeListFilterDropdowns();
+            }
+        }
+    );
+
+
+    const charListSearch =
+        document.getElementById(
+            'charListSearch'
+        );
+
+    let charListSearchTimer =
+        null;
+
+
+    function applyCharListSearch() {
+        if (!charListSearch) {
+            return;
+        }
+
+        navigateListFilter(
+            'q',
+            charListSearch.value.trim()
+        );
+    }
+
+
+    charListSearch?.addEventListener(
+        'input',
+        () => {
+            window.clearTimeout(
+                charListSearchTimer
+            );
+
+            charListSearchTimer =
+                window.setTimeout(
+                    applyCharListSearch,
+                    320
+                );
+        }
+    );
+
+
+    charListSearch?.addEventListener(
+        'keydown',
+        event => {
+            if (event.key !== 'Enter') {
+                return;
+            }
+
+            event.preventDefault();
+
+            window.clearTimeout(
+                charListSearchTimer
+            );
+
+            applyCharListSearch();
+        }
+    );
+
+
+    if (
+        charListSearch
+        && charListSearch.value !== ''
+    ) {
+        window.setTimeout(
+            () => {
+                charListSearch.focus();
+
+                const length =
+                    charListSearch.value.length;
+
+                charListSearch.setSelectionRange(
+                    length,
+                    length
+                );
+            },
+            0
+        );
+    }
 
 
     /* =====================================================
@@ -3481,10 +4371,32 @@ require_once __DIR__ . '/../navbar.php';
         avatar.className =
             'relations-char-avatar';
 
-        avatar.textContent =
-            factionInitial(
-                faction?.title
+        if (faction?.thumb) {
+            const img =
+                document.createElement(
+                    'img'
+                );
+
+            img.src =
+                faction.thumb;
+
+            img.alt = '';
+            img.loading =
+                'lazy';
+
+            img.decoding =
+                'async';
+
+            avatar.appendChild(
+                img
             );
+
+        } else {
+            avatar.textContent =
+                factionInitial(
+                    faction?.title
+                );
+        }
 
         return avatar;
     }
@@ -3948,8 +4860,8 @@ require_once __DIR__ . '/../navbar.php';
             );
 
         helper.value = text;
-        helper.style.position = 'fixed';
-        helper.style.opacity = '0';
+        helper.className =
+            'phan-clipboard-helper';
 
         document.body.appendChild(helper);
         helper.focus();

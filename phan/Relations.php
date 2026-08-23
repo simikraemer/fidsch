@@ -2829,45 +2829,16 @@ require_once __DIR__ . '/../navbar.php';
     }
 
 
-    function layoutComponentRadially(
-        component,
-        adjacency,
-        forcedRoot = null
+    /*
+     * Bestehende Radial-Geometrie bleibt erhalten.
+     * Optimiert wird nur die Reihenfolge von Geschwister-Branches.
+     */
+
+    function layoutBranchTreeRadially(
+        tree,
+        root,
+        componentSize
     ) {
-        if (
-            component.length
-            === 1
-        ) {
-            return new Map([
-                [
-                    component[0],
-                    {
-                        x: 0,
-                        y: 0,
-                    },
-                ],
-            ]);
-        }
-
-
-        const root =
-            forcedRoot !== null
-            && component.includes(
-                forcedRoot
-            )
-                ? forcedRoot
-                : chooseComponentRoot(
-                    component,
-                    adjacency
-                );
-
-        const tree =
-            buildBranchTree(
-                component,
-                adjacency,
-                root
-            );
-
         const positions =
             new Map([
                 [
@@ -2879,18 +2850,16 @@ require_once __DIR__ . '/../navbar.php';
                 ],
             ]);
 
-
         const depthStep =
             Math.max(
                 205,
                 Math.min(
                     270,
                     225
-                    + component.length
+                    + componentSize
                         * 2.4
                 )
             );
-
 
         function placeChildren(
             parentId,
@@ -2906,13 +2875,9 @@ require_once __DIR__ . '/../navbar.php';
                 return;
             }
 
-
             const totalWeight =
                 childIds.reduce(
-                    (
-                        sum,
-                        id
-                    ) =>
+                    (sum, id) =>
                         sum
                         + (
                             tree.weights
@@ -2921,7 +2886,6 @@ require_once __DIR__ . '/../navbar.php';
                         ),
                     0
                 );
-
 
             const totalSpan =
                 endAngle
@@ -2952,7 +2916,6 @@ require_once __DIR__ . '/../navbar.php';
 
             let cursor =
                 startAngle;
-
 
             childIds.forEach(
                 (
@@ -2992,32 +2955,24 @@ require_once __DIR__ . '/../navbar.php';
                         depthStep
                         * depth;
 
-
                     positions.set(
                         childId,
                         {
                             x:
-                                Math.cos(
-                                    angle
-                                )
+                                Math.cos(angle)
                                 * radius,
 
                             y:
-                                Math.sin(
-                                    angle
-                                )
+                                Math.sin(angle)
                                 * radius,
                         }
                     );
 
-
                     const innerPadding =
                         Math.min(
                             0.08,
-                            span
-                                * 0.08
+                            span * 0.08
                         );
-
 
                     placeChildren(
                         childId,
@@ -3027,20 +2982,17 @@ require_once __DIR__ . '/../navbar.php';
                             - innerPadding
                     );
 
-
                     cursor =
                         childEnd
                         + (
                             index
-                                < childIds.length
-                                    - 1
-                                ? branchGap
-                                : 0
+                                < childIds.length - 1
+                                    ? branchGap
+                                    : 0
                         );
                 }
             );
         }
-
 
         placeChildren(
             root,
@@ -3048,8 +3000,456 @@ require_once __DIR__ . '/../navbar.php';
             Math.PI * 1.5
         );
 
+        return positions;
+    }
+
+
+    function radialOrientation(
+        a,
+        b,
+        c
+    ) {
+        const value =
+            (
+                b.x - a.x
+            )
+            * (
+                c.y - a.y
+            )
+            -
+            (
+                b.y - a.y
+            )
+            * (
+                c.x - a.x
+            );
+
+        if (
+            Math.abs(value)
+            < 0.000001
+        ) {
+            return 0;
+        }
+
+        return value > 0
+            ? 1
+            : -1;
+    }
+
+
+    function radialEdgesCross(
+        a1,
+        a2,
+        b1,
+        b2
+    ) {
+        const o1 =
+            radialOrientation(
+                a1,
+                a2,
+                b1
+            );
+
+        const o2 =
+            radialOrientation(
+                a1,
+                a2,
+                b2
+            );
+
+        const o3 =
+            radialOrientation(
+                b1,
+                b2,
+                a1
+            );
+
+        const o4 =
+            radialOrientation(
+                b1,
+                b2,
+                a2
+            );
+
+        return (
+            o1 !== 0
+            && o2 !== 0
+            && o3 !== 0
+            && o4 !== 0
+            && o1 !== o2
+            && o3 !== o4
+        );
+    }
+
+
+    function radialLayoutScore(
+        positions,
+        relations
+    ) {
+        const edges =
+            relations
+                .map(
+                    relation => {
+                        const from =
+                            positions.get(
+                                relation.from
+                            );
+
+                        const to =
+                            positions.get(
+                                relation.to
+                            );
+
+                        if (!from || !to) {
+                            return null;
+                        }
+
+                        return {
+                            relation,
+                            from,
+                            to,
+                        };
+                    }
+                )
+                .filter(Boolean);
+
+        let lengthScore = 0;
+
+        edges.forEach(
+            edge => {
+                const dx =
+                    edge.from.x
+                    - edge.to.x;
+
+                const dy =
+                    edge.from.y
+                    - edge.to.y;
+
+                lengthScore +=
+                    dx * dx
+                    + dy * dy;
+            }
+        );
+
+        let crossings = 0;
+
+        for (
+            let i = 0;
+            i < edges.length;
+            i++
+        ) {
+            const a =
+                edges[i];
+
+            for (
+                let j = i + 1;
+                j < edges.length;
+                j++
+            ) {
+                const b =
+                    edges[j];
+
+                if (
+                    a.relation.from
+                        === b.relation.from
+                    || a.relation.from
+                        === b.relation.to
+                    || a.relation.to
+                        === b.relation.from
+                    || a.relation.to
+                        === b.relation.to
+                ) {
+                    continue;
+                }
+
+                if (
+                    radialEdgesCross(
+                        a.from,
+                        a.to,
+                        b.from,
+                        b.to
+                    )
+                ) {
+                    crossings++;
+                }
+            }
+        }
+
+        return (
+            crossings
+                * 1000000000
+            + lengthScore
+        );
+    }
+
+
+    function radialSwapCandidates(
+        count
+    ) {
+        const pairs = [];
+
+        if (count <= 10) {
+            for (
+                let a = 0;
+                a < count - 1;
+                a++
+            ) {
+                for (
+                    let b = a + 1;
+                    b < count;
+                    b++
+                ) {
+                    pairs.push([
+                        a,
+                        b,
+                    ]);
+                }
+            }
+
+            return pairs;
+        }
+
+        const offsets = [
+            1,
+            2,
+            3,
+            Math.floor(count / 2),
+        ];
+
+        for (
+            let a = 0;
+            a < count;
+            a++
+        ) {
+            offsets.forEach(
+                offset => {
+                    const b =
+                        a + offset;
+
+                    if (b < count) {
+                        pairs.push([
+                            a,
+                            b,
+                        ]);
+                    }
+                }
+            );
+        }
+
+        return pairs;
+    }
+
+
+    function optimizeBranchOrder(
+        tree,
+        root,
+        componentSize,
+        relations
+    ) {
+        let positions =
+            layoutBranchTreeRadially(
+                tree,
+                root,
+                componentSize
+            );
+
+        if (
+            componentSize < 4
+            || relations.length < 3
+        ) {
+            return positions;
+        }
+
+        let bestScore =
+            radialLayoutScore(
+                positions,
+                relations
+            );
+
+        const parentIds =
+            [...tree.children.keys()]
+                .sort(
+                    (a, b) =>
+                        (
+                            tree.depth.get(a)
+                            || 0
+                        )
+                        -
+                        (
+                            tree.depth.get(b)
+                            || 0
+                        )
+                );
+
+        for (
+            let pass = 0;
+            pass < 3;
+            pass++
+        ) {
+            let improved = false;
+
+            for (
+                const parentId
+                of parentIds
+            ) {
+                const childIds =
+                    tree.children
+                        .get(parentId)
+                    || [];
+
+                if (
+                    childIds.length < 2
+                ) {
+                    continue;
+                }
+
+                const pairs =
+                    radialSwapCandidates(
+                        childIds.length
+                    );
+
+                let localBestScore =
+                    bestScore;
+
+                let localBestPair =
+                    null;
+
+                let localBestPositions =
+                    null;
+
+                for (
+                    const [
+                        a,
+                        b,
+                    ]
+                    of pairs
+                ) {
+                    [
+                        childIds[a],
+                        childIds[b],
+                    ] = [
+                        childIds[b],
+                        childIds[a],
+                    ];
+
+                    const candidate =
+                        layoutBranchTreeRadially(
+                            tree,
+                            root,
+                            componentSize
+                        );
+
+                    const candidateScore =
+                        radialLayoutScore(
+                            candidate,
+                            relations
+                        );
+
+                    [
+                        childIds[a],
+                        childIds[b],
+                    ] = [
+                        childIds[b],
+                        childIds[a],
+                    ];
+
+                    if (
+                        candidateScore
+                        < localBestScore
+                            - 0.001
+                    ) {
+                        localBestScore =
+                            candidateScore;
+
+                        localBestPair = [
+                            a,
+                            b,
+                        ];
+
+                        localBestPositions =
+                            candidate;
+                    }
+                }
+
+                if (localBestPair) {
+                    const [
+                        a,
+                        b,
+                    ] = localBestPair;
+
+                    [
+                        childIds[a],
+                        childIds[b],
+                    ] = [
+                        childIds[b],
+                        childIds[a],
+                    ];
+
+                    positions =
+                        localBestPositions;
+
+                    bestScore =
+                        localBestScore;
+
+                    improved =
+                        true;
+                }
+            }
+
+            if (!improved) {
+                break;
+            }
+        }
 
         return positions;
+    }
+
+
+    function layoutComponentRadially(
+        component,
+        adjacency,
+        componentRelations,
+        forcedRoot = null
+    ) {
+        if (
+            component.length
+            === 1
+        ) {
+            return new Map([
+                [
+                    component[0],
+                    {
+                        x: 0,
+                        y: 0,
+                    },
+                ],
+            ]);
+        }
+
+        const root =
+            forcedRoot !== null
+            && component.includes(
+                forcedRoot
+            )
+                ? forcedRoot
+                : chooseComponentRoot(
+                    component,
+                    adjacency
+                );
+
+        const tree =
+            buildBranchTree(
+                component,
+                adjacency,
+                root
+            );
+
+        return optimizeBranchOrder(
+            tree,
+            root,
+            component.length,
+            componentRelations
+        );
     }
 
 
@@ -3084,10 +3484,27 @@ require_once __DIR__ . '/../navbar.php';
                             ? centeredCharId
                             : null;
 
+                    const componentSet =
+                        new Set(
+                            component
+                        );
+
+                    const componentRelations =
+                        relations.filter(
+                            relation =>
+                                componentSet.has(
+                                    relation.from
+                                )
+                                && componentSet.has(
+                                    relation.to
+                                )
+                        );
+
                     const positions =
                         layoutComponentRadially(
                             component,
                             adjacency,
+                            componentRelations,
                             forcedRoot
                         );
 
@@ -4706,26 +5123,16 @@ require_once __DIR__ . '/../navbar.php';
                 rebuildGraphAfterRelationChange();
 
                 /*
-                 * Modal bleibt offen.
-                 * Nach erfolgreichem Anlegen direkt für die
-                 * nächste Beziehung leeren.
+                 * Serienanlage:
+                 * Charakter A und Beziehungstyp bleiben.
+                 * Nur Charakter B wird geleert.
                  */
-                addFromPicker.reset();
                 addToPicker.reset();
-
-                if (addType) {
-                    addType.value =
-                        'friend';
-                }
 
                 updatePickerTitles(
                     addType,
                     'addFromTitle',
                     'addToTitle'
-                );
-
-                addFromPicker.renderResults(
-                    ''
                 );
 
                 addToPicker.renderResults(
@@ -4738,7 +5145,7 @@ require_once __DIR__ . '/../navbar.php';
 
                 document
                     .getElementById(
-                        'addFromSearch'
+                        'addToSearch'
                     )
                     ?.focus();
 
@@ -5234,11 +5641,47 @@ require_once __DIR__ . '/../navbar.php';
 
 
             try {
+                const deletedId =
+                    selectedRelationId;
+
                 await postRelation(
                     data
                 );
 
-                location.reload();
+                const index =
+                    RELATIONS.findIndex(
+                        relation =>
+                            relation.id
+                            === deletedId
+                    );
+
+                if (index >= 0) {
+                    RELATIONS.splice(
+                        index,
+                        1
+                    );
+                }
+
+                relationMap.delete(
+                    deletedId
+                );
+
+                /*
+                 * Kein Reload:
+                 * Region, Modal und Suchtext bleiben bestehen.
+                 */
+                clearEditSelection();
+
+                rebuildGraphAfterRelationChange();
+
+                renderRelationResults(
+                    relationSearch?.value
+                    || ''
+                );
+
+                setStatus(
+                    'Beziehung gelöscht'
+                );
 
             } catch (error) {
                 setStatus(
