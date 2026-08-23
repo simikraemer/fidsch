@@ -1455,6 +1455,14 @@ require_once __DIR__ . '/../navbar.php';
     const edgeMap =
         new Map();
 
+    /*
+     * Eigener Positions-Cache nur für die globale "Alle"-Ansicht.
+     * Regionsansichten dürfen ihre Radialpositionen ändern, ohne
+     * dadurch die globale Force-Anordnung zu zerstören.
+     */
+    const globalLayoutCache =
+        new Map();
+
     let scale = 1;
     let translateX = 0;
     let translateY = 0;
@@ -3686,6 +3694,1125 @@ require_once __DIR__ . '/../navbar.php';
     }
 
 
+
+    /* =====================================================
+     * Globale "Alle"-Ansicht:
+     * Force-Directed + Collision + schwache Regionscluster
+     *
+     * Die einzelnen Regionsansichten benutzen weiterhin
+     * unverändert layoutGraphByBranches().
+     * ===================================================== */
+
+    function globalRegionKey(char) {
+        const regionId =
+            Number(
+                char?.region_id
+                || 0
+            );
+
+        return regionId > 0
+            ? 'region:' + regionId
+            : 'region:none';
+    }
+
+
+    function deterministicUnit(
+        value,
+        salt = 0
+    ) {
+        let x =
+            (
+                Number(value)
+                * 2654435761
+                + Number(salt)
+                * 1013904223
+            ) >>> 0;
+
+        x ^= x << 13;
+        x ^= x >>> 17;
+        x ^= x << 5;
+
+        return (
+            (x >>> 0)
+            % 100000
+        ) / 100000;
+    }
+
+
+    function buildGlobalRegionAnchors(
+        chars
+    ) {
+        const groups =
+            new Map();
+
+
+        chars.forEach(
+            char => {
+                const key =
+                    globalRegionKey(
+                        char
+                    );
+
+                if (!groups.has(key)) {
+                    groups.set(
+                        key,
+                        {
+                            key,
+                            title:
+                                String(
+                                    char.region
+                                    || ''
+                                ),
+                            chars: [],
+                        }
+                    );
+                }
+
+                groups
+                    .get(key)
+                    .chars
+                    .push(char);
+            }
+        );
+
+
+        const ordered =
+            [...groups.values()]
+                .sort(
+                    (a, b) => {
+                        const sizeDiff =
+                            b.chars.length
+                            - a.chars.length;
+
+                        if (sizeDiff) {
+                            return sizeDiff;
+                        }
+
+                        return a.title
+                            .localeCompare(
+                                b.title,
+                                'de'
+                            );
+                    }
+                );
+
+
+        if (!ordered.length) {
+            return new Map();
+        }
+
+
+        /*
+         * Rechteckiges 2D-Raster statt Kreis/Sektoren.
+         * 1.35 sorgt dafür, dass die Gesamtansicht etwas
+         * breiter als hoch wird und den Viewport besser nutzt.
+         */
+        const columns =
+            Math.max(
+                1,
+                Math.ceil(
+                    Math.sqrt(
+                        ordered.length
+                        * 1.35
+                    )
+                )
+            );
+
+        const rows =
+            Math.ceil(
+                ordered.length
+                / columns
+            );
+
+
+        const largestGroup =
+            Math.max(
+                1,
+                ...ordered.map(
+                    group =>
+                        group.chars.length
+                )
+            );
+
+
+        const sizeBonus =
+            Math.min(
+                260,
+                Math.sqrt(
+                    largestGroup
+                ) * 38
+            );
+
+
+        const spacingX =
+            590
+            + sizeBonus;
+
+        const spacingY =
+            500
+            + sizeBonus * 0.75;
+
+
+        const centerX =
+            2000;
+
+        const centerY =
+            1500;
+
+
+        const anchors =
+            new Map();
+
+
+        ordered.forEach(
+            (
+                group,
+                index
+            ) => {
+                const row =
+                    Math.floor(
+                        index
+                        / columns
+                    );
+
+                /*
+                 * Snake-Anordnung:
+                 * zweite Reihe läuft rückwärts.
+                 * Dadurch liegen aufeinanderfolgende Cluster
+                 * nicht unnötig weit auseinander.
+                 */
+                const plainColumn =
+                    index
+                    % columns;
+
+                const column =
+                    row % 2 === 0
+                        ? plainColumn
+                        : (
+                            columns
+                            - 1
+                            - plainColumn
+                        );
+
+
+                const x =
+                    centerX
+                    + (
+                        column
+                        - (
+                            columns
+                            - 1
+                        ) / 2
+                    )
+                    * spacingX;
+
+                const y =
+                    centerY
+                    + (
+                        row
+                        - (
+                            rows
+                            - 1
+                        ) / 2
+                    )
+                    * spacingY;
+
+
+                anchors.set(
+                    group.key,
+                    {
+                        x,
+                        y,
+                    }
+                );
+            }
+        );
+
+
+        return anchors;
+    }
+
+
+    function globalRelationLength(
+        relation
+    ) {
+        const base =
+            {
+                committed: 185,
+                siblings: 200,
+                parent_child: 215,
+                friend: 225,
+                casual: 245,
+                colleges: 260,
+                enemies: 285,
+            }[
+                relation.type
+            ]
+            || 235;
+
+
+        const from =
+            charMap.get(
+                relation.from
+            );
+
+        const to =
+            charMap.get(
+                relation.to
+            );
+
+
+        const differentRegion =
+            from
+            && to
+            && globalRegionKey(from)
+                !== globalRegionKey(to);
+
+
+        return base
+            + (
+                differentRegion
+                    ? 45
+                    : 0
+            );
+    }
+
+
+    function layoutGraphForceGlobal() {
+        const chars =
+            visibleChars();
+
+        const relations =
+            visibleRelations();
+
+
+        if (!chars.length) {
+            return;
+        }
+
+
+        if (chars.length === 1) {
+            const node =
+                nodeMap.get(
+                    chars[0].id
+                );
+
+            if (node) {
+                node.x = 2000;
+                node.y = 1500;
+
+                globalLayoutCache.set(
+                    chars[0].id,
+                    {
+                        x: node.x,
+                        y: node.y,
+                    }
+                );
+            }
+
+            return;
+        }
+
+
+        const anchors =
+            buildGlobalRegionAnchors(
+                chars
+            );
+
+
+        const state =
+            new Map();
+
+
+        const groupCounters =
+            new Map();
+
+
+        chars.forEach(
+            char => {
+                const cached =
+                    globalLayoutCache.get(
+                        char.id
+                    );
+
+                const regionKey =
+                    globalRegionKey(
+                        char
+                    );
+
+                const anchor =
+                    anchors.get(
+                        regionKey
+                    )
+                    || {
+                        x: 2000,
+                        y: 1500,
+                    };
+
+
+                const groupIndex =
+                    groupCounters.get(
+                        regionKey
+                    )
+                    || 0;
+
+                groupCounters.set(
+                    regionKey,
+                    groupIndex + 1
+                );
+
+
+                let x;
+                let y;
+
+
+                if (
+                    cached
+                    && Number.isFinite(
+                        cached.x
+                    )
+                    && Number.isFinite(
+                        cached.y
+                    )
+                ) {
+                    x =
+                        cached.x;
+
+                    y =
+                        cached.y;
+
+                } else {
+                    /*
+                     * Deterministischer Spiral-Start innerhalb
+                     * des Regionsclusters. Kein Zufall, damit
+                     * Reloads nicht jedes Mal anders aussehen.
+                     */
+                    const angle =
+                        groupIndex
+                        * 2.399963229728653
+                        + deterministicUnit(
+                            char.id,
+                            11
+                        )
+                        * 0.45;
+
+                    const radius =
+                        38
+                        + Math.sqrt(
+                            groupIndex
+                            + 1
+                        )
+                        * 76;
+
+                    x =
+                        anchor.x
+                        + Math.cos(
+                            angle
+                        )
+                        * radius;
+
+                    y =
+                        anchor.y
+                        + Math.sin(
+                            angle
+                        )
+                        * radius;
+                }
+
+
+                state.set(
+                    char.id,
+                    {
+                        char,
+                        x,
+                        y,
+                        vx: 0,
+                        vy: 0,
+                    }
+                );
+            }
+        );
+
+
+        const points =
+            [...state.values()];
+
+
+        const iterationCount =
+            Math.max(
+                300,
+                Math.min(
+                    520,
+                    250
+                    + chars.length * 4
+                )
+            );
+
+
+        /*
+         * Abstände sind bewusst deutlich größer als die
+         * Node-Breite. Labels sollen sich ebenfalls nicht
+         * dauernd überdecken.
+         */
+        const collisionDistance =
+            172;
+
+        const repulsionStrength =
+            88000;
+
+        const springStrength =
+            0.017;
+
+        const regionStrength =
+            0.0019;
+
+        const centerStrength =
+            0.00016;
+
+        const damping =
+            0.82;
+
+
+        for (
+            let iteration = 0;
+            iteration < iterationCount;
+            iteration++
+        ) {
+            const progress =
+                iteration
+                / Math.max(
+                    1,
+                    iterationCount - 1
+                );
+
+            const temperature =
+                Math.max(
+                    0.08,
+                    1 - progress
+                );
+
+
+            const fx =
+                new Map();
+
+            const fy =
+                new Map();
+
+
+            points.forEach(
+                point => {
+                    fx.set(
+                        point.char.id,
+                        0
+                    );
+
+                    fy.set(
+                        point.char.id,
+                        0
+                    );
+                }
+            );
+
+
+            /*
+             * Globale Abstoßung.
+             * O(n²) ist für die hier erwartete Charakterzahl
+             * klein genug und ergibt ein ruhigeres Layout als
+             * zusätzliche Bibliotheken/Approximationen.
+             */
+            for (
+                let i = 0;
+                i < points.length - 1;
+                i++
+            ) {
+                const a =
+                    points[i];
+
+                for (
+                    let j = i + 1;
+                    j < points.length;
+                    j++
+                ) {
+                    const b =
+                        points[j];
+
+                    let dx =
+                        a.x
+                        - b.x;
+
+                    let dy =
+                        a.y
+                        - b.y;
+
+
+                    if (
+                        Math.abs(dx)
+                            < 0.001
+                        && Math.abs(dy)
+                            < 0.001
+                    ) {
+                        const angle =
+                            deterministicUnit(
+                                a.char.id
+                                + b.char.id,
+                                i + j + 31
+                            )
+                            * Math.PI
+                            * 2;
+
+                        dx =
+                            Math.cos(
+                                angle
+                            )
+                            * 0.01;
+
+                        dy =
+                            Math.sin(
+                                angle
+                            )
+                            * 0.01;
+                    }
+
+
+                    const distanceSquared =
+                        Math.max(
+                            100,
+                            dx * dx
+                            + dy * dy
+                        );
+
+                    const distance =
+                        Math.sqrt(
+                            distanceSquared
+                        );
+
+
+                    const force =
+                        Math.min(
+                            10,
+                            repulsionStrength
+                            / distanceSquared
+                        );
+
+
+                    const nx =
+                        dx
+                        / distance;
+
+                    const ny =
+                        dy
+                        / distance;
+
+
+                    fx.set(
+                        a.char.id,
+                        fx.get(
+                            a.char.id
+                        )
+                        + nx
+                            * force
+                    );
+
+                    fy.set(
+                        a.char.id,
+                        fy.get(
+                            a.char.id
+                        )
+                        + ny
+                            * force
+                    );
+
+                    fx.set(
+                        b.char.id,
+                        fx.get(
+                            b.char.id
+                        )
+                        - nx
+                            * force
+                    );
+
+                    fy.set(
+                        b.char.id,
+                        fy.get(
+                            b.char.id
+                        )
+                        - ny
+                            * force
+                    );
+                }
+            }
+
+
+            /*
+             * Beziehungslinien als Federn.
+             */
+            relations.forEach(
+                relation => {
+                    const a =
+                        state.get(
+                            relation.from
+                        );
+
+                    const b =
+                        state.get(
+                            relation.to
+                        );
+
+
+                    if (!a || !b) {
+                        return;
+                    }
+
+
+                    let dx =
+                        b.x
+                        - a.x;
+
+                    let dy =
+                        b.y
+                        - a.y;
+
+                    let distance =
+                        Math.hypot(
+                            dx,
+                            dy
+                        );
+
+
+                    if (distance < 0.001) {
+                        distance =
+                            0.001;
+                    }
+
+
+                    const target =
+                        globalRelationLength(
+                            relation
+                        );
+
+
+                    const force =
+                        (
+                            distance
+                            - target
+                        )
+                        * springStrength;
+
+
+                    const nx =
+                        dx
+                        / distance;
+
+                    const ny =
+                        dy
+                        / distance;
+
+
+                    fx.set(
+                        a.char.id,
+                        fx.get(
+                            a.char.id
+                        )
+                        + nx
+                            * force
+                    );
+
+                    fy.set(
+                        a.char.id,
+                        fy.get(
+                            a.char.id
+                        )
+                        + ny
+                            * force
+                    );
+
+                    fx.set(
+                        b.char.id,
+                        fx.get(
+                            b.char.id
+                        )
+                        - nx
+                            * force
+                    );
+
+                    fy.set(
+                        b.char.id,
+                        fy.get(
+                            b.char.id
+                        )
+                        - ny
+                            * force
+                    );
+                }
+            );
+
+
+            /*
+             * Schwache Regionsanziehung.
+             * Sie gruppiert nur grob; Relationen dürfen die
+             * Charaktere weiterhin deutlich aus dem Cluster
+             * herausziehen.
+             */
+            points.forEach(
+                point => {
+                    const anchor =
+                        anchors.get(
+                            globalRegionKey(
+                                point.char
+                            )
+                        )
+                        || {
+                            x: 2000,
+                            y: 1500,
+                        };
+
+
+                    fx.set(
+                        point.char.id,
+                        fx.get(
+                            point.char.id
+                        )
+                        + (
+                            anchor.x
+                            - point.x
+                        )
+                        * regionStrength
+                    );
+
+                    fy.set(
+                        point.char.id,
+                        fy.get(
+                            point.char.id
+                        )
+                        + (
+                            anchor.y
+                            - point.y
+                        )
+                        * regionStrength
+                    );
+
+
+                    /*
+                     * Sehr schwache Gesamtzentrierung, damit
+                     * der Graph nicht als Ganzes wegdriftet.
+                     */
+                    fx.set(
+                        point.char.id,
+                        fx.get(
+                            point.char.id
+                        )
+                        + (
+                            2000
+                            - point.x
+                        )
+                        * centerStrength
+                    );
+
+                    fy.set(
+                        point.char.id,
+                        fy.get(
+                            point.char.id
+                        )
+                        + (
+                            1500
+                            - point.y
+                        )
+                        * centerStrength
+                    );
+                }
+            );
+
+
+            /*
+             * Integration mit Abkühlung.
+             */
+            points.forEach(
+                point => {
+                    point.vx =
+                        (
+                            point.vx
+                            + fx.get(
+                                point.char.id
+                            )
+                        )
+                        * damping;
+
+                    point.vy =
+                        (
+                            point.vy
+                            + fy.get(
+                                point.char.id
+                            )
+                        )
+                        * damping;
+
+
+                    const speed =
+                        Math.hypot(
+                            point.vx,
+                            point.vy
+                        );
+
+                    const maxStep =
+                        3
+                        + 24
+                            * temperature;
+
+
+                    if (
+                        speed
+                        > maxStep
+                    ) {
+                        const factor =
+                            maxStep
+                            / speed;
+
+                        point.vx *=
+                            factor;
+
+                        point.vy *=
+                            factor;
+                    }
+
+
+                    point.x +=
+                        point.vx;
+
+                    point.y +=
+                        point.vy;
+                }
+            );
+
+
+            /*
+             * Harte Collision-Korrektur nach dem Force-Schritt.
+             * Dadurch dürfen Nodes auch dann nicht ineinander
+             * rutschen, wenn mehrere Beziehungen sie eng
+             * zusammenziehen.
+             */
+            for (
+                let i = 0;
+                i < points.length - 1;
+                i++
+            ) {
+                const a =
+                    points[i];
+
+                for (
+                    let j = i + 1;
+                    j < points.length;
+                    j++
+                ) {
+                    const b =
+                        points[j];
+
+                    let dx =
+                        b.x
+                        - a.x;
+
+                    let dy =
+                        b.y
+                        - a.y;
+
+                    let distance =
+                        Math.hypot(
+                            dx,
+                            dy
+                        );
+
+
+                    if (distance < 0.001) {
+                        const angle =
+                            deterministicUnit(
+                                a.char.id
+                                + b.char.id,
+                                73 + i + j
+                            )
+                            * Math.PI
+                            * 2;
+
+                        dx =
+                            Math.cos(
+                                angle
+                            );
+
+                        dy =
+                            Math.sin(
+                                angle
+                            );
+
+                        distance = 1;
+                    }
+
+
+                    if (
+                        distance
+                        >= collisionDistance
+                    ) {
+                        continue;
+                    }
+
+
+                    const overlap =
+                        (
+                            collisionDistance
+                            - distance
+                        )
+                        * 0.52;
+
+
+                    const nx =
+                        dx
+                        / distance;
+
+                    const ny =
+                        dy
+                        / distance;
+
+
+                    a.x -=
+                        nx
+                        * overlap;
+
+                    a.y -=
+                        ny
+                        * overlap;
+
+                    b.x +=
+                        nx
+                        * overlap;
+
+                    b.y +=
+                        ny
+                        * overlap;
+                }
+            }
+        }
+
+
+        /*
+         * Zum Schluss den fertigen Graphen wieder ungefähr
+         * in den 4000×3000-World-Bereich schieben.
+         * Die Form selbst bleibt dabei unverändert.
+         */
+        let minX =
+            Infinity;
+
+        let minY =
+            Infinity;
+
+        let maxX =
+            -Infinity;
+
+        let maxY =
+            -Infinity;
+
+
+        points.forEach(
+            point => {
+                minX =
+                    Math.min(
+                        minX,
+                        point.x
+                    );
+
+                minY =
+                    Math.min(
+                        minY,
+                        point.y
+                    );
+
+                maxX =
+                    Math.max(
+                        maxX,
+                        point.x
+                    );
+
+                maxY =
+                    Math.max(
+                        maxY,
+                        point.y
+                    );
+            }
+        );
+
+
+        const centerX =
+            (
+                minX
+                + maxX
+            ) / 2;
+
+        const centerY =
+            (
+                minY
+                + maxY
+            ) / 2;
+
+
+        const shiftX =
+            2000
+            - centerX;
+
+        const shiftY =
+            1500
+            - centerY;
+
+
+        points.forEach(
+            point => {
+                point.x +=
+                    shiftX;
+
+                point.y +=
+                    shiftY;
+
+
+                const node =
+                    nodeMap.get(
+                        point.char.id
+                    );
+
+                if (!node) {
+                    return;
+                }
+
+
+                node.x =
+                    point.x;
+
+                node.y =
+                    point.y;
+
+
+                globalLayoutCache.set(
+                    point.char.id,
+                    {
+                        x: point.x,
+                        y: point.y,
+                    }
+                );
+            }
+        );
+    }
+
+
+    function layoutCurrentGraph() {
+        if (
+            selectedRegionId === null
+        ) {
+            layoutGraphForceGlobal();
+            return;
+        }
+
+        /*
+         * Einzelne Region:
+         * bisheriges Branch-/Radiallayout unverändert.
+         */
+        layoutGraphByBranches();
+    }
+
+
     /* =====================================================
      * Nodes
      * ===================================================== */
@@ -3823,7 +4950,7 @@ require_once __DIR__ . '/../navbar.php';
         );
 
 
-        layoutGraphByBranches();
+        layoutCurrentGraph();
 
         renderNodePositions();
     }
@@ -3959,6 +5086,20 @@ require_once __DIR__ . '/../navbar.php';
                         'pointercancel',
                         end
                     );
+
+
+                    if (
+                        moved
+                        && selectedRegionId === null
+                    ) {
+                        globalLayoutCache.set(
+                            node.char.id,
+                            {
+                                x: node.x,
+                                y: node.y,
+                            }
+                        );
+                    }
 
 
                     if (!moved) {
@@ -4205,12 +5346,11 @@ require_once __DIR__ . '/../navbar.php';
 
 
         /*
-         * Wichtig:
-         * Die bestehende Branch-Radial-Anordnung bleibt
-         * unverändert. Sie bekommt lediglich den aktuell
-         * gefilterten Graphen als Grundlage.
+         * "Alle" benutzt das globale Force-Layout.
+         * Einzelne Regionen bleiben beim bisherigen
+         * Branch-/Radiallayout.
          */
-        layoutGraphByBranches();
+        layoutCurrentGraph();
 
         renderNodePositions();
         updateEdges();
@@ -4559,13 +5699,23 @@ require_once __DIR__ . '/../navbar.php';
             charId;
 
         /*
-         * Exakt dieselbe vorhandene Branch-Anordnung,
-         * lediglich mit dem geklickten Charakter als Root.
+         * In der globalen Force-Ansicht bleibt die Anordnung
+         * beim Zentrieren stabil. Nur der Viewport fokussiert
+         * den Charakter.
+         *
+         * In einer einzelnen Region bleibt das bisherige
+         * Verhalten erhalten: geklickter Charakter wird Root
+         * des Radiallayouts.
          */
-        layoutGraphByBranches();
+        if (
+            selectedRegionId !== null
+        ) {
+            layoutGraphByBranches();
 
-        renderNodePositions();
-        updateEdges();
+            renderNodePositions();
+            updateEdges();
+        }
+
         markCenteredNode();
 
 
@@ -4590,12 +5740,19 @@ require_once __DIR__ . '/../navbar.php';
             null;
 
         /*
-         * Normale automatische Root-Auswahl wiederherstellen.
+         * In einzelnen Regionen normale automatische
+         * Radial-Root-Auswahl wiederherstellen.
+         * Die globale Force-Anordnung bleibt unverändert.
          */
-        layoutGraphByBranches();
+        if (
+            selectedRegionId !== null
+        ) {
+            layoutGraphByBranches();
 
-        renderNodePositions();
-        updateEdges();
+            renderNodePositions();
+            updateEdges();
+        }
+
         markCenteredNode();
 
 
