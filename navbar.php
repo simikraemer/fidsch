@@ -294,13 +294,29 @@ if ($isAuthed) {
                             </span>
                         </a>
                     </li>
+                    <li>
+                        <a href="/phan/alben">
+                            <img
+                                src="/img/vinyl.png"
+                                alt="Alben"
+                                class="nav-icon"
+                                loading="eager"
+                                decoding="sync"
+                                fetchpriority="high"
+                            >
+                            <span class="submenu-text">
+                                Alben
+                            </span>
+                        </a>
+                    </li>
                 </ul>
             </li>
             
             <!-- Tools -->
             <li class="nav-item has-submenu">
-                <a href="/tools/log"><img src="/img/settings.png" alt="Tool" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"></a>
-                <ul class="submenu">                    
+                <a href="/tools/files"><img src="/img/settings.png" alt="Tool" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"></a>
+                <ul class="submenu">       
+                    <li><a href="/tools/files"><img src="/img/upload.png" alt="Files" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Files</span></a></li>
                     <li><a href="/tools/log"><img src="/img/log.png" alt="MAC" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Login-Logs</span></a></li>
                     <li><a href="/tools/pdfmerge"><img src="/img/merge.png" alt="MERGER" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">PDF-Merger</span></a></li>
                     <li><a href="/tools/timer"><img src="/img/timer.png" alt="TIMER" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Timer</span></a></li>

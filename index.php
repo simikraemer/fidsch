@@ -53,6 +53,7 @@ $routesTool = [
     'log'      => 'LoginLogs.php',
     'timer'    => 'TIMER.php',
     'pdfmerge' => 'PDFMERGE.php',
+    'files'    => 'Files.php',
 ];
 
 $routesPhan = [
@@ -61,6 +62,7 @@ $routesPhan = [
     'factions'  => 'Fraktion.php',
     'relations' => 'Relations.php',
     'stories'   => 'Stories.php',
+    'alben'     => 'Alben.php',
 ];
 
 // --- Sonderfall: öffentliche Pretty-URL ohne /sci/ ---
