@@ -1,5 +1,5 @@
 <?php
-// fit/Start.php (Übersicht)
+// fit/Start_v12.php (Übersicht)
 
 // 1) Auth (diese Seite ist geschützt)
 require_once __DIR__ . '/../auth.php';
@@ -43,15 +43,27 @@ if (!$verfuegbareJahre) {
     $verfuegbareJahre = [$aktJahr];
 }
 
-$jahr = isset($_GET['jahr']) ? (int)$_GET['jahr'] : $aktJahr;
+$jahrParam = isset($_GET['jahr']) ? trim((string)$_GET['jahr']) : (string)$aktJahr;
+$isAllYears = ($jahrParam === 'all');
 
-// Default: aktuelles Jahr, aber nur wenn vorhanden; sonst neuestes Jahr mit Daten
-if (!in_array($jahr, $verfuegbareJahre, true)) {
-    $jahr = in_array($aktJahr, $verfuegbareJahre, true) ? $aktJahr : $verfuegbareJahre[0];
+$allStartYear = min($verfuegbareJahre);
+$allEndYear   = max($verfuegbareJahre);
+
+if ($isAllYears) {
+    $jahr = 'all';
+    $startDate = sprintf('%04d-01-01', $allStartYear);
+    $endDate   = sprintf('%04d-01-01', $allEndYear + 1); // exklusives Ende
+} else {
+    $jahr = (int)$jahrParam;
+
+    // Default: aktuelles Jahr, aber nur wenn vorhanden; sonst neuestes Jahr mit Daten
+    if (!in_array($jahr, $verfuegbareJahre, true)) {
+        $jahr = in_array($aktJahr, $verfuegbareJahre, true) ? $aktJahr : $verfuegbareJahre[0];
+    }
+
+    $startDate = sprintf('%04d-01-01', $jahr);
+    $endDate   = sprintf('%04d-01-01', $jahr + 1); // exklusives Ende
 }
-
-$startDate = sprintf('%04d-01-01', $jahr);
-$endDate   = sprintf('%04d-01-01', $jahr + 1); // exklusives Ende
 
 function weekdayAvgFromDateMap(array $dateMap, int $precision = 2): array
 {
@@ -369,6 +381,60 @@ $fettKWavg    = kwAvgSerie($alleTage, $fettTage);
 $khKWavg      = kwAvgSerie($alleTage, $khTage);
 $alkKWavg     = kwAvgSerie($alleTage, $alkTage);
 
+// 9c) Monatsmittel für den Mehrjahresmodus "Alle".
+// Der Mittelwert wird jeweils am ersten und letzten Kalendertag des Monats
+// eingetragen, sodass Chart.js pro Monat eine durchgehende Durchschnittslinie zeichnet.
+function monthAvgSerie(array $alleTage, array $tageMap, int $precision = 2): array
+{
+    $out = array_fill(0, count($alleTage), null);
+    $monate = [];
+
+    foreach ($alleTage as $index => $tag) {
+        $monat = substr($tag, 0, 7); // YYYY-MM
+
+        if (!isset($monate[$monat])) {
+            $monate[$monat] = [
+                'firstIndex' => $index,
+                'lastIndex'  => $index,
+                'values'     => [],
+            ];
+        }
+
+        $monate[$monat]['lastIndex'] = $index;
+
+        if (array_key_exists($tag, $tageMap) && $tageMap[$tag] !== null) {
+            $monate[$monat]['values'][] = (float)$tageMap[$tag];
+        }
+    }
+
+    foreach ($monate as $monatData) {
+        if (!$monatData['values']) {
+            continue;
+        }
+
+        $avg = round(
+            array_sum($monatData['values']) / count($monatData['values']),
+            $precision
+        );
+
+        $firstIndex = (int)$monatData['firstIndex'];
+        $lastIndex  = (int)$monatData['lastIndex'];
+
+        $out[$firstIndex] = $avg;
+        if ($lastIndex !== $firstIndex) {
+            $out[$lastIndex] = $avg;
+        }
+    }
+
+    return $out;
+}
+
+$nettoMonatsavg   = monthAvgSerie($alleTage, $nettoTage, 0);
+$eiweissMonatsavg = monthAvgSerie($alleTage, $eiweissTage, 2);
+$fettMonatsavg    = monthAvgSerie($alleTage, $fettTage, 2);
+$khMonatsavg      = monthAvgSerie($alleTage, $khTage, 2);
+$alkMonatsavg     = monthAvgSerie($alleTage, $alkTage, 2);
+
 // 10) Anzeige-Serien je nach Modus
 $wochentagLabels = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
 
@@ -382,11 +448,13 @@ $anzeigeFett       = $fettWerte;
 $anzeigeKh         = $khWerte;
 $anzeigeAlk        = $alkWerte;
 
-$anzeigeNettoKW   = $nettoKWavg;
-$anzeigeEiweissKW = $eiweissKWavg;
-$anzeigeFettKW    = $fettKWavg;
-$anzeigeKhKW      = $khKWavg;
-$anzeigeAlkKW     = $alkKWavg;
+// Einzeljahr: Wochenmittel wie bisher.
+// Alle Jahre: Monatsmittel statt Wochenmittel.
+$anzeigeNettoKW   = $isAllYears ? $nettoMonatsavg   : $nettoKWavg;
+$anzeigeEiweissKW = $isAllYears ? $eiweissMonatsavg : $eiweissKWavg;
+$anzeigeFettKW    = $isAllYears ? $fettMonatsavg    : $fettKWavg;
+$anzeigeKhKW      = $isAllYears ? $khMonatsavg      : $khKWavg;
+$anzeigeAlkKW     = $isAllYears ? $alkMonatsavg     : $alkKWavg;
 
 if ($isWochentageMode) {
     $anzeigeLabels  = $wochentagLabels;
@@ -441,7 +509,7 @@ require_once __DIR__ . '/../navbar.php';
 <div id="healthPage" class="lt-page dashboard-page">
   <div class="lt-topbar">
   <h1 class="ueberschrift dashboard-title">
-    <span class="dashboard-title-main">Ernährung <?= htmlspecialchars((string)$jahr, ENT_QUOTES, 'UTF-8') ?></span>
+    <span class="dashboard-title-main">Ernährung <?= $isAllYears ? 'Alle' : htmlspecialchars((string)$jahr, ENT_QUOTES, 'UTF-8') ?></span>
     <span class="dashboard-title-soft">| <?= htmlspecialchars($gewichtsDiffText, ENT_QUOTES, 'UTF-8') ?></span>
   </h1>
 
@@ -485,8 +553,9 @@ require_once __DIR__ . '/../navbar.php';
       <div class="lt-yearwrap">
         <label for="jahr" class="lt-label">Jahr</label>
         <select id="jahr" name="jahr" class="kategorie-select" onchange="this.form.submit()">
+          <option value="all" <?= $isAllYears ? 'selected' : '' ?>>Alle</option>
           <?php foreach ($verfuegbareJahre as $y): ?>
-            <option value="<?= (int)$y ?>" <?= ((int)$y === (int)$jahr ? 'selected' : '') ?>>
+            <option value="<?= (int)$y ?>" <?= (!$isAllYears && (int)$y === (int)$jahr ? 'selected' : '') ?>>
               <?= (int)$y ?>
             </option>
           <?php endforeach; ?>
@@ -574,6 +643,9 @@ require_once __DIR__ . '/../navbar.php';
 <script>
 const chartMode      = <?= json_encode($modus, JSON_UNESCAPED_UNICODE) ?>;
 const isWeekdayMode  = chartMode === 'wochentage';
+const isAllYears     = <?= $isAllYears ? 'true' : 'false' ?>;
+const chartStartDate = <?= json_encode($startDate, JSON_UNESCAPED_UNICODE) ?>;
+const chartEndDate   = <?= json_encode($endDate, JSON_UNESCAPED_UNICODE) ?>;
 
 const labels         = <?= $labels ?>;
 const grundbedarf    = <?= (int)$grundbedarf ?>;
@@ -611,6 +683,20 @@ function monthStartsFromLabels(allLabels) {
   const last  = luxon.DateTime.fromISO(allLabels[allLabels.length - 1]).startOf('month');
   const out = [];
   for (let cur = first; cur <= last; cur = cur.plus({ months: 1 })) out.push(cur);
+  return out;
+}
+
+function yearStartsFromRange() {
+  const first = luxon.DateTime.fromISO(chartStartDate).startOf('year');
+  const end   = luxon.DateTime.fromISO(chartEndDate).startOf('year');
+  const out = [];
+
+  if (!first.isValid || !end.isValid) return out;
+
+  for (let cur = first; cur < end; cur = cur.plus({ years: 1 })) {
+    out.push(cur);
+  }
+
   return out;
 }
 
@@ -690,21 +776,24 @@ function updateSoberCounters() {
 updateSoberCounters();
 setInterval(updateSoberCounters, 60 * 60 * 1000);
 
-const midMonthLabelsPlugin = {
-  id: 'midMonthLabelsPlugin',
+const midPeriodLabelsPlugin = {
+  id: 'midPeriodLabelsPlugin',
   afterDraw(chart) {
     const scale = chart.scales?.x;
     if (!scale || scale.type !== 'time') return;
 
     const xOpts = scale.options || {};
-    if (!xOpts.midMonthLabels) return;
+    const drawYears = !!xOpts.midYearLabels;
+    const drawMonths = !!xOpts.midMonthLabels;
+    if (!drawYears && !drawMonths) return;
 
-    const ctx = chart.ctx;
-    const starts = monthStartsFromLabels(labels);
+    const starts = drawYears ? yearStartsFromRange() : monthStartsFromLabels(labels);
     if (!starts.length) return;
 
-    const compactW = xOpts.midMonthLabelCompactWidth ?? 300;
-    const step = (typeof scale.width === 'number' && scale.width < compactW) ? 2 : 1;
+    const compactW = xOpts.midPeriodLabelCompactWidth ?? 300;
+    const availableWidth = (typeof scale.width === 'number') ? scale.width : 0;
+    const pxPerLabel = starts.length > 0 ? (availableWidth / starts.length) : availableWidth;
+    const step = (drawMonths && availableWidth < compactW) || (drawYears && pxPerLabel < 42) ? 2 : 1;
 
     let fontStr = '12px sans-serif';
     try {
@@ -712,6 +801,7 @@ const midMonthLabelsPlugin = {
     } catch (_) {}
 
     const color = xOpts.ticks?.color ?? Chart.defaults.color ?? '#666';
+    const ctx = chart.ctx;
 
     ctx.save();
     ctx.font = fontStr;
@@ -725,17 +815,24 @@ const midMonthLabelsPlugin = {
       if (step === 2 && (i % 2 === 1)) continue;
 
       const start = starts[i];
-      const mid = start.plus({ days: Math.floor(start.daysInMonth / 2), hours: 12 });
-      const x = scale.getPixelForValue(mid.toMillis());
+      const end = drawYears
+        ? start.plus({ years: 1 })
+        : start.plus({ months: 1 });
 
-      ctx.fillText(mid.setLocale('de').toFormat('MMM'), x, y);
+      const midMillis = start.toMillis() + ((end.toMillis() - start.toMillis()) / 2);
+      const x = scale.getPixelForValue(midMillis);
+      const text = drawYears
+        ? start.toFormat('yyyy')
+        : start.setLocale('de').toFormat('MMM');
+
+      ctx.fillText(text, x, y);
     }
 
     ctx.restore();
   }
 };
 
-Chart.register(midMonthLabelsPlugin);
+Chart.register(midPeriodLabelsPlugin);
 
 function monthXAxisScale() {
   return {
@@ -745,7 +842,27 @@ function monthXAxisScale() {
       tooltipFormat: 'dd.MM.yyyy'
     },
     midMonthLabels: true,
-    midMonthLabelCompactWidth: 300,
+    midPeriodLabelCompactWidth: 300,
+    ticks: {
+      autoSkip: false,
+      maxRotation: 0,
+      minRotation: 0,
+      callback: () => ' '
+    }
+  };
+}
+
+function yearXAxisScale() {
+  return {
+    type: 'time',
+    min: chartStartDate,
+    max: chartEndDate,
+    time: {
+      unit: 'year',
+      tooltipFormat: 'dd.MM.yyyy'
+    },
+    midYearLabels: true,
+    midPeriodLabelCompactWidth: 300,
     ticks: {
       autoSkip: false,
       maxRotation: 0,
@@ -771,7 +888,8 @@ function weekdayXAxisScale() {
 }
 
 function xAxisScale() {
-  return isWeekdayMode ? weekdayXAxisScale() : monthXAxisScale();
+  if (isWeekdayMode) return weekdayXAxisScale();
+  return isAllYears ? yearXAxisScale() : monthXAxisScale();
 }
 
 function withAlpha(color, alpha = 0.5) {
@@ -853,7 +971,7 @@ const kalorienDatasets = isWeekdayMode
       }
     ]
   : [
-      {
+      ...(!isAllYears ? [{
         label: 'Netto-Kalorien',
         data: nettoData,
         fill: false,
@@ -863,7 +981,7 @@ const kalorienDatasets = isWeekdayMode
         pointBorderColor: 'rgba(0,0,0,0.4)',
         pointBorderWidth: 2,
         pointBackgroundColor: 'transparent'
-      },
+      }] : []),
       {
         label: 'Brutto-Kalorien',
         data: bruttoData,
@@ -875,7 +993,7 @@ const kalorienDatasets = isWeekdayMode
         hidden: true
       },
       {
-        label: 'Netto-Kalorien (Ø pro KW)',
+        label: isAllYears ? 'Netto-Kalorien (Ø pro Monat)' : 'Netto-Kalorien (Ø pro KW)',
         data: nettoKWData,
         fill: false,
         tension: 0,
@@ -1034,7 +1152,7 @@ function makeMacroChart(canvasId, dailyData, weeklyData, color, label) {
         }
       ]
     : [
-        {
+        ...(!isAllYears ? [{
           label: 'Tageswerte',
           data: dailyData,
           showLine: false,
@@ -1044,9 +1162,9 @@ function makeMacroChart(canvasId, dailyData, weeklyData, color, label) {
           pointBackgroundColor: 'transparent',
           borderColor: color,
           fill: false
-        },
+        }] : []),
         {
-          label: 'Ø pro KW',
+          label: isAllYears ? 'Ø pro Monat' : 'Ø pro KW',
           data: weeklyData,
           fill: false,
           tension: 0,

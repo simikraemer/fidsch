@@ -1,5 +1,5 @@
 <?php
-// biz/Start_v2.php
+// biz/Start_v8.php
 // Finanzdashboard. CSV-Uploads laufen zentral über upload_csv.php.
 
 require_once __DIR__ . '/../auth.php';
@@ -12,6 +12,7 @@ $bizconn->set_charset('utf8mb4');
 $CURRENT_YEAR   = (int)date('Y');
 $CURRENT_MONTH  = (int)date('n'); // 1..12
 $CLOSED_CUTOFF  = sprintf('%04d-%02d-01', $CURRENT_YEAR, $CURRENT_MONTH); // 1. Tag aktueller Monat
+$ALL_MODE_START  = '2022-08-01'; // Im Modus \"Alle\" beginnt die Auswertung hier.
 
 
 function parseDashboardAmount(?string $value): ?float
@@ -34,6 +35,90 @@ function parseDashboardAmount(?string $value): ?float
     }
 
     return (float)$value;
+}
+
+/**
+ * Baut aus den sporadischen Einträgen in konto_staende einen fortgeschriebenen
+ * Verlauf. Jeder Kontowert gilt ab seinem Eintragszeitpunkt so lange, bis für
+ * dasselbe Konto ein neuer Wert eingetragen wird.
+ *
+ * Rückgabe:
+ * - initial_total: Summe aller zuletzt bekannten Kontostände direkt vor rangeStart
+ * - delta_by_date: Änderungen der Gesamtsumme je Kalendertag im sichtbaren Bereich
+ * - delta_by_month: Änderungen der Gesamtsumme je Monat im sichtbaren Bereich
+ * - last_date: letzter Eintrag im sichtbaren Bereich
+ */
+function buildExternalBalanceTimeline($bizconn, string $rangeStart, string $rangeEnd): array
+{
+    $startTs = strlen($rangeStart) === 10 ? $rangeStart . ' 00:00:00' : $rangeStart;
+    $endTs   = strlen($rangeEnd) === 10 ? $rangeEnd . ' 23:59:59' : $rangeEnd;
+
+    $initialTotal = 0.0;
+    $deltaByDate = [];
+    $deltaByMonth = [];
+    $lastDate = null;
+    $lastByAccount = [];
+
+    $stmt = $bizconn->prepare("
+        SELECT konto, betrag, eingetragen_am, id
+        FROM konto_staende
+        WHERE eingetragen_am <= ?
+        ORDER BY eingetragen_am ASC, id ASC
+    ");
+
+    if ($stmt === false) {
+        return [
+            'initial_total' => 0.0,
+            'delta_by_date' => [],
+            'delta_by_month' => [],
+            'last_date' => null,
+        ];
+    }
+
+    $stmt->bind_param('s', $endTs);
+    $stmt->execute();
+    $res = $stmt->get_result();
+
+    while ($row = $res->fetch_assoc()) {
+        $konto = (string)$row['konto'];
+        $amount = (float)$row['betrag'];
+        $enteredAt = (string)$row['eingetragen_am'];
+
+        $previous = (float)($lastByAccount[$konto] ?? 0.0);
+        $delta = $amount - $previous;
+        $lastByAccount[$konto] = $amount;
+
+        if ($enteredAt < $startTs) {
+            $initialTotal += $delta;
+            continue;
+        }
+
+        $dateKey = substr($enteredAt, 0, 10);
+        $monthKey = substr($enteredAt, 0, 7);
+
+        if (!isset($deltaByDate[$dateKey])) {
+            $deltaByDate[$dateKey] = 0.0;
+        }
+        $deltaByDate[$dateKey] += $delta;
+
+        if (!isset($deltaByMonth[$monthKey])) {
+            $deltaByMonth[$monthKey] = 0.0;
+        }
+        $deltaByMonth[$monthKey] += $delta;
+
+        if ($lastDate === null || $dateKey > $lastDate) {
+            $lastDate = $dateKey;
+        }
+    }
+
+    $stmt->close();
+
+    return [
+        'initial_total' => $initialTotal,
+        'delta_by_date' => $deltaByDate,
+        'delta_by_month' => $deltaByMonth,
+        'last_date' => $lastDate,
+    ];
 }
 
 /* =========================================================
@@ -316,236 +401,487 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'cat_years') {
 }
 
 /* =========================================================
- * AJAX: Dashboard-Daten ohne Reload
+ * Dashboard-Daten aufbauen
+ * - Einzeljahr: bisherige Tages-/Monatslogik
+ * - "Alle": Mehrjahresverlauf mit einem Datenpunkt pro Monat
  * ========================================================= */
-if (isset($_GET['ajax']) && $_GET['ajax'] === 'page_data') {
-    header('Content-Type: application/json; charset=utf-8');
-    header('Cache-Control: no-store, max-age=0');
+function buildDashboardPageData($bizconn, $yearParam, $selectedKat, int $CURRENT_YEAR, string $CLOSED_CUTOFF, string $ALL_MODE_START): array
+{
+    $yearParam = trim((string)$yearParam);
+    $allYearsMode = (mb_strtolower($yearParam, 'UTF-8') === 'all');
 
-    $jahr = isset($_GET['jahr']) ? (int)$_GET['jahr'] : (int)date('Y');
-    $selectedKat = $_GET['kategorie'] ?? 'all';
-    if ($selectedKat !== 'all' && $selectedKat !== 'unk') {
-        $selectedKat = (int)$selectedKat;
-    }
-
-    $isCurrentYear = ((int)$jahr === $CURRENT_YEAR);
-
-    // verfügbare Jahre (nur vorhandene Daten)
+    // Verfügbare Jahre. Wie bisher werden im Dashboard nur Jahre > 2021 angeboten.
     $yearsRes = $bizconn->query("
         SELECT DISTINCT YEAR(valutadatum) AS jahr
         FROM transfers
         WHERE valutadatum IS NOT NULL
         ORDER BY jahr DESC
     ");
-    $jahre = [];
-    while ($r = $yearsRes->fetch_assoc()) { $jahre[] = (int)$r['jahr']; }
-    if (!in_array($jahr, $jahre, true) && !empty($jahre)) { $jahr = $jahre[0]; }
-    $isCurrentYear = ((int)$jahr === $CURRENT_YEAR);
 
-    // Kategorien mapping
+    $jahre = [];
+    while ($r = $yearsRes->fetch_assoc()) {
+        $y = (int)$r['jahr'];
+        if ($y > 2021) {
+            $jahre[] = $y;
+        }
+    }
+
+    if (!$jahre) {
+        $jahre[] = $CURRENT_YEAR;
+    }
+
+    $latestYear = (int)$jahre[0];
+
+    if ($allYearsMode) {
+        $jahr = 'all';
+        $dataYear = $latestYear;
+    } else {
+        $requestedYear = (int)$yearParam;
+        if (!in_array($requestedYear, $jahre, true)) {
+            $requestedYear = $latestYear;
+        }
+        $jahr = $requestedYear;
+        $dataYear = $requestedYear;
+    }
+
+    // Kategorien
     $kats = [];
     $katRes = $bizconn->query("SELECT id, name FROM kategorien");
-    while ($k = $katRes->fetch_assoc()) { $kats[(int)$k['id']] = $k['name']; }
+    while ($k = $katRes->fetch_assoc()) {
+        $kats[(int)$k['id']] = $k['name'];
+    }
+
     $labelUnk = 'Unkategorisiert';
 
+    if ($selectedKat !== 'all' && $selectedKat !== 'total' && $selectedKat !== 'unk') {
+        $selectedKat = (int)$selectedKat;
+        if (!isset($kats[$selectedKat])) {
+            $selectedKat = 'all';
+        }
+    }
+
     $selectedKatLabel = 'Kontostand';
-    if ($selectedKat === 'unk') {
+    if ($selectedKat === 'total') {
+        $selectedKatLabel = 'Gesamt';
+    } elseif ($selectedKat === 'unk') {
         $selectedKatLabel = $labelUnk;
     } elseif ($selectedKat !== 'all' && isset($kats[(int)$selectedKat])) {
         $selectedKatLabel = $kats[(int)$selectedKat];
     }
 
-    // Anfangsbestand bis 01.01.jahr
-    $startDate = sprintf('%04d-01-01', $jahr);
-    $startStmt = $bizconn->prepare("
-        SELECT COALESCE(SUM(betrag),0) AS summe
-        FROM transfers
-        WHERE valutadatum < ?
-    ");
-    $startStmt->bind_param('s', $startDate);
-    $startStmt->execute();
-    $startStmt->bind_result($anfangsbestand);
-    $startStmt->fetch();
-    $startStmt->close();
-    $anfangsbestand = (float)$anfangsbestand;
+    $kategorieSummen = [];
+    $kategorieSummenClosed = [];
+    $transfersByDate = [];
+    $catTransfersByDate = [];
+    $transfersByMonth = [];
+    $catTransfersByMonth = [];
 
-    // Transfers im Jahr (einmalig iterieren)
-    $stmt = $bizconn->prepare("
-        SELECT valutadatum, betrag, kategorie_id
-        FROM transfers
-        WHERE YEAR(valutadatum) = ?
-        ORDER BY valutadatum ASC
-    ");
-    $stmt->bind_param('i', $jahr);
+    if ($allYearsMode) {
+        $yearsAsc = $jahre;
+        sort($yearsAsc);
+        $firstYear = (int)$yearsAsc[0];
+        $lastYear = (int)$yearsAsc[count($yearsAsc) - 1];
+
+        // Der Mehrjahresmodus beginnt bewusst erst im August 2022.
+        // Damit gelten Chart sowie Einnahmen-/Ausgaben-Aggregate im Modus "Alle"
+        // einheitlich nur für diesen sichtbaren Zeitraum.
+        $rangeStart = $ALL_MODE_START;
+        $rangeEnd = sprintf('%04d-12-31', $lastYear);
+
+        $stmt = $bizconn->prepare("
+            SELECT valutadatum, betrag, kategorie_id
+            FROM transfers
+            WHERE valutadatum IS NOT NULL
+              AND valutadatum >= ?
+              AND valutadatum <= ?
+            ORDER BY valutadatum ASC
+        ");
+        $stmt->bind_param('ss', $rangeStart, $rangeEnd);
+    } else {
+        $stmt = $bizconn->prepare("
+            SELECT valutadatum, betrag, kategorie_id
+            FROM transfers
+            WHERE YEAR(valutadatum) = ?
+            ORDER BY valutadatum ASC
+        ");
+        $stmt->bind_param('i', $dataYear);
+    }
+
     $stmt->execute();
     $res = $stmt->get_result();
-
-    $transfersByDate    = [];
-    $catTransfersByDate = [];
-    $kategorieSummen    = [];
-    $kategorieSummenClosed = [];
+    $lastTransferDate = null;
 
     while ($row = $res->fetch_assoc()) {
-        $dRaw   = (string)$row['valutadatum'];
-        $dKey   = substr($dRaw, 0, 10); // YYYY-MM-DD
+        $dRaw = (string)$row['valutadatum'];
+        $dKey = substr($dRaw, 0, 10);
+        $monthKey = substr($dKey, 0, 7);
         $betrag = (float)$row['betrag'];
 
-        if (!isset($transfersByDate[$dKey])) $transfersByDate[$dKey] = 0.0;
-        $transfersByDate[$dKey] += $betrag;
+        if ($lastTransferDate === null || $dKey > $lastTransferDate) {
+            $lastTransferDate = $dKey;
+        }
 
-        // Summen je Kategorie
         $katName = $labelUnk;
         if ($row['kategorie_id'] !== null) {
             $katId = (int)$row['kategorie_id'];
-            if (isset($kats[$katId])) $katName = $kats[$katId];
+            if (isset($kats[$katId])) {
+                $katName = $kats[$katId];
+            }
         }
-        if (!isset($kategorieSummen[$katName])) $kategorieSummen[$katName] = 0.0;
+
+        if (!isset($kategorieSummen[$katName])) {
+            $kategorieSummen[$katName] = 0.0;
+        }
         $kategorieSummen[$katName] += $betrag;
 
-        // Closed-Monate Summen (nur aktuelles Jahr: < 1. aktueller Monat)
-        $inClosed = (!$isCurrentYear) || ($dKey < $CLOSED_CUTOFF);
+        $rowYear = (int)substr($dKey, 0, 4);
+        $inClosed = ($rowYear < $CURRENT_YEAR)
+            || ($rowYear === $CURRENT_YEAR && $dKey < $CLOSED_CUTOFF);
+
+        if (!$allYearsMode && $dataYear !== $CURRENT_YEAR) {
+            $inClosed = true;
+        }
+
         if ($inClosed) {
-            if (!isset($kategorieSummenClosed[$katName])) $kategorieSummenClosed[$katName] = 0.0;
+            if (!isset($kategorieSummenClosed[$katName])) {
+                $kategorieSummenClosed[$katName] = 0.0;
+            }
             $kategorieSummenClosed[$katName] += $betrag;
         }
 
-        // Kategorie-Zeitreihe (wenn ausgewählt)
-        if ($selectedKat !== 'all') {
-            $match = false;
-            if ($selectedKat === 'unk') {
-                $match = ($row['kategorie_id'] === null);
-            } else {
-                $match = ((int)$row['kategorie_id'] === (int)$selectedKat);
+        $matchesSelectedCategory = false;
+        if ($selectedKat === 'unk') {
+            $matchesSelectedCategory = ($row['kategorie_id'] === null);
+        } elseif ($selectedKat !== 'all' && $selectedKat !== 'total') {
+            $matchesSelectedCategory = ((int)$row['kategorie_id'] === (int)$selectedKat);
+        }
+
+        if ($allYearsMode) {
+            if (!isset($transfersByMonth[$monthKey])) {
+                $transfersByMonth[$monthKey] = 0.0;
             }
-            if ($match) {
-                if (!isset($catTransfersByDate[$dKey])) $catTransfersByDate[$dKey] = 0.0;
+            $transfersByMonth[$monthKey] += $betrag;
+
+            if ($matchesSelectedCategory) {
+                if (!isset($catTransfersByMonth[$monthKey])) {
+                    $catTransfersByMonth[$monthKey] = 0.0;
+                }
+                $catTransfersByMonth[$monthKey] += $betrag;
+            }
+        } else {
+            if (!isset($transfersByDate[$dKey])) {
+                $transfersByDate[$dKey] = 0.0;
+            }
+            $transfersByDate[$dKey] += $betrag;
+
+            if ($matchesSelectedCategory) {
+                if (!isset($catTransfersByDate[$dKey])) {
+                    $catTransfersByDate[$dKey] = 0.0;
+                }
                 $catTransfersByDate[$dKey] += $betrag;
             }
         }
     }
     $stmt->close();
 
-    // Einnahmen/Ausgaben trennen (für Pies)
-    $incomeByCat  = [];
+    // Einnahmen/Ausgaben je Kategorie
+    $incomeByCat = [];
     $expenseByCat = [];
     foreach ($kategorieSummen as $kat => $summe) {
-        if ($summe > 0) $incomeByCat[$kat] = $summe;
-        elseif ($summe < 0) $expenseByCat[$kat] = abs($summe);
+        if ($summe > 0) {
+            $incomeByCat[$kat] = $summe;
+        } elseif ($summe < 0) {
+            $expenseByCat[$kat] = abs($summe);
+        }
     }
     arsort($incomeByCat);
     arsort($expenseByCat);
 
-    // Varianten auf Basis abgeschlossener Monate.
-    $incomeByCatClosed  = [];
+    $incomeByCatClosed = [];
     $expenseByCatClosed = [];
     foreach ($kategorieSummenClosed as $kat => $summe) {
-        if ($summe > 0) $incomeByCatClosed[$kat] = $summe;
-        elseif ($summe < 0) $expenseByCatClosed[$kat] = abs($summe);
+        if ($summe > 0) {
+            $incomeByCatClosed[$kat] = $summe;
+        } elseif ($summe < 0) {
+            $expenseByCatClosed[$kat] = abs($summe);
+        }
     }
     arsort($incomeByCatClosed);
     arsort($expenseByCatClosed);
 
-    // Labels in der Reihenfolge der "vollen" Arrays (damit JS stabil bleibt)
     $incomeLabels = array_keys($incomeByCat);
     $expenseLabels = array_keys($expenseByCat);
-
-    $incomeValues = array_map(fn($v)=>round((float)$v,2), array_values($incomeByCat));
-    $expenseValues = array_map(fn($v)=>round((float)$v,2), array_values($expenseByCat));
+    $incomeValues = array_map(fn($v) => round((float)$v, 2), array_values($incomeByCat));
+    $expenseValues = array_map(fn($v) => round((float)$v, 2), array_values($expenseByCat));
 
     $incomeValuesClosed = [];
-    foreach ($incomeLabels as $lab) $incomeValuesClosed[] = round((float)($incomeByCatClosed[$lab] ?? 0.0), 2);
+    foreach ($incomeLabels as $lab) {
+        $incomeValuesClosed[] = round((float)($incomeByCatClosed[$lab] ?? 0.0), 2);
+    }
 
     $expenseValuesClosed = [];
-    foreach ($expenseLabels as $lab) $expenseValuesClosed[] = round((float)($expenseByCatClosed[$lab] ?? 0.0), 2);
+    foreach ($expenseLabels as $lab) {
+        $expenseValuesClosed[] = round((float)($expenseByCatClosed[$lab] ?? 0.0), 2);
+    }
 
-    // letztes Valutadatum in diesem Jahr
-    $lastDateRow = $bizconn->query("
-        SELECT MAX(valutadatum) AS lastdate
-        FROM transfers
-        WHERE YEAR(valutadatum) = {$jahr}
-    ")->fetch_assoc();
-    $lastDate = $lastDateRow['lastdate'] ? new DateTime($lastDateRow['lastdate']) : new DateTime("$jahr-01-01");
-
-    // tägliche kumulierte Serie (gesamt)
     $dailySeries = [];
-    $cumDaily   = $anfangsbestand;
-    $start      = new DateTime("$jahr-01-01");
-    $end        = new DateTime("$jahr-12-31");
-
-    $cursor = clone $start;
-    while ($cursor <= $end) {
-        $dstr = $cursor->format('Y-m-d');
-        if ($cursor <= $lastDate) {
-            if (isset($transfersByDate[$dstr])) $cumDaily += $transfersByDate[$dstr];
-            $dailySeries[$dstr] = round($cumDaily, 2);
-        } else {
-            $dailySeries[$dstr] = null;
-        }
-        $cursor->modify('+1 day');
-    }
-
-    // tägliche kumulierte Serie für ausgewählte Kategorie
-    $catDailySeries = [];
-    if ($selectedKat !== 'all') {
-        $catCum  = 0.0;
-        $cursor2 = clone $start;
-        while ($cursor2 <= $end) {
-            $dstr = $cursor2->format('Y-m-d');
-            if ($cursor2 <= $lastDate) {
-                if (isset($catTransfersByDate[$dstr])) $catCum += $catTransfersByDate[$dstr];
-                $catDailySeries[$dstr] = round($catCum, 2);
-            } else {
-                $catDailySeries[$dstr] = null;
-            }
-            $cursor2->modify('+1 day');
-        }
-    }
-
-    // Monats-Punkte
     $monthlyPoints = [];
-    $firstOfYear = sprintf('%04d-01-01', $jahr);
-    $monthlyPoints[$firstOfYear] = $dailySeries[$firstOfYear] ?? $anfangsbestand;
+    $catDailySeries = [];
+    $catMonthlySeries = [];
+    $totalDailySeries = [];
+    $totalMonthlyPoints = [];
 
-    for ($m = 2; $m <= 12; $m++) {
-        $d = sprintf('%04d-%02d-01', $jahr, $m);
-        if (array_key_exists($d, $dailySeries) && $dailySeries[$d] !== null) {
-            $monthlyPoints[$d] = $dailySeries[$d];
-        }
-    }
-    $heute  = new DateTime('today');
-    $eoy    = new DateTime(sprintf('%04d-12-31', $jahr));
-    $eoyStr = $eoy->format('Y-m-d');
-    if ($eoy <= $heute) {
-        $valEoy = $dailySeries[$eoyStr] ?? null;
-        if ($valEoy === null) {
-            $lastKnown = $anfangsbestand;
-            foreach (array_reverse($dailySeries, true) as $dateKey => $val) {
-                if ($val !== null) { $lastKnown = $val; break; }
-            }
-            $monthlyPoints[$eoyStr] = $lastKnown;
+    if ($allYearsMode) {
+        $yearsAsc = $jahre;
+        sort($yearsAsc);
+        $firstYear = (int)$yearsAsc[0];
+        $lastYear = (int)$yearsAsc[count($yearsAsc) - 1];
+        $rangeStart = $ALL_MODE_START;
+
+        // Kontostand direkt vor dem ersten sichtbaren Monat. Frühere Buchungen
+        // fließen weiterhin in den Anfangssaldo ein, werden aber im Alle-Modus
+        // weder als eigene Monate noch in Einnahmen/Ausgaben mitaggregiert.
+        $startStmt = $bizconn->prepare("
+            SELECT COALESCE(SUM(betrag), 0)
+            FROM transfers
+            WHERE valutadatum < ?
+        ");
+        $startStmt->bind_param('s', $rangeStart);
+        $startStmt->execute();
+        $startStmt->bind_result($anfangsbestand);
+        $startStmt->fetch();
+        $startStmt->close();
+        $anfangsbestand = (float)$anfangsbestand;
+
+        $externalTimeline = buildExternalBalanceTimeline(
+            $bizconn,
+            $rangeStart,
+            sprintf('%04d-12-31', $lastYear)
+        );
+        $externalCum = (float)$externalTimeline['initial_total'];
+        $externalDeltaByMonth = $externalTimeline['delta_by_month'];
+
+        if ($lastYear < $CURRENT_YEAR) {
+            // Abgeschlossene historische Auswahl: bis Dezember auffüllen.
+            $lastMonth = new DateTime(sprintf('%04d-12-01', $lastYear));
+        } elseif ($lastYear === $CURRENT_YEAR) {
+            // Laufendes Jahr: bis zum aktuellen Monat, auch wenn dort noch keine Buchung vorliegt.
+            $lastMonth = new DateTime(sprintf('%04d-%02d-01', $CURRENT_YEAR, (int)date('n')));
         } else {
-            $monthlyPoints[$eoyStr] = $valEoy;
+            $lastMonth = $lastTransferDate
+                ? new DateTime(substr($lastTransferDate, 0, 7) . '-01')
+                : new DateTime(sprintf('%04d-01-01', $firstYear));
+        }
+
+        $cursor = new DateTime($rangeStart);
+        $cursor->modify('first day of this month');
+        $cum = $anfangsbestand;
+        $catCum = 0.0;
+
+        while ($cursor <= $lastMonth) {
+            $monthKey = $cursor->format('Y-m');
+            $monthlyTotal = (float)($transfersByMonth[$monthKey] ?? 0.0);
+            $monthlyCategoryTotal = (float)($catTransfersByMonth[$monthKey] ?? 0.0);
+
+            $cum += $monthlyTotal;
+            $x = $cursor->format('Y-m-t');
+
+            $dailySeries[$x] = round($cum, 2);
+            $monthlyPoints[$x] = round($cum, 2);
+
+            // Externe Konten werden bis zum nächsten Eintrag fortgeschrieben.
+            $externalCum += (float)($externalDeltaByMonth[$monthKey] ?? 0.0);
+            $totalValue = $cum + $externalCum;
+            $totalDailySeries[$x] = round($totalValue, 2);
+            $totalMonthlyPoints[$x] = round($totalValue, 2);
+
+            if ($selectedKat !== 'all' && $selectedKat !== 'total') {
+                // cat_daily bleibt kumuliert; cat_monthly behält die bisherige
+                // Semantik der Monats-Säulen, wird im Alle-Modus aber als Linie gezeichnet.
+                $catCum += $monthlyCategoryTotal;
+                $catDailySeries[$x] = round($catCum, 2);
+                $catMonthlySeries[$x] = round($monthlyCategoryTotal, 2);
+            }
+
+            $cursor->modify('first day of next month');
+        }
+
+        /*
+         * Im Mehrjahresmodus wirken Kontostand/Gesamt im laufenden Monat
+         * künstlich zu niedrig, weil z. B. Gehalt erst am Monatsende kommt.
+         * Deshalb wird für genau diese beiden Ansichten der noch nicht
+         * abgeschlossene aktuelle Monat vollständig ausgeblendet.
+         * Ab dem 1. des Folgemonats erscheint er automatisch als abgeschlossener Monat.
+         */
+        if (
+            $lastYear === $CURRENT_YEAR
+            && ($selectedKat === 'all' || $selectedKat === 'total')
+        ) {
+            $currentMonthEnd = (new DateTime(sprintf(
+                '%04d-%02d-01',
+                $CURRENT_YEAR,
+                (int)date('n')
+            )))->format('Y-m-t');
+
+            unset(
+                $dailySeries[$currentMonthEnd],
+                $monthlyPoints[$currentMonthEnd],
+                $totalDailySeries[$currentMonthEnd],
+                $totalMonthlyPoints[$currentMonthEnd]
+            );
+        }
+    } else {
+        $startDate = sprintf('%04d-01-01', $dataYear);
+        $startStmt = $bizconn->prepare("
+            SELECT COALESCE(SUM(betrag), 0)
+            FROM transfers
+            WHERE valutadatum < ?
+        ");
+        $startStmt->bind_param('s', $startDate);
+        $startStmt->execute();
+        $startStmt->bind_result($anfangsbestand);
+        $startStmt->fetch();
+        $startStmt->close();
+        $anfangsbestand = (float)$anfangsbestand;
+
+        $rangeEnd = sprintf('%04d-12-31', $dataYear);
+        $externalTimeline = buildExternalBalanceTimeline($bizconn, $startDate, $rangeEnd);
+        $externalCum = (float)$externalTimeline['initial_total'];
+        $externalDeltaByDate = $externalTimeline['delta_by_date'];
+        $lastExternalDate = $externalTimeline['last_date'];
+
+        $lastDate = $lastTransferDate
+            ? new DateTime($lastTransferDate)
+            : new DateTime(sprintf('%04d-01-01', $dataYear));
+
+        $lastTotalDate = clone $lastDate;
+        if ($lastExternalDate !== null) {
+            $externalDateObj = new DateTime($lastExternalDate);
+            if ($externalDateObj > $lastTotalDate) {
+                $lastTotalDate = $externalDateObj;
+            }
+        }
+
+        $start = new DateTime(sprintf('%04d-01-01', $dataYear));
+        $end = new DateTime(sprintf('%04d-12-31', $dataYear));
+        $cursor = clone $start;
+        $cumDaily = $anfangsbestand;
+
+        while ($cursor <= $end) {
+            $dstr = $cursor->format('Y-m-d');
+
+            // Der Bankkontostand wird intern über das ganze Jahr fortgeschrieben;
+            // sichtbar bleibt er wie bisher nur bis zum letzten Transfer.
+            $cumDaily += (float)($transfersByDate[$dstr] ?? 0.0);
+
+            if ($cursor <= $lastDate) {
+                $dailySeries[$dstr] = round($cumDaily, 2);
+            } else {
+                $dailySeries[$dstr] = null;
+            }
+
+            $externalCum += (float)($externalDeltaByDate[$dstr] ?? 0.0);
+            if ($cursor <= $lastTotalDate) {
+                $totalDailySeries[$dstr] = round($cumDaily + $externalCum, 2);
+            } else {
+                $totalDailySeries[$dstr] = null;
+            }
+
+            $cursor->modify('+1 day');
+        }
+
+        if ($selectedKat !== 'all' && $selectedKat !== 'total') {
+            $cursor2 = clone $start;
+            $catCum = 0.0;
+            while ($cursor2 <= $end) {
+                $dstr = $cursor2->format('Y-m-d');
+                if ($cursor2 <= $lastDate) {
+                    $catCum += (float)($catTransfersByDate[$dstr] ?? 0.0);
+                    $catDailySeries[$dstr] = round($catCum, 2);
+                } else {
+                    $catDailySeries[$dstr] = null;
+                }
+                $cursor2->modify('+1 day');
+            }
+        }
+
+        // Monats-Punkte wie bisher.
+        $firstOfYear = sprintf('%04d-01-01', $dataYear);
+        $monthlyPoints[$firstOfYear] = $dailySeries[$firstOfYear] ?? $anfangsbestand;
+        $totalMonthlyPoints[$firstOfYear] = $totalDailySeries[$firstOfYear] ?? ($anfangsbestand + (float)$externalTimeline['initial_total']);
+
+        for ($m = 2; $m <= 12; $m++) {
+            $d = sprintf('%04d-%02d-01', $dataYear, $m);
+            if (array_key_exists($d, $dailySeries) && $dailySeries[$d] !== null) {
+                $monthlyPoints[$d] = $dailySeries[$d];
+            }
+            if (array_key_exists($d, $totalDailySeries) && $totalDailySeries[$d] !== null) {
+                $totalMonthlyPoints[$d] = $totalDailySeries[$d];
+            }
+        }
+
+        $heute = new DateTime('today');
+        $eoy = new DateTime(sprintf('%04d-12-31', $dataYear));
+        $eoyStr = $eoy->format('Y-m-d');
+        if ($eoy <= $heute) {
+            $valEoy = $dailySeries[$eoyStr] ?? null;
+            if ($valEoy === null) {
+                $lastKnown = $anfangsbestand;
+                foreach (array_reverse($dailySeries, true) as $val) {
+                    if ($val !== null) {
+                        $lastKnown = $val;
+                        break;
+                    }
+                }
+                $monthlyPoints[$eoyStr] = $lastKnown;
+            } else {
+                $monthlyPoints[$eoyStr] = $valEoy;
+            }
+
+            $valTotalEoy = $totalDailySeries[$eoyStr] ?? null;
+            if ($valTotalEoy === null) {
+                $lastKnownTotal = $anfangsbestand + (float)$externalTimeline['initial_total'];
+                foreach (array_reverse($totalDailySeries, true) as $val) {
+                    if ($val !== null) {
+                        $lastKnownTotal = $val;
+                        break;
+                    }
+                }
+                $totalMonthlyPoints[$eoyStr] = $lastKnownTotal;
+            } else {
+                $totalMonthlyPoints[$eoyStr] = $valTotalEoy;
+            }
         }
     }
 
-    // Kontostand bis EOY (gesamt, für Header)
-    $endOfYear = sprintf('%04d-12-31', $jahr);
+    // "Gesamt" nutzt exakt dieselbe Chart-Semantik wie Kontostand, nur mit
+    // den jeweils zuletzt bekannten Werten aus konto_staende oben drauf.
+    if ($selectedKat === 'total') {
+        $dailySeries = $totalDailySeries;
+        $monthlyPoints = $totalMonthlyPoints;
+        $catDailySeries = [];
+        $catMonthlySeries = [];
+    }
+
+    // Header-Saldo: Einzeljahr bis 31.12.; bei "Alle" bis Ende des jüngsten vorhandenen Jahres.
+    $saldoYear = $allYearsMode ? max($jahre) : $dataYear;
+    $endOfSelection = sprintf('%04d-12-31', $saldoYear);
+
     $sumStmt = $bizconn->prepare("
-        SELECT COALESCE(SUM(betrag), 0) AS summe
+        SELECT COALESCE(SUM(betrag), 0)
         FROM transfers
         WHERE valutadatum IS NOT NULL
           AND valutadatum <= ?
     ");
-    $sumStmt->bind_param('s', $endOfYear);
+    $sumStmt->bind_param('s', $endOfSelection);
     $sumStmt->execute();
     $sumStmt->bind_result($summeAlleBisEOY);
     $sumStmt->fetch();
     $sumStmt->close();
     $kontostandBisEndeDesJahres = (float)$summeAlleBisEOY;
 
+    $kontoStandCutoff = sprintf('%04d-12-31 23:59:59', $saldoYear);
     $externeKontostaende = [];
-
-    $kontoStandCutoff = sprintf('%04d-12-31 23:59:59', $jahr);
 
     $stmtKontoStaende = $bizconn->prepare("
         SELECT ks.konto, ks.betrag, ks.eingetragen_am
@@ -571,26 +907,20 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'page_data') {
     if ($stmtKontoStaende !== false) {
         $stmtKontoStaende->bind_param('ss', $kontoStandCutoff, $kontoStandCutoff);
         $stmtKontoStaende->execute();
-
         $resKontoStaende = $stmtKontoStaende->get_result();
         while ($row = $resKontoStaende->fetch_assoc()) {
             $externeKontostaende[] = $row;
         }
-
         $stmtKontoStaende->close();
     }
 
     $summeExterneKontostaende = 0.0;
-
     foreach ($externeKontostaende as $kontoStand) {
         $summeExterneKontostaende += (float)$kontoStand['betrag'];
     }
 
-    $dashboardSaldoGesamt = (float)$kontostandBisEndeDesJahres + $summeExterneKontostaende;
-
-    $dashboardSaldoDetails = [];
-    $dashboardSaldoDetails[] = euro($kontostandBisEndeDesJahres);
-
+    $dashboardSaldoGesamt = $kontostandBisEndeDesJahres + $summeExterneKontostaende;
+    $dashboardSaldoDetails = [euro($kontostandBisEndeDesJahres)];
     $dashboardSaldoAccounts = [[
         'type' => 'main',
         'konto' => 'Konto',
@@ -608,374 +938,147 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'page_data') {
         ];
     }
 
+    // Anzahl vollständig abgeschlossener Monate für Ø/Monat in den unteren Charts.
+    $aggregationMonths = 0;
+    if ($allYearsMode) {
+        $allStart = new DateTime($ALL_MODE_START);
+        $allStartYear = (int)$allStart->format('Y');
+        $allStartMonth = (int)$allStart->format('n');
+
+        foreach ($jahre as $y) {
+            if ($y < $allStartYear) {
+                continue;
+            }
+
+            $firstMonthForYear = ($y === $allStartYear) ? $allStartMonth : 1;
+
+            if ($y < $CURRENT_YEAR) {
+                $aggregationMonths += max(0, 13 - $firstMonthForYear);
+            } elseif ($y === $CURRENT_YEAR) {
+                $lastClosedMonth = max(0, (int)date('n') - 1);
+                if ($lastClosedMonth >= $firstMonthForYear) {
+                    $aggregationMonths += ($lastClosedMonth - $firstMonthForYear + 1);
+                }
+            }
+        }
+    } else {
+        if ($dataYear < $CURRENT_YEAR) {
+            $aggregationMonths = 12;
+        } elseif ($dataYear === $CURRENT_YEAR) {
+            $aggregationMonths = max(0, (int)date('n') - 1);
+        }
+    }
+
     $toXY = static function(array $series): array {
         $out = [];
-        foreach ($series as $d => $v) $out[] = ['x' => $d, 'y' => $v];
+        foreach ($series as $d => $v) {
+            $out[] = ['x' => $d, 'y' => $v];
+        }
         return $out;
     };
 
-    echo json_encode([
+    return [
         'ok' => true,
-
-        'jahr' => (int)$jahr,
+        'jahr' => $jahr,
+        'all_years' => $allYearsMode,
+        'available_years' => array_values($jahre),
+        'all_mode_start' => $ALL_MODE_START,
+        'aggregation_months' => $aggregationMonths,
         'kategorie' => $selectedKat,
         'kategorie_label' => $selectedKatLabel,
         'kontostand_eoy' => round($kontostandBisEndeDesJahres, 2),
-
         'dashboard_saldo_gesamt' => round($dashboardSaldoGesamt, 2),
         'dashboard_saldo_details' => $dashboardSaldoDetails,
         'dashboard_saldo_accounts' => $dashboardSaldoAccounts,
-
         'daily' => $toXY($dailySeries),
         'monthly' => $toXY($monthlyPoints),
         'cat_daily' => $toXY($catDailySeries),
-
-        // pies (voll)
+        'cat_monthly' => $toXY($catMonthlySeries),
         'income_labels' => $incomeLabels,
         'income_values' => array_values($incomeValues),
         'expense_labels' => $expenseLabels,
         'expense_values' => array_values($expenseValues),
-
-        // pies (closed)
         'income_values_closed' => array_values($incomeValuesClosed),
-        'expense_values_closed' => array_values($expenseValuesClosed)
-    ], JSON_UNESCAPED_UNICODE);
+        'expense_values_closed' => array_values($expenseValuesClosed),
+        'categories' => $kats,
+        'label_unk' => $labelUnk,
+    ];
+}
+
+/* =========================================================
+ * AJAX: Dashboard-Daten ohne Reload
+ * ========================================================= */
+if (isset($_GET['ajax']) && $_GET['ajax'] === 'page_data') {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store, max-age=0');
+
+    $yearParam = (string)($_GET['jahr'] ?? date('Y'));
+    $selectedKatAjax = $_GET['kategorie'] ?? 'all';
+
+    $data = buildDashboardPageData(
+        $bizconn,
+        $yearParam,
+        $selectedKatAjax,
+        $CURRENT_YEAR,
+        $CLOSED_CUTOFF,
+        $ALL_MODE_START
+    );
+
+    echo json_encode($data, JSON_UNESCAPED_UNICODE);
     exit;
 }
 
 /* =========================================================
  * Initiale Daten für erstes Rendern
  * ========================================================= */
-$jahr = isset($_GET['jahr']) ? (int)$_GET['jahr'] : (int)date('Y');
+function euro($v) { return number_format((float)$v, 2, ',', '.').' €'; }
 
-$selectedKat = $_GET['kategorie'] ?? 'all';
-if ($selectedKat !== 'all' && $selectedKat !== 'unk') {
-    $selectedKat = (int)$selectedKat;
-}
+$initialYearParam = (string)($_GET['jahr'] ?? date('Y'));
+$initialSelectedKat = $_GET['kategorie'] ?? 'all';
 
-$isCurrentYear = ((int)$jahr === $CURRENT_YEAR);
-
-// verfügbare Jahre (nur vorhandene Daten)
-$yearsRes = $bizconn->query("
-    SELECT DISTINCT YEAR(valutadatum) AS jahr
-    FROM transfers
-    WHERE valutadatum IS NOT NULL
-    ORDER BY jahr DESC
-");
-$jahre = [];
-while ($r = $yearsRes->fetch_assoc()) { $jahre[] = (int)$r['jahr']; }
-if (!in_array($jahr, $jahre, true) && !empty($jahre)) { $jahr = $jahre[0]; }
-$isCurrentYear = ((int)$jahr === $CURRENT_YEAR);
-
-// alle Buchungen des Jahres
-$stmt = $bizconn->prepare("
-    SELECT valutadatum, betrag, kategorie_id
-    FROM transfers
-    WHERE YEAR(valutadatum) = ?
-    ORDER BY valutadatum ASC
-");
-$stmt->bind_param('i', $jahr);
-$stmt->execute();
-$res = $stmt->get_result();
-
-// Kategorie-Namen
-$kats = [];
-$katRes = $bizconn->query("SELECT id, name FROM kategorien");
-while ($k = $katRes->fetch_assoc()) { $kats[(int)$k['id']] = $k['name']; }
-$labelUnk = 'Unkategorisiert';
-
-// Summen je Kategorie aufbauen (voll + closed)
-$kategorieSummen = [];
-$kategorieSummenClosed = [];
-while ($row = $res->fetch_assoc()) {
-    $betrag  = (float)$row['betrag'];
-    $dRaw    = (string)$row['valutadatum'];
-    $dKey    = substr($dRaw, 0, 10); // YYYY-MM-DD
-
-    $katName = $labelUnk;
-    if ($row['kategorie_id'] !== null) {
-        $katId = (int)$row['kategorie_id'];
-        if (isset($kats[$katId])) $katName = $kats[$katId];
-    }
-
-    if (!isset($kategorieSummen[$katName])) $kategorieSummen[$katName] = 0.0;
-    $kategorieSummen[$katName] += $betrag;
-
-    $inClosed = (!$isCurrentYear) || ($dKey < $CLOSED_CUTOFF);
-    if ($inClosed) {
-        if (!isset($kategorieSummenClosed[$katName])) $kategorieSummenClosed[$katName] = 0.0;
-        $kategorieSummenClosed[$katName] += $betrag;
-    }
-}
-
-// Label für aktuell ausgewählte Kategorie
-$selectedKatLabel = 'Alle Kategorien';
-if ($selectedKat === 'unk') {
-    $selectedKatLabel = $labelUnk;
-} elseif ($selectedKat !== 'all' && isset($kats[(int)$selectedKat])) {
-    $selectedKatLabel = $kats[(int)$selectedKat];
-}
-
-// Einnahmen/Ausgaben trennen (voll)
-$incomeByCat  = [];
-$expenseByCat = [];
-foreach ($kategorieSummen as $kat => $summe) {
-    if ($summe > 0) $incomeByCat[$kat] = $summe;
-    elseif ($summe < 0) $expenseByCat[$kat] = abs($summe);
-}
-
-// Einnahmen/Ausgaben trennen (closed)
-$incomeByCatClosed  = [];
-$expenseByCatClosed = [];
-foreach ($kategorieSummenClosed as $kat => $summe) {
-    if ($summe > 0) $incomeByCatClosed[$kat] = $summe;
-    elseif ($summe < 0) $expenseByCatClosed[$kat] = abs($summe);
-}
-
-// Anfangsbestand bis 01.01.jahr
-$startDate = sprintf('%04d-01-01', $jahr);
-$startStmt = $bizconn->prepare("
-    SELECT COALESCE(SUM(betrag),0) AS summe
-    FROM transfers
-    WHERE valutadatum < ?
-");
-$startStmt->bind_param('s', $startDate);
-$startStmt->execute();
-$startStmt->bind_result($anfangsbestand);
-$startStmt->fetch();
-$startStmt->close();
-$anfangsbestand = (float)$anfangsbestand;
-
-// Transfers erneut für Zeitreihe (Cursor benötigt)
-$stmt2 = $bizconn->prepare("
-    SELECT valutadatum, betrag, kategorie_id
-    FROM transfers
-    WHERE YEAR(valutadatum) = ?
-    ORDER BY valutadatum ASC
-");
-$stmt2->bind_param('i', $jahr);
-$stmt2->execute();
-$res2 = $stmt2->get_result();
-
-// Transfers pro Datum gruppieren (gesamt + ausgewählte Kategorie)
-$transfersByDate    = [];
-$catTransfersByDate = [];
-
-while ($row = $res2->fetch_assoc()) {
-    $dRaw   = (string)$row['valutadatum'];
-    $d      = substr($dRaw, 0, 10); // YYYY-MM-DD
-    $betrag = (float)$row['betrag'];
-
-    if (!isset($transfersByDate[$d])) $transfersByDate[$d] = 0.0;
-    $transfersByDate[$d] += $betrag;
-
-    if ($selectedKat !== 'all') {
-        $match = false;
-        if ($selectedKat === 'unk') {
-            $match = ($row['kategorie_id'] === null);
-        } else {
-            $match = ((int)$row['kategorie_id'] === (int)$selectedKat);
-        }
-        if ($match) {
-            if (!isset($catTransfersByDate[$d])) $catTransfersByDate[$d] = 0.0;
-            $catTransfersByDate[$d] += $betrag;
-        }
-    }
-}
-$stmt2->close();
-
-// Letztes Valutadatum im ausgewählten Jahr.
-$lastDateRow = $bizconn->query("
-    SELECT MAX(valutadatum) AS lastdate
-    FROM transfers
-    WHERE YEAR(valutadatum) = {$jahr}
-")->fetch_assoc();
-$lastDate = $lastDateRow['lastdate'] ? new DateTime($lastDateRow['lastdate']) : new DateTime("$jahr-01-01");
-
-// Tägliche kumulierte Kontostand-Serie.
-$dailySeries = [];
-$cumDaily   = $anfangsbestand;
-$start      = new DateTime("$jahr-01-01");
-$end        = new DateTime("$jahr-12-31");
-
-$cursor = clone $start;
-while ($cursor <= $end) {
-    $dstr = $cursor->format('Y-m-d');
-    if ($cursor <= $lastDate) {
-        if (isset($transfersByDate[$dstr])) $cumDaily += $transfersByDate[$dstr];
-        $dailySeries[$dstr] = round($cumDaily, 2);
-    } else {
-        $dailySeries[$dstr] = null;
-    }
-    $cursor->modify('+1 day');
-}
-
-// tägliche kumulierte Serie für ausgewählte Kategorie
-$catDailySeries = [];
-if ($selectedKat !== 'all') {
-    $catCum  = 0.0;
-    $cursor2 = clone $start;
-    while ($cursor2 <= $end) {
-        $dstr = $cursor2->format('Y-m-d');
-        if ($cursor2 <= $lastDate) {
-            if (isset($catTransfersByDate[$dstr])) {
-                $catCum += $catTransfersByDate[$dstr];
-            }
-            $catDailySeries[$dstr] = round($catCum, 2);
-        } else {
-            $catDailySeries[$dstr] = null;
-        }
-        $cursor2->modify('+1 day');
-    }
-}
-
-// Monats-Punkte (01.01., jeder 1., ggf. 31.12. falls vergangen)
-$monthlyPoints = [];
-$firstOfYear = sprintf('%04d-01-01', $jahr);
-$monthlyPoints[$firstOfYear] = $dailySeries[$firstOfYear] ?? $anfangsbestand;
-
-for ($m = 2; $m <= 12; $m++) {
-    $d = sprintf('%04d-%02d-01', $jahr, $m);
-    if (array_key_exists($d, $dailySeries) && $dailySeries[$d] !== null) {
-        $monthlyPoints[$d] = $dailySeries[$d];
-    }
-}
-$heute  = new DateTime('today');
-$eoy    = new DateTime(sprintf('%04d-12-31', $jahr));
-$eoyStr = $eoy->format('Y-m-d');
-if ($eoy <= $heute) {
-    $valEoy = $dailySeries[$eoyStr] ?? null;
-    if ($valEoy === null) {
-        $lastKnown = $anfangsbestand;
-        foreach (array_reverse($dailySeries, true) as $dateKey => $val) {
-            if ($val !== null) { $lastKnown = $val; break; }
-        }
-        $monthlyPoints[$eoyStr] = $lastKnown;
-    } else {
-        $monthlyPoints[$eoyStr] = $valEoy;
-    }
-}
-
-// JSON für Charts
-$dailyJson = json_encode(
-    array_map(fn($d,$v)=>['x'=>$d,'y'=>$v], array_keys($dailySeries), $dailySeries),
-    JSON_UNESCAPED_UNICODE
-);
-$monthlyJson = json_encode(
-    array_map(fn($d,$v)=>['x'=>$d,'y'=>$v], array_keys($monthlyPoints), $monthlyPoints),
-    JSON_UNESCAPED_UNICODE
-);
-$catDailyJson = json_encode(
-    array_map(fn($d,$v)=>['x'=>$d,'y'=>$v], array_keys($catDailySeries), $catDailySeries),
-    JSON_UNESCAPED_UNICODE
+$dashboardData = buildDashboardPageData(
+    $bizconn,
+    $initialYearParam,
+    $initialSelectedKat,
+    $CURRENT_YEAR,
+    $CLOSED_CUTOFF,
+    $ALL_MODE_START
 );
 
-// Pies vorbereiten (voll)
-arsort($incomeByCat);
-arsort($expenseByCat);
+$jahr = $dashboardData['jahr'];
+$allYearsMode = !empty($dashboardData['all_years']);
+$jahre = $dashboardData['available_years'];
+$selectedKat = $dashboardData['kategorie'];
+$selectedKatLabel = $dashboardData['kategorie_label'];
+$kats = $dashboardData['categories'];
+$labelUnk = $dashboardData['label_unk'];
 
-// Labels (voll) + Values (voll)
-$incomeLabels = array_keys($incomeByCat);
-$expenseLabels = array_keys($expenseByCat);
+$dailyJson = json_encode($dashboardData['daily'], JSON_UNESCAPED_UNICODE);
+$monthlyJson = json_encode($dashboardData['monthly'], JSON_UNESCAPED_UNICODE);
+$catDailyJson = json_encode($dashboardData['cat_daily'], JSON_UNESCAPED_UNICODE);
+$catMonthlyJson = json_encode($dashboardData['cat_monthly'], JSON_UNESCAPED_UNICODE);
 
-$incomeValues = array_map(fn($v)=>round((float)$v,2), array_values($incomeByCat));
-$expenseValues = array_map(fn($v)=>round((float)$v,2), array_values($expenseByCat));
+$incomeLabels = $dashboardData['income_labels'];
+$incomeValues = $dashboardData['income_values'];
+$expenseLabels = $dashboardData['expense_labels'];
+$expenseValues = $dashboardData['expense_values'];
+$incomeValuesClosed = $dashboardData['income_values_closed'];
+$expenseValuesClosed = $dashboardData['expense_values_closed'];
 
-$incomeLabelsJson  = json_encode($incomeLabels, JSON_UNESCAPED_UNICODE);
-$incomeValuesJson  = json_encode($incomeValues, JSON_UNESCAPED_UNICODE);
+$incomeLabelsJson = json_encode($incomeLabels, JSON_UNESCAPED_UNICODE);
+$incomeValuesJson = json_encode($incomeValues, JSON_UNESCAPED_UNICODE);
 $expenseLabelsJson = json_encode($expenseLabels, JSON_UNESCAPED_UNICODE);
 $expenseValuesJson = json_encode($expenseValues, JSON_UNESCAPED_UNICODE);
-
-// Pies closed (aligned zu full-labels)
-$incomeValuesClosed = [];
-foreach ($incomeLabels as $lab) $incomeValuesClosed[] = round((float)($incomeByCatClosed[$lab] ?? 0.0), 2);
-$expenseValuesClosed = [];
-foreach ($expenseLabels as $lab) $expenseValuesClosed[] = round((float)($expenseByCatClosed[$lab] ?? 0.0), 2);
-
-$incomeValuesClosedJson  = json_encode($incomeValuesClosed, JSON_UNESCAPED_UNICODE);
+$incomeValuesClosedJson = json_encode($incomeValuesClosed, JSON_UNESCAPED_UNICODE);
 $expenseValuesClosedJson = json_encode($expenseValuesClosed, JSON_UNESCAPED_UNICODE);
 
-// Kontostand bis EOY (gesamt)
-$endOfYear = sprintf('%04d-12-31', $jahr);
-$sumStmt = $bizconn->prepare("
-    SELECT COALESCE(SUM(betrag), 0) AS summe
-    FROM transfers
-    WHERE valutadatum IS NOT NULL
-      AND valutadatum <= ?
-");
-$sumStmt->bind_param('s', $endOfYear);
-$sumStmt->execute();
-$sumStmt->bind_result($summeAlleBisEOY);
-$sumStmt->fetch();
-$sumStmt->close();
-$kontostandBisEndeDesJahres = (float)$summeAlleBisEOY;
+$incomeByCat = array_combine($incomeLabels, $incomeValues) ?: [];
+$expenseByCat = array_combine($expenseLabels, $expenseValues) ?: [];
 
-$externeKontostaende = [];
-
-$kontoStandCutoff = sprintf('%04d-12-31 23:59:59', $jahr);
-
-$stmtKontoStaende = $bizconn->prepare("
-    SELECT ks.konto, ks.betrag, ks.eingetragen_am
-    FROM konto_staende ks
-    WHERE ks.eingetragen_am <= ?
-      AND NOT EXISTS (
-          SELECT 1
-          FROM konto_staende newer
-          WHERE newer.konto = ks.konto
-            AND newer.eingetragen_am <= ?
-            AND (
-                newer.eingetragen_am > ks.eingetragen_am
-                OR (
-                    newer.eingetragen_am = ks.eingetragen_am
-                    AND newer.id > ks.id
-                )
-            )
-      )
-      AND ks.betrag <> 0
-    ORDER BY ks.betrag DESC
-");
-
-if ($stmtKontoStaende !== false) {
-    $stmtKontoStaende->bind_param('ss', $kontoStandCutoff, $kontoStandCutoff);
-    $stmtKontoStaende->execute();
-
-    $resKontoStaende = $stmtKontoStaende->get_result();
-    while ($row = $resKontoStaende->fetch_assoc()) {
-        $externeKontostaende[] = $row;
-    }
-
-    $stmtKontoStaende->close();
-}
-
-$summeExterneKontostaende = 0.0;
-
-foreach ($externeKontostaende as $kontoStand) {
-    $summeExterneKontostaende += (float)$kontoStand['betrag'];
-}
-
-$dashboardSaldoGesamt = (float)$kontostandBisEndeDesJahres + $summeExterneKontostaende;
-
-$dashboardSaldoDetails = [];
-$dashboardSaldoDetails[] = euro($kontostandBisEndeDesJahres);
-
-$dashboardSaldoAccounts = [[
-    'type' => 'main',
-    'konto' => 'Konto',
-    'betrag' => round($kontostandBisEndeDesJahres, 2),
-    'value' => euro($kontostandBisEndeDesJahres),
-]];
-
-foreach ($externeKontostaende as $kontoStand) {
-    $dashboardSaldoDetails[] = $kontoStand['konto'] . ': ' . euro($kontoStand['betrag']);
-    $dashboardSaldoAccounts[] = [
-        'type' => 'external',
-        'konto' => (string)$kontoStand['konto'],
-        'betrag' => round((float)$kontoStand['betrag'], 2),
-        'value' => euro($kontoStand['betrag']),
-    ];
-}
-
-function euro($v) { return number_format((float)$v, 2, ',', '.').' €'; }
+$dashboardSaldoGesamt = (float)$dashboardData['dashboard_saldo_gesamt'];
+$dashboardSaldoDetails = $dashboardData['dashboard_saldo_details'];
+$dashboardSaldoAccounts = $dashboardData['dashboard_saldo_accounts'];
+$aggregationMonthsInitial = (int)$dashboardData['aggregation_months'];
 
 function dashboardSaldoDetailParts(string $detail, int $index): array
 {
@@ -1005,7 +1108,7 @@ require_once __DIR__ . '/../navbar.php';
     <div class="lt-topbar">
         <h1 class="ueberschrift dashboard-title">
           <span class="dashboard-title-main" id="pageTitleYear">
-            Finanzen <?= htmlspecialchars((string)$jahr, ENT_QUOTES, 'UTF-8') ?>
+            Finanzen <?= $allYearsMode ? 'Alle' : htmlspecialchars((string)$jahr, ENT_QUOTES, 'UTF-8') ?>
           </span>
           <span class="dashboard-title-soft" id="pageTitleSaldo">
             | <?= euro($dashboardSaldoGesamt) ?>
@@ -1089,6 +1192,7 @@ require_once __DIR__ . '/../navbar.php';
             <label for="kategorie" class="lt-label">Kategorie</label>
             <select name="kategorie" id="kategorie" class="kategorie-select">
               <option value="all" <?= ($selectedKat === 'all') ? 'selected' : '' ?>>Kontostand</option>
+              <option value="total" <?= ($selectedKat === 'total') ? 'selected' : '' ?>>Gesamt</option>
               <option value="unk" <?= ($selectedKat === 'unk') ? 'selected' : '' ?>>
                 <?= htmlspecialchars($labelUnk, ENT_QUOTES, 'UTF-8') ?>
               </option>
@@ -1103,9 +1207,9 @@ require_once __DIR__ . '/../navbar.php';
           <div class="lt-yearwrap">
             <label for="jahr" class="lt-label">Jahr</label>
             <select name="jahr" id="jahr" class="kategorie-select">
+              <option value="all" <?= $allYearsMode ? 'selected' : '' ?>>Alle</option>
               <?php foreach ($jahre as $j): ?>
-                <?php if ((int)$j <= 2021) continue; ?>
-                <option value="<?= (int)$j ?>" <?= ((int)$j === (int)$jahr) ? 'selected' : '' ?>>
+                <option value="<?= (int)$j ?>" <?= (!$allYearsMode && (int)$j === (int)$jahr) ? 'selected' : '' ?>>
                   <?= (int)$j ?>
                 </option>
               <?php endforeach; ?>
@@ -1198,11 +1302,18 @@ require_once __DIR__ . '/../navbar.php';
 let dailyData      = <?= $dailyJson ?>;
 let monthlyData    = <?= $monthlyJson ?>;
 let catDailyData   = <?= $catDailyJson ?>;
+let catMonthlyData = <?= $catMonthlyJson ?>;
 
-let selectedCategory      = <?= json_encode($selectedKat) ?>; // 'all' | 'unk' | number
+let selectedCategory      = <?= json_encode($selectedKat) ?>; // 'all' | 'total' | 'unk' | number
 let selectedCategoryLabel = <?= json_encode($selectedKatLabel, JSON_UNESCAPED_UNICODE) ?>;
-let chartYear             = <?= (int)$jahr ?>;
-let catMonthlyData = buildCatMonthlyBarsFromCumulative(catDailyData, chartYear);
+let chartYear             = <?= json_encode($jahr, JSON_UNESCAPED_UNICODE) ?>; // number | 'all'
+let availableYears        = <?= json_encode(array_values($jahre), JSON_UNESCAPED_UNICODE) ?>;
+let allModeStart          = <?= json_encode($dashboardData['all_mode_start'], JSON_UNESCAPED_UNICODE) ?>;
+let aggregationMonths     = <?= (int)$aggregationMonthsInitial ?>;
+
+if (chartYear !== 'all') {
+  catMonthlyData = buildCatMonthlyBarsFromCumulative(catDailyData, chartYear);
+}
 
 let incomeLabels  = <?= $incomeLabelsJson ?>;
 let incomeValues  = <?= $incomeValuesJson ?>;
@@ -1213,6 +1324,12 @@ let incomeValuesClosed  = <?= $incomeValuesClosedJson ?>;
 let expenseValuesClosed = <?= $expenseValuesClosedJson ?>;
 
 const fmtEuro = (v) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(Number(v || 0));
+const fmtEuroAxis = (v) => new Intl.NumberFormat('de-DE', {
+  style: 'currency',
+  currency: 'EUR',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0
+}).format(Number(v || 0));
 const NOW = new Date();
 const PRIMARY = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#1e88e5';
 
@@ -1262,11 +1379,19 @@ function $(id) { return document.getElementById(id); }
 const sumArr = (arr) => (arr || []).reduce((a, b) => a + Number(b || 0), 0);
 
 function completedMonthsForYear(year) {
+  if (String(year) === 'all') {
+    return Number(aggregationMonths || 0);
+  }
+
   const y = Number(year);
   const nowY = NOW.getFullYear();
   if (y < nowY) return 12;
   if (y > nowY) return 0;
-  return NOW.getMonth(); // Jan=0
+  return NOW.getMonth(); // Jan=0 => nur vollständig abgeschlossene Monate
+}
+
+function selectionTotalLabel() {
+  return String(chartYear) === 'all' ? 'Gesamt alle Jahre' : `Gesamt ${chartYear}`;
 }
 
 function fmtMonthlyAvg(val, months) {
@@ -1350,18 +1475,16 @@ function fmtMonthDE(ms) {
     .replace('.', '');
 }
 
-const midMonthLabelsPlugin = {
-  id: 'midMonthLabelsPlugin',
+const midPeriodLabelsPlugin = {
+  id: 'midPeriodLabelsPlugin',
   afterDraw(chart) {
     const scale = chart?.scales?.x;
     if (!scale || scale.type !== 'time') return;
 
     const xOpts = scale.options || {};
-    if (!xOpts.midMonthLabels) return;
-
-    const year = (typeof xOpts.midMonthLabelYear === 'number') ? xOpts.midMonthLabelYear : chartYear;
-    const compactW = xOpts.midMonthLabelCompactWidth ?? 420;
-    const step = (typeof scale.width === 'number' && scale.width < compactW) ? 2 : 1;
+    const showMonths = !!xOpts.midMonthLabels;
+    const showYears  = !!xOpts.midYearLabels;
+    if (!showMonths && !showYears) return;
 
     let fontStr = '12px sans-serif';
     try {
@@ -1376,27 +1499,100 @@ const midMonthLabelsPlugin = {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
 
-    const y = scale.bottom - 2;
-    for (let m = 0; m < 12; m++) {
-      if (step === 2 && (m % 2 === 1)) continue;
-      const midMs = monthMidMsUTC(year, m);
-      const x = scale.getPixelForValue(midMs);
-      ctx.fillText(fmtMonthDE(midMs), x, y);
+    const labelY = scale.bottom - 2;
+
+    if (showMonths) {
+      const year = (typeof xOpts.midMonthLabelYear === 'number')
+        ? xOpts.midMonthLabelYear
+        : Number(chartYear);
+      const compactW = xOpts.midMonthLabelCompactWidth ?? 420;
+      const step = (typeof scale.width === 'number' && scale.width < compactW) ? 2 : 1;
+
+      for (let m = 0; m < 12; m++) {
+        if (step === 2 && (m % 2 === 1)) continue;
+        const midMs = monthMidMsUTC(year, m);
+        const x = scale.getPixelForValue(midMs);
+        ctx.fillText(fmtMonthDE(midMs), x, labelY);
+      }
     }
+
+    if (showYears) {
+      const years = Array.isArray(availableYears)
+        ? [...availableYears].map(Number).filter(Number.isFinite).sort((a, b) => a - b)
+        : [];
+
+      const visibleMin = Number(scale.min);
+      const visibleMax = Number(scale.max);
+
+      for (const year of years) {
+        const calendarStartMs = Date.UTC(year, 0, 1, 0, 0, 0);
+        const calendarEndMs   = Date.UTC(year + 1, 0, 1, 0, 0, 0);
+
+        // Beim ersten, nur teilweise sichtbaren Jahr (2022 ab August) wird die
+        // Beschriftung in die Mitte des tatsächlich sichtbaren Jahresabschnitts
+        // gesetzt. Alle Folgejahre bleiben exakt mittig im Kalenderjahr.
+        const startMs = Math.max(calendarStartMs, visibleMin);
+        const endMs   = Math.min(calendarEndMs, visibleMax);
+        if (!(endMs > startMs)) continue;
+
+        const midMs = startMs + ((endMs - startMs) / 2);
+        const x = scale.getPixelForValue(midMs);
+        ctx.fillText(String(year), x, labelY);
+      }
+    }
+
     ctx.restore();
   }
 };
-Chart.register(midMonthLabelsPlugin);
+Chart.register(midPeriodLabelsPlugin);
 
 /* =========================================================
  * TOP CHART (Saldo) – EINMALIGE Instanz + Update
  * ========================================================= */
 function buildSaldoDatasets() {
   const ds = [];
-  if (!selectedCategory || selectedCategory === 'all') {
+  const allYears = String(chartYear) === 'all';
+
+  if (allYears) {
+    if (!selectedCategory || selectedCategory === 'all' || selectedCategory === 'total') {
+      ds.push({
+        label: selectedCategory === 'total' ? 'Verlauf Gesamt' : 'Verlauf Kontostand',
+        data: monthlyData,
+        borderColor: '#000',
+        borderWidth: 3,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        pointBackgroundColor: '#ff6b00',
+        pointBorderColor: '#000',
+        pointBorderWidth: 1,
+        fill: false,
+        tension: 0
+      });
+    } else if (Array.isArray(catMonthlyData) && catMonthlyData.length > 0) {
+      ds.push({
+        label: selectedCategoryLabel,
+        data: catMonthlyData,
+        borderColor: PRIMARY,
+        borderWidth: 3,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        pointBackgroundColor: PRIMARY,
+        pointBorderColor: PRIMARY,
+        pointBorderWidth: 1,
+        fill: false,
+        tension: 0
+      });
+    }
+
+    return ds;
+  }
+
+  if (!selectedCategory || selectedCategory === 'all' || selectedCategory === 'total') {
+    const isTotal = selectedCategory === 'total';
+
     ds.push(
       {
-        label: 'Kontostand (Monatsbeginn)',
+        label: isTotal ? 'Gesamt (Monatsbeginn)' : 'Kontostand (Monatsbeginn)',
         data: monthlyData,
         showLine: false,
         pointRadius: 8,
@@ -1405,7 +1601,7 @@ function buildSaldoDatasets() {
         pointBorderWidth: 2
       },
       {
-        label: 'Verlauf Kontostand',
+        label: isTotal ? 'Verlauf Gesamt' : 'Verlauf Kontostand',
         data: dailyData,
         borderColor: '#000',
         borderWidth: 3,
@@ -1421,17 +1617,14 @@ function buildSaldoDatasets() {
       type: 'bar',
       label: selectedCategoryLabel,
       data: catMonthlyData,
-
-      // Design: orange, wie unten (nur ohne Rest-Logik)
       backgroundColor: hexToRgba(ORANGE, 0.35),
       borderColor: ORANGE,
       borderWidth: 1,
-
-      // dünner
       barPercentage: 0.55,
       categoryPercentage: 0.85
     });
   }
+
   return ds;
 }
 
@@ -1451,41 +1644,101 @@ let saldoChart = null;
       hover:       { mode: 'nearest', axis: 'x', intersect: false },
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${fmtEuro(c.parsed.y)}` } }
+        tooltip: {
+          callbacks: {
+            label: (c) => `${c.dataset.label}: ${fmtEuro(c.parsed.y)}`
+          }
+        }
       },
       scales: {
         x: {
           type: 'time',
           time: { unit: 'month', tooltipFormat: 'dd.MM.yyyy' },
           midMonthLabels: true,
-          midMonthLabelYear: chartYear,
+          midYearLabels: false,
+          midMonthLabelYear: (String(chartYear) === 'all' ? null : Number(chartYear)),
           midMonthLabelCompactWidth: 420,
           ticks: { autoSkip: false, maxRotation: 0, minRotation: 0, callback: () => ' ' }
         },
         y: {
-          beginAtZero: (!!selectedCategory && selectedCategory !== 'all'),
-          ticks: { callback: (v) => fmtEuro(v) }
+          beginAtZero: (String(chartYear) !== 'all' && !!selectedCategory && selectedCategory !== 'all' && selectedCategory !== 'total'),
+          ticks: { callback: (v) => fmtEuroAxis(v) }
         }
       }
     }
   });
+
   updateSaldoChartOnly();
 })();
 
 function updateSaldoChartOnly() {
-  saldoChart.data.datasets = buildSaldoDatasets();
-  saldoChart.options.scales.x.midMonthLabelYear = chartYear;
+  if (!saldoChart) return;
 
-  // Für Monats-Säulen: Null-Linie sinnvoll
-  saldoChart.options.scales.y.beginAtZero = (!!selectedCategory && selectedCategory !== 'all');
+  const allYears = String(chartYear) === 'all';
+  saldoChart.data.datasets = buildSaldoDatasets();
 
   const x = saldoChart.options.scales.x;
-  if (selectedCategory && selectedCategory !== 'all') {
-    x.min = monthStartMsUTC(chartYear, 0);        // 01.01. YYYY
-    x.max = monthStartMsUTC(chartYear + 1, 0);    // 01.01. YYYY+1
+  const y = saldoChart.options.scales.y;
+
+  if (allYears) {
+    /*
+     * Mehrjahresmodus:
+     * - vertikale Rasterlinien liegen exakt auf dem 01.01. jedes Jahres
+     * - Jahreszahlen werden separat exakt in die Mitte des Jahres gezeichnet
+     * - damit erscheinen keine rohen Millisekunden-/Unix-Zeitwerte als Tick-Labels
+     */
+    x.time.unit = 'year';
+    x.time.tooltipFormat = 'MM.yyyy';
+    x.midMonthLabels = false;
+    x.midMonthLabelYear = null;
+    x.midYearLabels = true;
+
+    x.ticks.autoSkip = false;
+    x.ticks.maxRotation = 0;
+    x.ticks.minRotation = 0;
+    x.ticks.callback = () => ' ';
+
+    const yearsAsc = Array.isArray(availableYears)
+      ? [...availableYears].map(Number).filter(Number.isFinite).sort((a, b) => a - b)
+      : [];
+
+    if (yearsAsc.length > 0) {
+      // Links beginnt "Alle" bewusst am 01.08.2022. Rechts bleibt das letzte
+      // Jahr vollständig aufgespannt, damit dessen Jahreszahl mittig sitzt.
+      const parsedAllStart = Date.parse(`${allModeStart}T00:00:00Z`);
+      x.min = Number.isFinite(parsedAllStart)
+        ? parsedAllStart
+        : Date.UTC(yearsAsc[0], 0, 1, 0, 0, 0);
+      x.max = Date.UTC(yearsAsc[yearsAsc.length - 1] + 1, 0, 1, 0, 0, 0);
+    } else {
+      delete x.min;
+      delete x.max;
+    }
+
+    // Bei den beiden Saldo-Ansichten (Kontostand + Gesamt) im Alle-Modus
+    // die Ordinate fest bei 0 beginnen lassen. Kategorien bleiben automatisch.
+    y.beginAtZero = (!selectedCategory || selectedCategory === 'all' || selectedCategory === 'total');
   } else {
-    delete x.min;
-    delete x.max;
+    x.time.unit = 'month';
+    x.time.tooltipFormat = 'dd.MM.yyyy';
+    x.midMonthLabels = true;
+    x.midYearLabels = false;
+    x.midMonthLabelYear = Number(chartYear);
+    x.ticks.autoSkip = false;
+    x.ticks.maxRotation = 0;
+    x.ticks.minRotation = 0;
+    x.ticks.callback = () => ' ';
+
+    const isSaldoView = (!selectedCategory || selectedCategory === 'all' || selectedCategory === 'total');
+    y.beginAtZero = !isSaldoView;
+
+    if (!isSaldoView) {
+      x.min = monthStartMsUTC(Number(chartYear), 0);
+      x.max = monthStartMsUTC(Number(chartYear) + 1, 0);
+    } else {
+      delete x.min;
+      delete x.max;
+    }
   }
 
   saldoChart.update();
@@ -1617,7 +1870,7 @@ function updateHeader(year, saldoGesamt, saldoAccounts = [], saldoDetails = []) 
   const sEl = $('pageTitleSaldo');
 
   if (yEl) {
-    yEl.textContent = `Finanzen ${year}`;
+    yEl.textContent = String(year) === 'all' ? 'Finanzen Alle' : `Finanzen ${year}`;
   }
 
   if (sEl) {
@@ -1643,7 +1896,10 @@ async function applySelection(category, year, opts = {}) {
   }
   if (reqId !== _pageReqId) return;
 
-  chartYear = Number(j.jahr);
+  chartYear = String(j.jahr) === 'all' ? 'all' : Number(j.jahr);
+  availableYears = (j.available_years || []).map(Number);
+  allModeStart = String(j.all_mode_start || allModeStart || '2022-08-01');
+  aggregationMonths = Number(j.aggregation_months || 0);
 
   selectedCategory = j.kategorie;
   selectedCategoryLabel = j.kategorie_label;
@@ -1651,7 +1907,14 @@ async function applySelection(category, year, opts = {}) {
   dailyData = j.daily || [];
   monthlyData = j.monthly || [];
   catDailyData = j.cat_daily || [];
-  catMonthlyData = buildCatMonthlyBarsFromCumulative(catDailyData, chartYear);
+
+  if (chartYear === 'all') {
+    catMonthlyData = j.cat_monthly || catDailyData || [];
+  } else {
+    catMonthlyData = buildCatMonthlyBarsFromCumulative(catDailyData, chartYear);
+  }
+
+  setSelectValues(selectedCategory, chartYear);
 
   incomeLabels = j.income_labels || [];
   incomeValues = (j.income_values || []).map(Number);
@@ -2016,7 +2279,7 @@ function makeIncomeOverview() {
       },
       indexAxis: 'y',
       scales: {
-        x: { beginAtZero: true, ticks: { callback: (v) => fmtEuro(v) } },
+        x: { beginAtZero: true, ticks: { callback: (v) => fmtEuroAxis(v) } },
         y: { ticks: { autoSkip: false } }
       },
       plugins: {
@@ -2035,7 +2298,7 @@ function makeIncomeOverview() {
 
               return [
                 `Ø pro Monat: ${perMonth}`,
-                `Gesamt ${chartYear}: ${fmtEuro(val)}`,
+                `${selectionTotalLabel()}: ${fmtEuro(val)}`,
                 `Anteil Einnahmen: ${pct.toFixed(1)} %`
               ];
             }
@@ -2124,7 +2387,7 @@ function makeExpenseOverview() {
           type: 'logarithmic',
           min: minY,
           ticks: {
-            callback: (v) => fmtEuro(v),
+            callback: (v) => fmtEuroAxis(v),
             maxTicksLimit: 5
           }
         }
@@ -2146,7 +2409,7 @@ function makeExpenseOverview() {
 
               return [
                 `Ø pro Monat: ${perMonth}`,
-                `Gesamt ${chartYear}: ${fmtEuro(val)}`,
+                `${selectionTotalLabel()}: ${fmtEuro(val)}`,
                 `Anteil Ausgaben: ${pct.toFixed(1)} %`
               ];
             }
@@ -2349,7 +2612,7 @@ async function showYearDetail(key, catLabel) {
             beginAtZero: true,
 
             ticks: {
-              callback: value => fmtEuro(value)
+              callback: value => fmtEuroAxis(value)
             }
           }
         },
@@ -2498,7 +2761,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 window.addEventListener('popstate', () => {
   const u = new URL(window.location.href);
-  const year = Number(u.searchParams.get('jahr') || chartYear);
+  const yearRaw = u.searchParams.get('jahr') || String(chartYear);
+  const year = yearRaw === 'all' ? 'all' : Number(yearRaw);
   const cat = (u.searchParams.get('kategorie') || 'all');
   applySelection(cat, year, { pushHistory: false, scrollTop: false });
 });
