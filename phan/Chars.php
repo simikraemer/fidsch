@@ -3312,100 +3312,13 @@ require_once __DIR__ . '/../navbar.php';
                     
 
 
-                <?php if (count($charImages) > 1): ?>
-
-                    <div
-                        class="phan-image-gallery"
-                        aria-label="Charakterbilder"
-                    >
-
-                        <?php foreach ($charImages as $image): ?>
-
-                            <?php
-                            $imageId = (int)$image['id'];
-                            $isActiveImage =
-                                $activeImage
-                                && $imageId
-                                    === (int)$activeImage['id'];
-                            ?>
-
-                            <button
-                                type="button"
-                                class="phan-image-gallery-item <?= $isActiveImage ? 'active' : '' ?>"
-                                data-image-id="<?= $imageId ?>"
-                                title="<?= phan_h(
-                                    phan_image_display_title($image)
-                                ) ?>"
-                            >
-                                <img
-                                    src="/phan/chars?thumb_image=<?= $imageId ?>"
-                                    alt=""
-                                    loading="lazy"
-                                    decoding="async"
-                                >
-
-                                <span>
-                                    <?= phan_h(
-                                        phan_image_display_title($image)
-                                    ) ?>
-                                </span>
-                            </button>
-
-                        <?php endforeach; ?>
-
-                    </div>
-
-                <?php endif; ?>
-
-
-                    <?php if (count($charImages) > 1): ?>
-
-                        <div class="phan-image-meta">
-
-                            <label>
-                                Bildtitel
-
-                                <input
-                                    type="text"
-                                    id="imageTitle"
-                                    class="phan-image-title-input"
-                                    maxlength="120"
-                                    value="<?= phan_h(
-                                        $activeImage['title'] ?? ''
-                                    ) ?>"
-                                    placeholder="<?= phan_h(
-                                        $activeImage['original_filename']
-                                        ?? basename(
-                                            (string)$activeImage['image_path']
-                                        )
-                                    ) ?>"
-                                >
-                            </label>
-
-                            <div class="phan-image-filename">
-                                Datei:
-                                <strong>
-                                    <?= phan_h(
-                                        $activeImage['original_filename']
-                                        ?? basename(
-                                            (string)$activeImage['image_path']
-                                        )
-                                    ) ?>
-                                </strong>
-                            </div>
-
-                        </div>
-
-                    <?php endif; ?>
-
-
                     <div class="phan-image-actions">
 
                         <button
                             type="button"
                             id="cropModeButton"
                         >
-                            Gesichtsausschnitt setzen
+                            Gesicht setzen
                         </button>
 
                         <button
@@ -3416,6 +3329,100 @@ require_once __DIR__ . '/../navbar.php';
                         >
                             Bild entfernen
                         </button>
+
+                        <?php if (count($charImages) > 2): ?>
+
+                            <button
+                                type="button"
+                                id="charGalleryButton"
+                            >
+                                Galerie
+                            </button>
+
+                        <?php endif; ?>
+
+                    </div>
+
+
+                    <?php if (count($charImages) > 1): ?>
+
+                        <div
+                            class="phan-image-gallery"
+                            aria-label="Charakterbilder"
+                        >
+
+                            <?php foreach ($charImages as $image): ?>
+
+                                <?php
+                                $imageId = (int)$image['id'];
+                                $isActiveImage =
+                                    $activeImage
+                                    && $imageId
+                                        === (int)$activeImage['id'];
+                                ?>
+
+                                <button
+                                    type="button"
+                                    class="phan-image-gallery-item <?= $isActiveImage ? 'active' : '' ?>"
+                                    data-image-id="<?= $imageId ?>"
+                                    title="<?= phan_h(
+                                        phan_image_display_title($image)
+                                    ) ?>"
+                                >
+                                    <img
+                                        src="/phan/chars?thumb_image=<?= $imageId ?>"
+                                        alt=""
+                                        loading="lazy"
+                                        decoding="async"
+                                    >
+
+                                    <span>
+                                        <?= phan_h(
+                                            phan_image_display_title($image)
+                                        ) ?>
+                                    </span>
+                                </button>
+
+                            <?php endforeach; ?>
+
+                        </div>
+
+                    <?php endif; ?>
+
+
+                    <div class="phan-image-meta">
+
+                        <label>
+                            Bildtitel
+
+                            <input
+                                type="text"
+                                id="imageTitle"
+                                class="phan-image-title-input"
+                                maxlength="120"
+                                value="<?= phan_h(
+                                    $activeImage['title'] ?? ''
+                                ) ?>"
+                                placeholder="<?= phan_h(
+                                    $activeImage['original_filename']
+                                    ?? basename(
+                                        (string)$activeImage['image_path']
+                                    )
+                                ) ?>"
+                            >
+                        </label>
+
+                        <div class="phan-image-filename">
+                            Datei:
+                            <strong>
+                                <?= phan_h(
+                                    $activeImage['original_filename']
+                                    ?? basename(
+                                        (string)$activeImage['image_path']
+                                    )
+                                ) ?>
+                            </strong>
+                        </div>
 
                     </div>
 
@@ -3758,6 +3765,82 @@ require_once __DIR__ . '/../navbar.php';
 
         </form>
 
+
+        <?php if (count($charImages) > 2): ?>
+
+            <div
+                class="phan-gallery-modal"
+                id="charGalleryModal"
+                hidden
+            >
+                <div
+                    class="phan-gallery-modal-backdrop"
+                    data-close-char-gallery
+                ></div>
+
+                <div
+                    class="phan-gallery-modal-dialog"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Bildergalerie"
+                >
+                    <div class="phan-gallery-modal-main">
+
+                        <div class="phan-gallery-modal-stage">
+                            <img
+                                id="charGalleryMainImage"
+                                src=""
+                                alt=""
+                            >
+                        </div>
+
+                    </div>
+
+
+                    <aside
+                        class="phan-gallery-modal-sidebar"
+                        aria-label="Bilder auswählen"
+                    >
+
+                        <?php foreach ($charImages as $image): ?>
+
+                            <?php
+                            $galleryImageId =
+                                (int)$image['id'];
+                            ?>
+
+                            <button
+                                type="button"
+                                class="phan-gallery-modal-thumb"
+                                data-gallery-image-id="<?= $galleryImageId ?>"
+                                data-gallery-image-title="<?= phan_h(
+                                    phan_image_display_title($image)
+                                ) ?>"
+                                data-gallery-image-src="/phan/chars?image_id=<?= $galleryImageId ?>"
+                            >
+                                <img
+                                    src="/phan/chars?thumb_image=<?= $galleryImageId ?>"
+                                    alt=""
+                                    loading="lazy"
+                                    decoding="async"
+                                >
+
+                                <span>
+                                    <?= phan_h(
+                                        phan_image_display_title($image)
+                                    ) ?>
+                                </span>
+                            </button>
+
+                        <?php endforeach; ?>
+
+                    </aside>
+                </div>
+            </div>
+
+        <?php endif; ?>
+
+
     <?php endif; ?>
 
 </div>
@@ -4077,6 +4160,28 @@ require_once __DIR__ . '/../navbar.php';
 
     const imageTitle =
         document.getElementById('imageTitle');
+
+    const charGalleryButton =
+        document.getElementById(
+            'charGalleryButton'
+        );
+
+    const charGalleryModal =
+        document.getElementById(
+            'charGalleryModal'
+        );
+
+    const charGalleryMainImage =
+        document.getElementById(
+            'charGalleryMainImage'
+        );
+
+    const charGalleryThumbs =
+        Array.from(
+            document.querySelectorAll(
+                '.phan-gallery-modal-thumb'
+            )
+        );
 
     const factionInputs =
         document.getElementById(
@@ -5125,6 +5230,180 @@ require_once __DIR__ . '/../navbar.php';
     );
 
 
+    /* =====================================================
+     * Vollbild-Galerie des ausgewählten Charakters
+     * ===================================================== */
+
+    function showGalleryImage(
+        imageId
+    ) {
+        if (
+            !charGalleryMainImage
+            || !charGalleryThumbs.length
+        ) {
+            return;
+        }
+
+        const wantedId =
+            Number(imageId || 0);
+
+        const target =
+            charGalleryThumbs.find(
+                button =>
+                    Number(
+                        button.dataset
+                            .galleryImageId
+                        || 0
+                    ) === wantedId
+            )
+            || charGalleryThumbs[0];
+
+        if (!target) {
+            return;
+        }
+
+        const src =
+            String(
+                target.dataset
+                    .galleryImageSrc
+                || ''
+            );
+
+        const title =
+            String(
+                target.dataset
+                    .galleryImageTitle
+                || ''
+            );
+
+        if (src !== '') {
+            charGalleryMainImage.src =
+                src;
+        }
+
+        charGalleryMainImage.alt =
+            title;
+
+        charGalleryThumbs.forEach(
+            button => {
+                const active =
+                    button === target;
+
+                button.classList.toggle(
+                    'active',
+                    active
+                );
+
+                button.setAttribute(
+                    'aria-current',
+                    active
+                        ? 'true'
+                        : 'false'
+                );
+            }
+        );
+
+        target.scrollIntoView({
+            block: 'nearest',
+        });
+    }
+
+
+    function openCharGallery() {
+        if (!charGalleryModal) {
+            return;
+        }
+
+        charGalleryModal.hidden =
+            false;
+
+        document.body.classList.add(
+            'phan-gallery-modal-open'
+        );
+
+        showGalleryImage(
+            currentImageId()
+        );
+
+        window.setTimeout(
+            () => {
+                charGalleryModal
+                    .querySelector(
+                        '.phan-gallery-modal-thumb.active'
+                    )
+                    ?.focus();
+            },
+            0
+        );
+    }
+
+
+    function closeCharGallery() {
+        if (!charGalleryModal) {
+            return;
+        }
+
+        charGalleryModal.hidden =
+            true;
+
+        document.body.classList.remove(
+            'phan-gallery-modal-open'
+        );
+    }
+
+
+    charGalleryButton?.addEventListener(
+        'click',
+        openCharGallery
+    );
+
+
+    charGalleryThumbs.forEach(
+        button => {
+            button.addEventListener(
+                'click',
+                () => {
+                    showGalleryImage(
+                        Number(
+                            button.dataset
+                                .galleryImageId
+                            || 0
+                        )
+                    );
+                }
+            );
+        }
+    );
+
+
+    charGalleryModal
+        ?.querySelectorAll(
+            '[data-close-char-gallery]'
+        )
+        .forEach(
+            element => {
+                element.addEventListener(
+                    'click',
+                    closeCharGallery
+                );
+            }
+        );
+
+
+    document.addEventListener(
+        'keydown',
+        event => {
+            if (
+                event.key === 'Escape'
+                && charGalleryModal
+                && !charGalleryModal.hidden
+            ) {
+                closeCharGallery();
+            }
+        }
+    );
+
+
     /* Bildtitel separat autosaven */
 
     imageTitle?.addEventListener(
@@ -5287,7 +5566,7 @@ require_once __DIR__ . '/../navbar.php';
             cropModeButton.textContent =
                 cropMode
                     ? 'Ausschnitt abbrechen'
-                    : 'Gesichtsausschnitt setzen';
+                    : 'Gesicht setzen';
         }
 
         if (cropMode) {

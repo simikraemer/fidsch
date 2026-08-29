@@ -1012,6 +1012,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $title = trim((string)($_POST['title'] ?? ''));
             $notes = trim((string)($_POST['notes'] ?? ''));
             $albumYearRaw = trim((string)($_POST['album_year'] ?? ''));
+            $albumMonthRaw = trim((string)($_POST['album_month'] ?? ''));
 
             if ($title === '') {
                 throw new RuntimeException('Albumtitel darf nicht leer sein.');
@@ -1031,6 +1032,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ? ''
                     : (string)(int)$albumYearRaw;
 
+            if (
+                $albumMonthRaw !== ''
+                && (
+                    !preg_match('/^\d+$/', $albumMonthRaw)
+                    || (int)$albumMonthRaw < 1
+                    || (int)$albumMonthRaw > 12
+                )
+            ) {
+                throw new RuntimeException(
+                    'Monat muss zwischen 1 und 12 liegen.'
+                );
+            }
+
+            /*
+             * Ein Monat ohne Jahr wird nicht gespeichert.
+             * Wird das Jahr geleert, wird damit auch der Monat
+             * automatisch auf NULL gesetzt.
+             */
+            $albumMonth =
+                $albumYear === ''
+                    || $albumMonthRaw === ''
+                        ? ''
+                        : (string)(int)$albumMonthRaw;
+
             alb_exec(
                 $phanconn,
                 '
@@ -1038,13 +1063,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 SET
                     title = ?,
                     notes = ?,
-                    album_year = NULLIF(?, \'\')
+                    album_year = NULLIF(?, \'\'),
+                    album_month = NULLIF(?, \'\')
                 WHERE id = ?
                 ',
                 [
                     $title,
                     $notes,
                     $albumYear,
+                    $albumMonth,
                     $albumId,
                 ]
             )->close();
@@ -1533,6 +1560,11 @@ if (!$album) {
                 ELSE 1
             END ASC,
             a.album_year ASC,
+            CASE
+                WHEN a.album_month IS NULL THEN 1
+                ELSE 0
+            END ASC,
+            a.album_month ASC,
             a.title ASC
         '
     );
@@ -2269,11 +2301,28 @@ require_once __DIR__ . '/../navbar.php';
                                 </span>
 
                                 <span>
-                                    <?= $albumRow['album_year'] !== null
+                                    <?php if (
+                                        $albumRow['album_year'] !== null
                                         && $albumRow['album_year'] !== ''
-                                            ? alb_h((int)$albumRow['album_year'])
-                                            : '—'
-                                    ?>
+                                    ): ?>
+                                        <?= alb_h((int)$albumRow['album_year']) ?>
+
+                                        <?php if (
+                                            $albumRow['album_month'] !== null
+                                            && $albumRow['album_month'] !== ''
+                                        ): ?>
+                                            <?= alb_h(
+                                                str_pad(
+                                                    (string)(int)$albumRow['album_month'],
+                                                    2,
+                                                    '0',
+                                                    STR_PAD_LEFT
+                                                )
+                                            ) ?>
+                                        <?php endif; ?>
+                                    <?php else: ?>
+                                        —
+                                    <?php endif; ?>
                                 </span>
                             </div>
                         </div>
@@ -3325,21 +3374,68 @@ require_once __DIR__ . '/../navbar.php';
 
 
                 <div class="album-entity-section">
-                    <label class="album-title-field">
-                        <span>Jahr</span>
+                    <div class="album-release-date-row">
 
-                        <input
-                            type="number"
-                            id="albumYear"
-                            step="1"
-                            inputmode="numeric"
-                            value="<?= $album['album_year'] !== null
-                                && $album['album_year'] !== ''
-                                    ? alb_h((int)$album['album_year'])
-                                    : ''
-                            ?>"
-                        >
-                    </label>
+                        <label class="album-title-field">
+                            <span>Jahr</span>
+
+                            <input
+                                type="number"
+                                id="albumYear"
+                                step="1"
+                                inputmode="numeric"
+                                value="<?= $album['album_year'] !== null
+                                    && $album['album_year'] !== ''
+                                        ? alb_h((int)$album['album_year'])
+                                        : ''
+                                ?>"
+                            >
+                        </label>
+
+                        <label class="album-title-field">
+                            <span>Monat</span>
+
+                            <select id="albumMonth">
+                                <option value="">—</option>
+
+                                <?php
+                                $albumMonthValue =
+                                    $album['album_month'] !== null
+                                    && $album['album_month'] !== ''
+                                        ? (int)$album['album_month']
+                                        : 0;
+
+                                $albumMonths = [
+                                    1 => 'Januar',
+                                    2 => 'Februar',
+                                    3 => 'März',
+                                    4 => 'April',
+                                    5 => 'Mai',
+                                    6 => 'Juni',
+                                    7 => 'Juli',
+                                    8 => 'August',
+                                    9 => 'September',
+                                    10 => 'Oktober',
+                                    11 => 'November',
+                                    12 => 'Dezember',
+                                ];
+                                ?>
+
+                                <?php foreach ($albumMonths as $monthNo => $monthName): ?>
+                                    <option
+                                        value="<?= $monthNo ?>"
+                                        <?= $albumMonthValue === $monthNo
+                                            ? 'selected'
+                                            : ''
+                                        ?>
+                                    >
+                                        <?= alb_h($monthName) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </label>
+
+                    </div>
                 </div>
 
 
@@ -3744,6 +3840,11 @@ require_once __DIR__ . '/../navbar.php';
                     'albumYear'
                 );
 
+            const albumMonth =
+                document.getElementById(
+                    'albumMonth'
+                );
+
             const albumStatus =
                 document.getElementById(
                     'albumAutosaveStatus'
@@ -3771,6 +3872,7 @@ require_once __DIR__ . '/../navbar.php';
                             !albumTitle
                             || !albumNotes
                             || !albumYear
+                            || !albumMonth
                         ) {
                             return;
                         }
@@ -3787,6 +3889,8 @@ require_once __DIR__ . '/../navbar.php';
                                         notes: albumNotes.value,
                                         album_year:
                                             albumYear.value,
+                                        album_month:
+                                            albumMonth.value,
                                     }
                                 );
 
@@ -3817,6 +3921,11 @@ require_once __DIR__ . '/../navbar.php';
 
             albumYear?.addEventListener(
                 'input',
+                saveAlbumMeta
+            );
+
+            albumMonth?.addEventListener(
+                'change',
                 saveAlbumMeta
             );
 
