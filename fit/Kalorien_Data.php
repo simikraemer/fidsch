@@ -32,6 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $sql = "
             SELECT 
                 COALESCE(beschreibung, '') AS beschreibung,
+                COALESCE(kategorie, '') AS kategorie,
                 kalorien,
                 COUNT(*) AS anzahl,
                 ROUND(AVG(`eiweiß`), 2) AS eiweiss,
@@ -42,14 +43,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             FROM kalorien
             WHERE beschreibung IS NOT NULL
             AND TRIM(beschreibung) <> ''
-            GROUP BY beschreibung, kalorien
-            ORDER BY beschreibung ASC, kalorien ASC
+            GROUP BY beschreibung, kategorie, kalorien
+            ORDER BY kategorie ASC, beschreibung ASC, kalorien ASC
         ";
         $res = $fitconn->query($sql);
         $items = [];
         while ($row = $res->fetch_assoc()) {
             $items[] = [
                 'beschreibung' => $row['beschreibung'],
+                'kategorie'    => $row['kategorie'],
                 'kalorien'     => (int)$row['kalorien'],
                 'anzahl'       => (int)$row['anzahl'],
                 'eiweiss'      => (float)$row['eiweiss'],
@@ -66,9 +68,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'update') {
         // Validierung + Normalisierung
         $orig_beschreibung = $_POST['orig_beschreibung'] ?? '';
+        $orig_kategorie    = trim((string)($_POST['orig_kategorie'] ?? ''));
         $orig_kalorien     = isset($_POST['orig_kalorien']) ? (int)$_POST['orig_kalorien'] : 0;
 
         $beschreibung = trim((string)($_POST['beschreibung'] ?? ''));
+        $kategorie    = trim((string)($_POST['kategorie'] ?? ''));
         $kalorien     = isset($_POST['kalorien']) ? (int)$_POST['kalorien'] : 0;
 
         $norm = function($v) {
@@ -88,11 +92,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             echo json_encode(['ok' => false, 'msg' => 'Beschreibung zu lang (max. 255).']);
             exit;
         }
+        if ($kategorie === '') {
+            echo json_encode(['ok' => false, 'msg' => 'Kategorie ist ein Pflichtfeld.']);
+            exit;
+        }
+
+        $stmtKategorie = $fitconn->prepare("
+            SELECT 1
+            FROM kalorien
+            WHERE kategorie = ?
+            LIMIT 1
+        ");
+        if (!$stmtKategorie) {
+            echo json_encode(['ok' => false, 'msg' => 'DB-Fehler bei Kategorieprüfung: ' . $fitconn->error]);
+            exit;
+        }
+        $stmtKategorie->bind_param('s', $kategorie);
+        $stmtKategorie->execute();
+        $stmtKategorie->store_result();
+        $kategorieGueltig = $stmtKategorie->num_rows > 0;
+        $stmtKategorie->close();
+
+        if (!$kategorieGueltig) {
+            echo json_encode(['ok' => false, 'msg' => 'Ungültige Kategorie.']);
+            exit;
+        }
 
         // Update ALLER passenden Einträge
         $sql = "UPDATE kalorien
-                SET beschreibung = ?, kalorien = ?, `eiweiß` = ?, `fett` = ?, `kohlenhydrate` = ?, `alkohol` = ?
-                WHERE COALESCE(beschreibung, '') = ? AND kalorien = ?";
+                SET beschreibung = ?, kategorie = ?, kalorien = ?, `eiweiß` = ?, `fett` = ?, `kohlenhydrate` = ?, `alkohol` = ?
+                WHERE COALESCE(beschreibung, '') = ?
+                  AND kalorien = ?
+                  AND COALESCE(kategorie, '') = ?";
 
         $stmt = $fitconn->prepare($sql);
         if (!$stmt) {
@@ -100,17 +131,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
-        // Typen: s (string), i (int), d (double), d, d, d, s, i  => "siddddsi"
+        // Typen: s, s, i, d, d, d, d, s, i, s
         $ok = $stmt->bind_param(
-            'siddddsi',
+            'ssiddddsis',
             $beschreibung,      // s
+            $kategorie,         // s
             $kalorien,          // i
             $eiweiss,           // d
             $fett,              // d
             $kohlenhydrate,     // d
             $alkohol,           // d
             $orig_beschreibung, // s
-            $orig_kalorien      // i
+            $orig_kalorien,     // i
+            $orig_kategorie     // s
         );
 
         if (!$ok || !$stmt->execute()) {
@@ -125,6 +158,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     echo json_encode(['ok' => false, 'msg' => 'Unbekannte Aktion.']);
     exit;
 }
+// Kategorien für Filter und Bearbeiten-Modal direkt aus der DB laden.
+$kategorien = [];
+$resultKategorien = $fitconn->query("
+    SELECT DISTINCT TRIM(kategorie) AS kategorie
+    FROM kalorien
+    WHERE kategorie IS NOT NULL
+      AND TRIM(kategorie) <> ''
+    ORDER BY kategorie ASC
+");
+if ($resultKategorien) {
+    while ($row = $resultKategorien->fetch_assoc()) {
+        $kategorien[] = $row['kategorie'];
+    }
+    $resultKategorien->close();
+}
+
 // ---------------------- RENDERING START ----------------------
 $page_title = 'Kalorien Daten';
 require_once __DIR__ . '/../head.php';
@@ -132,8 +181,16 @@ require_once __DIR__ . '/../navbar.php';
 ?>
 <div class="content-wrap">
   <div class="toolbar">
-    <div class="toolbar-left">
+    <div class="toolbar-left food-data-toolbar-left">
       <input id="searchInput" type="text" class="search-input" placeholder="🔎 Suche nach Beschreibung …">
+      <select id="categoryFilter" class="kategorie-select food-category-filter" aria-label="Nach Kategorie filtern">
+        <option value="">Alle Kategorien</option>
+        <?php foreach ($kategorien as $kategorieOption): ?>
+          <option value="<?= htmlspecialchars($kategorieOption, ENT_QUOTES, 'UTF-8') ?>">
+            <?= htmlspecialchars($kategorieOption, ENT_QUOTES, 'UTF-8') ?>
+          </option>
+        <?php endforeach; ?>
+      </select>
     </div>
     <div class="toolbar-right">
       <span id="statsBadge" class="badge">0 / 0 Gruppen</span>
@@ -161,12 +218,26 @@ require_once __DIR__ . '/../navbar.php';
             <input type="text" id="m_beschreibung" maxlength="255" />
         </div>
         <div class="input-group">
+            <label>Kategorie</label>
+            <select id="m_kategorie" class="kategorie-select" required>
+              <?php foreach ($kategorien as $kategorieOption): ?>
+                <option value="<?= htmlspecialchars($kategorieOption, ENT_QUOTES, 'UTF-8') ?>">
+                  <?= htmlspecialchars($kategorieOption, ENT_QUOTES, 'UTF-8') ?>
+                </option>
+              <?php endforeach; ?>
+            </select>
+        </div>
+    </div>
+
+    <div class="input-row">
+        <div class="input-group">
             <label>Kalorien</label>
             <input type="number" id="m_kalorien" min="0" max="5000" step="1" />
             <div id="m_kcal-pruefsumme" style="margin-top:6px; font-size:0.9em; opacity:0.8;">
             Prüfsumme: <span id="m_kcal-check">0</span> kcal
             </div>
         </div>
+        <div class="input-group food-modal-spacer" aria-hidden="true"></div>
     </div>
 
     <div class="input-row">
@@ -197,6 +268,7 @@ require_once __DIR__ . '/../navbar.php';
     </div>
 
     <input type="hidden" id="m_orig_beschreibung">
+    <input type="hidden" id="m_orig_kategorie">
     <input type="hidden" id="m_orig_kalorien">
   </div>
 </div>
@@ -208,8 +280,9 @@ require_once __DIR__ . '/../navbar.php';
   const listMount   = document.getElementById('listMount');
   const statsBadge  = document.getElementById('statsBadge');
   const loadMoreBtn = document.getElementById('loadMoreBtn');
-  const statusMsg   = document.getElementById('statusMsg');
-  const searchInput = document.getElementById('searchInput');
+  const statusMsg      = document.getElementById('statusMsg');
+  const searchInput    = document.getElementById('searchInput');
+  const categoryFilter = document.getElementById('categoryFilter');
 
   const modal       = document.getElementById('editModal');
   const modalClose  = document.getElementById('modalClose');
@@ -217,12 +290,14 @@ require_once __DIR__ . '/../navbar.php';
   const saveBtn     = document.getElementById('saveBtn');
 
   const m_beschreibung  = document.getElementById('m_beschreibung');
+  const m_kategorie     = document.getElementById('m_kategorie');
   const m_kalorien      = document.getElementById('m_kalorien');
   const m_eiweiss       = document.getElementById('m_eiweiss');
   const m_fett          = document.getElementById('m_fett');
   const m_kohlenhydrate = document.getElementById('m_kohlenhydrate');
   const m_alkohol       = document.getElementById('m_alkohol');
   const m_orig_beschreibung = document.getElementById('m_orig_beschreibung');
+  const m_orig_kategorie    = document.getElementById('m_orig_kategorie');
   const m_orig_kalorien     = document.getElementById('m_orig_kalorien');
 
   const m_kcalCheckSpan = document.getElementById('m_kcal-check');
@@ -257,6 +332,7 @@ require_once __DIR__ . '/../navbar.php';
         <div class="card-title">
           <span class="title-text">${escapeHtml(desc)}</span>
         </div>
+        <div class="food-card-category">${escapeHtml(item.kategorie || 'Ohne Kategorie')}</div>
         <div class="meta-row">
           <span class="badge">${item.anzahl}×</span>
           <span class="pill">${item.kalorien} kcal</span>
@@ -302,11 +378,22 @@ require_once __DIR__ . '/../navbar.php';
 
   function applyFilter() {
     const q = searchInput.value.trim().toLowerCase();
-    if (!q) {
-      FILTERED = ALL.slice();
-    } else {
-      FILTERED = ALL.filter(x => (x.beschreibung || '').toLowerCase().includes(q));
-    }
+    const selectedCategory = categoryFilter ? categoryFilter.value : '';
+
+    FILTERED = ALL.filter(item => {
+      const matchesSearch = !q || (item.beschreibung || '').toLowerCase().includes(q);
+      const matchesCategory = !selectedCategory || item.kategorie === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+
+    FILTERED.sort((a, b) => {
+      const categoryCompare = (a.kategorie || '').localeCompare(b.kategorie || '', 'de', { sensitivity: 'base' });
+      if (categoryCompare !== 0) return categoryCompare;
+      const descriptionCompare = (a.beschreibung || '').localeCompare(b.beschreibung || '', 'de', { sensitivity: 'base' });
+      if (descriptionCompare !== 0) return descriptionCompare;
+      return Number(a.kalorien || 0) - Number(b.kalorien || 0);
+    });
+
     renderReset();
     renderNext();
   }
@@ -340,10 +427,12 @@ require_once __DIR__ . '/../navbar.php';
 
   function openModal(item) {
     m_orig_beschreibung.value = item.beschreibung || '';
+    m_orig_kategorie.value    = item.kategorie || '';
     m_orig_kalorien.value     = String(item.kalorien);
 
-    m_beschreibung.value  = item.beschreibung || '';
-    m_kalorien.value      = item.kalorien;
+    m_beschreibung.value = item.beschreibung || '';
+    m_kategorie.value    = item.kategorie || '';
+    m_kalorien.value     = item.kalorien;
     m_eiweiss.value       = (item.eiweiss ?? 0).toString();
     m_fett.value          = (item.fett ?? 0).toString();
     m_kohlenhydrate.value = (item.kohlenhydrate ?? 0).toString();
@@ -371,8 +460,10 @@ require_once __DIR__ . '/../navbar.php';
       action: 'update',
       csrf,
       orig_beschreibung: m_orig_beschreibung.value,
+      orig_kategorie: m_orig_kategorie.value,
       orig_kalorien: m_orig_kalorien.value,
       beschreibung: m_beschreibung.value.trim(),
+      kategorie: m_kategorie.value,
       kalorien: String(Math.max(0, parseInt(m_kalorien.value || '0', 10))),
       eiweiss: String(toNum(m_eiweiss.value)),
       fett: String(toNum(m_fett.value)),
@@ -402,6 +493,7 @@ require_once __DIR__ . '/../navbar.php';
   // Events
   loadMoreBtn.addEventListener('click', renderNext);
   searchInput.addEventListener('input', applyFilter);
+  if (categoryFilter) categoryFilter.addEventListener('change', applyFilter);
   modalClose.addEventListener('click', closeModal);
   cancelBtn.addEventListener('click', closeModal);
   window.addEventListener('keydown', (e) => {

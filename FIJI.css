@@ -9745,3 +9745,473 @@ body.albums-modal-open {
         grid-template-columns: 1fr;
     }
 }
+
+/* =========================================================
+ * FIT / Kalorien-Kategorien
+ * ========================================================= */
+
+.food-autocomplete-field,
+.food-category-field {
+    flex: 1 1 100%;
+}
+
+.food-autocomplete-field {
+    position: relative;
+}
+
+.food-category-field .kategorie-select {
+    width: 100%;
+}
+
+.food-data-toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+.food-data-toolbar-left .search-input,
+.food-category-filter {
+    margin: 0;
+}
+
+.food-category-filter {
+    width: 240px;
+    max-width: 42vw;
+    min-width: 190px;
+    padding: 10px 12px;
+}
+
+.food-card-category {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    max-width: 100%;
+    margin: 0 auto 4px;
+    padding: 3px 8px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 999px;
+    background: var(--bg-light);
+    color: rgba(34, 34, 34, 0.72);
+    font-size: 0.78rem;
+    font-weight: 800;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.food-modal-spacer {
+    visibility: hidden;
+}
+
+@media (max-width: 700px) {
+    .food-data-toolbar-left {
+        width: 100%;
+    }
+
+    .food-data-toolbar-left .search-input,
+    .food-category-filter {
+        width: 100%;
+        max-width: none;
+    }
+
+    .food-modal-spacer {
+        display: none;
+    }
+}
+
+/* =========================================================
+ * FIT / Food Dashboard
+ * ========================================================= */
+
+.food-dashboard-page {
+    max-width: 1500px;
+    margin-top: 24px;
+}
+
+.food-dashboard-topbar {
+    align-items: center;
+    margin-bottom: 18px;
+}
+
+.food-dashboard-title {
+    margin: 0;
+    text-align: left;
+}
+
+.food-dashboard-subtitle {
+    margin-top: 4px;
+    color: rgba(34, 34, 34, 0.58);
+    font-size: 0.88rem;
+    font-weight: 650;
+}
+
+.food-dashboard-period-form {
+    width: 190px;
+    flex: 0 0 190px;
+}
+
+.food-dashboard-period-form select {
+    margin: 0;
+}
+
+.food-dashboard-error {
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    border-left: 6px solid #c0392b;
+    border-radius: var(--border-radius);
+    background: #fff;
+    color: #922b21;
+    box-shadow: var(--shadow);
+    font-weight: 700;
+}
+
+
+/* ---------------------------------------------------------
+ * KPI-Zeile
+ * --------------------------------------------------------- */
+
+.food-dashboard-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.food-dashboard-kpi {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+    padding: 13px 15px;
+    border-radius: var(--border-radius);
+    background: #fff;
+    box-shadow: var(--shadow);
+}
+
+.food-dashboard-kpi-label {
+    color: rgba(34, 34, 34, 0.58);
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.food-dashboard-kpi strong {
+    color: var(--text);
+    font-size: 1.35rem;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+}
+
+.food-dashboard-kpi--metric {
+    border-left: 5px solid var(--primary);
+}
+
+
+/* ---------------------------------------------------------
+ * Messwert-Tabs
+ * --------------------------------------------------------- */
+
+.food-dashboard-metric-tabs {
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+    padding: 8px;
+    border-radius: var(--border-radius);
+    background: #fff;
+    box-shadow: var(--shadow);
+}
+
+.food-dashboard-metric-tab {
+    flex: 1 1 130px;
+    max-width: 220px;
+    border: 2px solid rgba(0, 0, 0, 0.10);
+    background: #fff;
+    color: var(--text);
+    box-shadow: none;
+}
+
+.food-dashboard-metric-tab:hover {
+    border-color: var(--primary);
+    background: #fff2e5;
+    color: var(--text);
+}
+
+.food-dashboard-metric-tab.is-active {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: #fff;
+}
+
+
+/* ---------------------------------------------------------
+ * Gemeinsame Karten
+ * --------------------------------------------------------- */
+
+.food-dashboard-chart-card,
+.food-dashboard-table-card {
+    min-width: 0;
+    border-radius: var(--border-radius);
+    background: #fff;
+    box-shadow: var(--shadow);
+}
+
+.food-dashboard-chart-card {
+    margin-bottom: 16px;
+    padding: 16px 18px 18px;
+}
+
+.food-dashboard-table-card {
+    overflow: hidden;
+}
+
+.food-dashboard-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px 20px;
+    margin-bottom: 12px;
+}
+
+.food-dashboard-card-head h2 {
+    margin: 0;
+    font-size: 1.08rem;
+}
+
+.food-dashboard-card-head p {
+    margin: 4px 0 0;
+    color: rgba(34, 34, 34, 0.55);
+    font-size: 0.82rem;
+}
+
+.food-dashboard-card-head > strong {
+    margin-left: auto;
+    color: var(--primary-dark);
+    font-size: 1.15rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+
+/* ---------------------------------------------------------
+ * Kreisdiagramm
+ * --------------------------------------------------------- */
+
+.food-dashboard-chart-wrap {
+    position: relative;
+    width: 100%;
+    height: 500px;
+    min-height: 420px;
+}
+
+
+/* ---------------------------------------------------------
+ * Rankings
+ * --------------------------------------------------------- */
+
+.food-dashboard-rankings {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    align-items: start;
+}
+
+.food-dashboard-table-card .food-dashboard-card-head {
+    padding: 15px 16px 0;
+}
+
+.food-dashboard-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.food-dashboard-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    font-family: var(--font);
+    font-size: 0.88rem;
+}
+
+.food-dashboard-table th,
+.food-dashboard-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+    text-align: left;
+    vertical-align: middle;
+}
+
+.food-dashboard-table th {
+    background: var(--accent);
+    color: var(--text);
+    font-weight: 850;
+    white-space: nowrap;
+}
+
+.food-dashboard-table tbody tr:hover {
+    background: #fff2e5;
+}
+
+.food-dashboard-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.food-dashboard-num {
+    text-align: right !important;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.food-dashboard-rank {
+    width: 34px;
+    color: rgba(34, 34, 34, 0.48);
+    font-weight: 800;
+    text-align: center !important;
+}
+
+.food-dashboard-category-chip {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    background: var(--bg-light);
+    color: rgba(34, 34, 34, 0.72);
+    font-size: 0.75rem;
+    font-weight: 750;
+    white-space: nowrap;
+}
+
+.food-dashboard-empty {
+    padding: 26px 12px !important;
+    color: rgba(34, 34, 34, 0.50);
+    text-align: center !important;
+}
+
+
+/* ---------------------------------------------------------
+ * Responsive
+ * --------------------------------------------------------- */
+
+@media (max-width: 1100px) {
+    .food-dashboard-kpis {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .food-dashboard-rankings {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 760px) {
+    .food-dashboard-page {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+    .food-dashboard-topbar {
+        align-items: stretch;
+    }
+
+    .food-dashboard-period-form {
+        width: 100%;
+        flex-basis: 100%;
+    }
+
+    .food-dashboard-kpis {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .food-dashboard-metric-tabs {
+        gap: 6px;
+    }
+
+    .food-dashboard-metric-tab {
+        flex-basis: calc(50% - 6px);
+        max-width: none;
+    }
+
+    .food-dashboard-chart-wrap {
+        height: 430px;
+        min-height: 430px;
+    }
+
+    .food-dashboard-card-head {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .food-dashboard-card-head > strong {
+        margin-left: 0;
+    }
+}
+
+@media (max-width: 520px) {
+    .food-dashboard-kpis {
+        grid-template-columns: 1fr;
+    }
+
+    .food-dashboard-metric-tab {
+        flex-basis: 100%;
+    }
+
+    .food-dashboard-chart-wrap {
+        height: 520px;
+    }
+}
+
+.food-dashboard-chart-title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+button.food-dashboard-back {
+    all: unset;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    flex: 0 0 auto;
+
+    margin: 0;
+    padding: 0;
+
+    color: rgba(34, 34, 34, 0.55);
+
+    font-family: var(--font);
+    font-size: 1.65rem;
+    font-weight: 500;
+    line-height: 1;
+
+    cursor: pointer;
+
+    transition:
+        color 0.12s ease,
+        transform 0.12s ease;
+}
+
+button.food-dashboard-back:hover {
+    color: var(--primary);
+    transform: translateX(-2px);
+}
+
+button.food-dashboard-back:focus-visible {
+    color: var(--primary);
+    outline: 2px solid var(--primary);
+    outline-offset: 3px;
+    border-radius: 3px;
+}
+
+button.food-dashboard-back[hidden] {
+    display: none !important;
+}
+
+.food-dashboard-chart-title-row h2 {
+    margin: 0;
+}

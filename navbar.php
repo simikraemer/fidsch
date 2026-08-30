@@ -161,6 +161,7 @@ if ($isAuthed) {
                 <ul class="submenu">
                     <li><a href="/fit/stats"><img src="/img/graph.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Übersicht</span></a></li>
                     <li><a href="/fit/kalorien"><img src="/img/burger.png" alt="Kalorien" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Kalorien</span></a></li>
+                    <li><a href="/fit/food"><img src="/img/table.png" alt="Food Dashboard" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Verteilung</span></a></li>
                     <li><a href="/fit/gewicht"><img src="/img/waage.png" alt="Gewicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Gewicht</span></a></li>
                     <li><a href="/fit/training"><img src="/img/cardio.png" alt="Training" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Training</span></a></li>
                     <li><a href="/fit/kalorien_data"><img src="/img/db.png" alt="Kalorien" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Kal-DB</span></a></li>

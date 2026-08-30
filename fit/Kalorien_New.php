@@ -87,12 +87,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Neuer Eintrag (+ Nährwerte)
     $beschreibung = trim($_POST['beschreibung'] ?? '');
+    $kategorie    = trim($_POST['kategorie'] ?? '');
     $kalorien     = (int)($_POST['kalorien'] ?? 0);
     $eiweiss      = (float)($_POST['eiweiss'] ?? 0);
     $fett         = (float)($_POST['fett'] ?? 0);
     $kh           = (float)($_POST['kohlenhydrate'] ?? 0);
     $alkohol      = 0.0; // kein Input-Feld mehr
     $anzahl       = max(1, (int)($_POST['anzahl'] ?? 1)); // Standard = 1
+
+    // Kategorie ist Pflicht und muss bereits in der DB existieren.
+    $kategorieGueltig = false;
+    if ($kategorie !== '') {
+        $stmtKategorie = $fitconn->prepare("
+            SELECT 1
+            FROM kalorien
+            WHERE kategorie = ?
+            LIMIT 1
+        ");
+        if ($stmtKategorie) {
+            $stmtKategorie->bind_param('s', $kategorie);
+            $stmtKategorie->execute();
+            $stmtKategorie->store_result();
+            $kategorieGueltig = $stmtKategorie->num_rows > 0;
+            $stmtKategorie->close();
+        }
+    }
+
+    if (!$kategorieGueltig) {
+        http_response_code(400);
+        exit('Ungültige oder fehlende Kategorie.');
+    }
 
     $jetzt = new DateTime();
     #// Zeitlogik: bis 03:00 Uhr der Vortag (23:59)
@@ -103,10 +127,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($beschreibung !== '' && $kalorien > 0) {
         $stmt = $fitconn->prepare("
-            INSERT INTO kalorien (beschreibung, kalorien, `eiweiß`, fett, kohlenhydrate, alkohol, tstamp)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO kalorien (beschreibung, kategorie, kalorien, `eiweiß`, fett, kohlenhydrate, alkohol, tstamp)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ");
-        $stmt->bind_param('sidddds', $beschreibung, $kalorien, $eiweiss, $fett, $kh, $alkohol, $tstamp);
+        $stmt->bind_param('ssidddds', $beschreibung, $kategorie, $kalorien, $eiweiss, $fett, $kh, $alkohol, $tstamp);
         for ($i = 0; $i < $anzahl; $i++) {
             $stmt->execute();
         }
@@ -225,17 +249,36 @@ $result = $fitconn->query("
     SELECT 
         MIN(id) AS id,
         beschreibung,
+        kategorie,
         kalorien,
         COUNT(*) AS anzahl,
         MAX(`eiweiß`)        AS eiweiss,
         MAX(`fett`)          AS fett,
         MAX(`kohlenhydrate`) AS kh
     FROM kalorien
-    GROUP BY beschreibung, kalorien
+    WHERE kategorie IS NOT NULL
+      AND TRIM(kategorie) <> ''
+    GROUP BY beschreibung, kategorie, kalorien
     ORDER BY anzahl DESC
 ");
 $eintraege = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 if ($result) $result->close();
+
+// Kategorien für das Pflicht-Dropdown direkt aus der DB laden.
+$kategorien = [];
+$resultKategorien = $fitconn->query("
+    SELECT DISTINCT TRIM(kategorie) AS kategorie
+    FROM kalorien
+    WHERE kategorie IS NOT NULL
+      AND TRIM(kategorie) <> ''
+    ORDER BY kategorie ASC
+");
+if ($resultKategorien) {
+    while ($row = $resultKategorien->fetch_assoc()) {
+        $kategorien[] = $row['kategorie'];
+    }
+    $resultKategorien->close();
+}
 
 $heute   = date('Y-m-d');
 $gestern = date('Y-m-d', strtotime('-1 day'));
@@ -256,10 +299,22 @@ require_once __DIR__ . '/../navbar.php';
         <h1 class="ueberschrift">Kalorienzufuhr eintragen</h1>
 
         <form method="post" class="form-block" action="/fit/kalorien">
-            <div class="input-group" style="flex: 1 1 100%; position: relative;">
+            <div class="input-group food-autocomplete-field">
                 <label for="beschreibung">Beschreibung:</label>
                 <input type="text" id="beschreibung" name="beschreibung" autocomplete="off" autofocus>
                 <ul id="vorschlaege" class="autocomplete-list"></ul>
+            </div>
+
+            <div class="input-group food-category-field">
+                <label for="kategorie">Kategorie:</label>
+                <select id="kategorie" name="kategorie" class="kategorie-select" required>
+                    <option value="" selected disabled>Kategorie wählen …</option>
+                    <?php foreach ($kategorien as $kategorieOption): ?>
+                        <option value="<?= htmlspecialchars($kategorieOption, ENT_QUOTES, 'UTF-8') ?>">
+                            <?= htmlspecialchars($kategorieOption, ENT_QUOTES, 'UTF-8') ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
             </div>
 
             <div class="input-row">
@@ -381,6 +436,7 @@ require_once __DIR__ . '/../navbar.php';
     const daten = <?= json_encode(is_array($eintraege) ? $eintraege : [], JSON_UNESCAPED_UNICODE) ?>;
 
     const beschreibungsInput = document.getElementById('beschreibung');
+    const kategorieInput    = document.getElementById('kategorie');
     const kalorienInput      = document.getElementById('kalorien');
     const anzahlInput        = document.getElementById('anzahl');
     const eiweissInput       = document.getElementById('eiweiss');
@@ -451,6 +507,9 @@ require_once __DIR__ . '/../navbar.php';
         if (!li) return;
 
         beschreibungsInput.value = li.dataset.beschreibung || '';
+        if (kategorieInput && li.dataset.kategorie) {
+            kategorieInput.value = li.dataset.kategorie;
+        }
         kalorienInput.value      = li.dataset.kalorien || '';
         eiweissInput.value       = numberOrZero(li.dataset.eiweiss).toString();
         fettInput.value          = numberOrZero(li.dataset.fett).toString();
@@ -474,8 +533,9 @@ require_once __DIR__ . '/../navbar.php';
 
         passende.forEach(e => {
             const li = document.createElement('li');
-            li.textContent = `${e.beschreibung} (${e.kalorien} kcal)`;
+            li.textContent = `${e.beschreibung} · ${e.kategorie || 'ohne Kategorie'} (${e.kalorien} kcal)`;
             li.dataset.beschreibung = e.beschreibung ?? '';
+            li.dataset.kategorie    = e.kategorie ?? '';
             li.dataset.kalorien     = e.kalorien ?? 0;
             li.dataset.eiweiss      = e.eiweiss ?? 0;
             li.dataset.fett         = e.fett ?? 0;
