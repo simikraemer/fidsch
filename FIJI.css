@@ -10215,3 +10215,584 @@ button.food-dashboard-back[hidden] {
 .food-dashboard-chart-title-row h2 {
     margin: 0;
 }
+
+/* =========================================================
+ * SCI / Karteikarten
+ * Neue obere Lernleiste
+ * ========================================================= */
+
+.sci-deckbar {
+    margin-bottom: 18px;
+    overflow: hidden;
+
+    background: #fff;
+
+    border-top: 4px solid var(--primary);
+    border-radius: var(--border-radius);
+
+    box-shadow: var(--shadow);
+}
+
+
+/* ---------------------------------------------------------
+ * Hauptzeile: Fach + aktueller Lernstand
+ * --------------------------------------------------------- */
+
+.sci-deckbar-main {
+    display: grid;
+    grid-template-columns:
+        minmax(250px, 0.65fr)
+        minmax(520px, 1.35fr);
+
+    gap: 24px;
+
+    padding: 15px 18px 14px;
+}
+
+
+.sci-deckbar-label {
+    display: block;
+
+    margin-bottom: 7px;
+
+    color: rgba(34, 34, 34, 0.58);
+
+    font-size: 0.73rem;
+    font-weight: 900;
+
+    letter-spacing: 0.055em;
+    text-transform: uppercase;
+}
+
+
+/* ---------------------------------------------------------
+ * Fach-Dropdown
+ * --------------------------------------------------------- */
+
+.sci-deckbar-exam {
+    display: block;
+    min-width: 0;
+}
+
+
+.sci-deckbar-select {
+    display: block;
+
+    width: 100%;
+    height: 46px;
+
+    box-sizing: border-box;
+
+    margin: 0;
+    padding: 8px 38px 8px 12px;
+
+    border: 2px solid rgba(0, 0, 0, 0.11);
+    border-radius: 8px;
+
+    background-color: #fff;
+    color: var(--text);
+
+    font-family: var(--font);
+    font-size: 0.95rem;
+    font-weight: 800;
+
+    box-shadow: none;
+
+    cursor: pointer;
+
+    transition:
+        border-color 0.15s ease,
+        background-color 0.15s ease;
+}
+
+
+.sci-deckbar-select:hover {
+    border-color: rgba(255, 107, 0, 0.48);
+}
+
+
+.sci-deckbar-select:focus {
+    outline: none;
+
+    border-color: var(--primary);
+
+    box-shadow:
+        0 0 0 3px
+        color-mix(
+            in srgb,
+            var(--primary) 12%,
+            transparent
+        );
+}
+
+
+/* ---------------------------------------------------------
+ * Aktuelle Deck-Statistik
+ * --------------------------------------------------------- */
+
+.sci-deckbar-current {
+    min-width: 0;
+}
+
+
+.sci-deckbar-kpis {
+    display: grid;
+
+    grid-template-columns:
+        repeat(4, minmax(90px, 1fr));
+
+    gap: 8px;
+}
+
+
+.sci-deckbar-kpi {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+
+    min-width: 0;
+    min-height: 46px;
+
+    box-sizing: border-box;
+
+    padding: 5px 11px;
+
+    border: 1px solid rgba(0, 0, 0, 0.075);
+    border-radius: 8px;
+
+    background: var(--bg-light);
+
+    text-align: center;
+}
+
+
+.sci-deckbar-kpi strong {
+    display: block;
+
+    color: var(--text);
+
+    font-size: 1.18rem;
+    font-weight: 900;
+
+    line-height: 1.05;
+
+    font-variant-numeric: tabular-nums;
+}
+
+
+.sci-deckbar-kpi span {
+    display: block;
+
+    margin-top: 3px;
+
+    color: rgba(34, 34, 34, 0.54);
+
+    font-size: 0.72rem;
+    font-weight: 750;
+}
+
+
+.sci-deckbar-kpi.is-due {
+    border-color:
+        color-mix(
+            in srgb,
+            var(--primary) 28%,
+            transparent
+        );
+
+    background:
+        color-mix(
+            in srgb,
+            var(--primary) 7%,
+            #fff 93%
+        );
+}
+
+
+.sci-deckbar-kpi.is-due strong {
+    color: var(--primary-dark);
+}
+
+
+/* ---------------------------------------------------------
+ * Themen
+ * --------------------------------------------------------- */
+
+.sci-deckbar-topicrow {
+    padding: 12px 18px 14px;
+
+    border-top:
+        1px solid
+        rgba(0, 0, 0, 0.07);
+
+    background:
+        rgba(0, 0, 0, 0.012);
+}
+
+
+.sci-deckbar-topicrow .sci-deckbar-label {
+    margin-bottom: 8px;
+}
+
+
+.sci-deckbar-topiclist {
+    display: flex;
+    align-items: center;
+
+    gap: 7px;
+
+    flex-wrap: wrap;
+}
+
+
+.sci-deckbar-topic {
+    appearance: none;
+
+    width: auto;
+    min-width: 0;
+    min-height: 36px;
+
+    box-sizing: border-box;
+
+    margin: 0;
+    padding: 7px 12px;
+
+    border: 1px solid rgba(0, 0, 0, 0.13);
+    border-radius: 7px;
+
+    background: #fff;
+    color: var(--text);
+
+    box-shadow: none;
+
+    font-family: var(--font);
+    font-size: 0.84rem;
+    font-weight: 800;
+
+    line-height: 1.15;
+
+    white-space: nowrap;
+
+    cursor: pointer;
+
+    transition:
+        border-color 0.14s ease,
+        background-color 0.14s ease,
+        color 0.14s ease,
+        transform 0.08s ease;
+}
+
+
+.sci-deckbar-topic:hover {
+    border-color: var(--primary);
+
+    background:
+        color-mix(
+            in srgb,
+            var(--primary) 7%,
+            #fff 93%
+        );
+
+    color: var(--text);
+}
+
+
+.sci-deckbar-topic:active {
+    transform: scale(0.985);
+}
+
+
+.sci-deckbar-topic.is-active {
+    border-color: var(--primary);
+
+    background: var(--primary);
+    color: var(--text-light);
+
+    box-shadow:
+        0 2px 7px
+        color-mix(
+            in srgb,
+            var(--primary) 22%,
+            transparent
+        );
+}
+
+
+.sci-deckbar-topic.is-active:hover {
+    border-color: var(--primary-dark);
+
+    background: var(--primary-dark);
+    color: var(--text-light);
+}
+
+
+/* ---------------------------------------------------------
+ * Langzeitstatistik
+ * --------------------------------------------------------- */
+
+.sci-deckbar-history {
+    display: grid;
+
+    grid-template-columns:
+        minmax(145px, auto)
+        minmax(0, 1fr);
+
+    align-items: center;
+
+    gap: 20px;
+
+    min-height: 45px;
+
+    padding: 8px 18px;
+
+    border-top:
+        1px solid
+        rgba(0, 0, 0, 0.07);
+
+    background: var(--bg-light);
+}
+
+
+.sci-deckbar-history-head {
+    display: flex;
+    align-items: baseline;
+
+    gap: 8px;
+
+    white-space: nowrap;
+}
+
+
+.sci-deckbar-history-head .sci-deckbar-label {
+    margin: 0;
+}
+
+
+.sci-deckbar-history-hint {
+    color: rgba(34, 34, 34, 0.43);
+
+    font-size: 0.72rem;
+    font-weight: 650;
+}
+
+
+.sci-deckbar-history-list {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+
+    gap: 0;
+
+    min-width: 0;
+
+    flex-wrap: wrap;
+}
+
+
+.sci-deckbar-history-stat {
+    display: inline-flex;
+    align-items: baseline;
+
+    gap: 6px;
+
+    padding: 2px 14px;
+
+    white-space: nowrap;
+}
+
+
+.sci-deckbar-history-stat + .sci-deckbar-history-stat {
+    border-left:
+        1px solid
+        rgba(0, 0, 0, 0.10);
+}
+
+
+.sci-deckbar-history-stat span {
+    color: rgba(34, 34, 34, 0.55);
+
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+
+.sci-deckbar-history-stat strong {
+    color: var(--text);
+
+    font-size: 0.9rem;
+    font-weight: 900;
+
+    font-variant-numeric: tabular-nums;
+}
+
+
+.sci-deckbar-history-stat.is-correct strong {
+    color: #2e8b50;
+}
+
+
+.sci-deckbar-history-stat.is-wrong strong {
+    color: #b03a31;
+}
+
+
+.sci-deckbar-history-stat.is-rate strong {
+    color: var(--primary-dark);
+}
+
+
+/* ---------------------------------------------------------
+ * Responsive
+ * --------------------------------------------------------- */
+
+@media (max-width: 950px) {
+
+    .sci-deckbar-main {
+        grid-template-columns: 1fr;
+
+        gap: 13px;
+    }
+
+
+    .sci-deckbar-kpis {
+        grid-template-columns:
+            repeat(4, minmax(0, 1fr));
+    }
+
+
+    .sci-deckbar-history {
+        grid-template-columns: 1fr;
+
+        gap: 6px;
+    }
+
+
+    .sci-deckbar-history-list {
+        justify-content: flex-start;
+    }
+}
+
+
+@media (max-width: 620px) {
+
+    .sci-deckbar-main,
+    .sci-deckbar-topicrow {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+
+    .sci-deckbar-history {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+
+    .sci-deckbar-kpis {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+    }
+
+
+    .sci-deckbar-topiclist {
+        gap: 6px;
+    }
+
+
+    .sci-deckbar-topic {
+        padding: 7px 10px;
+
+        font-size: 0.80rem;
+    }
+
+
+    .sci-deckbar-history-head {
+        flex-wrap: wrap;
+    }
+
+
+    .sci-deckbar-history-stat {
+        padding: 3px 9px;
+    }
+
+
+    .sci-deckbar-history-stat:first-child {
+        padding-left: 0;
+    }
+}
+
+/* Choice-Auswertung nach falscher Antwort */
+
+.sci-review-choice.is-review-correct,
+.sci-review-choice.is-review-correct:hover {
+    border-color: #2e9b55;
+    background: #edf8f1;
+    cursor: default;
+}
+
+.sci-review-choice.is-review-correct .sci-review-choice-key {
+    background: #2e9b55;
+}
+
+.sci-review-choice.is-review-wrong,
+.sci-review-choice.is-review-wrong:hover {
+    border-color: #c0392b;
+    background: #fdf0ee;
+    cursor: default;
+}
+
+.sci-review-choice.is-review-wrong .sci-review-choice-key {
+    background: #c0392b;
+}
+
+/* =========================================================
+ * SCI / Karteikarten – Due-Badges auf Topic-Buttons
+ * ========================================================= */
+
+.sci-deckbar-topic {
+    position: relative;
+    overflow: visible;
+}
+
+.sci-deckbar-topic-count {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    min-width: 19px;
+    height: 19px;
+    box-sizing: border-box;
+
+    padding: 0 5px;
+
+    border: 2px solid #fff;
+    border-radius: 999px;
+
+    background: var(--primary);
+    color: #fff;
+
+    box-shadow: var(--shadow);
+
+    font-size: 0.68rem;
+    font-weight: 900;
+    line-height: 1;
+
+    font-variant-numeric: tabular-nums;
+
+    pointer-events: none;
+}
+
+/* Aktiver Topic-Button ist selbst orange:
+   Badge deshalb invertieren. */
+.sci-deckbar-topic.is-active .sci-deckbar-topic-count {
+    border-color: var(--primary);
+    background: #fff;
+    color: var(--primary-dark);
+
+    box-shadow:
+        0 1px 5px rgba(0, 0, 0, 0.18);
+}

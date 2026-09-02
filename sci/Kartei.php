@@ -1,8 +1,9 @@
 <?php
 
-// sci/Kartei_v5.php
-// Unterstützt klassische Single-/Multiple-Choice-Karten und den neuen Recall/Reveal-Modus.
-// Strömungsmechanik wird mit question_type = 'recall' betrieben.
+// sci/Kartei.php
+// Single-/Multiple-Choice + Recall/Reveal.
+// Fachauswahl per Dropdown, Topics per Buttons inklusive "Alle".
+// "Alle" randomisiert alle aktuell fälligen Karten des Fachs vollständig.
 
 require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../db.php';
@@ -14,6 +15,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 }
 
 const KARTEI_EMPTY_TOPIC = '__KARTEI_EMPTY_TOPIC__';
+const KARTEI_ALL_TOPICS = '__KARTEI_ALL_TOPICS__';
 const KARTEI_IMAGE_DIR = __DIR__ . '/img/kartei';
 
 if (empty($_SESSION['kartei_csrf'])) {
@@ -34,7 +36,6 @@ function karteiNormalizeMathMarkup(string $text): string
 {
     $text = html_entity_decode($text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
-    // Rohe < / > innerhalb von MathJax dürfen nicht zuerst von innerHTML als HTML interpretiert werden.
     $text = preg_replace_callback(
         '/\\\\\((.*?)\\\\\)|\\\\\[(.*?)\\\\\]/s',
         static function (array $matches): string {
@@ -96,6 +97,7 @@ function karteiDecodeJsonArray(?string $json): array
 function karteiNormalizeSelection(array $values): array
 {
     $result = [];
+
     foreach ($values as $value) {
         if (is_array($value) || is_object($value)) {
             continue;
@@ -109,6 +111,7 @@ function karteiNormalizeSelection(array $values): array
 
     $result = array_values(array_unique($result, SORT_STRING));
     sort($result, SORT_NATURAL | SORT_FLAG_CASE);
+
     return $result;
 }
 
@@ -120,12 +123,35 @@ function karteiNormalizeTopicValue(?string $topic): string
 
 function karteiTopicLabel(string $topic): string
 {
+    if ($topic === KARTEI_ALL_TOPICS) {
+        return 'Alle';
+    }
+
     return $topic === KARTEI_EMPTY_TOPIC ? 'Ohne Topic' : $topic;
 }
 
 function karteiTopicMatches(?string $dbTopic, string $selectedTopic): bool
 {
+    if ($selectedTopic === KARTEI_ALL_TOPICS) {
+        return true;
+    }
+
     return karteiNormalizeTopicValue($dbTopic) === $selectedTopic;
+}
+
+function karteiTopicFromUrlValue(string $value): string
+{
+    $value = trim($value);
+
+    if ($value === 'all') {
+        return KARTEI_ALL_TOPICS;
+    }
+
+    if ($value === '__empty__') {
+        return KARTEI_EMPTY_TOPIC;
+    }
+
+    return $value;
 }
 
 function karteiLoadAvailableExams(mysqli $conn): array
@@ -186,9 +212,107 @@ function karteiLoadAvailableTopics(mysqli $conn, string $exam): array
     while ($row = $res->fetch_assoc()) {
         $out[] = (string)$row['topic_value'];
     }
+
     $stmt->close();
 
     return $out;
+}
+
+function karteiLoadDueCountsByTopic(mysqli $conn, string $exam): array
+{
+    if ($exam === '') {
+        return [
+            'total' => 0,
+            'topics' => [],
+        ];
+    }
+
+    $stmt = $conn->prepare("
+        SELECT
+            CASE
+                WHEN q.topic IS NULL OR TRIM(q.topic) = '' THEN ?
+                ELSE TRIM(q.topic)
+            END AS topic_value,
+            COUNT(*) AS due_count
+        FROM kartei_fragen q
+        LEFT JOIN kartei_lernstand ls
+            ON ls.question_id = q.id
+        WHERE q.is_active = 1
+          AND TRIM(q.exam) = ?
+          AND (
+                ls.question_id IS NULL
+                OR ls.next_due_at IS NULL
+                OR ls.next_due_at <= NOW()
+          )
+        GROUP BY topic_value
+    ");
+
+    if (!$stmt) {
+        throw new RuntimeException('Fällige Karten pro Topic konnten nicht vorbereitet werden: ' . $conn->error);
+    }
+
+    $empty = KARTEI_EMPTY_TOPIC;
+    $stmt->bind_param('ss', $empty, $exam);
+    $stmt->execute();
+    $res = $stmt->get_result();
+
+    $topics = [];
+    $total = 0;
+
+    while ($row = $res->fetch_assoc()) {
+        $topicValue = (string)$row['topic_value'];
+        $dueCount = max(0, (int)($row['due_count'] ?? 0));
+
+        $topics[$topicValue] = $dueCount;
+        $total += $dueCount;
+    }
+
+    $stmt->close();
+
+    return [
+        'total' => $total,
+        'topics' => $topics,
+    ];
+}
+
+function karteiBuildClientTopics(
+    array $availableTopics,
+    array $dueCounts
+): array {
+    $items = [
+        [
+            'value' => KARTEI_ALL_TOPICS,
+            'label' => 'Alle',
+            'due_count' => max(0, (int)($dueCounts['total'] ?? 0)),
+        ],
+    ];
+
+    $topicDueCounts = is_array($dueCounts['topics'] ?? null)
+        ? $dueCounts['topics']
+        : [];
+
+    foreach ($availableTopics as $topic) {
+        $items[] = [
+            'value' => $topic,
+            'label' => karteiTopicLabel($topic),
+            'due_count' => max(0, (int)($topicDueCounts[$topic] ?? 0)),
+        ];
+    }
+
+    return $items;
+}
+
+function karteiNormalizeRequestedTopic(string $topic, array $availableTopics): string
+{
+    if ($topic === KARTEI_ALL_TOPICS) {
+        return KARTEI_ALL_TOPICS;
+    }
+
+    if ($topic !== '' && in_array($topic, $availableTopics, true)) {
+        return $topic;
+    }
+
+    return $availableTopics[0] ?? KARTEI_ALL_TOPICS;
 }
 
 function karteiQuestionQueryBase(): string
@@ -206,6 +330,7 @@ function karteiQuestionQueryBase(): string
             q.topic,
             q.source_label,
             q.sort_order,
+            q.is_active,
             ls.ease_factor,
             ls.interval_minutes,
             ls.repetitions,
@@ -219,6 +344,40 @@ function karteiQuestionQueryBase(): string
     ";
 }
 
+function karteiApplyTopicFilterToStatement(
+    mysqli $conn,
+    string $baseSql,
+    string $exam,
+    string $topic,
+    string $suffix = ''
+): mysqli_stmt {
+    if ($topic === KARTEI_ALL_TOPICS) {
+        $stmt = $conn->prepare($baseSql . $suffix);
+        if (!$stmt) {
+            throw new RuntimeException('Abfrage konnte nicht vorbereitet werden: ' . $conn->error);
+        }
+        $stmt->bind_param('s', $exam);
+        return $stmt;
+    }
+
+    if ($topic === KARTEI_EMPTY_TOPIC) {
+        $stmt = $conn->prepare($baseSql . " AND (q.topic IS NULL OR TRIM(q.topic) = '')" . $suffix);
+        if (!$stmt) {
+            throw new RuntimeException('Abfrage konnte nicht vorbereitet werden: ' . $conn->error);
+        }
+        $stmt->bind_param('s', $exam);
+        return $stmt;
+    }
+
+    $stmt = $conn->prepare($baseSql . " AND TRIM(COALESCE(q.topic, '')) = ?" . $suffix);
+    if (!$stmt) {
+        throw new RuntimeException('Abfrage konnte nicht vorbereitet werden: ' . $conn->error);
+    }
+
+    $stmt->bind_param('ss', $exam, $topic);
+    return $stmt;
+}
+
 function karteiBuildStats(mysqli $conn, string $exam, string $topic): array
 {
     if ($exam === '' || $topic === '') {
@@ -229,10 +388,14 @@ function karteiBuildStats(mysqli $conn, string $exam, string $topic): array
             'review_due' => 0,
             'reviewed_today' => 0,
             'next_due_at' => null,
+            'answer_count' => 0,
+            'correct_total' => 0,
+            'wrong_total' => 0,
+            'correct_percent' => null,
         ];
     }
 
-    $base = "
+    $cardBase = "
         SELECT
             COUNT(*) AS total_count,
             SUM(CASE WHEN ls.question_id IS NULL THEN 1 ELSE 0 END) AS new_count,
@@ -263,28 +426,33 @@ function karteiBuildStats(mysqli $conn, string $exam, string $topic): array
           AND TRIM(q.exam) = ?
     ";
 
-    if ($topic === KARTEI_EMPTY_TOPIC) {
-        $sql = $base . " AND (q.topic IS NULL OR TRIM(q.topic) = '')";
-        $stmt = $conn->prepare($sql);
-        if (!$stmt) {
-            throw new RuntimeException('Statistik konnte nicht vorbereitet werden: ' . $conn->error);
-        }
-        $stmt->bind_param('s', $exam);
-    } else {
-        $sql = $base . " AND TRIM(COALESCE(q.topic, '')) = ?";
-        $stmt = $conn->prepare($sql);
-        if (!$stmt) {
-            throw new RuntimeException('Statistik konnte nicht vorbereitet werden: ' . $conn->error);
-        }
-        $stmt->bind_param('ss', $exam, $topic);
-    }
-
+    $stmt = karteiApplyTopicFilterToStatement($conn, $cardBase, $exam, $topic);
     $stmt->execute();
     $row = $stmt->get_result()->fetch_assoc() ?: [];
     $stmt->close();
 
     $newCount = (int)($row['new_count'] ?? 0);
     $reviewDue = (int)($row['review_due'] ?? 0);
+
+    $answerBase = "
+        SELECT
+            COUNT(*) AS answer_count,
+            SUM(CASE WHEN a.is_correct = 1 THEN 1 ELSE 0 END) AS correct_total,
+            SUM(CASE WHEN a.is_correct = 0 THEN 1 ELSE 0 END) AS wrong_total
+        FROM kartei_antworten a
+        INNER JOIN kartei_fragen q
+            ON q.id = a.question_id
+        WHERE TRIM(q.exam) = ?
+    ";
+
+    $answerStmt = karteiApplyTopicFilterToStatement($conn, $answerBase, $exam, $topic);
+    $answerStmt->execute();
+    $answerRow = $answerStmt->get_result()->fetch_assoc() ?: [];
+    $answerStmt->close();
+
+    $answerCount = (int)($answerRow['answer_count'] ?? 0);
+    $correctTotal = (int)($answerRow['correct_total'] ?? 0);
+    $wrongTotal = (int)($answerRow['wrong_total'] ?? 0);
 
     return [
         'total' => (int)($row['total_count'] ?? 0),
@@ -293,6 +461,12 @@ function karteiBuildStats(mysqli $conn, string $exam, string $topic): array
         'review_due' => $reviewDue,
         'reviewed_today' => (int)($row['reviewed_today'] ?? 0),
         'next_due_at' => $row['next_due_at'] !== null ? (string)$row['next_due_at'] : null,
+        'answer_count' => $answerCount,
+        'correct_total' => $correctTotal,
+        'wrong_total' => $wrongTotal,
+        'correct_percent' => $answerCount > 0
+            ? round(($correctTotal / $answerCount) * 100, 1)
+            : null,
     ];
 }
 
@@ -312,29 +486,23 @@ function karteiLoadNextDueQuestion(mysqli $conn, string $exam, string $topic): ?
           )
     ";
 
-    $order = "
-        ORDER BY
-            CASE WHEN ls.question_id IS NULL THEN 1 ELSE 0 END ASC,
-            COALESCE(ls.next_due_at, '9999-12-31 23:59:59') ASC,
-            q.sort_order ASC,
-            q.id ASC
-        LIMIT 1
-    ";
-
-    if ($topic === KARTEI_EMPTY_TOPIC) {
-        $sql = $base . " AND (q.topic IS NULL OR TRIM(q.topic) = '') " . $order;
-        $stmt = $conn->prepare($sql);
+    if ($topic === KARTEI_ALL_TOPICS) {
+        $stmt = $conn->prepare($base . " ORDER BY RAND() LIMIT 1");
         if (!$stmt) {
             throw new RuntimeException('Frage konnte nicht vorbereitet werden: ' . $conn->error);
         }
         $stmt->bind_param('s', $exam);
     } else {
-        $sql = $base . " AND TRIM(COALESCE(q.topic, '')) = ? " . $order;
-        $stmt = $conn->prepare($sql);
-        if (!$stmt) {
-            throw new RuntimeException('Frage konnte nicht vorbereitet werden: ' . $conn->error);
-        }
-        $stmt->bind_param('ss', $exam, $topic);
+        $order = "
+            ORDER BY
+                CASE WHEN ls.question_id IS NULL THEN 1 ELSE 0 END ASC,
+                COALESCE(ls.next_due_at, '9999-12-31 23:59:59') ASC,
+                q.sort_order ASC,
+                q.id ASC
+            LIMIT 1
+        ";
+
+        $stmt = karteiApplyTopicFilterToStatement($conn, $base, $exam, $topic, $order);
     }
 
     $stmt->execute();
@@ -359,9 +527,81 @@ function karteiLoadQuestionById(mysqli $conn, int $questionId): ?array
     return $row ?: null;
 }
 
+function karteiCalculateSchedule(array $state, int $rating): array
+{
+    if ($rating < 0 || $rating > 3) {
+        throw new InvalidArgumentException('Ungültige Bewertung.');
+    }
+
+    $ease = isset($state['ease_factor']) && $state['ease_factor'] !== null
+        ? (float)$state['ease_factor']
+        : 2.30;
+
+    $oldInterval = isset($state['interval_minutes']) && $state['interval_minutes'] !== null
+        ? (int)$state['interval_minutes']
+        : 0;
+
+    $repetitions = isset($state['repetitions']) && $state['repetitions'] !== null
+        ? (int)$state['repetitions']
+        : 0;
+
+    $lapses = isset($state['lapses']) && $state['lapses'] !== null
+        ? (int)$state['lapses']
+        : 0;
+
+    switch ($rating) {
+        case 0:
+            $interval = 10;
+            $repetitions = 0;
+            $lapses++;
+            $ease = max(1.30, $ease - 0.20);
+            break;
+
+        case 1:
+            $interval = $oldInterval > 0
+                ? max(720, min(2880, (int)round($oldInterval * 1.20)))
+                : 720;
+            $repetitions = max(0, $repetitions - 1);
+            $ease = max(1.30, $ease - 0.10);
+            break;
+
+        case 2:
+            if ($repetitions <= 0) {
+                $interval = 1440;
+            } elseif ($repetitions === 1) {
+                $interval = 4320;
+            } else {
+                $interval = max(1440, (int)round(max(1, $oldInterval) * $ease));
+            }
+            $repetitions++;
+            break;
+
+        case 3:
+            if ($repetitions <= 0) {
+                $interval = 4320;
+            } elseif ($repetitions === 1) {
+                $interval = 10080;
+            } else {
+                $interval = max(4320, (int)round(max(1, $oldInterval) * ($ease + 0.80)));
+            }
+            $repetitions++;
+            $ease = min(3.20, $ease + 0.15);
+            break;
+    }
+
+    return [
+        'rating' => $rating,
+        'interval_minutes' => $interval,
+        'ease_factor' => $ease,
+        'repetitions' => $repetitions,
+        'lapses' => $lapses,
+    ];
+}
+
 function karteiFormatQuestionForClient(array $row): array
 {
     $options = [];
+
     foreach (karteiDecodeJsonArray((string)($row['options_json'] ?? '[]')) as $option) {
         if (!is_array($option)) {
             continue;
@@ -378,6 +618,21 @@ function karteiFormatQuestionForClient(array $row): array
         ];
     }
 
+    $learningState = [
+        'ease_factor' => $row['ease_factor'] !== null ? (float)$row['ease_factor'] : 2.30,
+        'interval_minutes' => (int)($row['interval_minutes'] ?? 0),
+        'repetitions' => (int)($row['repetitions'] ?? 0),
+        'lapses' => (int)($row['lapses'] ?? 0),
+    ];
+
+    $ratingIntervals = [];
+    for ($rating = 0; $rating <= 3; $rating++) {
+        $preview = karteiCalculateSchedule($learningState, $rating);
+        $ratingIntervals[(string)$rating] = (int)$preview['interval_minutes'];
+    }
+
+    $topicValue = karteiNormalizeTopicValue($row['topic'] ?? null);
+
     return [
         'id' => (int)$row['id'],
         'question_type' => (string)$row['question_type'],
@@ -385,12 +640,15 @@ function karteiFormatQuestionForClient(array $row): array
         'answer_html' => karteiNormalizeMathMarkup((string)($row['answer_html'] ?? '')),
         'image_path' => trim((string)($row['image_path'] ?? '')),
         'source_label' => trim((string)($row['source_label'] ?? '')),
+        'topic' => $topicValue,
+        'topic_label' => karteiTopicLabel($topicValue),
         'options' => $options,
+        'rating_intervals' => $ratingIntervals,
         'learning' => [
-            'ease_factor' => $row['ease_factor'] !== null ? (float)$row['ease_factor'] : 2.30,
-            'interval_minutes' => (int)($row['interval_minutes'] ?? 0),
-            'repetitions' => (int)($row['repetitions'] ?? 0),
-            'lapses' => (int)($row['lapses'] ?? 0),
+            'ease_factor' => $learningState['ease_factor'],
+            'interval_minutes' => $learningState['interval_minutes'],
+            'repetitions' => $learningState['repetitions'],
+            'lapses' => $learningState['lapses'],
             'last_rating' => $row['last_rating'] !== null ? (int)$row['last_rating'] : null,
             'last_reviewed_at' => $row['last_reviewed_at'] !== null ? (string)$row['last_reviewed_at'] : null,
             'next_due_at' => $row['next_due_at'] !== null ? (string)$row['next_due_at'] : null,
@@ -411,7 +669,7 @@ function karteiSnapshot(mysqli $conn, string $exam, string $topic): array
 
 function karteiVerifyQuestionSelection(array $question, string $exam, string $topic): void
 {
-    if ((int)($question['id'] ?? 0) <= 0 || (int)($question['is_active'] ?? 1) === 0) {
+    if ((int)($question['id'] ?? 0) <= 0 || (int)($question['is_active'] ?? 0) === 0) {
         throw new RuntimeException('Frage ist nicht aktiv.');
     }
 
@@ -426,72 +684,26 @@ function karteiVerifyQuestionSelection(array $question, string $exam, string $to
 
 function karteiApplySchedule(mysqli $conn, int $questionId, int $rating): array
 {
-    if ($rating < 0 || $rating > 3) {
-        throw new InvalidArgumentException('Ungültige Bewertung.');
-    }
-
     $stmt = $conn->prepare("
         SELECT ease_factor, interval_minutes, repetitions, lapses
         FROM kartei_lernstand
         WHERE question_id = ?
         FOR UPDATE
     ");
+
     if (!$stmt) {
         throw new RuntimeException('Lernstand konnte nicht vorbereitet werden: ' . $conn->error);
     }
 
     $stmt->bind_param('i', $questionId);
     $stmt->execute();
-    $state = $stmt->get_result()->fetch_assoc();
+    $state = $stmt->get_result()->fetch_assoc() ?: [];
     $stmt->close();
 
-    $ease = $state ? (float)$state['ease_factor'] : 2.30;
-    $oldInterval = $state ? (int)$state['interval_minutes'] : 0;
-    $repetitions = $state ? (int)$state['repetitions'] : 0;
-    $lapses = $state ? (int)$state['lapses'] : 0;
-
-    switch ($rating) {
-        case 0: // Nicht gewusst
-            $interval = 10;
-            $repetitions = 0;
-            $lapses++;
-            $ease = max(1.30, $ease - 0.20);
-            break;
-
-        case 1: // Unsicher / teilweise
-            $interval = $oldInterval > 0
-                ? max(720, min(2880, (int)round($oldInterval * 1.20)))
-                : 720;
-            $repetitions = max(0, $repetitions - 1);
-            $ease = max(1.30, $ease - 0.10);
-            break;
-
-        case 2: // Gewusst
-            if ($repetitions <= 0) {
-                $interval = 1440;       // 1 Tag
-            } elseif ($repetitions === 1) {
-                $interval = 4320;       // 3 Tage
-            } else {
-                $interval = max(1440, (int)round(max(1, $oldInterval) * $ease));
-            }
-            $repetitions++;
-            break;
-
-        case 3: // Sicher gewusst
-            if ($repetitions <= 0) {
-                $interval = 4320;       // 3 Tage
-            } elseif ($repetitions === 1) {
-                $interval = 10080;      // 7 Tage
-            } else {
-                $interval = max(4320, (int)round(max(1, $oldInterval) * ($ease + 0.80)));
-            }
-            $repetitions++;
-            $ease = min(3.20, $ease + 0.15);
-            break;
-    }
+    $schedule = karteiCalculateSchedule($state, $rating);
 
     $nextDue = (new DateTimeImmutable('now'))
-        ->modify('+' . $interval . ' minutes')
+        ->modify('+' . $schedule['interval_minutes'] . ' minutes')
         ->format('Y-m-d H:i:s');
 
     $upsert = $conn->prepare("
@@ -519,6 +731,11 @@ function karteiApplySchedule(mysqli $conn, int $questionId, int $rating): array
         throw new RuntimeException('Lernstand konnte nicht gespeichert werden: ' . $conn->error);
     }
 
+    $interval = (int)$schedule['interval_minutes'];
+    $ease = (float)$schedule['ease_factor'];
+    $repetitions = (int)$schedule['repetitions'];
+    $lapses = (int)$schedule['lapses'];
+
     $upsert->bind_param(
         'idiiiis',
         $questionId,
@@ -529,17 +746,12 @@ function karteiApplySchedule(mysqli $conn, int $questionId, int $rating): array
         $rating,
         $nextDue
     );
+
     $upsert->execute();
     $upsert->close();
 
-    return [
-        'rating' => $rating,
-        'interval_minutes' => $interval,
-        'next_due_at' => $nextDue,
-        'ease_factor' => $ease,
-        'repetitions' => $repetitions,
-        'lapses' => $lapses,
-    ];
+    $schedule['next_due_at'] = $nextDue;
+    return $schedule;
 }
 
 function karteiInsertReview(
@@ -581,6 +793,7 @@ function karteiInsertReview(
         $confidence,
         $responseTimeMs
     );
+
     $stmt->execute();
     $stmt->close();
 }
@@ -629,6 +842,7 @@ function karteiServeProtectedImage(): void
     header('Content-Length: ' . filesize($path));
     header('Cache-Control: private, max-age=86400');
     header('X-Content-Type-Options: nosniff');
+
     readfile($path);
     exit;
 }
@@ -640,6 +854,7 @@ if (($_GET['action'] ?? '') === 'image') {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $csrf = (string)($_POST['csrf'] ?? '');
+
         if (!hash_equals((string)$_SESSION['kartei_csrf'], $csrf)) {
             karteiJsonResponse(['ok' => false, 'message' => 'Ungültiges CSRF-Token.'], 403);
         }
@@ -649,25 +864,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $topic = trim((string)($_POST['topic'] ?? ''));
 
         $availableExams = karteiLoadAvailableExams($sciconn);
+
         if ($exam === '' || !in_array($exam, $availableExams, true)) {
             $exam = $availableExams[0] ?? '';
         }
 
         $availableTopics = karteiLoadAvailableTopics($sciconn, $exam);
-        if ($topic === '' || !in_array($topic, $availableTopics, true)) {
-            $topic = $availableTopics[0] ?? '';
-        }
-
-        $clientTopics = array_map(
-            static fn(string $value): array => [
-                'value' => $value,
-                'label' => karteiTopicLabel($value),
-            ],
-            $availableTopics
+        $topic = karteiNormalizeRequestedTopic($topic, $availableTopics);
+        $clientTopics = karteiBuildClientTopics(
+            $availableTopics,
+            karteiLoadDueCountsByTopic($sciconn, $exam)
         );
 
         if ($action === 'load') {
             $snapshot = karteiSnapshot($sciconn, $exam, $topic);
+
             karteiJsonResponse([
                 'ok' => true,
                 'exam' => $exam,
@@ -688,8 +899,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $sciconn->begin_transaction();
+
             try {
                 $question = karteiLoadQuestionById($sciconn, $questionId);
+
                 if (!$question) {
                     throw new RuntimeException('Frage nicht gefunden.');
                 }
@@ -721,9 +934,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $snapshot = karteiSnapshot($sciconn, $exam, $topic);
+            $clientTopics = karteiBuildClientTopics(
+                $availableTopics,
+                karteiLoadDueCountsByTopic($sciconn, $exam)
+            );
+
             karteiJsonResponse([
                 'ok' => true,
                 'schedule' => $schedule,
+                'available_topics' => $clientTopics,
                 'question' => $snapshot['question'],
                 'stats' => $snapshot['stats'],
             ]);
@@ -740,8 +959,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $sciconn->begin_transaction();
+
             try {
                 $question = karteiLoadQuestionById($sciconn, $questionId);
+
                 if (!$question) {
                     throw new RuntimeException('Frage nicht gefunden.');
                 }
@@ -778,11 +999,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $snapshot = karteiSnapshot($sciconn, $exam, $topic);
+            $clientTopics = karteiBuildClientTopics(
+                $availableTopics,
+                karteiLoadDueCountsByTopic($sciconn, $exam)
+            );
+
             karteiJsonResponse([
                 'ok' => true,
                 'is_correct' => (bool)$isCorrect,
                 'correct_values' => $correct,
                 'schedule' => $schedule,
+                'available_topics' => $clientTopics,
                 'question' => $snapshot['question'],
                 'stats' => $snapshot['stats'],
             ]);
@@ -790,27 +1017,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($action === 'delete') {
             $questionId = (int)($_POST['question_id'] ?? 0);
+
             if ($questionId <= 0) {
                 karteiJsonResponse(['ok' => false, 'message' => 'Ungültige Frage.'], 400);
             }
 
             $question = karteiLoadQuestionById($sciconn, $questionId);
+
             if (!$question) {
                 karteiJsonResponse(['ok' => false, 'message' => 'Frage nicht gefunden.'], 404);
             }
+
             karteiVerifyQuestionSelection($question, $exam, $topic);
 
             $stmt = $sciconn->prepare("UPDATE kartei_fragen SET is_active = 0 WHERE id = ?");
+
             if (!$stmt) {
                 throw new RuntimeException('Löschen konnte nicht vorbereitet werden: ' . $sciconn->error);
             }
+
             $stmt->bind_param('i', $questionId);
             $stmt->execute();
             $stmt->close();
 
+            $availableTopics = karteiLoadAvailableTopics($sciconn, $exam);
+            $topic = karteiNormalizeRequestedTopic($topic, $availableTopics);
             $snapshot = karteiSnapshot($sciconn, $exam, $topic);
+
             karteiJsonResponse([
                 'ok' => true,
+                'topic' => $topic,
+                'available_topics' => karteiBuildClientTopics(
+                    $availableTopics,
+                    karteiLoadDueCountsByTopic($sciconn, $exam)
+                ),
                 'question' => $snapshot['question'],
                 'stats' => $snapshot['stats'],
             ]);
@@ -823,54 +1063,103 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $availableExams = karteiLoadAvailableExams($sciconn);
-$initialExam = in_array('Strömungsmechanik', $availableExams, true)
-    ? 'Strömungsmechanik'
-    : ($availableExams[0] ?? '');
+
+$requestedExam = trim((string)($_GET['exam'] ?? ''));
+
+if ($requestedExam !== '' && in_array($requestedExam, $availableExams, true)) {
+    $initialExam = $requestedExam;
+} else {
+    $initialExam = in_array('Strömungsmechanik', $availableExams, true)
+        ? 'Strömungsmechanik'
+        : ($availableExams[0] ?? '');
+}
 
 $availableTopics = karteiLoadAvailableTopics($sciconn, $initialExam);
-$initialTopic = $availableTopics[0] ?? '';
+$requestedTopic = karteiTopicFromUrlValue((string)($_GET['topic'] ?? ''));
+$initialTopic = karteiNormalizeRequestedTopic($requestedTopic, $availableTopics);
+$initialClientTopics = karteiBuildClientTopics(
+    $availableTopics,
+    karteiLoadDueCountsByTopic($sciconn, $initialExam)
+);
 
 $page_title = 'Karteikarten';
+
 require_once __DIR__ . '/../head.php';
 require_once __DIR__ . '/../navbar.php';
 
-$cssFile = __DIR__ . '/Kartei_v5.css';
-$cssVersion = is_file($cssFile) ? (string)filemtime($cssFile) : (string)time();
 ?>
 
-<link rel="stylesheet" href="Kartei_v5.css?v=<?= htmlspecialchars($cssVersion, ENT_QUOTES, 'UTF-8') ?>">
-
 <div class="sci-review-shell">
-    <div class="sci-review-topbar">
-        <div class="sci-review-filters">
-            <select id="examSelect" class="kategorie-select" aria-label="Klausur">
-                <?php foreach ($availableExams as $exam): ?>
-                    <option
-                        value="<?= htmlspecialchars($exam, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>"
-                        <?= $exam === $initialExam ? 'selected' : '' ?>
-                    >
-                        <?= htmlspecialchars($exam, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
 
-            <select id="topicSelect" class="kategorie-select" aria-label="Thema">
-                <?php foreach ($availableTopics as $topic): ?>
-                    <option
-                        value="<?= htmlspecialchars($topic, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>"
-                        <?= $topic === $initialTopic ? 'selected' : '' ?>
-                    >
-                        <?= htmlspecialchars(karteiTopicLabel($topic), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
+    <section class="sci-deckbar" aria-label="Karteikarten-Auswahl und Lernstatistik">
+
+        <div class="sci-deckbar-main">
+            <label class="sci-deckbar-exam" for="examSelect">
+                <span class="sci-deckbar-label">Fach</span>
+                <select id="examSelect" class="sci-deckbar-select" aria-label="Fach">
+                    <?php foreach ($availableExams as $exam): ?>
+                        <option
+                            value="<?= htmlspecialchars($exam, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>"
+                            <?= $exam === $initialExam ? 'selected' : '' ?>
+                        >
+                            <?= htmlspecialchars($exam, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </label>
+
+            <div class="sci-deckbar-current">
+                <div class="sci-deckbar-label">Aktueller Lernstand</div>
+                <div class="sci-deckbar-kpis" id="deckStats"></div>
+            </div>
         </div>
 
-        <div class="sci-review-stats" id="deckStats"></div>
-    </div>
+        <div class="sci-deckbar-topicrow">
+            <div class="sci-deckbar-label">Thema</div>
+            <div
+                class="sci-deckbar-topiclist"
+                id="topicButtons"
+                role="group"
+                aria-label="Thema"
+            >
+                <?php foreach ($initialClientTopics as $topicItem): ?>
+                    <button
+                        type="button"
+                        class="sci-deckbar-topic<?= $topicItem['value'] === $initialTopic ? ' is-active' : '' ?>"
+                        data-topic="<?= htmlspecialchars($topicItem['value'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>"
+                        aria-pressed="<?= $topicItem['value'] === $initialTopic ? 'true' : 'false' ?>"
+                    >
+                        <span class="sci-deckbar-topic-text">
+                            <?= htmlspecialchars($topicItem['label'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>
+                        </span>
+                        <?php if ((int)($topicItem['due_count'] ?? 0) > 0): ?>
+                            <span
+                                class="sci-deckbar-topic-count"
+                                title="<?= (int)$topicItem['due_count'] ?> aktuell fällig"
+                                aria-label="<?= (int)$topicItem['due_count'] ?> aktuell fällig"
+                            >
+                                <?= (int)$topicItem['due_count'] ?>
+                            </span>
+                        <?php endif; ?>
+                    </button>
+                <?php endforeach; ?>
+            </div>
+        </div>
+
+        <div class="sci-deckbar-history">
+            <div class="sci-deckbar-history-head">
+                <span class="sci-deckbar-label">Gesamtverlauf</span>
+                <span class="sci-deckbar-history-hint">für die aktuelle Auswahl</span>
+            </div>
+            <div class="sci-deckbar-history-list" id="answerStats"></div>
+        </div>
+
+    </section>
 
     <main class="sci-review-stage">
+
         <section class="sci-review-card" id="reviewCard">
+
             <header class="sci-review-card-head">
                 <div>
                     <div class="sci-review-meta" id="cardMeta">Lade Karte …</div>
@@ -900,35 +1189,45 @@ $cssVersion = is_file($cssFile) ? (string)filemtime($cssFile) : (string)time();
 
             <section class="sci-review-rating hidden" id="ratingSection">
                 <div class="sci-review-rating-title">Wie gut hattest du es?</div>
+
                 <div class="sci-review-rating-grid">
                     <button type="button" class="sci-rating sci-rating-again" data-rating="0">
                         <span>Nicht gewusst</span>
-                        <small>wieder sehr bald</small>
+                        <small>10 Minuten</small>
                     </button>
+
                     <button type="button" class="sci-rating sci-rating-hard" data-rating="1">
                         <span>Unsicher</span>
-                        <small>kurzes Intervall</small>
+                        <small>–</small>
                     </button>
+
                     <button type="button" class="sci-rating sci-rating-good" data-rating="2">
                         <span>Gewusst</span>
-                        <small>normal</small>
+                        <small>–</small>
                     </button>
+
                     <button type="button" class="sci-rating sci-rating-easy" data-rating="3">
                         <span>Sicher gewusst</span>
-                        <small>deutlich später</small>
+                        <small>–</small>
                     </button>
                 </div>
-                <div class="sci-review-shortcuts">Tastatur: 1–4 bewerten · Leertaste Antwort aufdecken</div>
+
+                <div class="sci-review-shortcuts">
+                    Tastatur: 1–4 bewerten · Leertaste Antwort aufdecken
+                </div>
             </section>
 
             <div class="sci-review-status hidden" id="statusMessage"></div>
+
         </section>
 
         <section class="sci-review-empty hidden" id="emptyState">
-            <div class="sci-review-empty-title">Für dieses Thema ist aktuell alles erledigt.</div>
+            <div class="sci-review-empty-title">Für diese Auswahl ist aktuell alles erledigt.</div>
             <div id="emptyNextDue"></div>
         </section>
+
     </main>
+
 </div>
 
 <script>
@@ -943,17 +1242,21 @@ window.MathJax = {
     }
 };
 </script>
+
 <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
 
 <script>
 (() => {
     const API_URL = window.location.pathname;
     const CSRF = <?= json_encode($karteiCsrf, JSON_UNESCAPED_SLASHES) ?>;
+    const ALL_TOPIC = <?= json_encode(KARTEI_ALL_TOPICS, JSON_UNESCAPED_SLASHES) ?>;
+    const EMPTY_TOPIC = <?= json_encode(KARTEI_EMPTY_TOPIC, JSON_UNESCAPED_SLASHES) ?>;
 
     const els = {
         exam: document.getElementById('examSelect'),
-        topic: document.getElementById('topicSelect'),
+        topicButtons: document.getElementById('topicButtons'),
         stats: document.getElementById('deckStats'),
+        answerStats: document.getElementById('answerStats'),
         card: document.getElementById('reviewCard'),
         meta: document.getElementById('cardMeta'),
         learningMeta: document.getElementById('learningMeta'),
@@ -974,12 +1277,14 @@ window.MathJax = {
     };
 
     const state = {
-        exam: els.exam ? String(els.exam.value || '') : '',
-        topic: els.topic ? String(els.topic.value || '') : '',
+        exam: <?= json_encode($initialExam, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>,
+        topic: <?= json_encode($initialTopic, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>,
         question: null,
         selected: new Set(),
         revealed: false,
         locked: false,
+        choiceReview: false,
+        pendingChoiceNext: null,
         startedAt: performance.now()
     };
 
@@ -1009,6 +1314,7 @@ window.MathJax = {
         });
 
         const data = await response.json();
+
         if (!response.ok || !data.ok) {
             throw new Error(data.message || 'Unbekannter Fehler.');
         }
@@ -1028,20 +1334,64 @@ window.MathJax = {
         }
     }
 
-    function formatInterval(minutes) {
+    function formatIntervalCompact(minutes) {
         minutes = Number(minutes || 0);
+
         if (minutes <= 0) return 'neu';
         if (minutes < 60) return `${minutes} min`;
-        if (minutes < 1440) return `${Math.round(minutes / 60)} h`;
-        const days = minutes / 1440;
-        if (days < 14) return `${Math.round(days * 10) / 10} d`;
-        return `${Math.round(days / 7 * 10) / 10} Wo`;
+
+        if (minutes < 1440) {
+            const hours = Math.floor(minutes / 60);
+            const restMinutes = minutes % 60;
+            return restMinutes > 0 ? `${hours} h ${restMinutes} min` : `${hours} h`;
+        }
+
+        const days = Math.floor(minutes / 1440);
+        const rest = minutes % 1440;
+        const hours = Math.floor(rest / 60);
+        const restMinutes = rest % 60;
+        const parts = [`${days} d`];
+
+        if (hours > 0) parts.push(`${hours} h`);
+        if (restMinutes > 0) parts.push(`${restMinutes} min`);
+
+        return parts.join(' ');
+    }
+
+    function formatIntervalExact(minutes) {
+        minutes = Math.max(0, Number(minutes || 0));
+
+        if (minutes < 60) {
+            return `${minutes} ${minutes === 1 ? 'Minute' : 'Minuten'}`;
+        }
+
+        const days = Math.floor(minutes / 1440);
+        let remainder = minutes % 1440;
+        const hours = Math.floor(remainder / 60);
+        const restMinutes = remainder % 60;
+        const parts = [];
+
+        if (days > 0) {
+            parts.push(`${days} ${days === 1 ? 'Tag' : 'Tage'}`);
+        }
+
+        if (hours > 0) {
+            parts.push(`${hours} ${hours === 1 ? 'Stunde' : 'Stunden'}`);
+        }
+
+        if (restMinutes > 0) {
+            parts.push(`${restMinutes} ${restMinutes === 1 ? 'Minute' : 'Minuten'}`);
+        }
+
+        return parts.join(' ');
     }
 
     function formatDateTime(mysqlDate) {
         if (!mysqlDate) return '';
+
         const normalized = String(mysqlDate).replace(' ', 'T');
         const date = new Date(normalized);
+
         if (Number.isNaN(date.getTime())) return String(mysqlDate);
 
         return new Intl.DateTimeFormat('de-DE', {
@@ -1053,34 +1403,122 @@ window.MathJax = {
         }).format(date);
     }
 
+    function formatPercent(value) {
+        const number = Number(value);
+
+        if (!Number.isFinite(number)) {
+            return '–';
+        }
+
+        return new Intl.NumberFormat('de-DE', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 1
+        }).format(number) + ' %';
+    }
+
     function renderStats(stats) {
         const s = stats || {};
+
         els.stats.innerHTML = [
-            ['Fällig', s.due_now ?? 0],
-            ['Neu', s.new_count ?? 0],
-            ['Heute', s.reviewed_today ?? 0],
-            ['Gesamt', s.total ?? 0]
-        ].map(([label, value]) =>
-            `<div class="sci-review-stat"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`
+            ['Fällig', s.due_now ?? 0, 'is-due'],
+            ['Neu', s.new_count ?? 0, 'is-new'],
+            ['Heute', s.reviewed_today ?? 0, 'is-today'],
+            ['Gesamt', s.total ?? 0, 'is-total']
+        ].map(([label, value, modifier]) =>
+            `<div class="sci-deckbar-kpi ${modifier}">
+                <strong>${escapeHtml(value)}</strong>
+                <span>${escapeHtml(label)}</span>
+            </div>`
+        ).join('');
+
+        els.answerStats.innerHTML = [
+            ['Richtig', s.correct_total ?? 0, 'is-correct'],
+            ['Falsch', s.wrong_total ?? 0, 'is-wrong'],
+            ['Trefferquote', formatPercent(s.correct_percent), 'is-rate'],
+            ['Antworten insgesamt', s.answer_count ?? 0, 'is-total']
+        ].map(([label, value, modifier]) =>
+            `<div class="sci-deckbar-history-stat ${modifier}">
+                <span>${escapeHtml(label)}</span>
+                <strong>${escapeHtml(value)}</strong>
+            </div>`
         ).join('');
     }
 
-    function setTopics(items, selectedValue) {
-        const current = String(selectedValue || '');
-        els.topic.innerHTML = '';
+    function renderTopics(items, selectedValue) {
+        const selected = String(selectedValue || '');
+        els.topicButtons.innerHTML = '';
 
         (items || []).forEach(item => {
-            const option = document.createElement('option');
-            option.value = String(item.value || '');
-            option.textContent = String(item.label || item.value || '');
-            if (option.value === current) {
-                option.selected = true;
+            const button = document.createElement('button');
+            const value = String(item.value || '');
+
+            button.type = 'button';
+            button.className = 'sci-deckbar-topic';
+            button.dataset.topic = value;
+
+            const label = document.createElement('span');
+            label.className = 'sci-deckbar-topic-text';
+            label.textContent = String(item.label || item.value || '');
+            button.appendChild(label);
+
+            const dueCount = Math.max(0, Number(item.due_count || 0));
+
+            if (dueCount > 0) {
+                const badge = document.createElement('span');
+                badge.className = 'sci-deckbar-topic-count';
+                badge.textContent = String(dueCount);
+                badge.title = `${dueCount} aktuell fällig`;
+                badge.setAttribute('aria-label', `${dueCount} aktuell fällig`);
+                button.appendChild(badge);
             }
-            els.topic.appendChild(option);
+
+            const active = value === selected;
+            button.classList.toggle('is-active', active);
+            button.setAttribute('aria-pressed', active ? 'true' : 'false');
+
+            button.addEventListener('click', () => {
+                if (state.locked || state.topic === value) {
+                    return;
+                }
+
+                state.topic = value;
+                renderTopicActiveState();
+                syncUrl();
+                loadDeck();
+            });
+
+            els.topicButtons.appendChild(button);
         });
 
-        els.topic.disabled = els.topic.options.length === 0;
-        state.topic = String(els.topic.value || '');
+        state.topic = selected;
+        renderTopicActiveState();
+    }
+
+    function renderTopicActiveState() {
+        els.topicButtons.querySelectorAll('[data-topic]').forEach(button => {
+            const active = String(button.dataset.topic || '') === state.topic;
+            button.classList.toggle('is-active', active);
+            button.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+    }
+
+    function topicToUrlValue(topic) {
+        if (topic === ALL_TOPIC) return 'all';
+        if (topic === EMPTY_TOPIC) return '__empty__';
+        return topic;
+    }
+
+    function syncUrl() {
+        const url = new URL(window.location.href);
+        url.searchParams.set('exam', state.exam);
+
+        if (state.topic) {
+            url.searchParams.set('topic', topicToUrlValue(state.topic));
+        } else {
+            url.searchParams.delete('topic');
+        }
+
+        history.replaceState(null, '', `${url.pathname}?${url.searchParams.toString()}${url.hash}`);
     }
 
     function clearChoiceState() {
@@ -1096,6 +1534,7 @@ window.MathJax = {
 
         question.options.forEach(option => {
             const button = document.createElement('button');
+
             button.type = 'button';
             button.className = 'sci-review-choice';
             button.dataset.key = option.key;
@@ -1117,6 +1556,7 @@ window.MathJax = {
                     }
                 } else {
                     state.selected = new Set([option.key]);
+
                     els.choiceGrid.querySelectorAll('.sci-review-choice').forEach(el => {
                         el.classList.toggle('is-selected', el.dataset.key === option.key);
                     });
@@ -1127,11 +1567,30 @@ window.MathJax = {
         });
     }
 
+    function renderRatingIntervals(question) {
+        const intervals = question?.rating_intervals || {};
+
+        els.ratingButtons.forEach(button => {
+            const rating = String(button.dataset.rating || '');
+            const small = button.querySelector('small');
+
+            if (!small) return;
+
+            const interval = Number(intervals[rating]);
+            small.textContent = Number.isFinite(interval)
+                ? formatIntervalExact(interval)
+                : '–';
+        });
+    }
+
     function renderQuestion(question, stats) {
         renderStats(stats);
+
         state.question = question;
         state.revealed = false;
         state.locked = false;
+        state.choiceReview = false;
+        state.pendingChoiceNext = null;
         state.startedAt = performance.now();
 
         els.status.classList.add('hidden');
@@ -1139,7 +1598,10 @@ window.MathJax = {
         els.ratingSection.classList.add('hidden');
         els.reveal.classList.add('hidden');
         els.submitChoice.classList.add('hidden');
+        els.submitChoice.disabled = false;
+        els.submitChoice.textContent = 'Antwort absenden';
         els.choiceGrid.classList.add('hidden');
+
         clearChoiceState();
 
         if (!question) {
@@ -1147,10 +1609,12 @@ window.MathJax = {
             els.empty.classList.remove('hidden');
 
             if (stats && stats.next_due_at) {
-                els.emptyNextDue.textContent = `Nächste fällige Karte: ${formatDateTime(stats.next_due_at)}`;
+                els.emptyNextDue.textContent =
+                    `Nächste fällige Karte: ${formatDateTime(stats.next_due_at)}`;
             } else {
                 els.emptyNextDue.textContent = 'Es gibt momentan keine weiteren aktiven Karten.';
             }
+
             return;
         }
 
@@ -1161,12 +1625,23 @@ window.MathJax = {
             ? 'Recall'
             : (question.question_type === 'multiple' ? 'Multiple Choice' : 'Single Choice');
 
-        const source = question.source_label ? ` · ${question.source_label}` : '';
-        els.meta.textContent = `${typeLabel}${source}`;
+        const metaParts = [typeLabel];
+
+        if (state.topic === ALL_TOPIC && question.topic_label) {
+            metaParts.push(question.topic_label);
+        }
+
+        if (question.source_label) {
+            metaParts.push(question.source_label);
+        }
+
+        els.meta.textContent = metaParts.join(' · ');
 
         const l = question.learning || {};
         els.learningMeta.textContent =
-            `Intervall: ${formatInterval(l.interval_minutes)} · Wiederholungen: ${l.repetitions || 0} · Fehler: ${l.lapses || 0}`;
+            `Intervall: ${formatIntervalCompact(l.interval_minutes)} · ` +
+            `Wiederholungen: ${l.repetitions || 0} · ` +
+            `Fehler: ${l.lapses || 0}`;
 
         els.question.innerHTML = question.question_html || '';
         els.answer.innerHTML = question.answer_html || '';
@@ -1178,6 +1653,8 @@ window.MathJax = {
             els.image.removeAttribute('src');
             els.imageWrap.classList.add('hidden');
         }
+
+        renderRatingIntervals(question);
 
         if (question.question_type === 'recall') {
             els.reveal.classList.remove('hidden');
@@ -1192,12 +1669,14 @@ window.MathJax = {
     function showStatus(message, kind = '') {
         els.status.textContent = message;
         els.status.className = 'sci-review-status';
-        if (kind) els.status.classList.add(`is-${kind}`);
+
+        if (kind) {
+            els.status.classList.add(`is-${kind}`);
+        }
     }
 
     async function loadDeck() {
-        state.exam = String(els.exam.value || '');
-        state.topic = String(els.topic.value || '');
+        state.exam = String(els.exam.value || state.exam || '');
 
         try {
             const data = await post({
@@ -1209,10 +1688,15 @@ window.MathJax = {
             state.exam = data.exam || state.exam;
             state.topic = data.topic || state.topic;
 
-            if (Array.isArray(data.available_topics)) {
-                setTopics(data.available_topics, state.topic);
+            if (els.exam.value !== state.exam) {
+                els.exam.value = state.exam;
             }
 
+            if (Array.isArray(data.available_topics)) {
+                renderTopics(data.available_topics, state.topic);
+            }
+
+            syncUrl();
             renderQuestion(data.question, data.stats);
         } catch (error) {
             showStatus(error.message, 'error');
@@ -1250,6 +1734,11 @@ window.MathJax = {
             });
 
             els.ratingButtons.forEach(btn => btn.disabled = false);
+
+            if (Array.isArray(data.available_topics)) {
+                renderTopics(data.available_topics, state.topic);
+            }
+
             renderQuestion(data.question, data.stats);
         } catch (error) {
             state.locked = false;
@@ -1258,7 +1747,40 @@ window.MathJax = {
         }
     }
 
+    function showChoiceCorrection(correctValues) {
+        const correct = new Set((correctValues || []).map(value => String(value)));
+
+        els.choiceGrid.querySelectorAll('.sci-review-choice').forEach(button => {
+            const key = String(button.dataset.key || '');
+            const wasSelected = state.selected.has(key);
+            const isCorrect = correct.has(key);
+
+            button.classList.remove('is-selected');
+            button.classList.toggle('is-review-correct', isCorrect);
+            button.classList.toggle('is-review-wrong', wasSelected && !isCorrect);
+            button.setAttribute('aria-disabled', 'true');
+        });
+    }
+
+    function continueAfterWrongChoice() {
+        if (!state.choiceReview || !state.pendingChoiceNext) {
+            return;
+        }
+
+        const next = state.pendingChoiceNext;
+
+        state.choiceReview = false;
+        state.pendingChoiceNext = null;
+
+        renderQuestion(next.question, next.stats);
+    }
+
     async function submitChoice() {
+        if (state.choiceReview) {
+            continueAfterWrongChoice();
+            return;
+        }
+
         if (!state.question || state.locked || state.selected.size === 0) {
             return;
         }
@@ -1276,14 +1798,41 @@ window.MathJax = {
                 response_time_ms: Math.round(performance.now() - state.startedAt)
             });
 
-            showStatus(data.is_correct ? 'Richtig.' : 'Falsch.', data.is_correct ? 'good' : 'bad');
+            if (Array.isArray(data.available_topics)) {
+                renderTopics(data.available_topics, state.topic);
+            }
 
-            window.setTimeout(() => {
-                els.submitChoice.disabled = false;
-                renderQuestion(data.question, data.stats);
-            }, 850);
+            if (data.is_correct) {
+                showStatus('Richtig.', 'good');
+
+                window.setTimeout(() => {
+                    els.submitChoice.disabled = false;
+                    renderQuestion(data.question, data.stats);
+                }, 850);
+
+                return;
+            }
+
+            // Falsche Choice-Antworten bleiben sichtbar, damit die Korrektur
+            // in Ruhe geprüft werden kann. Erst "Weiter" lädt die nächste Karte.
+            renderStats(data.stats);
+            showChoiceCorrection(data.correct_values);
+            showStatus('Falsch. Die richtige Antwort ist grün markiert.', 'bad');
+
+            state.choiceReview = true;
+            state.pendingChoiceNext = {
+                question: data.question,
+                stats: data.stats
+            };
+
+            els.submitChoice.textContent = 'Weiter';
+            els.submitChoice.disabled = false;
+            els.submitChoice.classList.remove('hidden');
         } catch (error) {
             state.locked = false;
+            state.choiceReview = false;
+            state.pendingChoiceNext = null;
+            els.submitChoice.textContent = 'Antwort absenden';
             els.submitChoice.disabled = false;
             showStatus(error.message, 'error');
         }
@@ -1303,6 +1852,15 @@ window.MathJax = {
                 question_id: state.question.id
             });
 
+            if (data.topic) {
+                state.topic = data.topic;
+            }
+
+            if (Array.isArray(data.available_topics)) {
+                renderTopics(data.available_topics, state.topic);
+            }
+
+            syncUrl();
             renderQuestion(data.question, data.stats);
         } catch (error) {
             state.locked = false;
@@ -1320,12 +1878,8 @@ window.MathJax = {
 
     els.exam.addEventListener('change', () => {
         state.exam = String(els.exam.value || '');
-        state.topic = '';
-        loadDeck();
-    });
-
-    els.topic.addEventListener('change', () => {
-        state.topic = String(els.topic.value || '');
+        state.topic = ALL_TOPIC;
+        syncUrl();
         loadDeck();
     });
 
@@ -1349,6 +1903,8 @@ window.MathJax = {
         }
     });
 
+    renderTopicActiveState();
+    syncUrl();
     loadDeck();
 })();
 </script>

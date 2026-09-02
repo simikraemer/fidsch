@@ -181,7 +181,7 @@ if ($isAuthed) {
             </li>
 
             <!-- Blog -->
-            <li class="nav-item has-submenu">
+            <!-- <li class="nav-item has-submenu">
                 <a href="/blog/new">
                     <img src="/img/blog.png" alt="Blog" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high">
                 </a>
@@ -205,7 +205,7 @@ if ($isAuthed) {
                         </a>
                     </li>
                 </ul>
-            </li>
+            </li> -->
 
             <!-- Sci -->
             <li class="nav-item has-submenu">
