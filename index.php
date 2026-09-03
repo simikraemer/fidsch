@@ -20,6 +20,7 @@ $routesBiz = [
     'data'   => 'Data.php',
     'insert' => 'Insert.php',
     'konten' => 'Konten.php',
+    'postbsc' => 'PostBachelor.php',
 ];
 
 $routesBlog = [

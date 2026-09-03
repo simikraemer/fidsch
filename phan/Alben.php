@@ -292,12 +292,26 @@ function alb_http(
         throw new RuntimeException('PHP-cURL fehlt.');
     }
 
+    $responseHeaders = [];
     $ch = curl_init($url);
     $options = [
         CURLOPT_CUSTOMREQUEST => $method,
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT => 35,
         CURLOPT_HTTPHEADER => $headers,
+        CURLOPT_HEADERFUNCTION => static function ($curl, string $line) use (&$responseHeaders): int {
+            $length = strlen($line);
+            $line = trim($line);
+
+            if ($line === '' || !str_contains($line, ':')) {
+                return $length;
+            }
+
+            [$name, $value] = explode(':', $line, 2);
+            $responseHeaders[strtolower(trim($name))] = trim($value);
+
+            return $length;
+        },
     ];
 
     if ($form !== null) {
@@ -322,6 +336,7 @@ function alb_http(
         'status' => $status,
         'body' => (string)$body,
         'json' => is_array($json) ? $json : null,
+        'headers' => $responseHeaders,
     ];
 }
 
@@ -364,19 +379,67 @@ function alb_spotify_get(string $token, string $path, array $query = []): array
         $url .= '?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986);
     }
 
-    $response = alb_http(
-        'GET',
-        $url,
-        [
-            'Authorization: Bearer ' . $token,
-            'Accept: application/json',
-        ]
-    );
+    $response = null;
+
+    for ($attempt = 0; $attempt < 4; $attempt++) {
+        $response = alb_http(
+            'GET',
+            $url,
+            [
+                'Authorization: Bearer ' . $token,
+                'Accept: application/json',
+            ]
+        );
+
+        if ($response['status'] !== 429) {
+            break;
+        }
+
+        $reason = strtoupper(
+            trim(
+                (string)(
+                    $response['json']['reason']
+                    ?? $response['json']['error']['reason']
+                    ?? ''
+                )
+            )
+        );
+
+        if ($reason === 'QUOTA_EXCEEDED') {
+            throw new RuntimeException(
+                'Spotify-API-Quota ist aktuell ausgeschöpft.'
+            );
+        }
+
+        if ($attempt >= 3) {
+            break;
+        }
+
+        $retryAfter = max(
+            1,
+            min(
+                30,
+                (int)($response['headers']['retry-after'] ?? 1)
+            )
+        );
+
+        sleep($retryAfter);
+    }
+
+    if (!is_array($response)) {
+        throw new RuntimeException('Spotify-Abfrage fehlgeschlagen.');
+    }
+
+    if ($response['status'] === 429) {
+        throw new RuntimeException(
+            'Spotify-Rate-Limit erreicht. Bitte später erneut versuchen.'
+        );
+    }
 
     if ($response['status'] === 403) {
         throw new RuntimeException(
             'Spotify verweigert den Zugriff auf dieses Album. '
-            . 'Der Token muss privaten Lesezugriff enthalten und das Album muss dir gehören.'
+            . 'Der Token benötigt privaten Playlist-Lesezugriff.'
         );
     }
 
@@ -439,12 +502,17 @@ function alb_spotify_source_id(string $input): string
     throw new RuntimeException('Spotify-URL konnte nicht erkannt werden.');
 }
 
-function alb_spotify_album(string $sourceId): array
-{
-    $token = alb_spotify_access_token();
+function alb_spotify_album(
+    string $sourceId,
+    ?string $token = null,
+    ?array $meta = null
+): array {
+    $token = $token ?? alb_spotify_access_token();
     $base = alb_spotify_collection_path() . '/' . rawurlencode($sourceId);
 
-    $meta = alb_spotify_get($token, $base);
+    if ($meta === null) {
+        $meta = alb_spotify_get($token, $base);
+    }
 
     $tracks = [];
     $offset = 0;
@@ -499,6 +567,47 @@ function alb_spotify_album(string $sourceId): array
         'snapshot_id' => trim((string)($meta['snapshot_id'] ?? '')),
         'tracks' => $tracks,
     ];
+}
+
+function alb_spotify_current_playlists(string $token): array
+{
+    $playlists = [];
+    $offset = 0;
+    $limit = 50;
+
+    do {
+        $page = alb_spotify_get(
+            $token,
+            '/me/playlists',
+            [
+                'limit' => $limit,
+                'offset' => $offset,
+            ]
+        );
+
+        $items = is_array($page['items'] ?? null)
+            ? $page['items']
+            : [];
+
+        foreach ($items as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            $id = trim((string)($item['id'] ?? ''));
+            if ($id === '') {
+                continue;
+            }
+
+            $playlists[$id] = $item;
+        }
+
+        $offset += count($items);
+        $next = $page['next'] ?? null;
+
+    } while ($next && count($items) > 0);
+
+    return $playlists;
 }
 
 
@@ -1299,6 +1408,201 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             alb_json(['ok' => true]);
         }
 
+        if ($action === 'sync_all_albums') {
+            @set_time_limit(120);
+
+            $localAlbums = alb_all(
+                $phanconn,
+                '
+                SELECT
+                    id,
+                    title,
+                    spotify_source_id,
+                    spotify_snapshot_id
+                FROM albums
+                ORDER BY title, id
+                '
+            );
+
+            if (!$localAlbums) {
+                alb_json([
+                    'ok' => true,
+                    'total' => 0,
+                    'updated' => [],
+                    'unchanged_count' => 0,
+                    'errors' => [],
+                ]);
+            }
+
+            $token = alb_spotify_access_token();
+            $spotifyPlaylists = alb_spotify_current_playlists($token);
+
+            $updated = [];
+            $unchangedCount = 0;
+            $errors = [];
+
+            foreach ($localAlbums as $index => $localAlbum) {
+                $albumId = (int)$localAlbum['id'];
+                $localTitle = (string)$localAlbum['title'];
+                $sourceId = trim((string)$localAlbum['spotify_source_id']);
+                $oldSnapshot = trim((string)($localAlbum['spotify_snapshot_id'] ?? ''));
+
+                if ($sourceId === '') {
+                    $errors[] = [
+                        'id' => $albumId,
+                        'title' => $localTitle,
+                        'message' => 'Keine Spotify-Playlist-ID gespeichert.',
+                    ];
+                    continue;
+                }
+
+                try {
+                    $meta = $spotifyPlaylists[$sourceId] ?? null;
+
+                    /*
+                     * Falls eine lokal gespeicherte Playlist nicht in
+                     * /me/playlists auftaucht (z. B. nicht gefolgt),
+                     * wird nur für genau diese Playlist einmal direkt
+                     * die schlanke Metadaten-Abfrage verwendet.
+                     */
+                    if (!is_array($meta)) {
+                        $meta = alb_spotify_get(
+                            $token,
+                            alb_spotify_collection_path()
+                            . '/'
+                            . rawurlencode($sourceId),
+                            [
+                                'fields' => 'id,name,snapshot_id,external_urls',
+                            ]
+                        );
+                    }
+
+                    $newSnapshot = trim(
+                        (string)($meta['snapshot_id'] ?? '')
+                    );
+
+                    if (
+                        $oldSnapshot !== ''
+                        && $newSnapshot !== ''
+                        && hash_equals($oldSnapshot, $newSnapshot)
+                    ) {
+                        $unchangedCount++;
+                        continue;
+                    }
+
+                    $remote = alb_spotify_album(
+                        $sourceId,
+                        $token,
+                        $meta
+                    );
+
+                    $trackCount = alb_sync_into_db(
+                        $phanconn,
+                        $albumId,
+                        $remote
+                    );
+
+                    $updated[] = [
+                        'id' => $albumId,
+                        'title' => $localTitle,
+                        'spotify_title' => trim(
+                            (string)($remote['source_title'] ?? '')
+                        ),
+                        'tracks' => $trackCount,
+                    ];
+
+                    /*
+                     * Kleine Pause nur nach einem tatsächlichen Vollsync.
+                     * Unveränderte Playlists erzeugen keine Einzelabfragen.
+                     */
+                    if ($index < count($localAlbums) - 1) {
+                        usleep(200000);
+                    }
+
+                } catch (Throwable $e) {
+                    $errors[] = [
+                        'id' => $albumId,
+                        'title' => $localTitle,
+                        'message' => $e->getMessage(),
+                    ];
+                }
+            }
+
+            alb_json([
+                'ok' => true,
+                'total' => count($localAlbums),
+                'updated' => $updated,
+                'unchanged_count' => $unchangedCount,
+                'errors' => $errors,
+            ]);
+        }
+
+        if ($action === 'check_duplicate_songs') {
+            $rows = alb_all(
+                $phanconn,
+                '
+                SELECT
+                    s.id AS song_id,
+                    s.original_title,
+                    a.id AS album_id,
+                    a.title AS album_title
+                FROM album_songs alsg
+                INNER JOIN songs s
+                    ON s.id = alsg.song_id
+                INNER JOIN albums a
+                    ON a.id = alsg.album_id
+                INNER JOIN (
+                    SELECT song_id
+                    FROM album_songs
+                    WHERE is_present = 1
+                    GROUP BY song_id
+                    HAVING COUNT(DISTINCT album_id) > 1
+                ) duplicates
+                    ON duplicates.song_id = alsg.song_id
+                WHERE alsg.is_present = 1
+                ORDER BY
+                    s.original_title,
+                    s.id,
+                    a.title,
+                    a.id
+                '
+            );
+
+            $duplicates = [];
+
+            foreach ($rows as $row) {
+                $songId = (int)$row['song_id'];
+
+                if (!isset($duplicates[$songId])) {
+                    $duplicates[$songId] = [
+                        'song_id' => $songId,
+                        'title' => (string)$row['original_title'],
+                        'albums' => [],
+                    ];
+                }
+
+                $albumId = (int)$row['album_id'];
+
+                $duplicates[$songId]['albums'][$albumId] = [
+                    'id' => $albumId,
+                    'title' => (string)$row['album_title'],
+                ];
+            }
+
+            foreach ($duplicates as &$duplicate) {
+                $duplicate['albums'] = array_values(
+                    $duplicate['albums']
+                );
+            }
+            unset($duplicate);
+
+            alb_json([
+                'ok' => true,
+                'count' => count($duplicates),
+                'duplicates' => array_values($duplicates),
+            ]);
+        }
+
         if ($action === 'delete_album') {
             $albumId = max(0, (int)($_POST['album_id'] ?? 0));
 
@@ -1814,34 +2118,52 @@ require_once __DIR__ . '/../navbar.php';
                 </div>
             </div>
 
-            <form method="post" class="albums-import-form">
-                <input
-                    type="hidden"
-                    name="csrf"
-                    value="<?= alb_h($csrf) ?>"
+            <div class="albums-head-tools">
+                <button
+                    type="button"
+                    class="albums-secondary-button albums-duplicate-check"
+                    id="albumDuplicateCheck"
                 >
+                    Doppelte Songs prüfen
+                </button>
 
-                <input
-                    type="hidden"
-                    name="action"
-                    value="create_album"
+                <button
+                    type="button"
+                    class="albums-secondary-button albums-sync-all"
+                    id="albumSyncAll"
                 >
+                    Alle synchronisieren
+                </button>
 
-                <label class="albums-import-field">
-                    <span>Spotify-URL</span>
+                <form method="post" class="albums-import-form">
+                    <input
+                        type="hidden"
+                        name="csrf"
+                        value="<?= alb_h($csrf) ?>"
+                    >
 
                     <input
-                        type="url"
-                        name="spotify_url"
-                        placeholder="https://open.spotify.com/…"
-                        required
+                        type="hidden"
+                        name="action"
+                        value="create_album"
                     >
-                </label>
 
-                <button type="submit">
-                    Album importieren
-                </button>
-            </form>
+                    <label class="albums-import-field">
+                        <span>Spotify-URL</span>
+
+                        <input
+                            type="url"
+                            name="spotify_url"
+                            placeholder="https://open.spotify.com/…"
+                            required
+                        >
+                    </label>
+
+                    <button type="submit">
+                        Album importieren
+                    </button>
+                </form>
+            </div>
         </div>
 
 
@@ -2076,6 +2398,102 @@ require_once __DIR__ . '/../navbar.php';
                 >
             </div>
 
+        </div>
+
+
+        <div
+            class="albums-modal"
+            id="albumDuplicateModal"
+            hidden
+        >
+            <div
+                class="albums-modal-backdrop"
+                data-close-duplicate-modal
+            ></div>
+
+            <div
+                class="albums-modal-dialog albums-duplicate-dialog"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="albumDuplicateModalTitle"
+            >
+                <div class="albums-modal-head">
+                    <div>
+                        <h2 id="albumDuplicateModalTitle">
+                            Doppelte Songs
+                        </h2>
+
+                        <div
+                            class="albums-duplicate-summary"
+                            id="albumDuplicateSummary"
+                        ></div>
+                    </div>
+
+                    <button
+                        type="button"
+                        class="albums-modal-close"
+                        data-close-duplicate-modal
+                        aria-label="Schließen"
+                    >
+                        ×
+                    </button>
+                </div>
+
+                <div class="albums-modal-body">
+                    <div
+                        class="albums-duplicate-results"
+                        id="albumDuplicateResults"
+                    ></div>
+                </div>
+            </div>
+        </div>
+
+
+        <div
+            class="albums-modal"
+            id="albumSyncAllModal"
+            hidden
+        >
+            <div
+                class="albums-modal-backdrop"
+                data-close-sync-all-modal
+            ></div>
+
+            <div
+                class="albums-modal-dialog albums-sync-all-dialog"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="albumSyncAllModalTitle"
+            >
+                <div class="albums-modal-head">
+                    <div>
+                        <h2 id="albumSyncAllModalTitle">
+                            Spotify-Synchronisation
+                        </h2>
+
+                        <div
+                            class="albums-sync-all-summary"
+                            id="albumSyncAllSummary"
+                        ></div>
+                    </div>
+
+                    <button
+                        type="button"
+                        class="albums-modal-close"
+                        data-close-sync-all-modal
+                        aria-label="Schließen"
+                    >
+                        ×
+                    </button>
+                </div>
+
+                <div class="albums-modal-body">
+                    <div
+                        class="albums-sync-all-results"
+                        id="albumSyncAllResults"
+                    ></div>
+                </div>
+            </div>
         </div>
 
 
@@ -3053,6 +3471,613 @@ require_once __DIR__ . '/../navbar.php';
                         );
 
                         applyFilters();
+                    }
+                );
+
+
+                const duplicateButton =
+                    document.getElementById(
+                        'albumDuplicateCheck'
+                    );
+
+                const duplicateModal =
+                    document.getElementById(
+                        'albumDuplicateModal'
+                    );
+
+                const duplicateResults =
+                    document.getElementById(
+                        'albumDuplicateResults'
+                    );
+
+                const duplicateSummary =
+                    document.getElementById(
+                        'albumDuplicateSummary'
+                    );
+
+                function escapeHtml(value) {
+                    return String(value ?? '')
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#039;');
+                }
+
+                function closeDuplicateModal() {
+                    if (!duplicateModal) {
+                        return;
+                    }
+
+                    duplicateModal.hidden = true;
+                    document.body.classList.remove(
+                        'albums-modal-open'
+                    );
+                }
+
+                function openDuplicateModal() {
+                    if (!duplicateModal) {
+                        return;
+                    }
+
+                    duplicateModal.hidden = false;
+                    document.body.classList.add(
+                        'albums-modal-open'
+                    );
+                }
+
+                function renderDuplicateSongs(
+                    duplicates
+                ) {
+                    if (!duplicateResults) {
+                        return;
+                    }
+
+                    duplicateResults.innerHTML = '';
+
+                    if (!duplicates.length) {
+                        duplicateResults.innerHTML = `
+                            <div class="albums-duplicate-empty">
+                                Keine Songs kommen aktuell in mehreren Alben vor.
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    duplicates.forEach(
+                        item => {
+                            const row =
+                                document.createElement(
+                                    'div'
+                                );
+
+                            row.className =
+                                'albums-duplicate-row';
+
+                            const song =
+                                document.createElement(
+                                    'div'
+                                );
+
+                            song.className =
+                                'albums-duplicate-song';
+
+                            const songTitle =
+                                document.createElement(
+                                    'strong'
+                                );
+
+                            songTitle.textContent =
+                                item.title || '—';
+
+                            song.appendChild(
+                                songTitle
+                            );
+
+                            const albums =
+                                document.createElement(
+                                    'div'
+                                );
+
+                            albums.className =
+                                'albums-duplicate-albums';
+
+                            (item.albums || [])
+                                .forEach(
+                                    album => {
+                                        const link =
+                                            document.createElement(
+                                                'a'
+                                            );
+
+                                        link.className =
+                                            'albums-duplicate-album';
+
+                                        link.href =
+                                            '/phan/alben?id='
+                                            + encodeURIComponent(
+                                                String(
+                                                    album.id
+                                                    || ''
+                                                )
+                                            );
+
+                                        link.textContent =
+                                            album.title || '—';
+
+                                        albums.appendChild(
+                                            link
+                                        );
+                                    }
+                                );
+
+                            row.appendChild(song);
+                            row.appendChild(albums);
+
+                            duplicateResults
+                                .appendChild(row);
+                        }
+                    );
+                }
+
+                async function checkDuplicateSongs() {
+                    if (
+                        !duplicateButton
+                        || !duplicateResults
+                    ) {
+                        return;
+                    }
+
+                    duplicateButton.disabled = true;
+                    duplicateButton.textContent =
+                        'Prüfe …';
+
+                    if (duplicateSummary) {
+                        duplicateSummary.textContent =
+                            'Datenbank wird geprüft …';
+                    }
+
+                    duplicateResults.innerHTML = `
+                        <div class="albums-duplicate-loading">
+                            Prüfe aktuelle Album-Zuordnungen …
+                        </div>
+                    `;
+
+                    openDuplicateModal();
+
+                    try {
+                        const body =
+                            new URLSearchParams();
+
+                        body.set('ajax', '1');
+                        body.set(
+                            'csrf',
+                            <?= json_encode(
+                                $csrf,
+                                JSON_UNESCAPED_UNICODE
+                                | JSON_UNESCAPED_SLASHES
+                            ) ?>
+                        );
+                        body.set(
+                            'action',
+                            'check_duplicate_songs'
+                        );
+
+                        const response =
+                            await fetch(
+                                window.location.pathname
+                                + window.location.search,
+                                {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type':
+                                            'application/x-www-form-urlencoded;charset=UTF-8',
+                                    },
+                                    body,
+                                }
+                            );
+
+                        const payload =
+                            await response
+                                .json()
+                                .catch(() => null);
+
+                        if (
+                            !response.ok
+                            || !payload?.ok
+                        ) {
+                            throw new Error(
+                                payload?.message
+                                || 'Prüfung fehlgeschlagen.'
+                            );
+                        }
+
+                        const duplicates =
+                            Array.isArray(
+                                payload.duplicates
+                            )
+                                ? payload.duplicates
+                                : [];
+
+                        if (duplicateSummary) {
+                            duplicateSummary.textContent =
+                                duplicates.length === 1
+                                    ? '1 Song kommt in mehreren Alben vor.'
+                                    : duplicates.length
+                                        + ' Songs kommen in mehreren Alben vor.';
+                        }
+
+                        renderDuplicateSongs(
+                            duplicates
+                        );
+
+                    } catch (error) {
+                        if (duplicateSummary) {
+                            duplicateSummary.textContent =
+                                'Prüfung fehlgeschlagen.';
+                        }
+
+                        duplicateResults.innerHTML = `
+                            <div class="albums-duplicate-empty albums-duplicate-error">
+                                ${escapeHtml(
+                                    error?.message
+                                    || 'Prüfung fehlgeschlagen.'
+                                )}
+                            </div>
+                        `;
+                    } finally {
+                        duplicateButton.disabled = false;
+                        duplicateButton.textContent =
+                            'Doppelte Songs prüfen';
+                    }
+                }
+
+                duplicateButton?.addEventListener(
+                    'click',
+                    checkDuplicateSongs
+                );
+
+                duplicateModal
+                    ?.querySelectorAll(
+                        '[data-close-duplicate-modal]'
+                    )
+                    .forEach(
+                        element => {
+                            element.addEventListener(
+                                'click',
+                                closeDuplicateModal
+                            );
+                        }
+                    );
+
+                document.addEventListener(
+                    'keydown',
+                    event => {
+                        if (
+                            event.key === 'Escape'
+                            && duplicateModal
+                            && !duplicateModal.hidden
+                        ) {
+                            closeDuplicateModal();
+                        }
+                    }
+                );
+
+
+                const syncAllButton =
+                    document.getElementById(
+                        'albumSyncAll'
+                    );
+
+                const syncAllModal =
+                    document.getElementById(
+                        'albumSyncAllModal'
+                    );
+
+                const syncAllSummary =
+                    document.getElementById(
+                        'albumSyncAllSummary'
+                    );
+
+                const syncAllResults =
+                    document.getElementById(
+                        'albumSyncAllResults'
+                    );
+
+                function closeSyncAllModal() {
+                    if (!syncAllModal) {
+                        return;
+                    }
+
+                    syncAllModal.hidden = true;
+                    document.body.classList.remove(
+                        'albums-modal-open'
+                    );
+                }
+
+                function openSyncAllModal() {
+                    if (!syncAllModal) {
+                        return;
+                    }
+
+                    syncAllModal.hidden = false;
+                    document.body.classList.add(
+                        'albums-modal-open'
+                    );
+                }
+
+                function renderSyncAllResults(
+                    updated,
+                    errors
+                ) {
+                    if (!syncAllResults) {
+                        return;
+                    }
+
+                    syncAllResults.innerHTML = '';
+
+                    if (!updated.length && !errors.length) {
+                        const empty =
+                            document.createElement('div');
+
+                        empty.className =
+                            'albums-sync-all-empty';
+
+                        empty.textContent =
+                            'Keine Playlist musste aktualisiert werden.';
+
+                        syncAllResults.appendChild(empty);
+                        return;
+                    }
+
+                    if (updated.length) {
+                        const heading =
+                            document.createElement('div');
+
+                        heading.className =
+                            'albums-sync-all-section-title';
+
+                        heading.textContent =
+                            'Aktualisiert';
+
+                        syncAllResults.appendChild(heading);
+
+                        updated.forEach(
+                            item => {
+                                const row =
+                                    document.createElement('a');
+
+                                row.className =
+                                    'albums-sync-all-row';
+
+                                row.href =
+                                    '/phan/alben?id='
+                                    + encodeURIComponent(
+                                        String(item.id || '')
+                                    );
+
+                                const title =
+                                    document.createElement('strong');
+
+                                title.textContent =
+                                    item.title || '—';
+
+                                const meta =
+                                    document.createElement('span');
+
+                                meta.textContent =
+                                    Number(item.tracks || 0)
+                                    + ' Songs synchronisiert';
+
+                                row.appendChild(title);
+                                row.appendChild(meta);
+                                syncAllResults.appendChild(row);
+                            }
+                        );
+                    }
+
+                    if (errors.length) {
+                        const heading =
+                            document.createElement('div');
+
+                        heading.className =
+                            'albums-sync-all-section-title albums-sync-all-section-title--error';
+
+                        heading.textContent =
+                            'Fehler';
+
+                        syncAllResults.appendChild(heading);
+
+                        errors.forEach(
+                            item => {
+                                const row =
+                                    document.createElement('div');
+
+                                row.className =
+                                    'albums-sync-all-row albums-sync-all-row--error';
+
+                                const title =
+                                    document.createElement('strong');
+
+                                title.textContent =
+                                    item.title || '—';
+
+                                const meta =
+                                    document.createElement('span');
+
+                                meta.textContent =
+                                    item.message
+                                    || 'Synchronisation fehlgeschlagen.';
+
+                                row.appendChild(title);
+                                row.appendChild(meta);
+                                syncAllResults.appendChild(row);
+                            }
+                        );
+                    }
+                }
+
+                async function syncAllAlbums() {
+                    if (!syncAllButton) {
+                        return;
+                    }
+
+                    const originalText =
+                        syncAllButton.textContent;
+
+                    syncAllButton.disabled = true;
+                    syncAllButton.textContent =
+                        'Synchronisiere …';
+
+                    try {
+                        const body =
+                            new URLSearchParams();
+
+                        body.set('ajax', '1');
+                        body.set(
+                            'csrf',
+                            <?= json_encode(
+                                $csrf,
+                                JSON_UNESCAPED_UNICODE
+                                | JSON_UNESCAPED_SLASHES
+                            ) ?>
+                        );
+                        body.set(
+                            'action',
+                            'sync_all_albums'
+                        );
+
+                        const response =
+                            await fetch(
+                                window.location.pathname
+                                + window.location.search,
+                                {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type':
+                                            'application/x-www-form-urlencoded;charset=UTF-8',
+                                    },
+                                    body,
+                                }
+                            );
+
+                        const payload =
+                            await response
+                                .json()
+                                .catch(() => null);
+
+                        if (
+                            !response.ok
+                            || !payload?.ok
+                        ) {
+                            throw new Error(
+                                payload?.message
+                                || 'Synchronisation fehlgeschlagen.'
+                            );
+                        }
+
+                        const updated =
+                            Array.isArray(payload.updated)
+                                ? payload.updated
+                                : [];
+
+                        const errors =
+                            Array.isArray(payload.errors)
+                                ? payload.errors
+                                : [];
+
+                        const total =
+                            Number(payload.total || 0);
+
+                        const unchanged =
+                            Number(
+                                payload.unchanged_count
+                                || 0
+                            );
+
+                        if (syncAllSummary) {
+                            syncAllSummary.textContent =
+                                total
+                                + ' geprüft · '
+                                + updated.length
+                                + ' aktualisiert · '
+                                + unchanged
+                                + ' unverändert'
+                                + (
+                                    errors.length
+                                        ? ' · '
+                                            + errors.length
+                                            + ' Fehler'
+                                        : ''
+                                );
+                        }
+
+                        renderSyncAllResults(
+                            updated,
+                            errors
+                        );
+
+                        openSyncAllModal();
+
+                    } catch (error) {
+                        if (syncAllSummary) {
+                            syncAllSummary.textContent =
+                                'Synchronisation fehlgeschlagen.';
+                        }
+
+                        if (syncAllResults) {
+                            syncAllResults.innerHTML = '';
+
+                            const row =
+                                document.createElement('div');
+
+                            row.className =
+                                'albums-sync-all-empty albums-sync-all-error';
+
+                            row.textContent =
+                                error?.message
+                                || 'Synchronisation fehlgeschlagen.';
+
+                            syncAllResults.appendChild(row);
+                        }
+
+                        openSyncAllModal();
+
+                    } finally {
+                        syncAllButton.disabled = false;
+                        syncAllButton.textContent =
+                            originalText;
+                    }
+                }
+
+                syncAllButton?.addEventListener(
+                    'click',
+                    syncAllAlbums
+                );
+
+                syncAllModal
+                    ?.querySelectorAll(
+                        '[data-close-sync-all-modal]'
+                    )
+                    .forEach(
+                        element => {
+                            element.addEventListener(
+                                'click',
+                                closeSyncAllModal
+                            );
+                        }
+                    );
+
+                document.addEventListener(
+                    'keydown',
+                    event => {
+                        if (
+                            event.key === 'Escape'
+                            && syncAllModal
+                            && !syncAllModal.hidden
+                        ) {
+                            closeSyncAllModal();
+                        }
                     }
                 );
 

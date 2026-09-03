@@ -177,6 +177,7 @@ if ($isAuthed) {
                     <li><a href="/biz/data"><img src="/img/table.png" alt="Daten" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Daten</span></a></li>
                     <li><a href="/biz/insert"><img src="/img/upload.png" alt="Hochladen" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Hochladen</span></a></li>
                     <li><a href="/biz/konten"><img src="/img/bank.png" alt="Hochladen" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Konten</span></a></li>
+                    <li><a href="/biz/postbsc"><img src="/img/plan.png" alt="Hochladen" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Post Bachelor</span></a></li>
                 </ul>
             </li>
 
