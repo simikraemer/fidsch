@@ -1,5 +1,5 @@
 <?php
-// biz/Start_v8.php
+// biz/Start_v9.php
 // Finanzdashboard. CSV-Uploads laufen zentral über upload_csv.php.
 
 require_once __DIR__ . '/../auth.php';
@@ -1240,7 +1240,12 @@ require_once __DIR__ . '/../navbar.php';
             Einnahmen
           </span>
 
-          <div class="dashboard-pie-kpi-valuewrap">
+          <div
+            class="dashboard-pie-kpi-valuewrap dashboard-kpi-breakdown"
+            id="incomeKpiBreakdown"
+            tabindex="0"
+            aria-describedby="incomeKpiBreakdownTooltip"
+          >
             <span class="dashboard-pie-kpi-value" id="incomeKpi">
               <?= euro(array_sum($incomeByCat)) ?>
             </span>
@@ -1248,6 +1253,31 @@ require_once __DIR__ . '/../navbar.php';
             <span class="dashboard-pie-kpi-sub" id="incomeKpiSub" hidden>
               Ø pro Monat
             </span>
+
+            <div
+              class="dashboard-kpi-breakdown-tooltip"
+              id="incomeKpiBreakdownTooltip"
+              role="tooltip"
+              aria-hidden="true"
+            >
+              <div class="dashboard-kpi-breakdown-title" id="incomeKpiBreakdownTitle">Ø im gewählten Zeitraum</div>
+              <div class="dashboard-kpi-breakdown-row">
+                <span class="dashboard-kpi-breakdown-label">pro Tag</span>
+                <strong class="dashboard-kpi-breakdown-value" id="incomeKpiPerDay">—</strong>
+              </div>
+              <div class="dashboard-kpi-breakdown-row">
+                <span class="dashboard-kpi-breakdown-label">pro Woche</span>
+                <strong class="dashboard-kpi-breakdown-value" id="incomeKpiPerWeek">—</strong>
+              </div>
+              <div class="dashboard-kpi-breakdown-row">
+                <span class="dashboard-kpi-breakdown-label">pro Monat</span>
+                <strong class="dashboard-kpi-breakdown-value" id="incomeKpiPerMonth">—</strong>
+              </div>
+              <div class="dashboard-kpi-breakdown-row">
+                <span class="dashboard-kpi-breakdown-label">pro Jahr</span>
+                <strong class="dashboard-kpi-breakdown-value" id="incomeKpiPerYear">—</strong>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1271,7 +1301,12 @@ require_once __DIR__ . '/../navbar.php';
             Ausgaben (Logarithmisch)
           </span>
 
-          <div class="dashboard-pie-kpi-valuewrap">
+          <div
+            class="dashboard-pie-kpi-valuewrap dashboard-kpi-breakdown"
+            id="expenseKpiBreakdown"
+            tabindex="0"
+            aria-describedby="expenseKpiBreakdownTooltip"
+          >
             <span class="dashboard-pie-kpi-value" id="expenseKpi">
               <?= euro(array_sum($expenseByCat)) ?>
             </span>
@@ -1279,6 +1314,31 @@ require_once __DIR__ . '/../navbar.php';
             <span class="dashboard-pie-kpi-sub" id="expenseKpiSub" hidden>
               Ø pro Monat
             </span>
+
+            <div
+              class="dashboard-kpi-breakdown-tooltip"
+              id="expenseKpiBreakdownTooltip"
+              role="tooltip"
+              aria-hidden="true"
+            >
+              <div class="dashboard-kpi-breakdown-title" id="expenseKpiBreakdownTitle">Ø im gewählten Zeitraum</div>
+              <div class="dashboard-kpi-breakdown-row">
+                <span class="dashboard-kpi-breakdown-label">pro Tag</span>
+                <strong class="dashboard-kpi-breakdown-value" id="expenseKpiPerDay">—</strong>
+              </div>
+              <div class="dashboard-kpi-breakdown-row">
+                <span class="dashboard-kpi-breakdown-label">pro Woche</span>
+                <strong class="dashboard-kpi-breakdown-value" id="expenseKpiPerWeek">—</strong>
+              </div>
+              <div class="dashboard-kpi-breakdown-row">
+                <span class="dashboard-kpi-breakdown-label">pro Monat</span>
+                <strong class="dashboard-kpi-breakdown-value" id="expenseKpiPerMonth">—</strong>
+              </div>
+              <div class="dashboard-kpi-breakdown-row">
+                <span class="dashboard-kpi-breakdown-label">pro Jahr</span>
+                <strong class="dashboard-kpi-breakdown-value" id="expenseKpiPerYear">—</strong>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1398,6 +1458,132 @@ function fmtMonthlyAvg(val, months) {
   const m = Number(months || 0);
   if (m <= 0) return '—';
   return fmtEuro(Number(val || 0) / m);
+}
+
+function dateUtcFromIso(iso) {
+  const match = String(iso ?? '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+
+  return new Date(Date.UTC(
+    Number(match[1]),
+    Number(match[2]) - 1,
+    Number(match[3])
+  ));
+}
+
+function daysInclusiveUtc(start, end) {
+  if (!(start instanceof Date) || !(end instanceof Date)) return 0;
+
+  const startMs = Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate());
+  const endMs = Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate());
+  if (endMs < startMs) return 0;
+
+  return Math.floor((endMs - startMs) / 86400000) + 1;
+}
+
+function kpiBreakdownPeriod() {
+  const nowYear = NOW.getFullYear();
+  const todayUtc = new Date(Date.UTC(nowYear, NOW.getMonth(), NOW.getDate()));
+
+  if (String(chartYear) !== 'all') {
+    const year = Number(chartYear);
+    if (!Number.isFinite(year)) return null;
+
+    const start = new Date(Date.UTC(year, 0, 1));
+    const isCurrentYear = year === nowYear;
+    const end = isCurrentYear
+      ? todayUtc
+      : new Date(Date.UTC(year, 11, 31));
+
+    const days = daysInclusiveUtc(start, end);
+    if (days <= 0) return null;
+
+    return {
+      days,
+      weeks: days / 7,
+      months: isCurrentYear ? days / (365.2425 / 12) : 12,
+      years: isCurrentYear ? days / 365.2425 : 1,
+      title: isCurrentYear
+        ? `Ø ${year} bis heute`
+        : `Ø im Jahr ${year}`
+    };
+  }
+
+  const start = dateUtcFromIso(allModeStart);
+  if (!start) return null;
+
+  const years = Array.isArray(availableYears)
+    ? availableYears.map(Number).filter(Number.isFinite)
+    : [];
+  const lastYear = years.length ? Math.max(...years) : nowYear;
+  const end = lastYear >= nowYear
+    ? todayUtc
+    : new Date(Date.UTC(lastYear, 11, 31));
+
+  const days = daysInclusiveUtc(start, end);
+  if (days <= 0) return null;
+
+  return {
+    days,
+    weeks: days / 7,
+    months: days / (365.2425 / 12),
+    years: days / 365.2425,
+    title: 'Ø über den Gesamtzeitraum'
+  };
+}
+
+function setKpiBreakdownEnabled(key, enabled) {
+  const wrap = $(`${key}KpiBreakdown`);
+  const tooltip = $(`${key}KpiBreakdownTooltip`);
+  if (!wrap) return;
+
+  wrap.classList.toggle('is-disabled', !enabled);
+  wrap.tabIndex = enabled ? 0 : -1;
+
+  if (tooltip) {
+    tooltip.setAttribute('aria-hidden', enabled ? 'false' : 'true');
+  }
+}
+
+function refreshKpiBreakdown(key) {
+  const values = key === 'income' ? incomeValues : expenseValues;
+  const total = sumArr(values);
+  const period = kpiBreakdownPeriod();
+
+  if (!period || !Number.isFinite(total)) {
+    setKpiBreakdownEnabled(key, false);
+    return;
+  }
+
+  const items = {
+    Day: period.days,
+    Week: period.weeks,
+    Month: period.months,
+    Year: period.years
+  };
+
+  Object.entries(items).forEach(([suffix, divisor]) => {
+    const el = $(`${key}KpiPer${suffix}`);
+    if (!el) return;
+    el.textContent = divisor > 0 ? fmtEuro(total / divisor) : '—';
+  });
+
+  const title = $(`${key}KpiBreakdownTitle`);
+  if (title) title.textContent = period.title;
+
+  const wrap = $(`${key}KpiBreakdown`);
+  if (wrap) {
+    wrap.setAttribute(
+      'aria-label',
+      `${key === 'income' ? 'Einnahmen' : 'Ausgaben'} ${fmtEuro(total)}. ${period.title}. `
+      + `Pro Tag ${fmtEuro(total / period.days)}, `
+      + `pro Woche ${fmtEuro(total / period.weeks)}, `
+      + `pro Monat ${fmtEuro(total / period.months)}, `
+      + `pro Jahr ${fmtEuro(total / period.years)}.`
+    );
+  }
+
+  setKpiBreakdownEnabled(key, true);
 }
 
 function hexToRgba(hex, a) {
@@ -2238,6 +2424,7 @@ function makeIncomeOverview() {
   setTitle(key, ui[key].origTitle);
   setKpi(key, ui[key].origKpi);
   setKpiSubVisible(key, false);
+  refreshKpiBreakdown(key);
 
   const top = topNWithRestDual(incomeLabels, incomeValues, incomeValuesClosed, TOP_N_INCOME);
   const total = sumArr(top.values);
@@ -2323,6 +2510,7 @@ function makeExpenseOverview() {
   setTitle(key, ui[key].origTitle);
   setKpi(key, ui[key].origKpi);
   setKpiSubVisible(key, false);
+  refreshKpiBreakdown(key);
 
   const top = topNWithRestDual(expenseLabels, expenseValues, expenseValuesClosed, TOP_N_EXPENSE);
   const total = sumArr(top.values);
@@ -2437,6 +2625,7 @@ async function showYearDetail(key, catLabel) {
   setTitle(key, `${titleBase} - ${catLabel}`);
   setKpi(key, '…');
   setKpiSubVisible(key, false);
+  setKpiBreakdownEnabled(key, false);
 
   let data;
 

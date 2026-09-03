@@ -10796,3 +10796,141 @@ button.food-dashboard-back[hidden] {
     box-shadow:
         0 1px 5px rgba(0, 0, 0, 0.18);
 }
+
+/* =========================================================
+ * Finanzdashboard – KPI Zeitraum-Breakdown
+ * Hover/Fokus auf Einnahmen-/Ausgaben-Summe
+ * ========================================================= */
+
+.dashboard-page .dashboard-kpi-breakdown {
+    position: relative;
+    cursor: help;
+    outline: none;
+}
+
+.dashboard-page
+.dashboard-kpi-breakdown:not(.is-disabled)
+.dashboard-pie-kpi-value {
+    border-bottom: 1px dashed rgba(0, 0, 0, 0.32);
+    transition:
+        color 0.15s ease,
+        border-color 0.15s ease;
+}
+
+.dashboard-page
+.dashboard-kpi-breakdown:not(.is-disabled):hover
+.dashboard-pie-kpi-value,
+.dashboard-page
+.dashboard-kpi-breakdown:not(.is-disabled):focus
+.dashboard-pie-kpi-value,
+.dashboard-page
+.dashboard-kpi-breakdown:not(.is-disabled):focus-within
+.dashboard-pie-kpi-value {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+}
+
+.dashboard-page .dashboard-kpi-breakdown-tooltip {
+    position: absolute;
+    top: calc(100% + 11px);
+    right: 0;
+    z-index: 100;
+
+    width: 240px;
+    max-width: calc(100vw - 32px);
+    padding: 11px 13px;
+
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.10);
+    border-top: 3px solid var(--primary);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+
+    color: var(--text);
+    line-height: 1.2;
+
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-5px);
+    pointer-events: none;
+
+    transition:
+        opacity 0.14s ease,
+        transform 0.14s ease,
+        visibility 0.14s ease;
+}
+
+.dashboard-page .dashboard-kpi-breakdown-tooltip::before {
+    content: "";
+    position: absolute;
+    right: 16px;
+    bottom: 100%;
+
+    border-left: 7px solid transparent;
+    border-right: 7px solid transparent;
+    border-bottom: 7px solid var(--primary);
+}
+
+.dashboard-page
+.dashboard-kpi-breakdown:not(.is-disabled):hover
+.dashboard-kpi-breakdown-tooltip,
+.dashboard-page
+.dashboard-kpi-breakdown:not(.is-disabled):focus
+.dashboard-kpi-breakdown-tooltip,
+.dashboard-page
+.dashboard-kpi-breakdown:not(.is-disabled):focus-within
+.dashboard-kpi-breakdown-tooltip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.dashboard-page .dashboard-kpi-breakdown-title {
+    margin-bottom: 7px;
+    padding-bottom: 7px;
+
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+
+    font-size: 0.76rem;
+    font-weight: 800;
+    color: var(--primary);
+    white-space: nowrap;
+}
+
+.dashboard-page .dashboard-kpi-breakdown-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: baseline;
+    gap: 16px;
+    padding: 4px 0;
+}
+
+.dashboard-page .dashboard-kpi-breakdown-label {
+    font-size: 0.76rem;
+    color: #777;
+    white-space: nowrap;
+}
+
+.dashboard-page .dashboard-kpi-breakdown-value {
+    font-size: 0.82rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.dashboard-page .dashboard-kpi-breakdown.is-disabled {
+    cursor: default;
+}
+
+.dashboard-page
+.dashboard-kpi-breakdown.is-disabled
+.dashboard-pie-kpi-value {
+    border-bottom: none;
+}
+
+.dashboard-page
+.dashboard-kpi-breakdown.is-disabled
+.dashboard-kpi-breakdown-tooltip {
+    display: none;
+}
