@@ -11569,3 +11569,281 @@ body.rwth-jobs-modal-open {
     }
 }
 
+
+
+.life-edit-inline-actions {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    min-width: 330px;
+}
+
+.life-edit-inline-actions .life-edit-new {
+    padding: 8px 12px;
+    box-shadow: none;
+    white-space: nowrap;
+}
+
+.life-sidewrap--year-range {
+    width: 130px;
+    min-width: 120px;
+}
+
+.life-private-editable [data-life-edit-kind] {
+    cursor: pointer;
+}
+
+.life-private-editable .life-label[data-life-edit-kind] {
+    transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+
+.life-private-editable .life-label[data-life-edit-kind]:hover,
+.life-private-editable .life-label[data-life-edit-kind]:focus-visible {
+    background: color-mix(in srgb, var(--primary) 9%, #fff 91%);
+    box-shadow: inset 4px 0 0 var(--primary);
+    outline: none;
+}
+
+.life-private-editable .life-bar[data-life-edit-kind]:hover,
+.life-private-editable .life-bar[data-life-edit-kind]:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--primary) 58%, #fff 42%);
+    outline-offset: 2px;
+}
+
+.life-private-editable .life-event[data-life-edit-kind]:hover,
+.life-private-editable .life-event[data-life-edit-kind]:focus-visible {
+    outline: none;
+    box-shadow:
+        0 0 0 2px #fff,
+        0 0 0 5px color-mix(in srgb, var(--primary) 58%, #fff 42%);
+}
+
+.life-edit-modal[hidden] {
+    display: none !important;
+}
+
+.life-edit-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 20000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    box-sizing: border-box;
+}
+
+.life-edit-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.56);
+}
+
+.life-edit-dialog {
+    position: relative;
+    z-index: 1;
+    width: min(760px, calc(100vw - 32px));
+    max-height: calc(100vh - 48px);
+    overflow: auto;
+    background: #fff;
+    border-radius: var(--border-radius);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
+    border-top: 6px solid var(--primary);
+}
+
+.life-edit-dialog-head {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 20px;
+    background: #fff;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.09);
+}
+
+.life-edit-dialog-head h2 {
+    margin: 0;
+}
+
+.life-edit-modal-close {
+    all: unset;
+    width: 38px;
+    height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 30px;
+    line-height: 1;
+    color: rgba(0, 0, 0, 0.58);
+}
+
+.life-edit-modal-close:hover {
+    background: rgba(0, 0, 0, 0.06);
+    color: var(--primary);
+}
+
+.life-edit-dialog-body {
+    padding: 20px;
+}
+
+.life-edit-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px 18px;
+    align-items: end;
+}
+
+.life-edit-form[hidden] {
+    display: none !important;
+}
+
+.life-edit-field {
+    min-width: 0;
+}
+
+.life-edit-field--wide {
+    grid-column: 1 / -1;
+}
+
+.life-edit-field label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 800;
+}
+
+.life-edit-field input,
+.life-edit-field select,
+.life-edit-field textarea {
+    margin: 0;
+}
+
+.life-edit-field textarea {
+    width: 100%;
+    resize: vertical;
+}
+
+.life-edit-field input[type="color"] {
+    min-height: 42px;
+    padding: 4px;
+}
+
+.life-edit-field input:disabled {
+    opacity: 0.48;
+    cursor: not-allowed;
+}
+
+.life-edit-field small {
+    display: block;
+    margin-top: 5px;
+    opacity: 0.62;
+}
+
+.life-edit-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    margin-top: 2px;
+}
+
+.life-edit-danger {
+    background: #fff;
+    color: #c0392b;
+    border: 2px solid rgba(192, 57, 43, 0.55);
+    box-shadow: none;
+}
+
+.life-edit-danger:hover {
+    background: #c0392b;
+    color: #fff;
+    border-color: #c0392b;
+}
+
+.life-edit-modal-open {
+    overflow: hidden;
+}
+
+.life-edit-toast {
+    position: fixed;
+    top: 84px;
+    left: 50%;
+    z-index: 21000;
+    transform: translate(-50%, -12px);
+    min-width: min(380px, calc(100vw - 32px));
+    max-width: calc(100vw - 32px);
+    padding: 11px 16px;
+    box-sizing: border-box;
+    border-radius: var(--border-radius);
+    background: #fff;
+    box-shadow: var(--shadow);
+    font-weight: 800;
+    text-align: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.life-edit-toast.is-visible {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+
+.life-edit-toast--success {
+    color: #1f6f3b;
+    border: 2px solid #2e9b55;
+}
+
+.life-edit-toast--error {
+    color: #a52f24;
+    border: 2px solid #c0392b;
+}
+
+@media (max-width: 760px) {
+    .life-edit-inline-actions {
+        flex: 1 1 100%;
+        width: 100%;
+        min-width: 0;
+        justify-content: center;
+        order: 3;
+    }
+
+    .life-edit-inline-actions .life-edit-new {
+        flex: 1 1 auto;
+    }
+
+    .life-edit-modal {
+        padding: 10px;
+    }
+
+    .life-edit-dialog {
+        width: calc(100vw - 20px);
+        max-height: calc(100vh - 20px);
+    }
+
+    .life-edit-dialog-body {
+        padding: 14px;
+    }
+
+    .life-edit-form {
+        grid-template-columns: 1fr;
+    }
+
+    .life-edit-field--wide {
+        grid-column: auto;
+    }
+
+    .life-edit-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}

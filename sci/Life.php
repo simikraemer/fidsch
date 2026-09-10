@@ -121,24 +121,9 @@ final class LifeTimelinePage
 
         $res = $conn->query("
             SELECT
-                MIN(start_date) AS min_start,
-                MAX(end_date)   AS max_end
-            FROM timeline_entries
-        ");
-        if ($res && ($row = $res->fetch_assoc())) {
-            if (!empty($row['min_start']) && ($minDate === null || $row['min_start'] < $minDate)) {
-                $minDate = $row['min_start'];
-            }
-            if (!empty($row['max_end']) && ($maxDate === null || $row['max_end'] > $maxDate)) {
-                $maxDate = $row['max_end'];
-            }
-        }
-
-        $res = $conn->query("
-            SELECT
                 MIN(event_date) AS min_event,
                 MAX(event_date) AS max_event
-            FROM special_events
+            FROM timeline_events
         ");
         if ($res && ($row = $res->fetch_assoc())) {
             if (!empty($row['min_event']) && ($minDate === null || $row['min_event'] < $minDate)) {
@@ -154,7 +139,7 @@ final class LifeTimelinePage
         $lastYear  = $maxDate ? (int)substr($maxDate, 0, 4) : $currentYear;
 
         $mode = isset($_GET['modus']) ? strtolower(trim((string)$_GET['modus'])) : 'gesamt';
-        if (!in_array($mode, ['gesamt', 'jahr', 'semester', 'cp_jahr', 'cp_semester'], true)) {
+        if (!in_array($mode, ['gesamt', 'jahr', 'jahr_auswahl', 'semester', 'cp_jahr', 'cp_semester'], true)) {
             $mode = 'gesamt';
         }
 
@@ -166,6 +151,17 @@ final class LifeTimelinePage
         $jahr = isset($_GET['jahr']) ? (int)$_GET['jahr'] : $lastYear;
         if ($jahr < $firstYear || $jahr > $lastYear) {
             $jahr = $lastYear;
+        }
+
+        $defaultStartYear = max($firstYear, min($currentYear, $lastYear));
+        $startjahr = isset($_GET['startjahr']) ? (int)$_GET['startjahr'] : $defaultStartYear;
+        $endjahr = isset($_GET['endjahr']) ? (int)$_GET['endjahr'] : $lastYear;
+
+        $startjahr = max($firstYear, min($startjahr, $lastYear));
+        $endjahr = max($firstYear, min($endjahr, $lastYear));
+
+        if ($startjahr > $endjahr) {
+            [$startjahr, $endjahr] = [$endjahr, $startjahr];
         }
 
         $semesterOptions = self::buildSemesterOptions(self::dt($minDate), self::dt($maxDate));
@@ -188,6 +184,8 @@ final class LifeTimelinePage
             return [
                 'mode' => $mode,
                 'jahr' => $jahr,
+                'startjahr' => $startjahr,
+                'endjahr' => $endjahr,
                 'semester' => $semester,
                 'yearKeys' => $yearKeys,
                 'semesterOptions' => $semesterOptions,
@@ -200,13 +198,20 @@ final class LifeTimelinePage
 
         $axisSegments = [];
         $axisTemplateParts = [];
+        $scaleFirstYear = $firstYear;
+        $scaleLastYear = $lastYear;
 
-        if ($mode === 'gesamt') {
-            $rangeStart = new DateTimeImmutable(sprintf('%04d-01-01', $firstYear));
-            $rangeEnd   = new DateTimeImmutable(sprintf('%04d-12-31', $lastYear));
-            $rangeEndExclusive = new DateTimeImmutable(sprintf('%04d-01-01', $lastYear + 1));
+        if ($mode === 'gesamt' || $mode === 'jahr_auswahl') {
+            if ($mode === 'jahr_auswahl') {
+                $scaleFirstYear = $startjahr;
+                $scaleLastYear = $endjahr;
+            }
 
-            for ($y = $firstYear; $y <= $lastYear; $y++) {
+            $rangeStart = new DateTimeImmutable(sprintf('%04d-01-01', $scaleFirstYear));
+            $rangeEnd   = new DateTimeImmutable(sprintf('%04d-12-31', $scaleLastYear));
+            $rangeEndExclusive = new DateTimeImmutable(sprintf('%04d-01-01', $scaleLastYear + 1));
+
+            for ($y = $scaleFirstYear; $y <= $scaleLastYear; $y++) {
                 $axisSegments[] = [
                     'label' => (string)$y,
                     'template' => '1fr',
@@ -257,10 +262,11 @@ final class LifeTimelinePage
         $entriesById = [];
         $entriesByGroup = [];
         $eventsByEntry = [];
+        $orphanEvents = [];
         $segmentsByEntry = [];
 
         $resG = $conn->query("
-            SELECT id, parent_group_id, name, outline_no, level_no, sort_order
+            SELECT id, parent_group_id, name, sort_order, color
             FROM timeline_groups
         ");
         if (!$resG) {
@@ -270,7 +276,6 @@ final class LifeTimelinePage
         while ($g = $resG->fetch_assoc()) {
             $g['id'] = (int)$g['id'];
             $g['parent_group_id'] = $g['parent_group_id'] !== null ? (int)$g['parent_group_id'] : null;
-            $g['level_no'] = (int)$g['level_no'];
             $g['sort_order'] = (int)$g['sort_order'];
 
             $groupsById[$g['id']] = $g;
@@ -278,7 +283,7 @@ final class LifeTimelinePage
         }
 
         $resE = $conn->query("
-            SELECT id, group_id, title, start_date, end_date, outline_no, sort_order
+            SELECT id, group_id, title, creditpoints, sort_order
             FROM timeline_entries
         ");
         if (!$resE) {
@@ -289,15 +294,16 @@ final class LifeTimelinePage
             $e['id'] = (int)$e['id'];
             $e['group_id'] = (int)$e['group_id'];
             $e['sort_order'] = (int)$e['sort_order'];
+            $e['creditpoints'] = ($e['creditpoints'] !== null && $e['creditpoints'] !== '') ? (float)$e['creditpoints'] : null;
 
             $entriesById[$e['id']] = $e;
             $entriesByGroup[$e['group_id']][] = $e;
         }
 
         $resS = $conn->query("
-            SELECT id, entry_id, start_date, end_date, sort_order
+            SELECT id, entry_id, start_date, end_date
             FROM timeline_entry_segments
-            ORDER BY entry_id ASC, sort_order ASC, start_date ASC, id ASC
+            ORDER BY entry_id ASC, start_date ASC, end_date ASC, id ASC
         ");
         if (!$resS) {
             http_response_code(500);
@@ -306,30 +312,27 @@ final class LifeTimelinePage
         while ($s = $resS->fetch_assoc()) {
             $s['id'] = (int)$s['id'];
             $s['entry_id'] = (int)$s['entry_id'];
-            $s['sort_order'] = (int)$s['sort_order'];
-
             $segmentsByEntry[$s['entry_id']][] = $s;
         }
 
-        foreach ($entriesById as $entryId => $entry) {
-            if (!isset($segmentsByEntry[$entryId]) || count($segmentsByEntry[$entryId]) === 0) {
-                if (!empty($entry['start_date']) && !empty($entry['end_date'])) {
-                    $segmentsByEntry[$entryId] = [[
-                        'id' => 0,
-                        'entry_id' => (int)$entryId,
-                        'start_date' => $entry['start_date'],
-                        'end_date' => $entry['end_date'],
-                        'sort_order' => 1,
-                    ]];
-                }
-            }
-        }
-
         $stmtEv = $conn->prepare("
-            SELECT id, entry_id, event_type, title, event_date, note, status_code, semester_code, creditpoints
-            FROM special_events
-            WHERE event_date >= ? AND event_date < ?
-            ORDER BY event_date ASC, id ASC
+            SELECT
+                ev.id,
+                ev.entry_id,
+                ev.event_type,
+                COALESCE(NULLIF(ev.title_override, ''), te.title, 'Ereignis') AS title,
+                ev.title_override,
+                ev.event_date,
+                ev.note,
+                ev.status_code,
+                ev.semester_code,
+                ev.year_override,
+                ev.color,
+                te.creditpoints
+            FROM timeline_events ev
+            INNER JOIN timeline_entries te ON te.id = ev.entry_id
+            WHERE ev.event_date >= ? AND ev.event_date < ?
+            ORDER BY ev.event_date ASC, ev.id ASC
         ");
         $rangeStartSql = $rangeStart->format('Y-m-d');
         $rangeEndExclusiveSql = $rangeEndExclusive->format('Y-m-d');
@@ -338,16 +341,18 @@ final class LifeTimelinePage
         $resEv = $stmtEv->get_result();
 
         while ($ev = $resEv->fetch_assoc()) {
+            $ev['id'] = (int)$ev['id'];
+            $ev['event_type'] = strtolower(trim((string)$ev['event_type']));
             $entryId = $ev['entry_id'] !== null ? (int)$ev['entry_id'] : null;
-            if ($entryId === null) {
-                continue;
-            }
-            if (!isset($entriesById[$entryId])) {
-                continue;
-            }
+            $ev['entry_id'] = $entryId;
 
             if ($ev['creditpoints'] !== null && $ev['creditpoints'] !== '') {
                 $ev['creditpoints'] = (float)$ev['creditpoints'];
+            }
+
+            if ($entryId === null || !isset($entriesById[$entryId])) {
+                $orphanEvents[] = $ev;
+                continue;
             }
 
             $eventsByEntry[$entryId][] = $ev;
@@ -375,8 +380,8 @@ final class LifeTimelinePage
                     $mode,
                     $rangeStart,
                     $rangeEnd,
-                    $firstYear,
-                    $lastYear
+                    $scaleFirstYear,
+                    $scaleLastYear
                 );
 
                 if ($bar !== null) {
@@ -403,6 +408,18 @@ final class LifeTimelinePage
         }
 
         $rows = [];
+
+        // Nur für Altbestand ohne entry_id: bleibt sichtbar, damit er im privaten Modus
+        // angeklickt und einem Eintrag zugeordnet werden kann. Sobald zugeordnet, verschwindet die Zeile.
+        if (!empty($orphanEvents)) {
+            $rows[] = [
+                'type' => 'orphan_events',
+                'id' => 'orphan-events',
+                'depth' => 0,
+                'label' => 'Unzugeordnete Ereignisse',
+                'events' => $orphanEvents,
+            ];
+        }
 
         $walk = function (int $groupId, int $depth) use (
             &$walk,
@@ -436,7 +453,7 @@ final class LifeTimelinePage
                 if (isset($visibleGroupIds[(int)$childGroup['id']])) {
                     $children[] = [
                         'kind' => 'group',
-                        'outline_no' => $childGroup['outline_no'],
+                        'sort_order' => (int)$childGroup['sort_order'],
                         'id' => (int)$childGroup['id'],
                     ];
                 }
@@ -446,14 +463,15 @@ final class LifeTimelinePage
                 if (isset($visibleEntryIds[(int)$entry['id']])) {
                     $children[] = [
                         'kind' => 'entry',
-                        'outline_no' => $entry['outline_no'],
+                        'sort_order' => (int)$entry['sort_order'],
                         'id' => (int)$entry['id'],
                     ];
                 }
             }
 
             usort($children, static function ($a, $b) {
-                return LifeTimelinePage::compareOutline($a['outline_no'], $b['outline_no']);
+                $cmp = ((int)$a['sort_order']) <=> ((int)$b['sort_order']);
+                return $cmp !== 0 ? $cmp : ((int)$a['id']) <=> ((int)$b['id']);
             });
 
             foreach ($children as $child) {
@@ -478,7 +496,8 @@ final class LifeTimelinePage
 
         $rootGroups = $groupChildren[0] ?? [];
         usort($rootGroups, static function ($a, $b) {
-            return LifeTimelinePage::compareOutline($a['outline_no'], $b['outline_no']);
+            $cmp = ((int)$a['sort_order']) <=> ((int)$b['sort_order']);
+            return $cmp !== 0 ? $cmp : ((int)$a['id']) <=> ((int)$b['id']);
         });
 
         foreach ($rootGroups as $rootGroup) {
@@ -487,6 +506,8 @@ final class LifeTimelinePage
 
         if ($mode === 'gesamt') {
             $titleSuffix = $firstYear . '-' . $lastYear;
+        } elseif ($mode === 'jahr_auswahl') {
+            $titleSuffix = $startjahr === $endjahr ? (string)$startjahr : ($startjahr . '-' . $endjahr);
         } elseif ($mode === 'jahr') {
             $titleSuffix = (string)$jahr;
         } else {
@@ -496,6 +517,8 @@ final class LifeTimelinePage
         return [
             'mode' => $mode,
             'jahr' => $jahr,
+            'startjahr' => $startjahr,
+            'endjahr' => $endjahr,
             'semester' => $semester,
             'selectedSemester' => $selectedSemester,
             'yearKeys' => $yearKeys,
@@ -507,21 +530,24 @@ final class LifeTimelinePage
             'titleSuffix' => $titleSuffix,
             'rangeStart' => $rangeStart,
             'rangeEnd' => $rangeEnd,
-            'firstYear' => $firstYear,
-            'lastYear' => $lastYear,
+            'firstYear' => $scaleFirstYear,
+            'lastYear' => $scaleLastYear,
         ];
     }
 
-    public static function renderApp(array $view): void
+    public static function renderApp(array $view, array $options = []): void
     {
+        $editable = !empty($options['editable']);
         $mode = $view['mode'];
 
         if (self::isCpMode($mode)) {
-            self::renderCreditpointsApp($view);
+            self::renderCreditpointsApp($view, $editable);
             return;
         }
 
         $jahr = $view['jahr'];
+        $startjahr = $view['startjahr'];
+        $endjahr = $view['endjahr'];
         $semester = $view['semester'];
         $semesterOptions = $view['semesterOptions'];
         $yearKeys = $view['yearKeys'];
@@ -534,12 +560,46 @@ final class LifeTimelinePage
         $rangeEnd = $view['rangeEnd'];
         $firstYear = $view['firstYear'];
         $lastYear = $view['lastYear'];
+
+        $today = new DateTimeImmutable('today');
+        $todayLeft = null;
+        if ($today >= $rangeStart && $today <= $rangeEnd) {
+            $todayLeft = self::pointPercentInScale(
+                $today,
+                $mode,
+                $rangeStart,
+                $rangeEnd,
+                $firstYear,
+                $lastYear
+            );
+        }
         ?>
-<div class="lt-page dashboard-page">
+<style>
+.life-current-day-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    transform: translateX(-1px);
+    background: #dc2626;
+    z-index: 1;
+    pointer-events: none;
+}
+</style>
+<div class="lt-page dashboard-page<?= $editable ? ' life-private-editable' : '' ?>">
     <div class="lt-topbar">
         <h1 class="ueberschrift dashboard-title">
             <span class="dashboard-title-main">Studienplan <?= self::esc($titleSuffix) ?></span>
         </h1>
+
+        <?php if ($editable): ?>
+            <div class="life-edit-inline-actions" aria-label="Neues Objekt anlegen">
+                <button type="button" class="life-edit-new" data-life-new-kind="group">+ Gruppe</button>
+                <button type="button" class="life-edit-new" data-life-new-kind="entry">+ Eintrag</button>
+                <button type="button" class="life-edit-new" data-life-new-kind="segment">+ Zeitraum</button>
+                <button type="button" class="life-edit-new" data-life-new-kind="event">+ Ereignis</button>
+            </div>
+        <?php endif; ?>
 
         <div class="life-controls">
             <?php if ($mode === 'jahr'): ?>
@@ -548,6 +608,27 @@ final class LifeTimelinePage
                     <select id="ltYear" class="kategorie-select">
                         <?php foreach ($yearKeys as $y): ?>
                             <option value="<?= self::esc($y) ?>" <?= ((int)$y === (int)$jahr) ? 'selected' : '' ?>>
+                                <?= self::esc($y) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            <?php elseif ($mode === 'jahr_auswahl'): ?>
+                <div class="life-sidewrap life-sidewrap--year-range">
+                    <label for="ltStartYear" class="lt-label">Startjahr</label>
+                    <select id="ltStartYear" class="kategorie-select">
+                        <?php foreach ($yearKeys as $y): ?>
+                            <option value="<?= self::esc($y) ?>" <?= ((int)$y === (int)$startjahr) ? 'selected' : '' ?>>
+                                <?= self::esc($y) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="life-sidewrap life-sidewrap--year-range">
+                    <label for="ltEndYear" class="lt-label">Endjahr</label>
+                    <select id="ltEndYear" class="kategorie-select">
+                        <?php foreach ($yearKeys as $y): ?>
+                            <option value="<?= self::esc($y) ?>" <?= ((int)$y === (int)$endjahr) ? 'selected' : '' ?>>
                                 <?= self::esc($y) ?>
                             </option>
                         <?php endforeach; ?>
@@ -571,6 +652,7 @@ final class LifeTimelinePage
                 <select id="lifeMode" class="kategorie-select">
                     <option value="gesamt" <?= $mode === 'gesamt' ? 'selected' : '' ?>>Gesamt</option>
                     <option value="jahr" <?= $mode === 'jahr' ? 'selected' : '' ?>>Jahr</option>
+                    <option value="jahr_auswahl" <?= $mode === 'jahr_auswahl' ? 'selected' : '' ?>>Jahr (Auswahl)</option>
                     <option value="semester" <?= $mode === 'semester' ? 'selected' : '' ?>>Semester</option>
                     <option value="cp_jahr" <?= $mode === 'cp_jahr' ? 'selected' : '' ?>>CP pro Jahr</option>
                     <option value="cp_semester" <?= $mode === 'cp_semester' ? 'selected' : '' ?>>CP pro Semester</option>
@@ -587,7 +669,7 @@ final class LifeTimelinePage
                         <div class="life-axis-row">
                             <div class="life-ordinate-spacer"></div>
 
-                            <div class="life-months" style="grid-template-columns: <?= self::esc($axisTemplate) ?>;">
+                            <div class="life-months" style="position: relative; grid-template-columns: <?= self::esc($axisTemplate) ?>;">
                                 <?php foreach ($axisSegments as $segment): ?>
                                     <div class="life-month-cell"><?= self::esc($segment['label']) ?></div>
                                 <?php endforeach; ?>
@@ -615,6 +697,7 @@ final class LifeTimelinePage
                                         <div
                                             class="life-label life-label--group life-label--clickable"
                                             style="--life-depth: <?= (int)$row['depth'] ?>;"
+                                            <?= $editable ? 'data-life-edit-kind="group" data-life-edit-id="' . (int)$group['id'] . '" tabindex="0" role="button"' : '' ?>
                                         >
                                             <button
                                                 type="button"
@@ -630,6 +713,13 @@ final class LifeTimelinePage
                                         </div>
 
                                         <div class="life-track">
+                                            <?php if ($todayLeft !== null): ?>
+                                                <div
+                                                    class="life-current-day-line"
+                                                    aria-hidden="true"
+                                                    style="left: <?= number_format((float)$todayLeft, 6, '.', '') ?>%;"
+                                                ></div>
+                                            <?php endif; ?>
                                             <div class="life-grid" style="grid-template-columns: <?= self::esc($axisTemplate) ?>;">
                                                 <?php foreach ($axisSegments as $segment): ?>
                                                     <div class="life-grid-cell"></div>
@@ -637,17 +727,44 @@ final class LifeTimelinePage
                                             </div>
                                         </div>
                                     </div>
+                                <?php elseif ($row['type'] === 'orphan_events'): ?>
+                                    <div
+                                        class="life-row life-row--entry life-row--events"
+                                        data-row-type="orphan-events"
+                                        data-depth="0"
+                                    >
+                                        <div class="life-label life-label--entry" style="--life-depth: 0;">
+                                            <span class="life-label-text"><?= self::esc($row['label']) ?></span>
+                                        </div>
+
+                                        <div class="life-track">
+                                            <?php if ($todayLeft !== null): ?>
+                                                <div
+                                                    class="life-current-day-line"
+                                                    aria-hidden="true"
+                                                    style="left: <?= number_format((float)$todayLeft, 6, '.', '') ?>%;"
+                                                ></div>
+                                            <?php endif; ?>
+                                            <div class="life-grid" style="grid-template-columns: <?= self::esc($axisTemplate) ?>;">
+                                                <?php foreach ($axisSegments as $segment): ?>
+                                                    <div class="life-grid-cell"></div>
+                                                <?php endforeach; ?>
+                                            </div>
+
+                                            <?php foreach (($row['events'] ?? []) as $event): ?>
+                                                <?php self::renderTimelineEvent($event, $mode, $rangeStart, $rangeEnd, $firstYear, $lastYear, $editable); ?>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    </div>
                                 <?php else: ?>
                                     <?php
                                         $entry = $row['entry'];
                                         $groupId = (int)$entry['group_id'];
                                         $rootId = self::rootGroupId($groupId, $groupsById);
-                                        $barColor = self::rootColorById($rootId);
+                                        $barColor = self::rootColorById($rootId, $groupsById);
 
                                         $entryTooltipLines = self::normalizeInfoLines([
                                             $entry['title'],
-                                            !empty($entry['start_date']) ? ('Von: ' . self::fmtDate(self::dt($entry['start_date']))) : null,
-                                            !empty($entry['end_date']) ? ('Bis: ' . self::fmtDate(self::dt($entry['end_date']))) : null,
                                             /* 'Gruppe: ' . ($groupsById[$groupId]['name'] ?? ''), */
                                         ]);
                                         $entryTooltip = implode("\n", $entryTooltipLines);
@@ -664,11 +781,19 @@ final class LifeTimelinePage
                                             class="life-label life-label--entry"
                                             style="--life-depth: <?= (int)$row['depth'] ?>;"
                                             title="<?= self::esc($entryTooltip) ?>"
+                                            <?= $editable ? 'data-life-edit-kind="entry" data-life-edit-id="' . (int)$entry['id'] . '" tabindex="0" role="button"' : '' ?>
                                         >
                                             <span class="life-label-text"><?= self::esc($row['label']) ?></span>
                                         </div>
 
                                         <div class="life-track">
+                                            <?php if ($todayLeft !== null): ?>
+                                                <div
+                                                    class="life-current-day-line"
+                                                    aria-hidden="true"
+                                                    style="left: <?= number_format((float)$todayLeft, 6, '.', '') ?>%;"
+                                                ></div>
+                                            <?php endif; ?>
                                             <div class="life-grid" style="grid-template-columns: <?= self::esc($axisTemplate) ?>;">
                                                 <?php foreach ($axisSegments as $segment): ?>
                                                     <div class="life-grid-cell"></div>
@@ -692,6 +817,7 @@ final class LifeTimelinePage
                                                     class="life-bar life-interactive"
                                                     title="<?= self::esc($segmentTooltip) ?>"
                                                     data-life-info="<?= self::infoPayloadAttr($segmentTooltipLines) ?>"
+                                                    <?= $editable ? 'data-life-edit-kind="segment" data-life-edit-id="' . (int)$segment['id'] . '"' : '' ?>
                                                     tabindex="0"
                                                     role="button"
                                                     aria-label="<?= self::esc('Details zu ' . $entry['title']) ?>"
@@ -704,59 +830,7 @@ final class LifeTimelinePage
                                             <?php endforeach; ?>
 
                                             <?php foreach ($row['events'] as $event): ?>
-                                                <?php
-                                                    $eventDate = self::dt($event['event_date']);
-                                                    if (!$eventDate) {
-                                                        continue;
-                                                    }
-
-                                                    $eventLeft = self::pointPercentInScale(
-                                                        $eventDate,
-                                                        $mode,
-                                                        $rangeStart,
-                                                        $rangeEnd,
-                                                        $firstYear,
-                                                        $lastYear
-                                                    );
-
-                                                    $eventTooltipLines = [
-                                                        $event['title'],
-                                                        'Datum: ' . self::fmtDate($eventDate),
-                                                    ];
-
-                                                    if ((string)$event['note'] !== '') {
-                                                        $eventTooltipLines[] = 'Note: ' . $event['note'];
-                                                    }
-                                                    if ((string)$event['status_code'] !== '') {
-                                                        $statusText = self::statusLabel($event['status_code']) . ' (' . $event['status_code'] . ')';
-
-                                                        if (
-                                                            strtoupper(trim((string)$event['status_code'])) === 'BE'
-                                                            && $event['creditpoints'] !== null
-                                                            && $event['creditpoints'] !== ''
-                                                        ) {
-                                                            $statusText .= ' | ' . self::fmtCp((float)$event['creditpoints']) . ' CP';
-                                                        }
-
-                                                        $eventTooltipLines[] = $statusText;
-                                                    }
-                                                    if ((string)$event['semester_code'] !== '') {
-                                                        $eventTooltipLines[] = 'Semester: ' . $event['semester_code'];
-                                                    }
-
-                                                    $eventTooltipLines = self::normalizeInfoLines($eventTooltipLines);
-                                                    $eventTooltip = implode("\n", $eventTooltipLines);
-                                                    $eventClass = 'life-event life-event--' . self::statusCss($event['status_code']);
-                                                ?>
-                                                <div
-                                                    class="<?= self::esc($eventClass) ?> life-interactive"
-                                                    title="<?= self::esc($eventTooltip) ?>"
-                                                    data-life-info="<?= self::infoPayloadAttr($eventTooltipLines) ?>"
-                                                    tabindex="0"
-                                                    role="button"
-                                                    aria-label="<?= self::esc('Ereignisdetails zu ' . $event['title']) ?>"
-                                                    style="left: <?= number_format($eventLeft, 6, '.', '') ?>%;"
-                                                ></div>
+                                                <?php self::renderTimelineEvent($event, $mode, $rangeStart, $rangeEnd, $firstYear, $lastYear, $editable); ?>
                                             <?php endforeach; ?>
                                         </div>
                                     </div>
@@ -774,9 +848,12 @@ final class LifeTimelinePage
 (() => {
     const elMode = document.getElementById('lifeMode');
     const elYear = document.getElementById('ltYear');
+    const elStartYear = document.getElementById('ltStartYear');
+    const elEndYear = document.getElementById('ltEndYear');
     const elSemester = document.getElementById('ltSemester');
     const axisScroll = document.getElementById('lifeAxisScroll');
     const bodyScroll = document.getElementById('lifeBodyScroll');
+    const lifeEditable = <?= $editable ? 'true' : 'false' ?>;
 
     function navigateWithCurrentState() {
         const u = new URL(window.location.href);
@@ -788,14 +865,29 @@ final class LifeTimelinePage
             if (elYear && elYear.value) {
                 u.searchParams.set('jahr', elYear.value);
             }
+            u.searchParams.delete('startjahr');
+            u.searchParams.delete('endjahr');
+            u.searchParams.delete('semester');
+        } else if (mode === 'jahr_auswahl') {
+            if (elStartYear && elStartYear.value) {
+                u.searchParams.set('startjahr', elStartYear.value);
+            }
+            if (elEndYear && elEndYear.value) {
+                u.searchParams.set('endjahr', elEndYear.value);
+            }
+            u.searchParams.delete('jahr');
             u.searchParams.delete('semester');
         } else if (mode === 'semester') {
             if (elSemester && elSemester.value) {
                 u.searchParams.set('semester', elSemester.value);
             }
             u.searchParams.delete('jahr');
+            u.searchParams.delete('startjahr');
+            u.searchParams.delete('endjahr');
         } else {
             u.searchParams.delete('jahr');
+            u.searchParams.delete('startjahr');
+            u.searchParams.delete('endjahr');
             u.searchParams.delete('semester');
         }
 
@@ -808,6 +900,24 @@ final class LifeTimelinePage
 
     if (elYear) {
         elYear.addEventListener('change', navigateWithCurrentState);
+    }
+
+    if (elStartYear) {
+        elStartYear.addEventListener('change', () => {
+            if (elEndYear && Number(elStartYear.value) > Number(elEndYear.value)) {
+                elEndYear.value = elStartYear.value;
+            }
+            navigateWithCurrentState();
+        });
+    }
+
+    if (elEndYear) {
+        elEndYear.addEventListener('change', () => {
+            if (elStartYear && Number(elEndYear.value) < Number(elStartYear.value)) {
+                elStartYear.value = elEndYear.value;
+            }
+            navigateWithCurrentState();
+        });
     }
 
     if (elSemester) {
@@ -872,7 +982,7 @@ final class LifeTimelinePage
         });
     }
 
-    document.querySelectorAll('.life-label--clickable, .life-group-toggle').forEach((el) => {
+    document.querySelectorAll(lifeEditable ? '.life-group-toggle' : '.life-label--clickable, .life-group-toggle').forEach((el) => {
         el.addEventListener('click', (ev) => {
             ev.preventDefault();
             ev.stopPropagation();
@@ -894,6 +1004,11 @@ final class LifeTimelinePage
     });
 
     applyCollapsedState();
+
+    // In der privaten Ansicht übernimmt LifePrivate die Klicks und öffnet Edit-Modals.
+    if (lifeEditable) {
+        return;
+    }
 
     const infoTargets = Array.from(document.querySelectorAll('.life-bar[data-life-info], .life-event[data-life-info]'));
     if (!infoTargets.length) {
@@ -1079,7 +1194,95 @@ final class LifeTimelinePage
 <?php
     }
 
-    private static function renderCreditpointsApp(array $view): void
+    private static function renderTimelineEvent(
+        array $event,
+        string $mode,
+        DateTimeImmutable $rangeStart,
+        DateTimeImmutable $rangeEnd,
+        int $firstYear,
+        int $lastYear,
+        bool $editable
+    ): void {
+        $eventDate = self::dt($event['event_date'] ?? null);
+        if (!$eventDate) {
+            return;
+        }
+
+        $eventType = strtolower(trim((string)($event['event_type'] ?? 'klausur')));
+        $isExam = $eventType === 'klausur';
+
+        $eventLeft = self::pointPercentInScale(
+            $eventDate,
+            $mode,
+            $rangeStart,
+            $rangeEnd,
+            $firstYear,
+            $lastYear
+        );
+
+        if ($isExam) {
+            $eventTooltipLines = [
+                $event['title'] ?? '',
+                'Datum: ' . self::fmtDate($eventDate),
+            ];
+
+            if ((string)($event['note'] ?? '') !== '') {
+                $eventTooltipLines[] = 'Note: ' . $event['note'];
+            }
+            if ((string)($event['status_code'] ?? '') !== '') {
+                $statusText = self::statusLabel($event['status_code']) . ' (' . $event['status_code'] . ')';
+
+                if (
+                    strtoupper(trim((string)$event['status_code'])) === 'BE'
+                    && ($event['creditpoints'] ?? null) !== null
+                    && $event['creditpoints'] !== ''
+                ) {
+                    $statusText .= ' | ' . self::fmtCp((float)$event['creditpoints']) . ' CP';
+                }
+
+                $eventTooltipLines[] = $statusText;
+            }
+            if ((string)($event['semester_code'] ?? '') !== '') {
+                $eventTooltipLines[] = 'Semester: ' . $event['semester_code'];
+            }
+            if (($event['year_override'] ?? null) !== null && $event['year_override'] !== '') {
+                $eventTooltipLines[] = 'CP-Jahr: ' . (int)$event['year_override'];
+            }
+
+            $eventClass = 'life-event life-event--' . self::statusCss($event['status_code'] ?? null);
+        } else {
+            $eventTooltipLines = [$event['title'] ?? 'Ereignis'];
+            if ((string)($event['note'] ?? '') !== '') {
+                $eventTooltipLines[] = 'Notiz: ' . $event['note'];
+            }
+            $eventClass = 'life-event life-event--default';
+        }
+
+        $eventColor = null;
+        if (!$isExam) {
+            $candidateColor = trim((string)($event['color'] ?? ''));
+            if (preg_match('/^#[0-9a-fA-F]{6}$/', $candidateColor)) {
+                $eventColor = $candidateColor;
+            }
+        }
+
+        $eventTooltipLines = self::normalizeInfoLines($eventTooltipLines);
+        $eventTooltip = implode("\n", $eventTooltipLines);
+        ?>
+        <div
+            class="<?= self::esc($eventClass) ?> life-interactive"
+            title="<?= self::esc($eventTooltip) ?>"
+            data-life-info="<?= self::infoPayloadAttr($eventTooltipLines) ?>"
+            <?= $editable ? 'data-life-edit-kind="event" data-life-edit-id="' . (int)$event['id'] . '"' : '' ?>
+            tabindex="0"
+            role="button"
+            aria-label="<?= self::esc(($isExam ? 'Klausurdetails zu ' : 'Ereignisdetails zu ') . ($event['title'] ?? '')) ?>"
+            style="left: <?= number_format($eventLeft, 6, '.', '') ?>%;<?= $eventColor !== null ? ' color: ' . self::esc($eventColor) . ';' : '' ?>"
+        ></div>
+        <?php
+    }
+
+    private static function renderCreditpointsApp(array $view, bool $editable = false): void
     {
         $mode = $view['mode'];
         $titleSuffix = $view['titleSuffix'];
@@ -1089,12 +1292,21 @@ final class LifeTimelinePage
         $labelsJson = json_encode($cpChart['labels'], JSON_UNESCAPED_UNICODE);
         $valuesJson = json_encode($cpChart['values'], JSON_UNESCAPED_UNICODE);
         ?>
-<div class="lt-page dashboard-page">
+<div class="lt-page dashboard-page<?= $editable ? ' life-private-editable' : '' ?>">
     <div class="lt-topbar">
         <h1 class="ueberschrift dashboard-title">
             <span class="dashboard-title-main">Studienplan <?= self::esc($titleSuffix) ?></span>
             <span class="dashboard-title-soft">| <?= self::fmtCp((float)$cpChart['total']) ?> CP</span>
         </h1>
+
+        <?php if ($editable): ?>
+            <div class="life-edit-inline-actions" aria-label="Neues Objekt anlegen">
+                <button type="button" class="life-edit-new" data-life-new-kind="group">+ Gruppe</button>
+                <button type="button" class="life-edit-new" data-life-new-kind="entry">+ Eintrag</button>
+                <button type="button" class="life-edit-new" data-life-new-kind="segment">+ Zeitraum</button>
+                <button type="button" class="life-edit-new" data-life-new-kind="event">+ Ereignis</button>
+            </div>
+        <?php endif; ?>
 
         <div class="life-controls">
             <div class="life-modewrap">
@@ -1102,6 +1314,7 @@ final class LifeTimelinePage
                 <select id="lifeMode" class="kategorie-select">
                     <option value="gesamt" <?= $mode === 'gesamt' ? 'selected' : '' ?>>Gesamt</option>
                     <option value="jahr" <?= $mode === 'jahr' ? 'selected' : '' ?>>Jahr</option>
+                    <option value="jahr_auswahl" <?= $mode === 'jahr_auswahl' ? 'selected' : '' ?>>Jahr (Auswahl)</option>
                     <option value="semester" <?= $mode === 'semester' ? 'selected' : '' ?>>Semester</option>
                     <option value="cp_jahr" <?= $mode === 'cp_jahr' ? 'selected' : '' ?>>CP pro Jahr</option>
                     <option value="cp_semester" <?= $mode === 'cp_semester' ? 'selected' : '' ?>>CP pro Semester</option>
@@ -1138,6 +1351,8 @@ final class LifeTimelinePage
 
         u.searchParams.set('modus', mode);
         u.searchParams.delete('jahr');
+        u.searchParams.delete('startjahr');
+        u.searchParams.delete('endjahr');
         u.searchParams.delete('semester');
 
         window.location.href = u.toString();
@@ -1271,11 +1486,18 @@ final class LifeTimelinePage
     {
         $events = [];
         $res = $conn->query("
-            SELECT event_date, title, semester_code, creditpoints
-            FROM special_events
-            WHERE creditpoints IS NOT NULL
-              AND UPPER(TRIM(COALESCE(status_code, ''))) = 'BE'
-            ORDER BY event_date ASC, id ASC
+            SELECT
+                ev.event_date,
+                COALESCE(NULLIF(ev.title_override, ''), te.title) AS title,
+                ev.semester_code,
+                ev.year_override,
+                te.creditpoints
+            FROM timeline_events ev
+            INNER JOIN timeline_entries te ON te.id = ev.entry_id
+            WHERE te.creditpoints IS NOT NULL
+              AND ev.event_type = 'klausur'
+              AND UPPER(TRIM(COALESCE(ev.status_code, ''))) = 'BE'
+            ORDER BY ev.event_date ASC, ev.id ASC
         ");
 
         if (!$res) {
@@ -1292,6 +1514,7 @@ final class LifeTimelinePage
                 'date' => $date,
                 'title' => (string)($row['title'] ?? ''),
                 'semester_code' => (string)($row['semester_code'] ?? ''),
+                'year_override' => ($row['year_override'] !== null && $row['year_override'] !== '') ? (int)$row['year_override'] : null,
                 'semester_label' => self::resolveSemesterLabelForCreditEvent(
                     $date,
                     (string)($row['title'] ?? ''),
@@ -1317,12 +1540,20 @@ final class LifeTimelinePage
             ];
         }
 
-        $firstYear = (int)$events[0]['date']->format('Y');
-        $lastYear  = (int)$events[count($events) - 1]['date']->format('Y');
+        $effectiveYears = array_map(
+            static fn(array $event): int => $event['year_override'] !== null
+                ? (int)$event['year_override']
+                : (int)$event['date']->format('Y'),
+            $events
+        );
+        $firstYear = min($effectiveYears);
+        $lastYear  = max($effectiveYears);
 
         $sumByYear = [];
         foreach ($events as $event) {
-            $year = (int)$event['date']->format('Y');
+            $year = $event['year_override'] !== null
+                ? (int)$event['year_override']
+                : (int)$event['date']->format('Y');
             if (!isset($sumByYear[$year])) {
                 $sumByYear[$year] = 0.0;
             }
@@ -1619,16 +1850,14 @@ final class LifeTimelinePage
         return $current;
     }
 
-    private static function rootColorById(int $rootId): string
+    private static function rootColorById(int $rootId, array $groupsById): string
     {
-        $map = [
-            1  => '#333',
-            47 => '#2563eb',
-            3  => '#db6b15',
-            51 => '#11a50d',
-        ];
+        $color = trim((string)($groupsById[$rootId]['color'] ?? ''));
+        if (preg_match('/^#[0-9a-fA-F]{6}$/', $color)) {
+            return $color;
+        }
 
-        return $map[$rootId] ?? '#64748b';
+        return '#64748b';
     }
 
     private static function daysInYear(DateTimeImmutable $date): int
@@ -1780,7 +2009,7 @@ final class LifeTimelinePage
         $visibleStart = $entryStart > $rangeStart ? $entryStart : $rangeStart;
         $visibleEnd   = $entryEnd   < $rangeEnd   ? $entryEnd   : $rangeEnd;
 
-        if ($mode === 'gesamt') {
+        if ($mode === 'gesamt' || $mode === 'jahr_auswahl') {
             $totalYears = max(1, ($lastYear - $firstYear + 1));
 
             $startYear = (int)$visibleStart->format('Y');
@@ -1826,7 +2055,7 @@ final class LifeTimelinePage
         int $firstYear,
         int $lastYear
     ): float {
-        if ($mode === 'gesamt') {
+        if ($mode === 'gesamt' || $mode === 'jahr_auswahl') {
             $totalYears = max(1, ($lastYear - $firstYear + 1));
             $year = (int)$date->format('Y');
             $offset = ($year - $firstYear)
