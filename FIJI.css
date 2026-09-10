@@ -8005,7 +8005,7 @@ button.phan-list-filter-trigger {
 
     width: max(100%, 250px);
     max-width: min(360px, calc(100vw - 36px));
-    max-height: 360px;
+    max-height: 600px;
 
     box-sizing: border-box;
     padding: 6px;

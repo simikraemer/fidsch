@@ -1739,7 +1739,7 @@ $listPage = max(
     (int)($_GET['page'] ?? 1)
 );
 
-$listPerPage = 20;
+$listPerPage = 50;
 
 $allowedSorts = [
     'face' => 'ai.id',

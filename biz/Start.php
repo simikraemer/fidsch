@@ -1481,7 +1481,7 @@ function daysInclusiveUtc(start, end) {
   return Math.floor((endMs - startMs) / 86400000) + 1;
 }
 
-function kpiBreakdownPeriod() {
+function kpiBreakdownPeriod(typeLabel) {
   const nowYear = NOW.getFullYear();
   const todayUtc = new Date(Date.UTC(nowYear, NOW.getMonth(), NOW.getDate()));
 
@@ -1491,6 +1491,7 @@ function kpiBreakdownPeriod() {
 
     const start = new Date(Date.UTC(year, 0, 1));
     const isCurrentYear = year === nowYear;
+
     const end = isCurrentYear
       ? todayUtc
       : new Date(Date.UTC(year, 11, 31));
@@ -1504,8 +1505,8 @@ function kpiBreakdownPeriod() {
       months: isCurrentYear ? days / (365.2425 / 12) : 12,
       years: isCurrentYear ? days / 365.2425 : 1,
       title: isCurrentYear
-        ? `Ø ${year} bis heute`
-        : `Ø im Jahr ${year}`
+        ? `Ø ${typeLabel} ${year} bis heute`
+        : `Ø ${typeLabel} im Jahr ${year}`
     };
   }
 
@@ -1515,7 +1516,11 @@ function kpiBreakdownPeriod() {
   const years = Array.isArray(availableYears)
     ? availableYears.map(Number).filter(Number.isFinite)
     : [];
-  const lastYear = years.length ? Math.max(...years) : nowYear;
+
+  const lastYear = years.length
+    ? Math.max(...years)
+    : nowYear;
+
   const end = lastYear >= nowYear
     ? todayUtc
     : new Date(Date.UTC(lastYear, 11, 31));
@@ -1528,13 +1533,14 @@ function kpiBreakdownPeriod() {
     weeks: days / 7,
     months: days / (365.2425 / 12),
     years: days / 365.2425,
-    title: 'Ø über den Gesamtzeitraum'
+    title: `Ø ${typeLabel} über den Gesamtzeitraum`
   };
 }
 
 function setKpiBreakdownEnabled(key, enabled) {
   const wrap = $(`${key}KpiBreakdown`);
   const tooltip = $(`${key}KpiBreakdownTooltip`);
+
   if (!wrap) return;
 
   wrap.classList.toggle('is-disabled', !enabled);
@@ -1546,9 +1552,16 @@ function setKpiBreakdownEnabled(key, enabled) {
 }
 
 function refreshKpiBreakdown(key) {
-  const values = key === 'income' ? incomeValues : expenseValues;
+  const values = key === 'income'
+    ? incomeValues
+    : expenseValues;
+
+  const typeLabel = key === 'income'
+    ? 'Einnahmen'
+    : 'Ausgaben';
+
   const total = sumArr(values);
-  const period = kpiBreakdownPeriod();
+  const period = kpiBreakdownPeriod(typeLabel);
 
   if (!period || !Number.isFinite(total)) {
     setKpiBreakdownEnabled(key, false);
@@ -1565,17 +1578,23 @@ function refreshKpiBreakdown(key) {
   Object.entries(items).forEach(([suffix, divisor]) => {
     const el = $(`${key}KpiPer${suffix}`);
     if (!el) return;
-    el.textContent = divisor > 0 ? fmtEuro(total / divisor) : '—';
+
+    el.textContent = divisor > 0
+      ? fmtEuro(total / divisor)
+      : '—';
   });
 
   const title = $(`${key}KpiBreakdownTitle`);
-  if (title) title.textContent = period.title;
+  if (title) {
+    title.textContent = period.title;
+  }
 
   const wrap = $(`${key}KpiBreakdown`);
+
   if (wrap) {
     wrap.setAttribute(
       'aria-label',
-      `${key === 'income' ? 'Einnahmen' : 'Ausgaben'} ${fmtEuro(total)}. ${period.title}. `
+      `${typeLabel} ${fmtEuro(total)}. ${period.title}. `
       + `Pro Tag ${fmtEuro(total / period.days)}, `
       + `pro Woche ${fmtEuro(total / period.weeks)}, `
       + `pro Monat ${fmtEuro(total / period.months)}, `
