@@ -46,6 +46,7 @@ if (isset($_GET['login']) && $_GET['login'] === '1') {
 
 $spotifyTokenNeedsAttention = false;
 $stroemungsmechanikDueCount = 0;
+$rwthJobsNewCount = 0;
 
 if ($isAuthed) {
     $spotifyBadgeCacheTtl = 1800; // 30 Minuten
@@ -143,6 +144,49 @@ if ($isAuthed) {
     }
 }
 
+
+// ===== RWTH Jobs: Counter erst ab 01.12.2026 =====
+// Der eigentliche Fetch läuft extern per Cron und darf keinen Seitenaufruf blockieren.
+// Vor dem 01.12.2026 wird die RWTH-Count-Abfrage komplett übersprungen.
+$rwthJobsCounterEnabled =
+    (new DateTimeImmutable('now', new DateTimeZone('Europe/Berlin')))->format('Y-m-d') >= '2026-12-01';
+
+if ($isAuthed && $rwthJobsCounterEnabled) {
+    try {
+        if (!isset($checkconn) || !($checkconn instanceof mysqli)) {
+            require_once __DIR__ . '/db.php';
+        }
+
+        if (isset($checkconn) && $checkconn instanceof mysqli) {
+            $checkconn->set_charset('utf8mb4');
+
+            $todayRwthJobs = (new DateTimeImmutable('now', new DateTimeZone('Europe/Berlin')))->format('Y-m-d');
+            $stmtRwthJobs = $checkconn->prepare("
+                SELECT COUNT(*) AS c
+                FROM rwth_jobs j
+                LEFT JOIN rwth_jobs_sync s ON s.id = 1
+                WHERE j.status = 'new'
+                  AND (j.deadline_at IS NULL OR j.deadline_at >= ?)
+                  AND (
+                        s.last_success_at IS NULL
+                        OR DATE(j.last_seen_at) = DATE(s.last_success_at)
+                      )
+            ");
+            if ($stmtRwthJobs) {
+                $stmtRwthJobs->bind_param('s', $todayRwthJobs);
+                $stmtRwthJobs->execute();
+                $row = $stmtRwthJobs->get_result()->fetch_assoc();
+                $rwthJobsNewCount = max(0, (int)($row['c'] ?? 0));
+                $stmtRwthJobs->close();
+            }
+        }
+    } catch (Throwable $e) {
+        // Navbar darf bei DB-Problemen nie die restliche Seite kaputtmachen.
+        $rwthJobsNewCount = 0;
+        error_log('RWTH jobs navbar badge: ' . $e->getMessage());
+    }
+}
+
 ?>
 <nav class="navbar" data-auth="<?= htmlspecialchars($authMode, ENT_QUOTES) ?>">
     <ul class="nav-links">
@@ -233,11 +277,19 @@ if ($isAuthed) {
 
             <!-- Check -->
             <li class="nav-item has-submenu">
-                <a href="/check/start">
+                <a
+                    href="/check/start"
+                    <?= $rwthJobsNewCount > 0
+                        ? 'title="' . $rwthJobsNewCount . ' ungeprüfte RWTH-Stellen"'
+                        : ($spotifyTokenNeedsAttention ? 'title="Spotify-Token benötigt Aufmerksamkeit"' : '') ?>
+                >
                     <span class="nav-icon-badge-wrap">
                         <img src="/img/glocke.png" alt="Check" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high">
+                        <?php if ($rwthJobsNewCount > 0): ?>
+                            <span class="nav-alert-badge js-rwth-jobs-badge"><?= min(99, $rwthJobsNewCount) ?></span>
+                        <?php endif; ?>
                         <?php if ($spotifyTokenNeedsAttention): ?>
-                            <span class="nav-alert-badge">!</span>
+                            <span class="nav-alert-badge js-check-spotify-fallback<?= $rwthJobsNewCount > 0 ? ' hidden' : '' ?>">!</span>
                         <?php endif; ?>
                     </span>
                 </a>
@@ -246,6 +298,17 @@ if ($isAuthed) {
                         <a href="/check/todo">
                             <img src="/img/todo.png" alt="ToDo" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high">
                             <span class="submenu-text">ToDo</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/check/rwthjobs">
+                            <span class="nav-icon-badge-wrap">
+                                <img src="/img/uni.png" alt="RWTH Jobs" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high">
+                                <?php if ($rwthJobsNewCount > 0): ?>
+                                    <span class="nav-alert-badge js-rwth-jobs-badge"><?= min(99, $rwthJobsNewCount) ?></span>
+                                <?php endif; ?>
+                            </span>
+                            <span class="submenu-text">RWTH Jobs</span>
                         </a>
                     </li>
                     <li>

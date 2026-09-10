@@ -11212,3 +11212,360 @@ button.food-dashboard-back[hidden] {
         text-align: left;
     }
 }
+
+
+/* =========================================================
+ * RWTH Jobs
+ * Ersatz für den bisherigen RWTH-Jobs-Block in FIJI.css
+ * ========================================================= */
+
+.rwth-jobs-page {
+    max-width: 1700px;
+}
+
+.rwth-jobs-title {
+    margin: 0 0 4px;
+    text-align: left;
+}
+
+.rwth-jobs-toolbar-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* Ruhige Statusanzeige statt der globalen dunkelorangenen .badge-Pillen. */
+.rwth-jobs-summary {
+    display: inline-flex;
+    align-items: stretch;
+    overflow: hidden;
+    background: #f7f7f7;
+    border: 1px solid rgba(0, 0, 0, 0.10);
+    border-radius: var(--border-radius);
+    box-shadow: none;
+}
+
+.rwth-jobs-summary-item {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    padding: 7px 10px;
+    color: var(--text);
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.rwth-jobs-summary-item + .rwth-jobs-summary-item {
+    border-left: 1px solid rgba(0, 0, 0, 0.10);
+}
+
+.rwth-jobs-summary-item--new {
+    background: color-mix(in srgb, var(--primary) 7%, #fff 93%);
+}
+
+.rwth-jobs-summary-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    opacity: 0.62;
+}
+
+.rwth-jobs-summary-value {
+    min-width: 1.2em;
+    text-align: right;
+    font-size: 0.92rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+.rwth-jobs-table-wrap {
+    overflow-x: auto;
+    border-radius: var(--border-radius);
+}
+
+.rwth-jobs-table {
+    min-width: 1120px;
+    margin-top: 0;
+}
+
+.rwth-job-row {
+    cursor: pointer;
+}
+
+.rwth-job-row--interesting td:first-child {
+    box-shadow: inset 5px 0 0 var(--primary);
+}
+
+.rwth-job-row--applied {
+    opacity: 0.58;
+}
+
+/* IT Center nur in der Tabelle hervorheben, nicht im Modal. */
+.rwth-job-row--itc > td {
+    background: color-mix(in srgb, var(--primary) 5%, #fff 95%);
+}
+
+.rwth-job-row--itc:hover > td {
+    background: color-mix(in srgb, var(--primary) 10%, #fff 90%);
+}
+
+.rwth-job-row--itc > td:nth-child(2) {
+    color: var(--primary-dark);
+    font-weight: 800;
+}
+
+.rwth-job-title-cell {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-wrap: wrap;
+    min-width: 270px;
+}
+
+/* Status im Tabellen-Titel bewusst nicht als globale .badge darstellen. */
+.rwth-job-status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 6px;
+    background: color-mix(in srgb, var(--primary) 6%, #fff 94%);
+    color: var(--primary-dark);
+    border: 1px solid color-mix(in srgb, var(--primary) 28%, transparent 72%);
+    border-radius: 5px;
+    box-shadow: none;
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.rwth-job-actions-col,
+.rwth-job-actions-cell {
+    width: 210px;
+    text-align: right !important;
+}
+
+.rwth-job-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 7px;
+}
+
+.rwth-job-actions button {
+    padding: 7px 10px;
+    white-space: nowrap;
+}
+
+.rwth-jobs-empty {
+    padding: 28px 16px !important;
+    text-align: center !important;
+    opacity: 0.72;
+}
+
+.rwth-jobs-fetch-error {
+    margin: 0 0 16px;
+    padding: 10px 14px;
+    background: #fff;
+    border-left: 6px solid var(--error);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    font-weight: 600;
+}
+
+.rwth-job-modal {
+    z-index: 12000;
+}
+
+.rwth-job-modal-content {
+    z-index: 12001;
+    width: min(1120px, calc(100vw - 34px));
+    max-width: 1120px;
+    max-height: calc(100vh - 46px);
+    overflow-y: auto;
+    box-sizing: border-box;
+}
+
+.rwth-job-modal-head {
+    display: block;
+    padding-right: 28px;
+}
+
+.rwth-job-modal-title {
+    margin: 0 0 5px;
+}
+
+.rwth-job-modal-institute {
+    font-weight: 700;
+    opacity: 0.72;
+}
+
+.rwth-job-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    align-items: start;
+    gap: 8px;
+    margin: 20px 0 26px;
+}
+
+.rwth-job-meta-item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    padding: 9px 10px;
+    background: var(--bg-light);
+    border: 1px solid rgba(0, 0, 0, 0.07);
+    border-radius: var(--border-radius);
+}
+
+/* Lange CMS-Metadaten nicht die komplette obere Modal-Hälfte übernehmen lassen. */
+.rwth-job-meta-value {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+    line-clamp: 4;
+    overflow: hidden;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+
+/* Wird per JS nur gesetzt, wenn der Inhalt tatsächlich abgeschnitten ist. */
+.rwth-job-meta-item--expandable {
+    padding-bottom: 25px;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.rwth-job-meta-item--expandable::after {
+    content: 'Mehr';
+    position: absolute;
+    right: 9px;
+    bottom: 6px;
+    color: var(--primary);
+    font-size: 0.7rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.rwth-job-meta-item--expandable:hover,
+.rwth-job-meta-item--expandable:focus-visible {
+    border-color: color-mix(in srgb, var(--primary) 42%, transparent);
+    background: color-mix(in srgb, var(--primary) 4%, var(--bg-light) 96%);
+    outline: none;
+}
+
+.rwth-job-meta-item--expanded .rwth-job-meta-value {
+    display: block;
+    -webkit-line-clamp: unset;
+    line-clamp: unset;
+    overflow: visible;
+}
+
+.rwth-job-meta-item--expanded::after {
+    content: 'Weniger';
+}
+
+.rwth-job-section {
+    margin-top: 24px;
+}
+
+.rwth-job-section > h3 {
+    margin: 0 0 8px;
+}
+
+.rwth-job-section-body {
+    line-height: 1.55;
+}
+
+.rwth-job-section-body p:first-child,
+.rwth-job-section-body ul:first-child,
+.rwth-job-section-body ol:first-child {
+    margin-top: 0;
+}
+
+.rwth-job-section-body p:last-child,
+.rwth-job-section-body ul:last-child,
+.rwth-job-section-body ol:last-child {
+    margin-bottom: 0;
+}
+
+.rwth-job-fulltext,
+.rwth-job-contact-text {
+    white-space: normal;
+}
+
+.rwth-job-contact-list {
+    display: grid;
+    gap: 8px;
+}
+
+.rwth-job-contact-card {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 9px 10px;
+    background: var(--bg-light);
+    border: 1px solid rgba(0, 0, 0, 0.07);
+    border-radius: var(--border-radius);
+}
+
+.rwth-job-contact-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+}
+
+.rwth-job-mail-button,
+.rwth-job-source-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 16px;
+    border-radius: var(--border-radius);
+    background: var(--primary);
+    color: var(--text-light);
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: var(--shadow);
+}
+
+.rwth-job-mail-button:hover,
+.rwth-job-source-button:hover {
+    background: var(--primary-dark);
+}
+
+.rwth-job-modal-actions {
+    justify-content: flex-start;
+    margin-top: 28px;
+}
+
+body.rwth-jobs-modal-open {
+    overflow: hidden;
+}
+
+.rwth-jobs-toast--error {
+    border-left-color: var(--error);
+}
+
+@media (max-width: 760px) {
+    .rwth-jobs-toolbar-actions {
+        justify-content: flex-start;
+    }
+
+    .rwth-jobs-summary {
+        width: 100%;
+    }
+
+    .rwth-jobs-summary-item {
+        flex: 1 1 0;
+        justify-content: center;
+    }
+
+    .rwth-job-modal-content {
+        width: calc(100vw - 20px);
+        max-height: calc(100vh - 20px);
+        padding: 22px 18px;
+    }
+}
+

@@ -41,9 +41,10 @@ $routesSci = [
 ];
 
 $routesCheck = [
-    'start' => 'ToDo.php',
-    'todo'  => 'ToDo.php',
-    'spotify' => 'SpotifyToken.php',
+    'start'    => 'ToDo.php',
+    'todo'     => 'ToDo.php',
+    'spotify'  => 'SpotifyToken.php',
+    'rwthjobs' => 'RWTHjobs.php',
 ];
 
 $routesTool = [
