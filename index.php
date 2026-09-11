@@ -38,6 +38,7 @@ $routesSci = [
     'plan'        => 'LifePrivate.php',
     'studienplan' => 'LifePublic.php',
     'yolo'        => 'YOLO.php',
+    'anki'        => 'Anki.php',
 ];
 
 $routesCheck = [

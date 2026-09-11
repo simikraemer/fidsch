@@ -270,6 +270,7 @@ if ($isAuthed && $rwthJobsCounterEnabled) {
                 <ul class="submenu">
                     <li><a href="/sci/lerntime"><img src="/img/graph.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Übersicht</span></a></li>
                     <li><a href="/sci/kartei"><img src="/img/kartei.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Kartei</span></a></li>
+                    <li><a href="/sci/anki"><img src="/img/anki.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Anki</span></a></li>
                     <li><a href="/sci/plan"><img src="/img/plan.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Studienplan</span></a></li>
                     <li><a href="/sci/yolo"><img src="/img/graph.png" alt="YOLO-Auswertung" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">YOLO</span></a></li>
                 </ul>

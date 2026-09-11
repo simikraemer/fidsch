@@ -1,3 +1,4 @@
 uploads
 img
 .well-known
+*/__pycache__

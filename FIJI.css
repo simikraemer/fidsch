@@ -11847,3 +11847,501 @@ body.rwth-jobs-modal-open {
         align-items: stretch;
     }
 }
+
+
+/* =========================================================
+ * SCI / Anki-Webreview v3
+ *
+ * Diesen Block ANSTELLE des bisherigen Anki-CSS-Blocks in
+ * FIJI.css verwenden.
+ * ========================================================= */
+
+body.anki-page-active {
+    overflow: hidden;
+}
+
+.anki-page {
+    display: grid;
+    grid-template-columns: 290px minmax(0, 1fr);
+    gap: 18px;
+
+    width: min(1540px, calc(100vw - 28px));
+    height: calc(100dvh - 114px);
+
+    margin: 12px auto 0;
+    padding: 0;
+
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+
+/* ---------------------------------------------------------
+ * Linke Seitenleiste
+ * --------------------------------------------------------- */
+
+.anki-sidebar {
+    min-width: 0;
+    min-height: 0;
+
+    overflow-x: hidden;
+    overflow-y: auto;
+
+    padding: 15px;
+
+    border: none;
+    border-radius: 0;
+
+    background: transparent;
+    box-shadow: none;
+
+    scrollbar-width: thin;
+}
+
+.anki-sidebar-section + .anki-sidebar-section {
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(0, 0, 0, .08);
+}
+
+.anki-label {
+    display: block;
+
+    margin-bottom: 7px;
+
+    color: rgba(34, 34, 34, .58);
+
+    font-size: .73rem;
+    font-weight: 900;
+
+    letter-spacing: .055em;
+    text-transform: uppercase;
+}
+
+.anki-deck-select-wrap {
+    display: block;
+    min-width: 0;
+}
+
+.anki-deck-select {
+    display: block;
+
+    width: 100%;
+    height: 46px;
+
+    box-sizing: border-box;
+
+    margin: 0;
+    padding: 8px 34px 8px 11px;
+
+    border: 2px solid rgba(0, 0, 0, .11);
+    border-radius: 8px;
+
+    background: #fff;
+    color: var(--text);
+
+    box-shadow: none;
+
+    font-family: var(--font);
+    font-size: .88rem;
+    font-weight: 800;
+}
+
+.anki-toolbar-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.anki-stat {
+    min-width: 0;
+
+    padding: 9px 7px;
+
+    border: 1px solid rgba(0, 0, 0, .08);
+    border-radius: 8px;
+
+    background: var(--bg-light);
+
+    text-align: center;
+}
+
+.anki-stat strong,
+.anki-stat span {
+    display: block;
+}
+
+.anki-stat strong {
+    color: var(--primary-dark);
+
+    font-size: 1.08rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.anki-stat span {
+    margin-top: 2px;
+
+    color: rgba(34, 34, 34, .63);
+
+    font-size: .70rem;
+    font-weight: 800;
+}
+
+.anki-sidebar-sync {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+
+.anki-sync-btn {
+    width: 100%;
+    min-height: 42px;
+}
+
+.anki-sync-info {
+    color: rgba(34, 34, 34, .58);
+
+    font-size: .74rem;
+    line-height: 1.4;
+
+    overflow-wrap: anywhere;
+}
+
+.anki-sidebar-hint {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+
+    margin-top: 18px;
+    padding-top: 18px;
+
+    border-top: 1px solid rgba(0, 0, 0, .08);
+
+    color: rgba(34, 34, 34, .52);
+
+    font-size: .72rem;
+    line-height: 1.4;
+}
+
+.anki-sidebar-hint strong {
+    color: rgba(34, 34, 34, .72);
+}
+
+
+/* ---------------------------------------------------------
+ * Rechte Hauptfläche
+ * --------------------------------------------------------- */
+
+.anki-main {
+    position: relative;
+
+    min-width: 0;
+    min-height: 0;
+
+    overflow: hidden;
+}
+
+.anki-card,
+.anki-empty,
+.anki-status {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.anki-card {
+    display: flex;
+    flex-direction: column;
+
+    width: 100%;
+    height: 100%;
+
+    min-width: 0;
+    min-height: 0;
+
+    overflow: hidden;
+
+    border: none;
+    background: transparent;
+    box-shadow: none;
+}
+
+
+/* ---------------------------------------------------------
+ * Kartenkopf
+ * --------------------------------------------------------- */
+
+.anki-card-head {
+    flex: 0 0 auto;
+
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+
+    padding: 11px 16px;
+
+    border-bottom: 1px solid rgba(0, 0, 0, .08);
+    background: transparent;
+}
+
+.anki-card-deck {
+    font-weight: 900;
+}
+
+.anki-card-meta {
+    margin-top: 3px;
+
+    color: rgba(34, 34, 34, .56);
+
+    font-size: .76rem;
+    font-weight: 700;
+}
+
+.anki-card-tags {
+    display: flex;
+    justify-content: flex-end;
+    gap: 5px;
+    flex-wrap: wrap;
+}
+
+.anki-card-tags span {
+    padding: 3px 7px;
+
+    border-radius: 999px;
+
+    background: var(--bg-light);
+    color: rgba(34, 34, 34, .65);
+
+    font-size: .68rem;
+    font-weight: 800;
+}
+
+
+/* ---------------------------------------------------------
+ * Bewertungsbuttons OBEN
+ * --------------------------------------------------------- */
+
+.anki-review-actions {
+    flex: 0 0 auto;
+
+    padding: 10px 14px;
+
+    border-bottom: 1px solid rgba(0, 0, 0, .08);
+
+    background: transparent;
+}
+
+.anki-show-answer {
+    display: block;
+
+    width: min(430px, 100%);
+
+    margin: 0 auto;
+
+    font-size: 1.02rem;
+}
+
+.anki-rating-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 9px;
+}
+
+.anki-rating {
+    min-height: 55px;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    gap: 2px;
+
+    padding-top: 7px;
+    padding-bottom: 7px;
+}
+
+.anki-rating span {
+    font-weight: 900;
+}
+
+.anki-rating small {
+    opacity: .8;
+    font-weight: 700;
+}
+
+.anki-rating-again {
+    background: #c0392b;
+}
+
+.anki-rating-again:hover {
+    background: #a93226;
+}
+
+.anki-rating-hard {
+    background: #d97706;
+}
+
+.anki-rating-hard:hover {
+    background: #b86105;
+}
+
+.anki-rating-good {
+    background: #2e9b55;
+}
+
+.anki-rating-good:hover {
+    background: #257e45;
+}
+
+.anki-rating-easy {
+    background: var(--primary);
+}
+
+
+/* ---------------------------------------------------------
+ * Frage / Antwort
+ *
+ * Nur DIESER Bereich scrollt, nicht die Seite.
+ * --------------------------------------------------------- */
+
+.anki-card-frame-wrap {
+    flex: 1 1 auto;
+
+    width: 100%;
+
+    min-width: 0;
+    min-height: 0;
+
+    overflow-x: hidden;
+    overflow-y: auto;
+
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+
+    background: #fff;
+}
+
+.anki-card-frame {
+    display: block;
+
+    width: 100%;
+    height: 420px;
+    min-height: 100%;
+
+    border: 0;
+
+    background: transparent;
+}
+
+
+/* ---------------------------------------------------------
+ * Leer / Status
+ * --------------------------------------------------------- */
+
+.anki-empty {
+    height: 100%;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    gap: 7px;
+
+    box-sizing: border-box;
+
+    padding: 42px 24px;
+
+    text-align: center;
+}
+
+.anki-empty strong {
+    font-size: 1.15rem;
+}
+
+.anki-empty span {
+    color: rgba(34, 34, 34, .6);
+}
+
+.anki-status {
+    position: absolute;
+
+    left: 14px;
+    right: 14px;
+    bottom: 14px;
+
+    z-index: 20;
+
+    padding: 11px 14px;
+
+    border-left: 6px solid var(--primary);
+
+    font-weight: 700;
+}
+
+.anki-status.is-error {
+    border-left-color: #c0392b;
+    color: #922b21;
+}
+
+.anki-status.is-good {
+    border-left-color: #2e9b55;
+    color: #256f3d;
+}
+
+
+/* ---------------------------------------------------------
+ * Responsive
+ * --------------------------------------------------------- */
+
+@media (max-width: 900px) {
+    .anki-page {
+        grid-template-columns: 230px minmax(0, 1fr);
+        gap: 10px;
+
+        width: calc(100vw - 16px);
+    }
+
+    .anki-sidebar {
+        padding: 11px;
+    }
+
+    .anki-rating-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 650px) {
+    .anki-page {
+        grid-template-columns: 185px minmax(0, 1fr);
+        gap: 7px;
+
+        width: calc(100vw - 10px);
+    }
+
+    .anki-sidebar {
+        padding: 8px;
+    }
+
+    .anki-toolbar-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .anki-card-head {
+        flex-direction: column;
+    }
+
+    .anki-card-tags {
+        justify-content: flex-start;
+    }
+
+    .anki-rating {
+        min-height: 48px;
+        padding-left: 5px;
+        padding-right: 5px;
+    }
+}
