@@ -74,12 +74,14 @@ require_once __DIR__ . '/../navbar.php';  // nur die Navbar
 
             <form method="post" action="/fit/kalorien" id="pizza-kalorien-form" style="margin-top: 15px;">
                 <input type="hidden" name="beschreibung"   id="beschreibung-hidden">
+                <input type="hidden" name="kategorie"      id="kategorie-hidden" value="Pizza">
                 <input type="hidden" name="kalorien"       id="kalorien-hidden">
                 <input type="hidden" name="eiweiss"        id="eiweiss-hidden">
                 <input type="hidden" name="fett"           id="fett-hidden">
                 <input type="hidden" name="kohlenhydrate"  id="carbs-hidden">
                 <input type="hidden" name="alkohol"        id="alkohol-hidden" value="0">
                 <input type="hidden" name="anzahl"         id="anzahl-hidden" value="1">
+
                 <button type="submit">In Kalorien eintragen</button>
             </form>
         </div>
