@@ -45,7 +45,6 @@ if (isset($_GET['login']) && $_GET['login'] === '1') {
 }
 
 $spotifyTokenNeedsAttention = false;
-$stroemungsmechanikDueCount = 0;
 $rwthJobsNewCount = 0;
 
 if ($isAuthed) {
@@ -103,44 +102,6 @@ if ($isAuthed) {
 
         $_SESSION['nav_spotify_token_badge_checked_at'] = time();
         $_SESSION['nav_spotify_token_badge_value'] = $spotifyTokenNeedsAttention ? 1 : 0;
-    }
-}
-
-
-if ($isAuthed) {
-    try {
-        if (!isset($sciconn) || !($sciconn instanceof mysqli)) {
-            require_once __DIR__ . '/db.php';
-        }
-
-        if (isset($sciconn) && $sciconn instanceof mysqli) {
-            $sciconn->set_charset('utf8mb4');
-            $exam = 'Strömungsmechanik';
-
-            $stmt = $sciconn->prepare("
-                SELECT COUNT(*) AS due_count
-                FROM kartei_fragen q
-                LEFT JOIN kartei_lernstand ls
-                    ON ls.question_id = q.id
-                WHERE q.is_active = 1
-                  AND q.exam = ?
-                  AND (
-                        ls.next_due_at IS NULL
-                        OR ls.next_due_at <= NOW()
-                  )
-            ");
-
-            if ($stmt) {
-                $stmt->bind_param('s', $exam);
-                $stmt->execute();
-
-                $row = $stmt->get_result()->fetch_assoc();
-                $stroemungsmechanikDueCount = max(0, (int)($row['due_count'] ?? 0));
-                $stmt->close();
-            }
-        }
-    } catch (Throwable $e) {
-        $stroemungsmechanikDueCount = 0;
     }
 }
 
@@ -254,18 +215,8 @@ if ($isAuthed && $rwthJobsCounterEnabled) {
 
             <!-- Sci -->
             <li class="nav-item has-submenu">
-                <a
-                    href="/sci/start"
-                    <?= $stroemungsmechanikDueCount > 0
-                        ? 'title="' . $stroemungsmechanikDueCount . ' Karteikarten in Strömungsmechanik fällig"'
-                        : '' ?>
-                >
-                    <span class="nav-icon-badge-wrap">
-                        <img src="/img/uni.png" alt="Sci" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high">
-                        <?php if ($stroemungsmechanikDueCount > 0): ?>
-                            <span class="nav-alert-badge"><?= $stroemungsmechanikDueCount ?></span>
-                        <?php endif; ?>
-                    </span>
+                <a href="/sci/start">
+                    <img src="/img/uni.png" alt="Sci" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high">
                 </a>
                 <ul class="submenu">
                     <li><a href="/sci/lerntime"><img src="/img/graph.png" alt="Übersicht" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Übersicht</span></a></li>

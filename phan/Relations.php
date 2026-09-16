@@ -151,6 +151,12 @@ function rel_types(): array
             'symmetric' => true,
         ],
 
+        'cousins' => [
+            'label' => 'Cousins',
+            'color' => '#9b6bd3',
+            'symmetric' => true,
+        ],
+
         'committed' => [
             'label' => 'Feste Beziehung',
             'color' => '#d43b8c',
@@ -777,7 +783,7 @@ require_once __DIR__ . '/../navbar.php';
                         type="checkbox"
                         class="relation-filter"
                         data-type="<?= rel_h($key) ?>"
-                        checked
+                        <?= $key !== 'cousins' ? 'checked' : '' ?>
                     >
 
                     <span
@@ -3939,12 +3945,13 @@ require_once __DIR__ . '/../navbar.php';
         const base =
             {
                 committed: 185,
-                siblings: 200,
-                parent_child: 215,
+                siblings: 200,                
+                cousins: 1015,
+                parent_child: 515,
                 friend: 225,
                 casual: 245,
-                colleges: 260,
-                enemies: 285,
+                colleges: 450,
+                enemies: 805,
             }[
                 relation.type
             ]
