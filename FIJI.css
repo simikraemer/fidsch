@@ -671,6 +671,18 @@ input[type="radio"] {
     min-width: 140px;
 }
 
+.lt-year-range {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    flex-wrap: nowrap;
+}
+
+.lt-year-range .lt-yearwrap {
+    width: 140px;
+    min-width: 120px;
+}
+
 .lt-label {
     display: block;
     font-weight: bold;

@@ -3069,7 +3069,7 @@ $isDetail =
 
 $forceEdit =
     $isNew
-    || isset($_GET['edit']);
+    || (string)($_GET['edit'] ?? '1') !== '0';
 
 $forceCollectionEdit =
     $isNewCollection
@@ -4014,7 +4014,7 @@ $storyHasBackground =
                                             type="button"
                                             class="story-collection-expand"
                                             data-collection-toggle="<?= $collectionId ?>"
-                                            aria-expanded="false"
+                                            aria-expanded="true"
                                             title="Kapitel ein-/ausblenden"
                                         >
                                             ▸
@@ -6334,8 +6334,20 @@ $storyHasBackground =
         let selectedRegionId = 0;
         let selectedCharId = 0;
 
-        const expandedCollections =
-            new Set();
+        const expandedCollections = new Set(
+            Array.from(
+                document.querySelectorAll(
+                    '[data-collection-toggle]'
+                )
+            )
+                .map(button =>
+                    Number(
+                        button.dataset.collectionToggle
+                        || 0
+                    )
+                )
+                .filter(id => id > 0)
+        );
 
 
         function syncCollectionChildRows() {

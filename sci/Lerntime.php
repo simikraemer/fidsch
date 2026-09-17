@@ -1,10 +1,8 @@
 <?php
 // sci/Lerntime.php
-
 require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../db.php';
 $sciconn->set_charset('utf8mb4');
-
 if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
@@ -20,6 +18,7 @@ if (!$resF) {
     http_response_code(500);
     die('DB-Fehler: lerntime_faecher konnte nicht geladen werden.');
 }
+
 while ($r = $resF->fetch_assoc()) {
     $name = (string)$r['name'];
     $SUBJECTS[$name] = [
@@ -29,6 +28,7 @@ while ($r = $resF->fetch_assoc()) {
         'sort_order' => (int)$r['sort_order'],
     ];
 }
+
 if (!$SUBJECTS) {
     http_response_code(500);
     die('Keine Fächer vorhanden. Bitte lerntime_faecher befüllen.');
@@ -47,12 +47,17 @@ function parse_int($v, int $default = 0): int {
     return $default;
 }
 
-$jahr = isset($_GET['jahr']) ? (int)$_GET['jahr'] : (int)date('Y');
-if ($jahr < 2000 || $jahr > 2100) $jahr = (int)date('Y');
+/* ---------------------- Fester Diagrammzeitraum ---------------------- */
+// Start inklusiv, Ende exklusiv.
+// Dargestellt wird damit Januar 2026 bis einschließlich März 2027.
+$chartStartDate        = '2026-01-01';
+$chartEndExclusiveDate = '2027-04-01';
 
-$preferredDefault = 'Strömungsmechanik';
+$chartStartSql        = $chartStartDate . ' 00:00:00';
+$chartEndExclusiveSql = $chartEndExclusiveDate . ' 00:00:00';
+
+$preferredDefault = 'Regelungstechnik';
 $defaultFach = isset($SUBJECTS[$preferredDefault]) ? $preferredDefault : (string)array_key_first($SUBJECTS);
-
 $sessionFach = (string)($_SESSION['lerntime_fach'] ?? $defaultFach);
 if (!isset($SUBJECTS[$sessionFach])) $sessionFach = $defaultFach;
 $_SESSION['lerntime_fach'] = $sessionFach;
@@ -60,7 +65,6 @@ $_SESSION['lerntime_fach'] = $sessionFach;
 /* ---------------------- POST (AJAX) ---------------------- */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $action = (string)$_POST['action'];
-
     if ($action === 'set_fach') {
         $fach = (string)($_POST['fach'] ?? '');
         if (!isset($SUBJECTS[$fach])) {
@@ -69,13 +73,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $_SESSION['lerntime_fach'] = $fach;
         json_out(['ok' => true]);
     }
-
     if ($action === 'toggle_done') {
         $id = (int)($_POST['id'] ?? 0);
         $checked = (string)($_POST['checked'] ?? '0') === '1';
-
         if ($id <= 0) json_out(['ok' => false, 'error' => 'Ungültige ID.'], 400);
-
         if ($checked) {
             $stmt = $sciconn->prepare("UPDATE lerntime SET erledigt_am = NOW() WHERE id = ?");
             $stmt->bind_param('i', $id);
@@ -87,22 +88,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $stmt->execute();
             $stmt->close();
         }
-
         $stmt = $sciconn->prepare("SELECT id, fach, einheit, titel, notiz, dauer_sekunden, erledigt_am, sort_key FROM lerntime WHERE id = ? LIMIT 1");
         $stmt->bind_param('i', $id);
         $stmt->execute();
         $res = $stmt->get_result();
         $row = $res ? $res->fetch_assoc() : null;
         $stmt->close();
-
         if (!$row) json_out(['ok' => false, 'error' => 'Eintrag nicht gefunden.'], 404);
-
         json_out([
             'ok' => true,
             'task' => $row,
         ]);
     }
-
     if ($action === 'add_task') {
         $fach = (string)($_POST['fach'] ?? '');
         $einheit = trim((string)($_POST['einheit'] ?? ''));
@@ -111,12 +108,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $dauer_sekunden = isset($_POST['dauer_sekunden']) && $_POST['dauer_sekunden'] !== ''
             ? max(0, (int)$_POST['dauer_sekunden'])
             : null;
-
         if (!isset($SUBJECTS[$fach])) json_out(['ok' => false, 'error' => 'Ungültiges Fach.'], 400);
         if ($einheit === '' || $titel === '') json_out(['ok' => false, 'error' => 'Einheit und Titel sind Pflichtfelder.'], 400);
-
         $_SESSION['lerntime_fach'] = $fach;
-
         $sciconn->begin_transaction();
         try {
             $stmt = $sciconn->prepare("SELECT MAX(sort_key) AS m FROM lerntime WHERE fach = ?");
@@ -128,9 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $max = (float)$r['m'];
             }
             $stmt->close();
-
             $newSort = ($max > 0 ? $max + 1000.0 : 1000.0);
-
             if ($dauer_sekunden === null) {
                 $stmt = $sciconn->prepare("INSERT INTO lerntime (fach, einheit, titel, notiz, dauer_sekunden, erledigt_am, sort_key) VALUES (?, ?, ?, ?, NULL, NULL, ?)");
                 $stmt->bind_param('ssssd', $fach, $einheit, $titel, $notiz, $newSort);
@@ -141,42 +133,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $stmt->execute();
             $newId = $stmt->insert_id;
             $stmt->close();
-
             $sciconn->commit();
-
             $stmt = $sciconn->prepare("SELECT id, fach, einheit, titel, notiz, dauer_sekunden, erledigt_am, sort_key FROM lerntime WHERE id = ? LIMIT 1");
             $stmt->bind_param('i', $newId);
             $stmt->execute();
             $res = $stmt->get_result();
             $row = $res ? $res->fetch_assoc() : null;
             $stmt->close();
-
             json_out(['ok' => true, 'task' => $row]);
         } catch (Throwable $e) {
             $sciconn->rollback();
             json_out(['ok' => false, 'error' => 'DB-Fehler beim Einfügen.'], 500);
         }
     }
-
     if ($action === 'update_sort') {
         $id = (int)($_POST['id'] ?? 0);
         $sort = (string)($_POST['sort_key'] ?? '');
-
-        if ($id <= 0 || $sort === '' || !preg_match('/^-?\d+(?:\.\d+)?$/', $sort)) {
+        if ($id <= 0 || $sort === '' || !preg_match('/^-?**\d**+(?:**\.\d**+)?$/', $sort)) {
             json_out(['ok' => false, 'error' => 'Ungültige Sortierung.'], 400);
         }
-
         $stmt = $sciconn->prepare("UPDATE lerntime SET sort_key = ? WHERE id = ?");
         $stmt->bind_param('si', $sort, $id);
         $stmt->execute();
         $stmt->close();
-
         json_out(['ok' => true, 'id' => $id, 'sort_key' => $sort]);
     }
-
     if ($action === 'update_task') {
         $id = (int)($_POST['id'] ?? 0);
-
         $fach = (string)($_POST['fach'] ?? '');
         $einheit = trim((string)($_POST['einheit'] ?? ''));
         $titel = trim((string)($_POST['titel'] ?? ''));
@@ -184,11 +167,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $dauer_sekunden = isset($_POST['dauer_sekunden']) && $_POST['dauer_sekunden'] !== ''
             ? max(0, (int)$_POST['dauer_sekunden'])
             : null;
-
         if ($id <= 0) json_out(['ok' => false, 'error' => 'Ungültige ID.'], 400);
         if (!isset($SUBJECTS[$fach])) json_out(['ok' => false, 'error' => 'Ungültiges Fach.'], 400);
         if ($einheit === '' || $titel === '') json_out(['ok' => false, 'error' => 'Einheit und Titel sind Pflichtfelder.'], 400);
-
         $sciconn->begin_transaction();
         try {
             $stmt = $sciconn->prepare("SELECT fach FROM lerntime WHERE id = ? LIMIT 1");
@@ -197,14 +178,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $res = $stmt->get_result();
             $old = $res ? $res->fetch_assoc() : null;
             $stmt->close();
-
             if (!$old) {
                 $sciconn->rollback();
                 json_out(['ok' => false, 'error' => 'Eintrag nicht gefunden.'], 404);
             }
-
             $oldFach = (string)$old['fach'];
-
             $newSort = null;
             if ($fach !== $oldFach) {
                 $stmt = $sciconn->prepare("SELECT MAX(sort_key) AS m FROM lerntime WHERE fach = ?");
@@ -218,7 +196,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $stmt->close();
                 $newSort = ($max > 0 ? $max + 1000.0 : 1000.0);
             }
-
             if ($dauer_sekunden === null && $newSort === null) {
                 $stmt = $sciconn->prepare("UPDATE lerntime SET fach=?, einheit=?, titel=?, notiz=?, dauer_sekunden=NULL WHERE id=?");
                 $stmt->bind_param('ssssi', $fach, $einheit, $titel, $notiz, $id);
@@ -232,82 +209,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $stmt = $sciconn->prepare("UPDATE lerntime SET fach=?, einheit=?, titel=?, notiz=?, dauer_sekunden=?, sort_key=? WHERE id=?");
                 $stmt->bind_param('ssssidi', $fach, $einheit, $titel, $notiz, $dauer_sekunden, $newSort, $id);
             }
-
             $stmt->execute();
             $stmt->close();
-
             $sciconn->commit();
-
             $_SESSION['lerntime_fach'] = $fach;
-
             $stmt = $sciconn->prepare("SELECT id, fach, einheit, titel, notiz, dauer_sekunden, erledigt_am, sort_key FROM lerntime WHERE id = ? LIMIT 1");
             $stmt->bind_param('i', $id);
             $stmt->execute();
             $res = $stmt->get_result();
             $row = $res ? $res->fetch_assoc() : null;
             $stmt->close();
-
             json_out(['ok' => true, 'task' => $row]);
         } catch (Throwable $e) {
             $sciconn->rollback();
             json_out(['ok' => false, 'error' => 'DB-Fehler beim Speichern.'], 500);
         }
     }
-
     if ($action === 'delete_task') {
         $id = (int)($_POST['id'] ?? 0);
         if ($id <= 0) json_out(['ok' => false, 'error' => 'Ungültige ID.'], 400);
-
         try {
             $stmt = $sciconn->prepare("DELETE FROM lerntime WHERE id = ? LIMIT 1");
             $stmt->bind_param('i', $id);
             $stmt->execute();
             $affected = $stmt->affected_rows;
             $stmt->close();
-
             if ($affected <= 0) json_out(['ok' => false, 'error' => 'Eintrag nicht gefunden.'], 404);
-
             json_out(['ok' => true, 'id' => $id]);
         } catch (Throwable $e) {
             json_out(['ok' => false, 'error' => 'DB-Fehler beim Löschen.'], 500);
         }
     }
-
     json_out(['ok' => false, 'error' => 'Unbekannte Aktion.'], 400);
 }
 
-/* ---------------------- Jahre for Dropdown ---------------------- */
-function year_sql_range(int $y): array {
-    $start = new DateTimeImmutable(sprintf('%04d-01-01 00:00:00', $y));
-    $end   = new DateTimeImmutable(sprintf('%04d-01-01 00:00:00', $y + 1));
-    return [$start->format('Y-m-d H:i:s'), $end->format('Y-m-d H:i:s')];
-}
-
-$yearSet = [];
-$curYear = (int)date('Y');
-$yearSet[$curYear] = true;
-
-// Jahre nur aus vorhandenen erledigt_am-Daten ableiten (plus aktuelles Jahr)
-$resY = $sciconn->query("
-    SELECT DISTINCT YEAR(erledigt_am) AS y
-    FROM lerntime
-    WHERE erledigt_am IS NOT NULL
-");
-if ($resY) {
-    while ($r = $resY->fetch_assoc()) {
-        $y = (int)$r['y'];
-        if ($y >= 2000 && $y <= 2100) $yearSet[$y] = true;
-    }
-}
-
-$yearKeys = array_keys($yearSet);
-rsort($yearKeys);
-
-// $jahr kommt oben aus GET, aber hier gegen vorhandene Jahre validieren
-if (!isset($yearSet[$jahr])) $jahr = $yearKeys[0] ?? $curYear;
-
-[$yearStartSql, $yearEndSql] = year_sql_range($jahr);
-
+/* ---------------------- Lernzeit im festen Diagrammzeitraum ---------------------- */
 $stmt = $sciconn->prepare("
     SELECT COALESCE(SUM(COALESCE(dauer_sekunden, 0)), 0) AS sum_sec
     FROM lerntime
@@ -315,14 +251,13 @@ $stmt = $sciconn->prepare("
       AND erledigt_am >= ?
       AND erledigt_am < ?
 ");
-$stmt->bind_param('ss', $yearStartSql, $yearEndSql);
+$stmt->bind_param('ss', $chartStartSql, $chartEndExclusiveSql);
 $stmt->execute();
 $res = $stmt->get_result();
 $row = $res ? $res->fetch_assoc() : null;
 $stmt->close();
-
-$jahrLernzeitSekunden = (int)($row['sum_sec'] ?? 0);
-$jahrLernzeitStunden  = (int)round($jahrLernzeitSekunden / 3600);
+$bereichLernzeitSekunden = (int)($row['sum_sec'] ?? 0);
+$bereichLernzeitStunden  = (int)round($bereichLernzeitSekunden / 3600);
 
 $stmt = $sciconn->prepare("
     SELECT COALESCE(SUM(COALESCE(l.dauer_sekunden, 0)), 0) AS open_sec
@@ -336,7 +271,6 @@ $stmt->execute();
 $res = $stmt->get_result();
 $row = $res ? $res->fetch_assoc() : null;
 $stmt->close();
-
 $offenSekunden = (int)($row['open_sec'] ?? 0);
 $offenStunden  = (int)round($offenSekunden / 3600);
 
@@ -353,7 +287,6 @@ if ($resK) {
     }
 }
 
-
 /* ---------------------- All Tasks for JS ---------------------- */
 $tasks = [];
 $resT = $sciconn->query("SELECT id, fach, einheit, titel, notiz, dauer_sekunden, erledigt_am, sort_key FROM lerntime ORDER BY fach ASC, sort_key ASC, id ASC");
@@ -366,27 +299,15 @@ if ($resT) {
 $page_title = 'B.Sc. Maschinenbau';
 require_once __DIR__ . '/../head.php';
 require_once __DIR__ . '/../navbar.php';
-?>
 
+?>
 <div id="ltPage" class="lt-page dashboard-page">
     <div class="lt-topbar">
-
         <h1 class="ueberschrift dashboard-title">
-        <span class="dashboard-title-main">B.Sc. Maschinenbau <?= htmlspecialchars((string)$jahr, ENT_QUOTES, 'UTF-8') ?></span>
-        <span class="dashboard-title-soft">| <span id="ltDoneHours"><?= htmlspecialchars((string)$jahrLernzeitStunden, ENT_QUOTES, 'UTF-8') ?></span>h erledigt</span>
-        <span class="dashboard-title-soft"><-> <span id="ltOpenHours"><?= htmlspecialchars((string)$offenStunden, ENT_QUOTES, 'UTF-8') ?></span>h offen</span>
+            <span class="dashboard-title-main">B.Sc. Maschinenbau</span>
+            <span class="dashboard-title-soft">| <span id="ltDoneHours"><?= htmlspecialchars((string)$bereichLernzeitStunden, ENT_QUOTES, 'UTF-8') ?></span>h erledigt</span>
+            <span class="dashboard-title-soft"><-> <span id="ltOpenHours"><?= htmlspecialchars((string)$offenStunden, ENT_QUOTES, 'UTF-8') ?></span>h offen</span>
         </h1>
-
-        <div class="lt-yearwrap">
-            <label for="ltYear" class="lt-label">Jahr</label>
-            <select id="ltYear" class="kategorie-select">
-                <?php foreach ($yearKeys as $y): ?>
-                    <option value="<?= htmlspecialchars((string)$y, ENT_QUOTES, 'UTF-8') ?>" <?= ((int)$y === (int)$jahr) ? 'selected' : '' ?>>
-                        <?= htmlspecialchars((string)$y, ENT_QUOTES, 'UTF-8') ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
-        </div>
     </div>
 
     <div class="lt-chart-wrap lernzeit-chart-wrap">
@@ -397,10 +318,9 @@ require_once __DIR__ . '/../navbar.php';
 
     <div class="lt-subject-row">
         <div id="ltTabs" class="lt-tabs" role="tablist" aria-label="Fächer"></div>
-
         <button id="ltAddBtn" class="lt-add-btn" type="button" title="Eintrag hinzufügen" aria-label="Eintrag hinzufügen">
             <span class="lt-add-plus">+</span>
-        </button>    
+        </button>
     </div>
 
     <div class="lt-table-wrap">
@@ -422,35 +342,30 @@ require_once __DIR__ . '/../navbar.php';
     <div class="modal-content lt-modal-content" role="dialog" aria-modal="true" aria-labelledby="ltModalTitle">
         <span class="close-button" id="ltModalClose" title="Schließen">&times;</span>
         <h2 id="ltModalTitle" class="lt-modal-title">Neuer Eintrag</h2>
-
         <div class="form-block">
             <input type="hidden" id="ltEditId" value="">
             <div class="input-group-dropdown">
                 <label for="ltNewFach">Fach</label>
-                    <select id="ltNewFach">
-                        <?php foreach ($SUBJECTS as $name => $meta): ?>
-                            <option value="<?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?>">
-                                <?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
+                <select id="ltNewFach">
+                    <?php foreach ($SUBJECTS as $name => $meta): ?>
+                        <option value="<?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?>">
+                            <?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
             </div>
-
             <div class="input-group-dropdown">
                 <label for="ltNewEinheit">Einheit</label>
                 <input id="ltNewEinheit" type="text" placeholder="z.B. V01 / Ü01 / Altklausur SoSe25">
             </div>
-
             <div class="input-group-dropdown">
                 <label for="ltNewTitel">Titel</label>
                 <input id="ltNewTitel" type="text" placeholder="z.B. Zugversuch">
             </div>
-
             <div class="input-group-dropdown">
                 <label for="ltNewNotiz">Notiz</label>
                 <textarea id="ltNewNotiz" rows="3" placeholder="optional"></textarea>
             </div>
-
             <div class="lt-duration-grid">
                 <div class="input-group-dropdown">
                     <label for="ltDurH">Stunden</label>
@@ -465,10 +380,8 @@ require_once __DIR__ . '/../navbar.php';
                     <input id="ltDurS" type="number" min="0" step="1" value="0">
                 </div>
             </div>
-
             <div class="lt-modal-actions">
                 <button id="ltSaveNew" class="lt-save-btn" type="button">Speichern</button>
-
                 <button id="ltDeleteBtn" class="lt-delete-btn hidden" type="button" title="Eintrag löschen">
                     Löschen
                 </button>
@@ -486,23 +399,18 @@ require_once __DIR__ . '/../navbar.php';
 <script>
 (() => {
     const DateTime = luxon.DateTime;
-
     const SUBJECTS = <?= json_encode($SUBJECTS, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
     const TASKS = <?= json_encode($tasks, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
     const EXAMS = <?= json_encode($klausuren, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
-
     const phpDefaultFach = <?= json_encode($sessionFach, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
-    const initialYear = <?= json_encode((string)$jahr, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
-
+    const CHART_START_DATE = <?= json_encode($chartStartDate, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+    const CHART_END_EXCLUSIVE_DATE = <?= json_encode($chartEndExclusiveDate, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
     const elPage = document.getElementById('ltPage');
     const elTabs = document.getElementById('ltTabs');
     const elTbody = document.getElementById('ltTbody');
-    const elYear = document.getElementById('ltYear');
-
     const elModal = document.getElementById('ltModal');
     const elModalClose = document.getElementById('ltModalClose');
     const elAddBtn = document.getElementById('ltAddBtn');
-
     const elNewFach = document.getElementById('ltNewFach');
     const elNewEinheit = document.getElementById('ltNewEinheit');
     const elNewTitel = document.getElementById('ltNewTitel');
@@ -512,9 +420,7 @@ require_once __DIR__ . '/../navbar.php';
     const elDurS = document.getElementById('ltDurS');
     const elSaveNew = document.getElementById('ltSaveNew');
     const elDeleteBtn = document.getElementById('ltDeleteBtn');
-
     const validSubjects = new Set(Object.keys(SUBJECTS));
-
     const DRAG_ENABLED = window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 
     function subjectColor(fach) {
@@ -531,30 +437,16 @@ require_once __DIR__ . '/../navbar.php';
         return !!hiddenSubjects[String(fach ?? '')];
     }
 
-    const validYears = new Set([...elYear.options].map(o => o.value));
-
-    let selectedYear =
-        localStorage.getItem('lerntime_year')
-        || localStorage.getItem('lerntime_semester') // backward-compat
-        || initialYear;
-
-    selectedYear = String(selectedYear);
-    if (!validYears.has(selectedYear)) selectedYear = String(initialYear);
-    elYear.value = selectedYear;
-    localStorage.setItem('lerntime_year', selectedYear);
-
-    function getYearRange(yearValue) {
-        const y = Number(yearValue);
-        const year = Number.isFinite(y) ? Math.trunc(y) : DateTime.local().year;
-
-        const startDay = DateTime.local(year, 1, 1).startOf('day');
-        const endDay   = DateTime.local(year, 12, 31).startOf('day');
+    function getChartRange() {
+        const startDay = DateTime.fromISO(CHART_START_DATE, { zone: 'local' }).startOf('day');
+        const endExclusive = DateTime.fromISO(CHART_END_EXCLUSIVE_DATE, { zone: 'local' }).startOf('day');
+        const endDay = endExclusive.minus({ days: 1 }).startOf('day');
 
         return {
             startDay,
             endDay,
             minMs: startDay.toMillis(),
-            maxMs: endDay.endOf('day').toMillis()
+            maxMs: endExclusive.minus({ milliseconds: 1 }).toMillis()
         };
     }
 
@@ -563,15 +455,13 @@ require_once __DIR__ . '/../navbar.php';
     let draggingId = null;
     let dragStartIndex = null;
 
-    // START AUTOSCROLL 
-
+    // START AUTOSCROLL
     const elTableWrap = document.querySelector('.lt-table-wrap');
     const elNavbar = document.querySelector('.navbar');
     let dragClientX = 0;
     let dragClientY = 0;
     let autoScrollRaf = 0;
     let autoScrollVel = 0;
-
     const AUTO_SCROLL_MARGIN = 90; // px Edge-Zone
     const AUTO_SCROLL_MAX    = 26; // px pro Frame
 
@@ -589,15 +479,11 @@ require_once __DIR__ . '/../navbar.php';
 
     function hoverReorder(targetRow, clientY) {
         if (!draggingRow || !targetRow || targetRow === draggingRow) return;
-
         clearDropMarkers();
-
         const rect = targetRow.getBoundingClientRect();
         const before = clientY < rect.top + rect.height / 2;
-
         /* targetRow.classList.toggle('lt-drop-before', before);
         targetRow.classList.toggle('lt-drop-after', !before); */
-
         if (before) elTbody.insertBefore(draggingRow, targetRow);
         else elTbody.insertBefore(draggingRow, targetRow.nextSibling);
     }
@@ -609,23 +495,17 @@ require_once __DIR__ . '/../navbar.php';
 
     function updateAutoScrollFromPointer() {
         if (!draggingRow) return stopAutoScroll();
-
         const target = getScrollTarget();
         const docScroll = (document.scrollingElement || document.documentElement);
-
         const nb = navbarBottomPx();
-
         let topEdge = nb;                 // <- IMPORTANT
         let bottomEdge = window.innerHeight;
-
         if (target !== docScroll) {
             const r = target.getBoundingClientRect();
             topEdge = Math.max(r.top, nb); // <- IMPORTANT
             bottomEdge = r.bottom;
         }
-
         let v = 0;
-
         if (dragClientY < topEdge + AUTO_SCROLL_MARGIN) {
             const t = (topEdge + AUTO_SCROLL_MARGIN - dragClientY) / AUTO_SCROLL_MARGIN;
             v = -AUTO_SCROLL_MAX * clamp(t, 0, 1);
@@ -633,9 +513,7 @@ require_once __DIR__ . '/../navbar.php';
             const t = (dragClientY - (bottomEdge - AUTO_SCROLL_MARGIN)) / AUTO_SCROLL_MARGIN;
             v = AUTO_SCROLL_MAX * clamp(t, 0, 1);
         }
-
         autoScrollVel = Math.trunc(v);
-
         if (autoScrollVel !== 0 && !autoScrollRaf) {
             autoScrollRaf = requestAnimationFrame(autoScrollTick);
         } else if (autoScrollVel === 0) {
@@ -646,22 +524,18 @@ require_once __DIR__ . '/../navbar.php';
     function autoScrollTick() {
         autoScrollRaf = 0;
         if (!draggingRow || autoScrollVel === 0) return;
-
         const target = getScrollTarget();
         const docScroll = (document.scrollingElement || document.documentElement);
-
         if (target === docScroll) {
             window.scrollBy(0, autoScrollVel);
         } else {
             const max = Math.max(0, target.scrollHeight - target.clientHeight);
             target.scrollTop = clamp(target.scrollTop + autoScrollVel, 0, max);
         }
-
         // Reorder auch während Auto-Scroll (falls native dragover nicht sauber triggert)
         const el = document.elementFromPoint(dragClientX, dragClientY);
         const row = el && el.closest ? el.closest('tr.lt-row') : null;
         if (row && elTbody.contains(row)) hoverReorder(row, dragClientY);
-
         autoScrollRaf = requestAnimationFrame(autoScrollTick);
     }
 
@@ -678,7 +552,6 @@ require_once __DIR__ . '/../navbar.php';
         updateAutoScrollFromPointer();
         e.preventDefault();
     }, { capture: true, passive: false });
-
     // Fail-safe: wenn Safari "hängen bleibt", hart resetten
     window.addEventListener('pagehide', () => {
         draggingRow = null;
@@ -687,7 +560,6 @@ require_once __DIR__ . '/../navbar.php';
         dragAllowed = false;
         stopAutoScroll();
     }, true);
-
     document.addEventListener('drop', () => stopAutoScroll(), true);
     document.addEventListener('dragend', () => stopAutoScroll(), true);
 
@@ -697,83 +569,60 @@ require_once __DIR__ . '/../navbar.php';
 
     async function commitSortIfChanged() {
         if (!draggingId) return;
-
         const rows = [...elTbody.querySelectorAll('tr.lt-row')];
         const endIndex = rows.findIndex(r => r.dataset.id === String(draggingId));
-
         if (dragStartIndex === null || endIndex < 0 || endIndex === dragStartIndex) return;
-
         const prevId = endIndex > 0 ? rows[endIndex - 1].dataset.id : null;
         const nextId = endIndex < rows.length - 1 ? rows[endIndex + 1].dataset.id : null;
-
         const prevTask = prevId ? TASKS.find(t => String(t.id) === String(prevId)) : null;
         const nextTask = nextId ? TASKS.find(t => String(t.id) === String(nextId)) : null;
-
         const prevSort = prevTask ? Number(prevTask.sort_key ?? 0) : null;
         const nextSort = nextTask ? Number(nextTask.sort_key ?? 0) : null;
-
         let newSort;
         if (prevSort === null && nextSort === null) newSort = 1000;
         else if (prevSort === null) newSort = nextSort - 1000;
         else if (nextSort === null) newSort = prevSort + 1000;
         else newSort = (prevSort + nextSort) / 2;
-
         const sortStr = Number(newSort).toFixed(10);
-
         try {
             const res = await post('update_sort', { id: String(draggingId), sort_key: sortStr });
             if (!res || !res.ok) throw new Error('update_sort_failed');
-
             const idx = TASKS.findIndex(t => String(t.id) === String(draggingId));
             if (idx >= 0) TASKS[idx].sort_key = sortStr;
-
             renderTable();
         } catch (e) {
             renderTable(); // revert
         }
     }
 
-
-
-
     const elEditId = document.getElementById('ltEditId');
 
     function openNewModal() {
         if (elEditId) elEditId.value = '';
         document.getElementById('ltModalTitle').textContent = 'Neuer Eintrag';
-
         if (elDeleteBtn) elDeleteBtn.classList.add('hidden');
-
         elNewFach.value = selectedFach;
         elNewEinheit.value = '';
         elNewTitel.value = '';
         elNewNotiz.value = '';
         elDurH.value = 0; elDurM.value = 0; elDurS.value = 0;
-
         openModal(elNewEinheit);
     }
 
     function openEditModal(task) {
         if (elEditId) elEditId.value = String(task.id);
         document.getElementById('ltModalTitle').textContent = 'Eintrag bearbeiten';
-
         if (elDeleteBtn) elDeleteBtn.classList.remove('hidden'); // <-- ADD
-
         elNewFach.value = task.fach;
         elNewEinheit.value = task.einheit ?? '';
         elNewTitel.value = task.titel ?? '';
         elNewNotiz.value = task.notiz ?? '';
-
         const total = Math.max(0, Number(task.dauer_sekunden ?? 0));
         elDurH.value = Math.floor(total / 3600);
         elDurM.value = Math.floor((total % 3600) / 60);
         elDurS.value = total % 60;
-
         openModal(elNewTitel);
     }
-
-
-
 
     function toInt(v, def=0) {
         const n = Number(v);
@@ -796,30 +645,23 @@ require_once __DIR__ . '/../navbar.php';
         const fd = new FormData();
         fd.append('action', action);
         Object.entries(data || {}).forEach(([k, v]) => fd.append(k, v));
-
         return fetch(location.pathname + location.search, {
             method: 'POST',
             body: fd,
             credentials: 'same-origin'
         }).then(r => r.json());
     }
-
         if (elDeleteBtn) {
         elDeleteBtn.addEventListener('click', async () => {
             const id = (elEditId?.value || '').trim();
             if (!id) return;
-
             if (!confirm('Eintrag wirklich löschen?')) return;
-
             elDeleteBtn.disabled = true;
-
             try {
                 const res = await post('delete_task', { id });
                 if (!res || !res.ok) throw new Error('delete_failed');
-
                 const idx = TASKS.findIndex(t => String(t.id) === String(id));
                 if (idx >= 0) TASKS.splice(idx, 1);
-
                 renderTable();
                 rebuildChart();
                 closeModal();
@@ -845,7 +687,6 @@ require_once __DIR__ . '/../navbar.php';
         const r = (n >> 16) & 255;
         const g = (n >> 8) & 255;
         const b = n & 255;
-
         const srgb = [r, g, b].map(v => {
             const x = v / 255;
             return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
@@ -856,19 +697,16 @@ require_once __DIR__ . '/../navbar.php';
 
     function renderTabs() {
         elTabs.innerHTML = '';
-
         Object.keys(SUBJECTS).forEach((fach) => {
             const btn = document.createElement('button');
             const c = subjectColor(fach);
             btn.style.setProperty('--tab-accent', c);
             btn.style.setProperty('--tab-accent-text', pickTextColor(c));
-
             btn.type = 'button';
             btn.className = 'lt-tab' + (fach === selectedFach ? ' active' : '');
             btn.textContent = fach;
             btn.setAttribute('role', 'tab');
             btn.setAttribute('aria-selected', fach === selectedFach ? 'true' : 'false');
-
             btn.addEventListener('click', async () => {
                 if (fach === selectedFach) return;
                 selectedFach = fach;
@@ -877,10 +715,8 @@ require_once __DIR__ . '/../navbar.php';
                 renderTabs();
                 renderTable();
                 elNewFach.value = selectedFach;
-
                 try { await post('set_fach', { fach: selectedFach }); } catch (e) {}
             });
-
             elTabs.appendChild(btn);
         });
     }
@@ -889,54 +725,42 @@ require_once __DIR__ . '/../navbar.php';
         const da = !!(a.erledigt_am && a.erledigt_am !== 'pending');
         const db = !!(b.erledigt_am && b.erledigt_am !== 'pending');
         if (da !== db) return da ? 1 : -1; // unerledigt zuerst
-
         const sa = Number(a.sort_key ?? 0);
         const sb = Number(b.sort_key ?? 0);
         if (sa !== sb) return sa - sb;
-
         return Number(a.id) - Number(b.id);
     }
 
     function makeCheckbox(task) {
         const wrap = document.createElement('div');
         wrap.className = 'lt-check';
-
         const id = `ltDone_${task.id}`;
-
         const input = document.createElement('input');
         input.type = 'checkbox';
         input.id = id;
         input.checked = !!task.erledigt_am;
-
         const label = document.createElement('label');
         label.htmlFor = id;
         label.title = input.checked ? 'Erledigt (klicken zum Zurücksetzen)' : 'Als erledigt markieren';
-
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         svg.setAttribute('viewBox', '0 0 24 24');
         svg.classList.add('lt-checkmark');
-
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         path.setAttribute('d', 'M20 6L9 17l-5-5');
         svg.appendChild(path);
         label.appendChild(svg);
-
         input.addEventListener('change', async () => {
             input.disabled = true;
             const newChecked = input.checked;
-
             // Optimistisch UI
             task.erledigt_am = newChecked ? 'pending' : null;
             updateRowState(task.id);
-
             try {
                 const res = await post('toggle_done', { id: String(task.id), checked: newChecked ? '1' : '0' });
                 if (!res || !res.ok || !res.task) throw new Error('toggle_failed');
-
                 // task update (server truth)
                 const t = res.task;
                 applyTaskUpdate(t);
-
                 input.checked = !!t.erledigt_am;
                 input.disabled = false;
                 updateRowState(task.id);
@@ -949,7 +773,6 @@ require_once __DIR__ . '/../navbar.php';
                 updateRowState(task.id);
             }
         });
-
         wrap.appendChild(input);
         wrap.appendChild(label);
         return wrap;
@@ -975,12 +798,10 @@ require_once __DIR__ . '/../navbar.php';
 
     function renderTable() {
         elTbody.innerHTML = '';
-
         const list = TASKS
             .filter(t => t.fach === selectedFach)
             .slice()
             .sort(sortTasks);
-
         if (list.length === 0) {
             const tr = document.createElement('tr');
             tr.className = 'lt-empty';
@@ -991,99 +812,75 @@ require_once __DIR__ . '/../navbar.php';
             elTbody.appendChild(tr);
             return;
         }
-
         list.forEach(task => {
             const tr = document.createElement('tr');
             tr.dataset.id = String(task.id);
             tr.className = 'lt-row' + (task.erledigt_am ? ' done' : '');
             tr.draggable = !!DRAG_ENABLED; // <<< FIX
-
             const tdDrag = document.createElement('td');
             tdDrag.className = 'lt-dragcell';
-
             const grip = document.createElement('div');
             grip.innerHTML = '&#8942;&#8942;';
             tdDrag.appendChild(grip);
-
             // Drag-Handle nur wenn Drag enabled
             tdDrag.addEventListener('pointerdown', () => { if (DRAG_ENABLED) dragAllowed = true; });
             const disableDragAllowed = () => { dragAllowed = false; };
             tdDrag.addEventListener('pointerup', disableDragAllowed);
             tdDrag.addEventListener('pointercancel', disableDragAllowed);
             tdDrag.addEventListener('pointerleave', disableDragAllowed);
-
             tdDrag.addEventListener('click', (e) => e.stopPropagation());
-
             tr.addEventListener('dragstart', (e) => {
                 if (!DRAG_ENABLED || !dragAllowed) { e.preventDefault(); return; }
                 dragAllowed = false;
-
                 draggingRow = tr;
                 draggingId = tr.dataset.id;
                 dragStartIndex = [...elTbody.querySelectorAll('tr.lt-row')]
                     .findIndex(r => r.dataset.id === String(draggingId));
-
                 tr.classList.add('lt-dragging');
                 e.dataTransfer.effectAllowed = 'move';
                 e.dataTransfer.setData('text/plain', draggingId);
-
                 setDragPointer(e);
                 updateAutoScrollFromPointer();
             });
-
             tr.addEventListener('dragover', (e) => {
                 if (!DRAG_ENABLED) return;
                 if (!draggingRow || tr === draggingRow) return;
                 e.preventDefault();
-
                 setDragPointer(e);
                 updateAutoScrollFromPointer();
-
                 hoverReorder(tr, e.clientY);
             });
-
             tr.addEventListener('dragend', async () => {
                 tr.classList.remove('lt-dragging');
                 clearDropMarkers();
                 stopAutoScroll();
-
                 await commitSortIfChanged();
-
                 draggingRow = null;
                 draggingId = null;
                 dragStartIndex = null;
             });
-
             tr.addEventListener('click', (e) => {
                 if (e.target.closest('.lt-check')) return;
                 if (e.target.closest('.lt-dragcell')) return;
                 openEditModal(task);
             });
-
             // ... rest von renderTable unverändert ...
             const tdLeft = document.createElement('td');
             tdLeft.className = 'lt-left';
-
             const main = document.createElement('div');
             main.className = 'lt-task';
-
             const top = document.createElement('div');
             top.className = 'lt-task-top';
-
             const unit = document.createElement('span');
             unit.className = 'lt-unit';
             unit.textContent = task.einheit ?? '';
-
             const title = document.createElement('span');
             title.className = 'lt-title';
             title.textContent = task.titel ?? '';
-
             top.appendChild(unit);
             top.appendChild(title);
-
             const meta = document.createElement('div');
             meta.className = 'lt-meta';
-
             const note = (task.notiz ?? '').trim();
             if (note) {
                 const noteEl = document.createElement('div');
@@ -1091,7 +888,6 @@ require_once __DIR__ . '/../navbar.php';
                 noteEl.textContent = note;
                 meta.appendChild(noteEl);
             }
-
             const dur = Number(task.dauer_sekunden ?? 0);
             if (dur > 0) {
                 const durEl = document.createElement('div');
@@ -1099,26 +895,19 @@ require_once __DIR__ . '/../navbar.php';
                 durEl.textContent = `Dauer: ${fmtHMS(dur)}`;
                 meta.appendChild(durEl);
             }
-
             main.appendChild(top);
             if (meta.childNodes.length > 0) main.appendChild(meta);
-
             tdLeft.appendChild(main);
-
             const tdRight = document.createElement('td');
             tdRight.className = 'lt-right';
             tdRight.appendChild(makeCheckbox(task));
-
             tr.appendChild(tdDrag);
             tr.appendChild(tdLeft);
             tr.appendChild(tdRight);
-
             elTbody.appendChild(tr);
         });
-
         setAccentForSubject(selectedFach);
     }
-
 
     function openModal(focusEl = null) {
         elModal.classList.remove('hidden');
@@ -1143,32 +932,25 @@ require_once __DIR__ . '/../navbar.php';
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && !elModal.classList.contains('hidden')) closeModal();
     });
-
     elSaveNew.addEventListener('click', async () => {
         const editId = (elEditId.value || '').trim();
-
         const fach = elNewFach.value;
         const einheit = elNewEinheit.value.trim();
         const titel = elNewTitel.value.trim();
         const notiz = elNewNotiz.value ?? '';
-
         const h = Math.max(0, toInt(elDurH.value, 0));
         const m = Math.max(0, toInt(elDurM.value, 0));
         const s = Math.max(0, toInt(elDurS.value, 0));
         const dauer = (h * 3600) + (m * 60) + s;
-
         if (!validSubjects.has(fach)) return;
         if (!einheit || !titel) return;
-
         elSaveNew.disabled = true;
-
         try {
             if (!editId) {
                 const res = await post('add_task', {
                     fach, einheit, titel, notiz, dauer_sekunden: String(dauer)
                 });
                 if (!res || !res.ok || !res.task) throw new Error('add_failed');
-
                 TASKS.push(res.task);
                 selectedFach = fach;
             } else {
@@ -1177,13 +959,10 @@ require_once __DIR__ . '/../navbar.php';
                     fach, einheit, titel, notiz, dauer_sekunden: String(dauer)
                 });
                 if (!res || !res.ok || !res.task) throw new Error('update_failed');
-
                 applyTaskUpdate(res.task);
                 selectedFach = res.task.fach;
             }
-
             localStorage.setItem('lerntime_fach', selectedFach);
-
             setAccentForSubject(selectedFach);
             renderTabs();
             renderTable();
@@ -1197,12 +976,14 @@ require_once __DIR__ . '/../navbar.php';
     });
 
     // Monats-Labels in Monatsmitte (Labels), Gridlines bleiben Monatsanfang (Ticks)
+
     function monthMidMsLocal(year, monthIndex0) {
         const start = DateTime.local(year, monthIndex0 + 1, 1).startOf('day');
         const dim = start.daysInMonth;
         const mid = start.plus({ days: Math.floor(dim / 2), hours: 12 }); // mittig + 12:00
         return mid.toMillis();
     }
+
     function fmtMonthDE(ms) {
         return DateTime.fromMillis(ms).setLocale('de').toFormat('MMM').replace('.', '');
     }
@@ -1212,63 +993,55 @@ require_once __DIR__ . '/../navbar.php';
         afterDraw(chart) {
             const scale = chart?.scales?.x;
             if (!scale || scale.type !== 'time') return;
-
             const xOpts = scale.options || {};
             if (!xOpts.midMonthLabels) return;
-
             const startMs = (typeof xOpts.midMonthLabelStartMs === 'number') ? xOpts.midMonthLabelStartMs : scale.min;
             const endMs   = (typeof xOpts.midMonthLabelEndMs === 'number') ? xOpts.midMonthLabelEndMs : scale.max;
-
-            const compactW = xOpts.midMonthLabelCompactWidth ?? 420;
             const ctx = chart.ctx;
-
             // Tick-Font/Farbe übernehmen
             let fontStr = '12px sans-serif';
             try {
                 if (Chart?.helpers?.toFont) fontStr = Chart.helpers.toFont(xOpts.ticks?.font).string;
             } catch (_) {}
             const color = xOpts.ticks?.color ?? Chart.defaults.color ?? '#666';
-
             const startMonth = DateTime.fromMillis(startMs).startOf('month');
             const endMonth   = DateTime.fromMillis(endMs).startOf('month');
-
             const months = [];
             let cur = startMonth;
             while (cur <= endMonth) {
                 months.push(cur);
                 cur = cur.plus({ months: 1 });
             }
-
-            const step = (typeof scale.width === 'number' && scale.width < compactW) ? 2 : 1;
-
+            const multiYear = startMonth.year !== endMonth.year;
             ctx.save();
             ctx.font = fontStr;
             ctx.fillStyle = color;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'bottom';
-
             const y = scale.bottom - 2;
-
-            months.forEach((mStart, i) => {
-                if (step === 2 && (i % 2 === 1)) return;
+            months.forEach((mStart) => {
                 const mid = mStart
                     .startOf('day')
                     .plus({ days: Math.floor(mStart.daysInMonth / 2), hours: 12 });
                 const x = scale.getPixelForValue(mid.toMillis());
-                ctx.fillText(mStart.setLocale('de').toFormat('MMM').replace('.', ''), x, y);
+                const monthLabel = mStart.setLocale('de').toFormat('MMM').replace('.', '');
+                const label = multiYear && mStart.month === 1
+                    ? `${monthLabel} ${String(mStart.year).slice(-2)}`
+                    : monthLabel;
+                ctx.fillText(label, x, y);
             });
-
             ctx.restore();
         }
     };
-    try { Chart.register(midMonthLabelsPlugin); } catch (e) {}
 
+    try { Chart.register(midMonthLabelsPlugin); } catch (e) {}
     try {
         const ann = window.ChartAnnotation || window['chartjs-plugin-annotation'];
         if (ann) Chart.register(ann);
     } catch (e) {}
 
     /* ---------------------- Chart ---------------------- */
+
     let chart = null;
 
     function secToHours(sec) {
@@ -1280,40 +1053,28 @@ require_once __DIR__ . '/../navbar.php';
     function buildDailyRemainingSeriesForSubject(fach, startDay, endDay) {
         const startMs = startDay.toMillis();
         const endMs   = endDay.endOf('day').toMillis();
-
         const list = TASKS.filter(t => t.fach === fach);
-
         let total = 0;
         let doneBefore = 0;
         const doneByDate = Object.create(null); // YYYY-MM-DD -> sec
-
         for (const t of list) {
             const dur = Math.max(0, Number(t.dauer_sekunden ?? 0));
             total += dur;
-
             if (!t.erledigt_am) continue;
-
             const dt = DateTime.fromSQL(String(t.erledigt_am), { zone: 'local' });
             if (!dt.isValid) continue;
-
             const ms = dt.toMillis();
-
             if (ms < startMs) { doneBefore += dur; continue; }
             if (ms > endMs) continue;
-
             const key = dt.toISODate();
             doneByDate[key] = (doneByDate[key] || 0) + dur;
         }
-
         let remaining = Math.max(0, total - doneBefore);
         const points = [];
-
         let zeroed = (remaining <= 0);
-
         let cursor = startDay;
         while (cursor <= endDay) {
             const key = cursor.toISODate();
-
             if (!zeroed) {
                 if (doneByDate[key]) remaining = Math.max(0, remaining - doneByDate[key]);
                 points.push({ x: cursor.toMillis(), y: secToHours(remaining) }); // 00:00
@@ -1321,53 +1082,40 @@ require_once __DIR__ . '/../navbar.php';
             } else {
                 points.push({ x: cursor.toMillis(), y: null }); // GAP => nicht auf der Abszisse weiterzeichnen
             }
-
             cursor = cursor.plus({ days: 1 });
         }
-
         return points;
     }
 
     function buildRemainingStepSeriesForSubject(fach, startDay, endDay) {
         const startMs = startDay.toMillis();
         const endMs   = endDay.endOf('day').toMillis();
-
         const list = TASKS.filter(t => t.fach === fach);
-
         // Total Workload (sek) aus allen Tasks dieses Fachs
         let total = 0;
         for (const t of list) {
             total += Math.max(0, Number(t.dauer_sekunden ?? 0));
         }
-
         // Events: { ms, dur } für erledigte Tasks innerhalb des Ranges
         let doneBefore = 0;
         const events = [];
-
         for (const t of list) {
             const dur = Math.max(0, Number(t.dauer_sekunden ?? 0));
             if (!dur) continue;
             if (!t.erledigt_am) continue;
-
             const dt = DateTime.fromSQL(String(t.erledigt_am), { zone: 'local' });
             if (!dt.isValid) continue;
-
             // >>> FIX: nach TAG gruppieren (max. 365 x-Werte/Jahr)
             const ms = dt.startOf('day').toMillis();
             // <<< FIX
-
             if (ms < startMs) { doneBefore += dur; continue; }
             if (ms > endMs) continue;
-
             events.push({ ms, dur });
         }
-
         // Startwert: Rest = total - alles was vor Range schon erledigt war
         let remaining = Math.max(0, total - doneBefore);
-
         // Events nach Zeit sortieren
         events.sort((a, b) => a.ms - b.ms);
-
         // Falls mehrere Events exakt gleiche ms haben: zusammenfassen (jetzt = gleicher Tag)
         const merged = [];
         for (const ev of events) {
@@ -1375,35 +1123,27 @@ require_once __DIR__ . '/../navbar.php';
             if (last && last.ms === ev.ms) last.dur += ev.dur;
             else merged.push({ ...ev });
         }
-
         const points = [];
-
         // Initialpunkt
         points.push({ x: startMs, y: secToHours(remaining) });
-
         // Wenn schon 0: direkt "abschneiden" (keine Linie auf der Abszisse)
         if (remaining <= 0) {
             points.push({ x: endMs, y: null });
             return points;
         }
-
         for (const ev of merged) {
             // vor Drop
             points.push({ x: ev.ms, y: secToHours(remaining) });
-
             // Drop
             remaining = Math.max(0, remaining - ev.dur);
-
             // nach Drop (senkrecht)
             points.push({ x: ev.ms, y: secToHours(remaining) });
-
             // ab 0 -> Linie beenden
             if (remaining <= 0) {
                 points.push({ x: endMs, y: null });
                 return points;
             }
         }
-
         // bis Range-Ende weiterlaufen (nur wenn >0)
         points.push({ x: endMs, y: secToHours(remaining) });
         return points;
@@ -1411,12 +1151,10 @@ require_once __DIR__ . '/../navbar.php';
 
     function rebuildChart() {
         // Range (für Chart + "done" im gewählten Jahr)
-        const range = getYearRange(selectedYear);
-
+        const range = getChartRange();
         // Top-Stats updaten
         const elDoneHours = document.getElementById('ltDoneHours');
         const elOpenHours = document.getElementById('ltOpenHours');
-
         const openSec = TASKS.reduce((acc, t) => {
             if (t && !t.erledigt_am && validSubjects.has(String(t.fach ?? ''))) {
                 acc += Math.max(0, Number(t.dauer_sekunden ?? 0));
@@ -1424,26 +1162,19 @@ require_once __DIR__ . '/../navbar.php';
             return acc;
         }, 0);
         if (elOpenHours) elOpenHours.textContent = String(Math.round(openSec / 3600));
-
-        // DONE = erledigt_am im aktuellen Jahr (Range)
-        const doneYearSec = TASKS.reduce((acc, t) => {
+        // DONE = erledigt_am im ausgewählten Zeitraum
+        const doneRangeSec = TASKS.reduce((acc, t) => {
             if (!t || !t.erledigt_am) return acc;
-
             const dur = Math.max(0, Number(t.dauer_sekunden ?? 0));
             if (!dur) return acc;
-
             const dt = DateTime.fromSQL(String(t.erledigt_am), { zone: 'local' });
             if (!dt.isValid) return acc;
-
             const ms = dt.toMillis();
             if (ms >= range.minMs && ms <= range.maxMs) acc += dur;
-
             return acc;
         }, 0);
-        if (elDoneHours) elDoneHours.textContent = String(Math.round(doneYearSec / 3600));
-
+        if (elDoneHours) elDoneHours.textContent = String(Math.round(doneRangeSec / 3600));
         const annotations = {};
-
         (() => {
             const now = DateTime.local();
             const nowMs = now.toMillis();
@@ -1458,17 +1189,13 @@ require_once __DIR__ . '/../navbar.php';
                 };
             }
         })();
-
         for (const ex of (Array.isArray(EXAMS) ? EXAMS : [])) {
             const fach = String(ex.fach ?? '');
             if (!SUBJECTS[fach]) continue;
-
             const dt = DateTime.fromSQL(String(ex.datum ?? ''), { zone: 'local' });
             if (!dt.isValid) continue;
-
             const ms = dt.startOf('day').plus({ hours: 12 }).toMillis();
             if (ms < range.minMs || ms > range.maxMs) continue;
-
             annotations[`exam_${ex.id}`] = {
                 type: 'line',
                 xMin: ms,
@@ -1479,19 +1206,14 @@ require_once __DIR__ . '/../navbar.php';
                 drawTime: 'afterDatasetsDraw'
             };
         }
-
         const datasets = Object.keys(SUBJECTS).flatMap((fach) => {
             const color = subjectColor(fach);
             const hidden = isSubjectHidden(fach);
-
             const stepData = buildRemainingStepSeriesForSubject(fach, range.startDay, range.endDay);
-
             // komplett raus, wenn nie > 0 (sonst hängts nur auf der Abszisse / unsichtbar)
             const hasPositive = Array.isArray(stepData) && stepData.some(p => p && p.y != null && Number(p.y) > 0);
             if (!hasPositive) return [];
-
             const dailyData = buildDailyRemainingSeriesForSubject(fach, range.startDay, range.endDay);
-
             return [
                 {
                     label: fach,
@@ -1525,7 +1247,6 @@ require_once __DIR__ . '/../navbar.php';
                 }
             ];
         });
-
         const cfg = {
             type: 'line',
             data: { datasets },
@@ -1549,17 +1270,13 @@ require_once __DIR__ . '/../navbar.php';
                         },
                         onClick: (e, legendItem, legend) => {
                             const chart = legend.chart;
-
                             const fach = String(legendItem.text ?? '');
                             const idx0 = legendItem.datasetIndex;
                             const nextVisible = !chart.isDatasetVisible(idx0);
-
                             hiddenSubjects[fach] = !nextVisible;
-
                             chart.data.datasets.forEach((ds, i) => {
                                 if (ds && ds.label === fach) chart.setDatasetVisibility(i, nextVisible);
                             });
-
                             chart.update();
                         }
                     },
@@ -1587,12 +1304,10 @@ require_once __DIR__ . '/../navbar.php';
                     x: {
                         type: 'time',
                         time: { unit: 'month', tooltipFormat: 'dd.LL.yyyy' },
-
                         midMonthLabels: true,
                         midMonthLabelStartMs: range.minMs,
                         midMonthLabelEndMs: range.maxMs,
                         midMonthLabelCompactWidth: 420,
-
                         ticks: {
                             autoSkip: false,
                             maxRotation: 0,
@@ -1600,7 +1315,6 @@ require_once __DIR__ . '/../navbar.php';
                             callback: () => ' '
                         },
                         grid: { display: true },
-
                         min: range.minMs,
                         max: range.maxMs
                     },
@@ -1618,7 +1332,6 @@ require_once __DIR__ . '/../navbar.php';
                 }
             }
         };
-
         const ctx = document.getElementById('ltRemainingChart');
         if (chart) {
             chart.data = cfg.data;
@@ -1629,29 +1342,17 @@ require_once __DIR__ . '/../navbar.php';
         }
     }
 
-    elYear.addEventListener('change', () => {
-        selectedYear = String(elYear.value);
-        localStorage.setItem('lerntime_year', selectedYear);
-
-        const u = new URL(location.href);
-        u.searchParams.set('jahr', selectedYear);
-        u.searchParams.delete('semester'); // cleanup alt
-        history.replaceState(null, '', u.toString());
-
-        rebuildChart();
-    });
-
     /* ---------------------- Init ---------------------- */
+
     function init() {
         setAccentForSubject(selectedFach);
         renderTabs();
         renderTable();
         rebuildChart();
     }
-
     init();
 })();
-</script>
 
+</script>
 </body>
 </html>
