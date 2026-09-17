@@ -89,7 +89,6 @@ final class LifeTimelinePage
 <html lang="de">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= self::esc($title) ?></title>
     <link rel="stylesheet" href="../FIJI.css">
     <?php if ($extraCss !== ''): ?>
@@ -409,8 +408,6 @@ final class LifeTimelinePage
 
         $rows = [];
 
-        // Nur für Altbestand ohne entry_id: bleibt sichtbar, damit er im privaten Modus
-        // angeklickt und einem Eintrag zugeordnet werden kann. Sobald zugeordnet, verschwindet die Zeile.
         if (!empty($orphanEvents)) {
             $rows[] = [
                 'type' => 'orphan_events',
@@ -573,6 +570,16 @@ final class LifeTimelinePage
                 $lastYear
             );
         }
+
+        // Horizontale Mindestbreite für iOS (wird per CSS-Variable eingespeist)
+        $mobileAxisCount = max(1, count($axisSegments));
+        if ($mode === 'gesamt' || $mode === 'jahr_auswahl') {
+            $mobileTrackWidth = max(900, min(3000, $mobileAxisCount * 450));
+        } elseif ($mode === 'jahr') {
+            $mobileTrackWidth = 1100;
+        } else {
+            $mobileTrackWidth = 850;
+        }
         ?>
 <style>
 .life-current-day-line {
@@ -586,7 +593,7 @@ final class LifeTimelinePage
     pointer-events: none;
 }
 </style>
-<div class="lt-page dashboard-page<?= $editable ? ' life-private-editable' : '' ?>">
+<div class="lt-page dashboard-page life-page life-page--timeline<?= $editable ? ' life-private-editable' : '' ?>" style="--life-mobile-track-width: <?= (int)$mobileTrackWidth ?>px;">
     <div class="lt-topbar">
         <h1 class="ueberschrift dashboard-title">
             <span class="dashboard-title-main">Studienplan <?= self::esc($titleSuffix) ?></span>
@@ -765,7 +772,6 @@ final class LifeTimelinePage
 
                                         $entryTooltipLines = self::normalizeInfoLines([
                                             $entry['title'],
-                                            /* 'Gruppe: ' . ($groupsById[$groupId]['name'] ?? ''), */
                                         ]);
                                         $entryTooltip = implode("\n", $entryTooltipLines);
                                     ?>
@@ -809,7 +815,6 @@ final class LifeTimelinePage
                                                         $entry['title'],
                                                         'Von: ' . self::fmtDate(self::dt($segment['start_date'])),
                                                         'Bis: ' . self::fmtDate(self::dt($segment['end_date'])),
-                                                        /* 'Gruppe: ' . ($groupsById[$groupId]['name'] ?? ''), */
                                                     ]);
                                                     $segmentTooltip = implode("\n", $segmentTooltipLines);
                                                 ?>
@@ -925,8 +930,15 @@ final class LifeTimelinePage
     }
 
     if (axisScroll && bodyScroll) {
+        let isSyncing = false;
         const syncAxis = () => {
-            axisScroll.scrollLeft = bodyScroll.scrollLeft;
+            if (!isSyncing) {
+                window.requestAnimationFrame(() => {
+                    axisScroll.scrollLeft = bodyScroll.scrollLeft;
+                    isSyncing = false;
+                });
+                isSyncing = true;
+            }
         };
 
         bodyScroll.addEventListener('scroll', syncAxis, { passive: true });
@@ -1005,7 +1017,6 @@ final class LifeTimelinePage
 
     applyCollapsedState();
 
-    // In der privaten Ansicht übernimmt LifePrivate die Klicks und öffnet Edit-Modals.
     if (lifeEditable) {
         return;
     }
@@ -1292,7 +1303,7 @@ final class LifeTimelinePage
         $labelsJson = json_encode($cpChart['labels'], JSON_UNESCAPED_UNICODE);
         $valuesJson = json_encode($cpChart['values'], JSON_UNESCAPED_UNICODE);
         ?>
-<div class="lt-page dashboard-page<?= $editable ? ' life-private-editable' : '' ?>">
+<div class="lt-page dashboard-page life-page life-page--cp<?= $editable ? ' life-private-editable' : '' ?>">
     <div class="lt-topbar">
         <h1 class="ueberschrift dashboard-title">
             <span class="dashboard-title-main">Studienplan <?= self::esc($titleSuffix) ?></span>
@@ -1782,34 +1793,6 @@ final class LifeTimelinePage
             self::normalizeInfoLines($parts),
             JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
         ));
-    }
-
-    private static function outlineParts(string $outline): array
-    {
-        $parts = preg_split('/\./', $outline);
-
-        return array_map(static fn($p) => (int)$p, $parts ?: []);
-    }
-
-    private static function compareOutline(string $a, string $b): int
-    {
-        $aa = self::outlineParts($a);
-        $bb = self::outlineParts($b);
-        $len = max(count($aa), count($bb));
-
-        for ($i = 0; $i < $len; $i++) {
-            $av = $aa[$i] ?? -1;
-            $bv = $bb[$i] ?? -1;
-
-            if ($av < $bv) {
-                return -1;
-            }
-            if ($av > $bv) {
-                return 1;
-            }
-        }
-
-        return 0;
     }
 
     private static function statusLabel(?string $status): string

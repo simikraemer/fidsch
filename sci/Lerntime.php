@@ -421,7 +421,8 @@ require_once __DIR__ . '/../navbar.php';
     const elSaveNew = document.getElementById('ltSaveNew');
     const elDeleteBtn = document.getElementById('ltDeleteBtn');
     const validSubjects = new Set(Object.keys(SUBJECTS));
-    const DRAG_ENABLED = window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+    const DRAG_ENABLED = !!(window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches);
+    const TOUCH_UI = !!(window.matchMedia && window.matchMedia('(hover: none) and (pointer: coarse)').matches);
 
     function subjectColor(fach) {
         return SUBJECTS?.[String(fach ?? '')]?.color || '#999';
@@ -796,41 +797,31 @@ require_once __DIR__ . '/../navbar.php';
         row.classList.toggle('pending', isPending);
     }
 
-    function renderTable() {
-        elTbody.innerHTML = '';
-        const list = TASKS
-            .filter(t => t.fach === selectedFach)
-            .slice()
-            .sort(sortTasks);
-        if (list.length === 0) {
-            const tr = document.createElement('tr');
-            tr.className = 'lt-empty';
-            const td = document.createElement('td');
-            td.colSpan = 3;
-            td.textContent = 'Noch keine Einträge für dieses Fach.';
-            tr.appendChild(td);
-            elTbody.appendChild(tr);
-            return;
-        }
-        list.forEach(task => {
-            const tr = document.createElement('tr');
-            tr.dataset.id = String(task.id);
-            tr.className = 'lt-row' + (task.erledigt_am ? ' done' : '');
-            tr.draggable = !!DRAG_ENABLED; // <<< FIX
-            const tdDrag = document.createElement('td');
-            tdDrag.className = 'lt-dragcell';
-            const grip = document.createElement('div');
-            grip.innerHTML = '&#8942;&#8942;';
-            tdDrag.appendChild(grip);
-            // Drag-Handle nur wenn Drag enabled
-            tdDrag.addEventListener('pointerdown', () => { if (DRAG_ENABLED) dragAllowed = true; });
+    let renderTableGeneration = 0;
+
+    function buildTaskRow(task) {
+        const tr = document.createElement('tr');
+        tr.dataset.id = String(task.id);
+        tr.className = 'lt-row' + (task.erledigt_am ? ' done' : '');
+        tr.draggable = !!DRAG_ENABLED;
+
+        const tdDrag = document.createElement('td');
+        tdDrag.className = 'lt-dragcell';
+        const grip = document.createElement('div');
+        grip.innerHTML = '&#8942;&#8942;';
+        tdDrag.appendChild(grip);
+
+        // Drag existiert auf Touch-Geräten ohnehin nicht. Dort deshalb auch
+        // keine fünf nutzlosen Drag-/Pointer-Listener pro Tabellenzeile anlegen.
+        if (DRAG_ENABLED) {
+            tdDrag.addEventListener('pointerdown', () => { dragAllowed = true; });
             const disableDragAllowed = () => { dragAllowed = false; };
             tdDrag.addEventListener('pointerup', disableDragAllowed);
             tdDrag.addEventListener('pointercancel', disableDragAllowed);
             tdDrag.addEventListener('pointerleave', disableDragAllowed);
-            tdDrag.addEventListener('click', (e) => e.stopPropagation());
+
             tr.addEventListener('dragstart', (e) => {
-                if (!DRAG_ENABLED || !dragAllowed) { e.preventDefault(); return; }
+                if (!dragAllowed) { e.preventDefault(); return; }
                 dragAllowed = false;
                 draggingRow = tr;
                 draggingId = tr.dataset.id;
@@ -842,14 +833,15 @@ require_once __DIR__ . '/../navbar.php';
                 setDragPointer(e);
                 updateAutoScrollFromPointer();
             });
+
             tr.addEventListener('dragover', (e) => {
-                if (!DRAG_ENABLED) return;
                 if (!draggingRow || tr === draggingRow) return;
                 e.preventDefault();
                 setDragPointer(e);
                 updateAutoScrollFromPointer();
                 hoverReorder(tr, e.clientY);
             });
+
             tr.addEventListener('dragend', async () => {
                 tr.classList.remove('lt-dragging');
                 clearDropMarkers();
@@ -859,54 +851,117 @@ require_once __DIR__ . '/../navbar.php';
                 draggingId = null;
                 dragStartIndex = null;
             });
-            tr.addEventListener('click', (e) => {
-                if (e.target.closest('.lt-check')) return;
-                if (e.target.closest('.lt-dragcell')) return;
-                openEditModal(task);
-            });
-            // ... rest von renderTable unverändert ...
-            const tdLeft = document.createElement('td');
-            tdLeft.className = 'lt-left';
-            const main = document.createElement('div');
-            main.className = 'lt-task';
-            const top = document.createElement('div');
-            top.className = 'lt-task-top';
-            const unit = document.createElement('span');
-            unit.className = 'lt-unit';
-            unit.textContent = task.einheit ?? '';
-            const title = document.createElement('span');
-            title.className = 'lt-title';
-            title.textContent = task.titel ?? '';
-            top.appendChild(unit);
-            top.appendChild(title);
-            const meta = document.createElement('div');
-            meta.className = 'lt-meta';
-            const note = (task.notiz ?? '').trim();
-            if (note) {
-                const noteEl = document.createElement('div');
-                noteEl.className = 'lt-note';
-                noteEl.textContent = note;
-                meta.appendChild(noteEl);
-            }
-            const dur = Number(task.dauer_sekunden ?? 0);
-            if (dur > 0) {
-                const durEl = document.createElement('div');
-                durEl.className = 'lt-dur';
-                durEl.textContent = `Dauer: ${fmtHMS(dur)}`;
-                meta.appendChild(durEl);
-            }
-            main.appendChild(top);
-            if (meta.childNodes.length > 0) main.appendChild(meta);
-            tdLeft.appendChild(main);
-            const tdRight = document.createElement('td');
-            tdRight.className = 'lt-right';
-            tdRight.appendChild(makeCheckbox(task));
-            tr.appendChild(tdDrag);
-            tr.appendChild(tdLeft);
-            tr.appendChild(tdRight);
-            elTbody.appendChild(tr);
+        }
+
+        tdDrag.addEventListener('click', (e) => e.stopPropagation());
+
+        tr.addEventListener('click', (e) => {
+            if (e.target.closest('.lt-check')) return;
+            if (e.target.closest('.lt-dragcell')) return;
+            openEditModal(task);
         });
-        setAccentForSubject(selectedFach);
+
+        const tdLeft = document.createElement('td');
+        tdLeft.className = 'lt-left';
+        const main = document.createElement('div');
+        main.className = 'lt-task';
+        const top = document.createElement('div');
+        top.className = 'lt-task-top';
+        const unit = document.createElement('span');
+        unit.className = 'lt-unit';
+        unit.textContent = task.einheit ?? '';
+        const title = document.createElement('span');
+        title.className = 'lt-title';
+        title.textContent = task.titel ?? '';
+        top.appendChild(unit);
+        top.appendChild(title);
+
+        const meta = document.createElement('div');
+        meta.className = 'lt-meta';
+        const note = (task.notiz ?? '').trim();
+        if (note) {
+            const noteEl = document.createElement('div');
+            noteEl.className = 'lt-note';
+            noteEl.textContent = note;
+            meta.appendChild(noteEl);
+        }
+
+        const dur = Number(task.dauer_sekunden ?? 0);
+        if (dur > 0) {
+            const durEl = document.createElement('div');
+            durEl.className = 'lt-dur';
+            durEl.textContent = `Dauer: ${fmtHMS(dur)}`;
+            meta.appendChild(durEl);
+        }
+
+        main.appendChild(top);
+        if (meta.childNodes.length > 0) main.appendChild(meta);
+        tdLeft.appendChild(main);
+
+        const tdRight = document.createElement('td');
+        tdRight.className = 'lt-right';
+        tdRight.appendChild(makeCheckbox(task));
+
+        tr.appendChild(tdDrag);
+        tr.appendChild(tdLeft);
+        tr.appendChild(tdRight);
+        return tr;
+    }
+
+    function renderTable() {
+        const generation = ++renderTableGeneration;
+        elTbody.innerHTML = '';
+
+        const list = TASKS
+            .filter(t => t.fach === selectedFach)
+            .slice()
+            .sort(sortTasks);
+
+        if (list.length === 0) {
+            const tr = document.createElement('tr');
+            tr.className = 'lt-empty';
+            const td = document.createElement('td');
+            td.colSpan = 3;
+            td.textContent = 'Noch keine Einträge für dieses Fach.';
+            tr.appendChild(td);
+            elTbody.appendChild(tr);
+            return;
+        }
+
+        // Desktop bleibt synchron wie bisher. Auf Touch-Geräten werden große
+        // Fächer portionsweise gerendert, damit Mobile Safari zwischen den
+        // Batches layouten/zeichnen und Eingaben verarbeiten kann.
+        if (!TOUCH_UI || list.length <= 30) {
+            const fragment = document.createDocumentFragment();
+            list.forEach(task => fragment.appendChild(buildTaskRow(task)));
+            elTbody.appendChild(fragment);
+            setAccentForSubject(selectedFach);
+            return;
+        }
+
+        const BATCH_SIZE = 20;
+        let index = 0;
+
+        const renderBatch = () => {
+            // Falls zwischenzeitlich ein anderes Fach gewählt wurde, alten
+            // Renderlauf sofort abbrechen.
+            if (generation !== renderTableGeneration) return;
+
+            const fragment = document.createDocumentFragment();
+            const stop = Math.min(index + BATCH_SIZE, list.length);
+            for (; index < stop; index++) {
+                fragment.appendChild(buildTaskRow(list[index]));
+            }
+            elTbody.appendChild(fragment);
+
+            if (index < list.length) {
+                requestAnimationFrame(renderBatch);
+            } else {
+                setAccentForSubject(selectedFach);
+            }
+        };
+
+        renderBatch();
     }
 
     function openModal(focusEl = null) {

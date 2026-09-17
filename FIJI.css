@@ -2355,7 +2355,9 @@ button.chart-back:focus-visible {
     }
 
     .life-board {
-        width: max-content;
+        /* Auf iOS ohne viewport-meta nicht auf die intrinsischen ~720px
+           zusammenschrumpfen; sonst bleibt rechts ein leerer Streifen. */
+        width: 100%;
         min-width: 0;
     }
 
@@ -9854,6 +9856,7 @@ body.albums-modal-open {
  * ========================================================= */
 
 .food-dashboard-page {
+    --food-dashboard-table-row-height: 34px;
     max-width: 1500px;
     margin-top: 24px;
 }
@@ -9895,49 +9898,6 @@ body.albums-modal-open {
     font-weight: 700;
 }
 
-
-/* ---------------------------------------------------------
- * KPI-Zeile
- * --------------------------------------------------------- */
-
-.food-dashboard-kpis {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 12px;
-    margin-bottom: 16px;
-}
-
-.food-dashboard-kpi {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    min-width: 0;
-    padding: 13px 15px;
-    border-radius: var(--border-radius);
-    background: #fff;
-    box-shadow: var(--shadow);
-}
-
-.food-dashboard-kpi-label {
-    color: rgba(34, 34, 34, 0.58);
-    font-size: 0.78rem;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-}
-
-.food-dashboard-kpi strong {
-    color: var(--text);
-    font-size: 1.35rem;
-    font-weight: 900;
-    font-variant-numeric: tabular-nums;
-}
-
-.food-dashboard-kpi--metric {
-    border-left: 5px solid var(--primary);
-}
-
-
 /* ---------------------------------------------------------
  * Messwert-Tabs
  * --------------------------------------------------------- */
@@ -9976,25 +9936,48 @@ body.albums-modal-open {
     color: #fff;
 }
 
-
 /* ---------------------------------------------------------
- * Gemeinsame Karten
+ * Hauptzeile: Diagramm + Gruppen + Gerichte
  * --------------------------------------------------------- */
+
+.food-dashboard-main-grid {
+    display: grid;
+    grid-template-columns:
+        minmax(0, 1.90fr)
+        minmax(220px, 0.58fr)
+        minmax(260px, 0.72fr);
+    gap: 16px;
+    align-items: stretch;
+
+    /* Auf einem ~850px hohen Desktop liegt die Hauptzeile damit bei ca. 350px
+       und somit rund 200px unter der bisherigen natürlichen Tabellenhöhe.
+       Auf hohen Displays darf sie wieder wachsen, damit zusätzliche Zeilen Platz haben. */
+    height: clamp(340px, calc(100dvh - 300px), 560px);
+    min-height: 0;
+}
 
 .food-dashboard-chart-card,
 .food-dashboard-table-card {
     min-width: 0;
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+    box-sizing: border-box;
+    align-self: stretch;
     border-radius: var(--border-radius);
     background: #fff;
     box-shadow: var(--shadow);
 }
 
 .food-dashboard-chart-card {
-    margin-bottom: 16px;
-    padding: 16px 18px 18px;
+    display: flex;
+    flex-direction: column;
+    padding: 14px 16px 16px;
 }
 
 .food-dashboard-table-card {
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
 }
 
@@ -10003,221 +9986,128 @@ body.albums-modal-open {
     align-items: center;
     justify-content: space-between;
     gap: 12px 20px;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
 }
 
 .food-dashboard-card-head h2 {
     margin: 0;
-    font-size: 1.08rem;
-}
-
-.food-dashboard-card-head p {
-    margin: 4px 0 0;
-    color: rgba(34, 34, 34, 0.55);
-    font-size: 0.82rem;
+    font-size: 1.05rem;
 }
 
 .food-dashboard-card-head > strong {
     margin-left: auto;
     color: var(--primary-dark);
-    font-size: 1.15rem;
+    font-size: 1.08rem;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
 }
 
-
 /* ---------------------------------------------------------
- * Kreisdiagramm
+ * Diagramm
  * --------------------------------------------------------- */
 
 .food-dashboard-chart-wrap {
     position: relative;
-    width: 100%;
-    height: 500px;
-    min-height: 420px;
-}
-
-
-/* ---------------------------------------------------------
- * Rankings
- * --------------------------------------------------------- */
-
-.food-dashboard-rankings {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 16px;
-    align-items: start;
-}
-
-.food-dashboard-table-card .food-dashboard-card-head {
-    padding: 15px 16px 0;
-}
-
-.food-dashboard-table-wrap {
+    grid-template-columns: minmax(0, 1fr) minmax(190px, 0.46fr);
+    gap: 18px;
+    flex: 1 1 auto;
     width: 100%;
-    overflow-x: auto;
+    min-height: 0;
 }
 
-.food-dashboard-table {
-    width: 100%;
-    border-collapse: collapse;
-    background: #fff;
-    font-family: var(--font);
-    font-size: 0.88rem;
+.food-dashboard-chart-canvas-wrap {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
 }
 
-.food-dashboard-table th,
-.food-dashboard-table td {
-    padding: 10px 12px;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.07);
-    text-align: left;
-    vertical-align: middle;
+.food-dashboard-chart-canvas-wrap > canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
 }
 
-.food-dashboard-table th {
-    background: var(--accent);
-    color: var(--text);
-    font-weight: 850;
-    white-space: nowrap;
+.food-dashboard-chart-wrap.is-frequency-chart {
+    grid-template-columns: 1fr;
 }
 
-.food-dashboard-table tbody tr:hover {
-    background: #fff2e5;
+.food-dashboard-chart-card.is-frequency-detail {
+    border-top: 4px solid var(--primary);
 }
 
-.food-dashboard-table tbody tr:last-child td {
-    border-bottom: 0;
-}
-
-.food-dashboard-num {
-    text-align: right !important;
-    white-space: nowrap;
-    font-variant-numeric: tabular-nums;
-}
-
-.food-dashboard-rank {
-    width: 34px;
-    color: rgba(34, 34, 34, 0.48);
-    font-weight: 800;
-    text-align: center !important;
-}
-
-.food-dashboard-category-chip {
-    display: inline-flex;
+.food-dashboard-pie-legend {
+    min-width: 0;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 12px;
+    align-content: center;
     align-items: center;
+}
+
+.food-dashboard-pie-legend[hidden] {
+    display: none !important;
+}
+
+.food-dashboard-pie-legend-column {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 9px;
+}
+
+.food-dashboard-pie-legend-item {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 0.72rem;
+    line-height: 1.15;
+    color: rgba(34, 34, 34, 0.74);
+}
+
+.food-dashboard-pie-legend-dot {
+    flex: 0 0 12px;
+    width: 12px;
+    height: 12px;
     border-radius: 999px;
-    background: var(--bg-light);
-    color: rgba(34, 34, 34, 0.72);
-    font-size: 0.75rem;
-    font-weight: 750;
+}
+
+.food-dashboard-pie-legend-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
-}
-
-.food-dashboard-empty {
-    padding: 26px 12px !important;
-    color: rgba(34, 34, 34, 0.50);
-    text-align: center !important;
-}
-
-
-/* ---------------------------------------------------------
- * Responsive
- * --------------------------------------------------------- */
-
-@media (max-width: 1100px) {
-    .food-dashboard-kpis {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .food-dashboard-rankings {
-        grid-template-columns: 1fr;
-    }
-}
-
-@media (max-width: 760px) {
-    .food-dashboard-page {
-        padding-left: 10px;
-        padding-right: 10px;
-    }
-
-    .food-dashboard-topbar {
-        align-items: stretch;
-    }
-
-    .food-dashboard-period-form {
-        width: 100%;
-        flex-basis: 100%;
-    }
-
-    .food-dashboard-kpis {
-        grid-template-columns: 1fr 1fr;
-    }
-
-    .food-dashboard-metric-tabs {
-        gap: 6px;
-    }
-
-    .food-dashboard-metric-tab {
-        flex-basis: calc(50% - 6px);
-        max-width: none;
-    }
-
-    .food-dashboard-chart-wrap {
-        height: 430px;
-        min-height: 430px;
-    }
-
-    .food-dashboard-card-head {
-        align-items: flex-start;
-        flex-direction: column;
-    }
-
-    .food-dashboard-card-head > strong {
-        margin-left: 0;
-    }
-}
-
-@media (max-width: 520px) {
-    .food-dashboard-kpis {
-        grid-template-columns: 1fr;
-    }
-
-    .food-dashboard-metric-tab {
-        flex-basis: 100%;
-    }
-
-    .food-dashboard-chart-wrap {
-        height: 520px;
-    }
 }
 
 .food-dashboard-chart-title-row {
     display: flex;
     align-items: center;
+    min-width: 0;
     gap: 10px;
+}
+
+.food-dashboard-chart-title-row h2 {
+    min-width: 0;
+    margin: 0;
 }
 
 button.food-dashboard-back {
     all: unset;
-
     display: inline-flex;
     align-items: center;
     justify-content: center;
-
     flex: 0 0 auto;
-
     margin: 0;
     padding: 0;
-
     color: rgba(34, 34, 34, 0.55);
-
     font-family: var(--font);
     font-size: 1.65rem;
     font-weight: 500;
     line-height: 1;
-
     cursor: pointer;
-
     transition:
         color 0.12s ease,
         transform 0.12s ease;
@@ -10239,8 +10129,255 @@ button.food-dashboard-back[hidden] {
     display: none !important;
 }
 
-.food-dashboard-chart-title-row h2 {
-    margin: 0;
+/* Legende der Mehrfachauswahl im Liniendiagramm.
+   Sie sitzt direkt links neben dem Gesamtwert im Kartenkopf. */
+.food-dashboard-line-legend {
+    min-width: 0;
+    max-width: 48%;
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px 12px;
+    flex-wrap: wrap;
+}
+
+.food-dashboard-line-legend[hidden] {
+    display: none !important;
+}
+
+.food-dashboard-line-legend:not([hidden]) + strong {
+    margin-left: 0;
+}
+
+.food-dashboard-line-legend-item {
+    min-width: 0;
+    max-width: 170px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: rgba(34, 34, 34, 0.72);
+    font-size: 0.72rem;
+    line-height: 1.1;
+}
+
+.food-dashboard-line-legend-swatch {
+    flex: 0 0 16px;
+    width: 16px;
+    height: 3px;
+    border-radius: 999px;
+}
+
+.food-dashboard-line-legend-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ---------------------------------------------------------
+ * Rankings
+ * --------------------------------------------------------- */
+
+.food-dashboard-table-wrap {
+    width: 100%;
+    flex: 1 1 auto;
+    overflow: hidden;
+}
+
+.food-dashboard-table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    background: #fff;
+    font-family: var(--font);
+    font-size: 0.84rem;
+}
+
+.food-dashboard-table th,
+.food-dashboard-table td {
+    height: var(--food-dashboard-table-row-height);
+    padding: 0 10px;
+    box-sizing: border-box;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+    text-align: left;
+    vertical-align: middle;
+}
+
+.food-dashboard-table th {
+    background: var(--accent);
+    color: var(--text);
+    font-weight: 850;
+    white-space: nowrap;
+}
+
+.food-dashboard-table th:first-child,
+.food-dashboard-table td:first-child {
+    width: auto;
+}
+
+.food-dashboard-table th:last-child,
+.food-dashboard-table td:last-child {
+    width: 112px;
+}
+
+.food-dashboard-name-cell,
+.food-dashboard-name-cell strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.food-dashboard-name-cell strong {
+    display: block;
+}
+
+.food-dashboard-table tbody tr:hover {
+    background: #fff2e5;
+}
+
+.food-dashboard-table tbody tr.food-dashboard-food-clickable {
+    cursor: pointer;
+}
+
+.food-dashboard-table tbody tr.food-dashboard-food-clickable:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: -2px;
+    background: #fff2e5;
+}
+
+.food-dashboard-table tbody tr.food-dashboard-food-clickable.is-selected-food {
+    background: #fff2e5;
+    box-shadow: inset 5px 0 0 var(--primary);
+}
+
+.food-dashboard-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.food-dashboard-num {
+    text-align: right !important;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.food-dashboard-empty {
+    padding: 26px 12px !important;
+    color: rgba(34, 34, 34, 0.50);
+    text-align: center !important;
+}
+
+/* ---------------------------------------------------------
+ * Responsive
+ * --------------------------------------------------------- */
+
+@media (max-width: 1180px) {
+    .food-dashboard-main-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        height: auto;
+    }
+
+    .food-dashboard-chart-card {
+        grid-column: 1 / -1;
+        min-height: 390px;
+    }
+}
+
+@media (max-width: 760px) {
+    .food-dashboard-page {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+    .food-dashboard-topbar {
+        align-items: stretch;
+    }
+
+    .food-dashboard-period-form {
+        width: 100%;
+        flex-basis: 100%;
+    }
+
+    .food-dashboard-metric-tabs {
+        gap: 6px;
+    }
+
+    .food-dashboard-metric-tab {
+        flex-basis: calc(50% - 6px);
+        max-width: none;
+    }
+
+    .food-dashboard-main-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .food-dashboard-chart-card {
+        grid-column: auto;
+        min-height: 430px;
+    }
+
+    .food-dashboard-chart-wrap {
+        grid-template-columns: minmax(0, 1fr) minmax(165px, 0.48fr);
+        min-height: 350px;
+    }
+
+    .food-dashboard-chart-wrap.is-frequency-chart {
+        min-height: 340px;
+    }
+
+    .food-dashboard-card-head {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .food-dashboard-chart-card .food-dashboard-card-head {
+        flex-direction: row;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .food-dashboard-line-legend {
+        order: 3;
+        max-width: 100%;
+        width: 100%;
+        margin-left: 0;
+        justify-content: flex-start;
+    }
+
+    .food-dashboard-card-head > strong {
+        margin-left: 0;
+    }
+
+    .food-dashboard-chart-card .food-dashboard-card-head > strong {
+        margin-left: auto;
+    }
+}
+
+@media (max-width: 520px) {
+    .food-dashboard-metric-tab {
+        flex-basis: 100%;
+    }
+
+    .food-dashboard-chart-card {
+        min-height: 650px;
+    }
+
+    .food-dashboard-chart-wrap {
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(330px, 1fr) auto;
+        min-height: 560px;
+    }
+
+    .food-dashboard-chart-wrap.is-frequency-chart {
+        grid-template-rows: minmax(340px, 1fr);
+        min-height: 340px;
+    }
+
+    .food-dashboard-pie-legend {
+        grid-auto-flow: column;
+        align-content: start;
+    }
 }
 
 /* =========================================================
@@ -12355,5 +12492,209 @@ body.anki-page-active {
         min-height: 48px;
         padding-left: 5px;
         padding-right: 5px;
+    }
+}
+
+/* SCI / Lerntime: iOS-Performance bei vielen Tabellenzeilen.
+   Keine Größen/Abstände/Buttons werden verändert. */
+@supports (-webkit-touch-callout: none) {
+    #ltPage .lt-row {
+        transition: none;
+    }
+
+    #ltPage .lt-row:active {
+        transform: none;
+    }
+
+    #ltPage .lt-row.done {
+        /* CSS-Filter auf vielen <tr> erzeugen in Mobile Safari teure
+           Compositing-Layer. Die vorhandene opacity bleibt erhalten. */
+        filter: none;
+    }
+
+    #ltPage .lt-check label,
+    #ltPage .lt-checkmark path {
+        transition: none;
+    }
+}
+
+/* =========================================================
+ * SCI / Life: iPhone-Timeline
+ *
+ * head.php besitzt bewusst kein viewport-meta. Mobile Safari
+ * arbeitet deshalb mit einem Layout-Viewport um ~980 CSS-px.
+ * Dieser Block ist deshalb iOS-spezifisch und verwendet 1100px
+ * statt eines klassischen 760px-Breakpoints.
+ * Desktop / Full-HD bleibt vollständig unverändert.
+ * ========================================================= */
+@supports (-webkit-touch-callout: none) {
+    @media (max-width: 1100px) {
+        /* Topbar & Controls umbrechen statt zu quetschen */
+        .life-page .lt-topbar {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 14px;
+        }
+
+        .life-page .ueberschrift.dashboard-title {
+            text-align: left;
+            margin-bottom: 4px;
+        }
+
+        .life-page .life-edit-inline-actions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-start;
+            gap: 8px;
+            width: 100%;
+            min-width: 0;
+            order: 2;
+        }
+
+        .life-page .life-edit-inline-actions .life-edit-new {
+            flex: 1 1 auto;
+            padding: 10px 14px;
+            font-size: 0.95rem;
+        }
+
+        .life-page .life-controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-end;
+            gap: 10px;
+            width: 100%;
+            order: 3;
+        }
+
+        .life-page .life-sidewrap,
+        .life-page .life-sidewrap--year-range,
+        .life-page .life-modewrap {
+            flex: 1 1 calc(50% - 10px);
+            min-width: 140px;
+            width: auto;
+        }
+
+        .life-page .kategorie-select {
+            height: 44px;
+            font-size: 1rem;
+        }
+
+        /* Timeline-Scrolling & Board */
+        .life-page .life-wrap {
+            padding-left: 0;
+            padding-right: 0;
+            overflow: visible;
+        }
+
+        .life-page .life-axis-scroll,
+        .life-page .life-body-scroll {
+            overflow-x: auto;
+            overflow-y: visible;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Board-Breite: Fixe Spalte (330px) + dynamische Track-Breite */
+        .life-page .life-board {
+            width: max-content;
+            min-width: calc(330px + var(--life-mobile-track-width, 1000px));
+        }
+
+        .life-page .life-axis-row,
+        .life-page .life-row {
+            grid-template-columns: 330px minmax(var(--life-mobile-track-width, 1000px), 1fr);
+            align-items: stretch;
+            width: 100%;
+        }
+
+        /* Obere Achsenzeile (Jahre / Monate) vergrößern */
+        .life-page .life-ordinate-spacer,
+        .life-page .life-months {
+            min-height: 52px;
+        }
+
+        .life-page .life-month-cell {
+            font-size: 1.35rem;
+            font-weight: 850;
+            padding-bottom: 8px;
+        }
+
+        /* Zeilenhöhe vergrößern für Lesbarkeit & Touch-Ziele */
+        .life-page .life-row--group {
+            min-height: 48px;
+        }
+
+        .life-page .life-row--entry {
+            min-height: 52px;
+        }
+
+        .life-page .life-ordinate-spacer,
+        .life-page .life-label {
+            width: 330px;
+            min-width: 330px;
+            max-width: 330px;
+            flex: none;
+            box-sizing: border-box;
+            padding: 0 12px;
+            padding-left: calc(12px + (var(--life-depth, 0) * 16px)) !important;
+            background: #fff;
+            position: sticky;
+            left: 0;
+            z-index: 10;
+        }
+
+        /* Größere, deutliche Schrift für Fach- und Gruppennamen */
+        .life-page .life-label-text {
+            font-size: 1.22rem;
+            font-weight: 600;
+            line-height: 1.2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .life-page .life-label--group .life-label-text {
+            font-size: 1.28rem;
+            font-weight: 850;
+        }
+
+        /* Klapp-Pfeil passend zur Schrift skalieren */
+        .life-page .life-group-toggle {
+            width: 28px;
+            height: 28px;
+            min-width: 28px;
+            margin-right: 10px;
+        }
+
+        .life-page .life-group-toggle-icon {
+            border-top: 6px solid transparent;
+            border-bottom: 6px solid transparent;
+            border-left: 8px solid currentColor;
+        }
+
+        .life-page .life-months,
+        .life-page .life-track {
+            min-width: var(--life-mobile-track-width, 1000px);
+            width: 100%;
+            flex: none;
+        }
+
+        .life-page .life-bar {
+            height: 18px;
+            border-radius: 4px;
+            z-index: 4;
+        }
+
+        .life-page .life-event {
+            width: 14px;
+            height: 14px;
+            z-index: 5;
+        }
+
+        .life-page .life-event::before,
+        .life-page .life-event::after {
+            width: 16px;
+            height: 3px;
+        }
     }
 }

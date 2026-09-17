@@ -22,7 +22,12 @@ if (!isset($page_title) || $page_title === '') {
         })();
     </script>
 
-    <link rel="stylesheet" href="/FIJI.css?v=17">
+    <?php
+    $cssFile = $_SERVER['DOCUMENT_ROOT'] . '/FIJI.css';
+    $cssVersion = is_file($cssFile) ? filemtime($cssFile) : time();
+    ?>
+
+    <link rel="stylesheet" href="/FIJI.css?v=<?= $cssVersion ?>">
 
     <!-- 1) Standard: Navbar nur verstecken, bis wir einmalig confirmed haben -->
     <style>
