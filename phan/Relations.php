@@ -4180,6 +4180,47 @@ require_once __DIR__ . '/../navbar.php';
             0.82;
 
 
+        /*
+         * Zusätzliche semantische Trennung:
+         * Direkt verbundene Charaktere dürfen entsprechend ihrer
+         * Relationsfeder nah beieinander liegen. Charaktere ohne
+         * direkte Relation bekommen unterhalb eines größeren
+         * Mindestabstands eine zusätzliche weiche Abstoßung.
+         *
+         * Das verhindert, dass räumlich zufällig benachbarte,
+         * unverknüpfte Äste visuell wie zusammengehörig wirken.
+         */
+        const directlyRelated =
+            new Set();
+
+        relations.forEach(
+            relation => {
+                const a =
+                    Math.min(
+                        relation.from,
+                        relation.to
+                    );
+
+                const b =
+                    Math.max(
+                        relation.from,
+                        relation.to
+                    );
+
+                directlyRelated.add(
+                    `${a}:${b}`
+                );
+            }
+        );
+
+
+        const unrelatedDistance =
+            300;
+
+        const unrelatedStrength =
+            0.035;
+
+
         for (
             let iteration = 0;
             iteration < iterationCount;
@@ -4309,6 +4350,80 @@ require_once __DIR__ . '/../navbar.php';
                     const ny =
                         dy
                         / distance;
+
+
+                    const pairA =
+                        Math.min(
+                            a.char.id,
+                            b.char.id
+                        );
+
+                    const pairB =
+                        Math.max(
+                            a.char.id,
+                            b.char.id
+                        );
+
+                    const hasDirectRelation =
+                        directlyRelated.has(
+                            `${pairA}:${pairB}`
+                        );
+
+
+                    /*
+                     * Unverbundene Charaktere erhalten zusätzlich
+                     * eine weiche Nahbereichs-Abstoßung. Sie wirkt
+                     * nur unterhalb unrelatedDistance und bläst
+                     * den gesamten Graphen daher nicht unnötig auf.
+                     */
+                    if (
+                        !hasDirectRelation
+                        && distance
+                            < unrelatedDistance
+                    ) {
+                        const pressure =
+                            (
+                                unrelatedDistance
+                                - distance
+                            )
+                            * unrelatedStrength;
+
+                        fx.set(
+                            a.char.id,
+                            fx.get(
+                                a.char.id
+                            )
+                            + nx
+                                * pressure
+                        );
+
+                        fy.set(
+                            a.char.id,
+                            fy.get(
+                                a.char.id
+                            )
+                            + ny
+                                * pressure
+                        );
+
+                        fx.set(
+                            b.char.id,
+                            fx.get(
+                                b.char.id
+                            )
+                            - nx
+                                * pressure
+                        );
+
+                        fy.set(
+                            b.char.id,
+                            fy.get(
+                                b.char.id
+                            )
+                            - ny
+                                * pressure
+                        );
+                    }
 
 
                     fx.set(

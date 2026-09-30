@@ -38,7 +38,7 @@ $zeitraum = isset($_GET['zeitraum']) ? trim((string)$_GET['zeitraum']) : '1m';
 $isJahr = ctype_digit($zeitraum)
     && in_array((int)$zeitraum, $verfuegbareJahre, true);
 
-if (!in_array($zeitraum, ['1m', 'all'], true) && !$isJahr) {
+if (!in_array($zeitraum, ['1m', '1y', 'all'], true) && !$isJahr) {
     $zeitraum = '1m';
     $isJahr = false;
 }
@@ -177,6 +177,13 @@ if ($isJahr) {
 
     $zeitraumLabel  = (string)$jahr;
     $zeitraumDetail = sprintf('01.01.%04d – 31.12.%04d', $jahr, $jahr);
+} elseif ($zeitraum === '1y') {
+    // "Letztes Jahr" = exakt die letzten 12 Monate.
+    $startDate = $now->modify('-12 months')->format('Y-m-d H:i:s');
+
+    $zeitraumLabel  = 'Letztes Jahr';
+    $startObj        = new DateTimeImmutable($startDate);
+    $zeitraumDetail = $startObj->format('d.m.Y') . ' – ' . $now->format('d.m.Y');
 } elseif ($zeitraum === 'all') {
     $zeitraumLabel  = 'Insgesamt';
     $zeitraumDetail = 'Alle vorhandenen Daten';
@@ -211,7 +218,7 @@ function foodDashboardFetchAll(mysqli $conn, string $sql, ?string $startDate, ?s
         return $rows;
     }
 
-    $sql = preg_replace('/\s+WHERE\s+tstamp\s+>=\s+\?\s+AND\s+tstamp\s+<\s+\?/i', '', $sql, 1);
+    $sql = preg_replace('/\s+WHERE\s+tstamp\s+>=\s+\\?\s+AND\s+tstamp\s+<\s+\\?/i', '', $sql, 1);
     $result = $conn->query($sql);
     if (!$result) {
         throw new RuntimeException('DB-Fehler: ' . $conn->error);
@@ -343,6 +350,16 @@ if ($zeitraum === '1m') {
     $chartStartDate = (new DateTimeImmutable((string)$startDate))->setTime(0, 0)->format('Y-m-d');
     $chartEndDate   = $now->modify('+1 day')->setTime(0, 0)->format('Y-m-d'); // exklusiv
     $frequencyUnit  = 'day';
+} elseif ($zeitraum === '1y') {
+    $chartStartDate = (new DateTimeImmutable((string)$startDate))
+        ->modify('first day of this month')
+        ->setTime(0, 0)
+        ->format('Y-m-d');
+    $chartEndDate = $now
+        ->modify('first day of next month')
+        ->setTime(0, 0)
+        ->format('Y-m-d'); // exklusiv
+    $frequencyUnit = 'month';
 } elseif ($isJahr) {
     $chartStartDate = sprintf('%04d-01-01', (int)$zeitraum);
     $chartEndDate   = sprintf('%04d-01-01', (int)$zeitraum + 1); // exklusiv
@@ -418,6 +435,7 @@ require_once __DIR__ . '/../navbar.php';
             <label for="zeitraum" class="lt-label">Zeitraum</label>
             <select id="zeitraum" name="zeitraum" class="kategorie-select">
                 <option value="1m" <?= $zeitraum === '1m' ? 'selected' : '' ?>>Letzter Monat</option>
+                <option value="1y" <?= $zeitraum === '1y' ? 'selected' : '' ?>>Letztes Jahr</option>
 
                 <?php foreach ($verfuegbareJahre as $jahrOption): ?>
                     <option
