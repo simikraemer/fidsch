@@ -640,7 +640,7 @@ require_once __DIR__ . '/../navbar.php';
 ?>
 
 
-<div class="relations-page">
+<div class="relations-page relations-page--graph" id="relationsPage">
 
     <div
         class="relations-region-tabs"
@@ -710,7 +710,7 @@ require_once __DIR__ . '/../navbar.php';
         </div>
 
 
-        <div class="relations-graph-actions">
+        <div class="relations-graph-actions" id="relationsGraphActions">
 
             <div
                 class="relations-status"
@@ -730,6 +730,17 @@ require_once __DIR__ . '/../navbar.php';
                 id="manageRelationsButton"
             >
                 Verwalten
+            </button>
+
+            <button
+                type="button"
+                id="relationsLegendToggle"
+                class="relations-phone-only"
+                aria-expanded="false"
+                aria-controls="relationsLegend"
+                hidden
+            >
+                Filter
             </button>
 
             <button
@@ -767,7 +778,7 @@ require_once __DIR__ . '/../navbar.php';
         </div>
 
 
-        <div class="relations-legend">
+        <div class="relations-legend" id="relationsLegend">
 
             <div class="relations-legend-title">
                 Legende
@@ -1261,6 +1272,11 @@ require_once __DIR__ . '/../navbar.php';
 (() => {
     'use strict';
 
+    const PHONE_UI = !!(
+        window.matchMedia
+        && window.matchMedia('(max-width: 650px)').matches
+    );
+
     const CHARS =
         <?= json_encode(
             $graphChars,
@@ -1309,6 +1325,28 @@ require_once __DIR__ . '/../navbar.php';
                 ]
             )
         );
+
+
+    const PHONE_WORLD_FACTOR =
+        PHONE_UI
+            ? 0.16
+            : 1;
+
+    const WORLD_WIDTH =
+        4000
+        * PHONE_WORLD_FACTOR;
+
+    const WORLD_HEIGHT =
+        3000
+        * PHONE_WORLD_FACTOR;
+
+
+    function displayCoord(
+        value
+    ) {
+        return value
+            * PHONE_WORLD_FACTOR;
+    }
 
 
     /* =====================================================
@@ -1362,6 +1400,11 @@ require_once __DIR__ . '/../navbar.php';
             'relationsEdges'
         );
 
+    const relationsSvg =
+        document.getElementById(
+            'relationsSvg'
+        );
+
     const status =
         document.getElementById(
             'relationsStatus'
@@ -1382,6 +1425,15 @@ require_once __DIR__ . '/../navbar.php';
             'resetViewButton'
         );
 
+    const relationsLegend =
+        document.getElementById(
+            'relationsLegend'
+        );
+
+    const relationsLegendToggle =
+        document.getElementById(
+            'relationsLegendToggle'
+        );
 
     const addModal =
         document.getElementById(
@@ -1450,8 +1502,33 @@ require_once __DIR__ . '/../navbar.php';
         || !world
         || !nodesLayer
         || !edgesLayer
+        || !relationsSvg
     ) {
         return;
+    }
+
+
+    if (PHONE_UI) {
+        world.style.width =
+            WORLD_WIDTH
+            + 'px';
+
+        world.style.height =
+            WORLD_HEIGHT
+            + 'px';
+
+        relationsSvg.style.width =
+            WORLD_WIDTH
+            + 'px';
+
+        relationsSvg.style.height =
+            WORLD_HEIGHT
+            + 'px';
+
+        relationsSvg.setAttribute(
+            'viewBox',
+            `0 0 ${WORLD_WIDTH} ${WORLD_HEIGHT}`
+        );
     }
 
 
@@ -1473,10 +1550,116 @@ require_once __DIR__ . '/../navbar.php';
     let translateX = 0;
     let translateY = 0;
     let panState = null;
+
+    const phonePointers =
+        new Map();
+
+    let phonePinchState =
+        null;
+
+    let phoneGestureMoved =
+        false;
+
+    let phoneTapNode =
+        null;
+
     let selectedRelationId = null;
     let selectedRegionId = null;
     let centeredCharId = null;
     let statusTimer = null;
+
+
+    if (
+        PHONE_UI
+        && relationsLegendToggle
+    ) {
+        relationsLegendToggle.hidden =
+            false;
+    }
+
+
+    /* =====================================================
+     * Phone-UI
+     * ===================================================== */
+
+    function setPhoneLegendOpen(
+        open
+    ) {
+        if (
+            !PHONE_UI
+            || !relationsLegend
+            || !relationsLegendToggle
+        ) {
+            return;
+        }
+
+        const isOpen =
+            !!open;
+
+        relationsLegend.classList.toggle(
+            'is-open',
+            isOpen
+        );
+
+        relationsLegendToggle.classList.toggle(
+            'active',
+            isOpen
+        );
+
+        relationsLegendToggle.setAttribute(
+            'aria-expanded',
+            isOpen
+                ? 'true'
+                : 'false'
+        );
+    }
+
+
+    relationsLegendToggle?.addEventListener(
+        'click',
+        event => {
+            event.stopPropagation();
+
+            setPhoneLegendOpen(
+                !relationsLegend
+                    ?.classList
+                    .contains(
+                        'is-open'
+                    )
+            );
+        }
+    );
+
+
+    document.addEventListener(
+        'pointerdown',
+        event => {
+            if (
+                !PHONE_UI
+                || !relationsLegend
+                    ?.classList
+                    .contains(
+                        'is-open'
+                    )
+            ) {
+                return;
+            }
+
+            if (
+                relationsLegend.contains(
+                    event.target
+                )
+                || relationsLegendToggle
+                    ?.contains(
+                        event.target
+                    )
+            ) {
+                return;
+            }
+
+            setPhoneLegendOpen(false);
+        }
+    );
 
 
     /* =====================================================
@@ -1776,6 +1959,13 @@ require_once __DIR__ . '/../navbar.php';
 
 
     function applyTransform() {
+        if (PHONE_UI) {
+            world.style.transform =
+                `matrix(${scale}, 0, 0, ${scale}, ${translateX}, ${translateY})`;
+
+            return;
+        }
+
         world.style.transform =
             `translate(${translateX}px, ${translateY}px) `
             + `scale(${scale})`;
@@ -5097,11 +5287,15 @@ require_once __DIR__ . '/../navbar.php';
                 }
 
                 node.el.style.left =
-                    node.x
+                    displayCoord(
+                        node.x
+                    )
                     + 'px';
 
                 node.el.style.top =
-                    node.y
+                    displayCoord(
+                        node.y
+                    )
                     + 'px';
             }
         );
@@ -5109,6 +5303,11 @@ require_once __DIR__ . '/../navbar.php';
 
 
     function attachNodeDrag(node) {
+        if (PHONE_UI) {
+            return;
+        }
+
+
         node.el.addEventListener(
             'pointerdown',
             event => {
@@ -5378,16 +5577,24 @@ require_once __DIR__ . '/../navbar.php';
 
                 const attrs = {
                     x1:
-                        from.x,
+                        displayCoord(
+                            from.x
+                        ),
 
                     y1:
-                        from.y,
+                        displayCoord(
+                            from.y
+                        ),
 
                     x2:
-                        to.x,
+                        displayCoord(
+                            to.x
+                        ),
 
                     y2:
-                        to.y,
+                        displayCoord(
+                            to.y
+                        ),
                 };
 
 
@@ -5565,6 +5772,8 @@ require_once __DIR__ . '/../navbar.php';
                 ? null
                 : Number(rawId);
 
+        setPhoneLegendOpen(false);
+
 
         applyRegionBackground(
             button
@@ -5678,12 +5887,7 @@ require_once __DIR__ . '/../navbar.php';
                         === centeredCharId;
 
                 const targetSrc =
-                    isCentered
-                        ? (
-                            img.dataset.fullSrc
-                            || img.dataset.thumbSrc
-                        )
-                        : img.dataset.thumbSrc;
+                    img.dataset.thumbSrc;
 
                 if (
                     targetSrc
@@ -5709,6 +5913,13 @@ require_once __DIR__ . '/../navbar.php';
             return;
         }
 
+        const visibleIds =
+            visibleCharIds();
+
+        const activeTypes =
+            activeRelationTypes();
+
+
         nodeMap
             .get(centeredCharId)
             ?.el
@@ -5721,6 +5932,30 @@ require_once __DIR__ . '/../navbar.php';
             edge => {
                 const relation =
                     edge.relation;
+
+                /*
+                 * Im Auswahlmodus zählen ausschließlich
+                 * Relationen, die durch den aktuellen
+                 * Regions- UND Relationstyp-Filter tatsächlich
+                 * sichtbar sind.
+                 *
+                 * Eine ausgeblendete Cousins-Relation darf den
+                 * anderen Charakter daher nicht mehr als
+                 * direkten Nachbarn markieren.
+                 */
+                if (
+                    !visibleIds.has(
+                        relation.from
+                    )
+                    || !visibleIds.has(
+                        relation.to
+                    )
+                    || !activeTypes.has(
+                        relation.type
+                    )
+                ) {
+                    return;
+                }
 
                 if (
                     relation.from
@@ -5782,9 +6017,13 @@ require_once __DIR__ . '/../navbar.php';
          */
         scale =
             Math.max(
-                0.72,
+                PHONE_UI
+                    ? 1.55
+                    : 0.72,
                 Math.min(
-                    1.25,
+                    PHONE_UI
+                        ? 3.20
+                        : 1.25,
                     scale
                 )
             );
@@ -5792,11 +6031,17 @@ require_once __DIR__ . '/../navbar.php';
 
         translateX =
             rect.width / 2
-            - node.x * scale;
+            - displayCoord(
+                node.x
+            )
+                * scale;
 
         translateY =
             rect.height / 2
-            - node.y * scale;
+            - displayCoord(
+                node.y
+            )
+                * scale;
 
 
         applyTransform();
@@ -5821,33 +6066,14 @@ require_once __DIR__ . '/../navbar.php';
             charId;
 
         /*
-         * In der globalen Force-Ansicht bleibt die Anordnung
-         * beim Zentrieren stabil. Nur der Viewport fokussiert
-         * den Charakter.
-         *
-         * In einer einzelnen Region bleibt das bisherige
-         * Verhalten erhalten: geklickter Charakter wird Root
-         * des Radiallayouts.
+         * Auswahl ist auf Desktop und Phone ausschließlich
+         * ein visueller Filter:
+         * - keine Neuanordnung
+         * - kein Full-Image
+         * - kein Zoom
+         * - keine Kamerabewegung
          */
-        if (
-            selectedRegionId !== null
-        ) {
-            layoutGraphByBranches();
-
-            renderNodePositions();
-            updateEdges();
-        }
-
         markCenteredNode();
-
-
-        requestAnimationFrame(
-            () => {
-                centerViewportOnChar(
-                    charId
-                );
-            }
-        );
     }
 
 
@@ -5862,25 +6088,10 @@ require_once __DIR__ . '/../navbar.php';
             null;
 
         /*
-         * In einzelnen Regionen normale automatische
-         * Radial-Root-Auswahl wiederherstellen.
-         * Die globale Force-Anordnung bleibt unverändert.
+         * Auswahlzustand nur optisch aufheben.
+         * Viewport und Node-Positionen bleiben exakt stehen.
          */
-        if (
-            selectedRegionId !== null
-        ) {
-            layoutGraphByBranches();
-
-            renderNodePositions();
-            updateEdges();
-        }
-
         markCenteredNode();
-
-
-        requestAnimationFrame(
-            fitGraph
-        );
     }
 
 
@@ -5928,28 +6139,53 @@ require_once __DIR__ . '/../navbar.php';
                     return;
                 }
 
+                const halfWidth =
+                    PHONE_UI
+                        ? 30
+                        : 70;
+
+                const topSpace =
+                    PHONE_UI
+                        ? 30
+                        : 70;
+
+                const bottomSpace =
+                    PHONE_UI
+                        ? 42
+                        : 90;
+
+                const nodeX =
+                    displayCoord(
+                        node.x
+                    );
+
+                const nodeY =
+                    displayCoord(
+                        node.y
+                    );
+
                 minX =
                     Math.min(
                         minX,
-                        node.x - 70
+                        nodeX - halfWidth
                     );
 
                 minY =
                     Math.min(
                         minY,
-                        node.y - 70
+                        nodeY - topSpace
                     );
 
                 maxX =
                     Math.max(
                         maxX,
-                        node.x + 70
+                        nodeX + halfWidth
                     );
 
                 maxY =
                     Math.max(
                         maxY,
-                        node.y + 90
+                        nodeY + bottomSpace
                     );
             }
         );
@@ -6000,7 +6236,10 @@ require_once __DIR__ . '/../navbar.php';
             viewport
                 .getBoundingClientRect();
 
-        const padding = 95;
+        const padding =
+            PHONE_UI
+                ? 28
+                : 95;
 
 
         const availableWidth =
@@ -6018,23 +6257,32 @@ require_once __DIR__ . '/../navbar.php';
             );
 
 
+        const fitScale =
+            Math.min(
+                availableWidth
+                    / Math.max(
+                        1,
+                        bounds.width
+                    ),
+
+                availableHeight
+                    / Math.max(
+                        1,
+                        bounds.height
+                    )
+            );
+
         scale =
             Math.max(
-                0.18,
+                PHONE_UI
+                    ? 0.35
+                    : 0.18,
                 Math.min(
-                    1.35,
+                    PHONE_UI
+                        ? 1.35
+                        : 1.35,
 
-                    availableWidth
-                        / Math.max(
-                            1,
-                            bounds.width
-                        ),
-
-                    availableHeight
-                        / Math.max(
-                            1,
-                            bounds.height
-                        )
+                    fitScale
                 )
             );
 
@@ -6076,17 +6324,145 @@ require_once __DIR__ . '/../navbar.php';
 
 
     /* =====================================================
-     * Pan
+     * Pan + Phone-Pinch
      * ===================================================== */
+
+    function phoneStartPinch() {
+        if (
+            !PHONE_UI
+            || phonePointers.size < 2
+        ) {
+            phonePinchState =
+                null;
+
+            return;
+        }
+
+        const entries =
+            [...phonePointers.entries()]
+                .slice(0, 2);
+
+        const first =
+            entries[0][1];
+
+        const second =
+            entries[1][1];
+
+        const rect =
+            viewport
+                .getBoundingClientRect();
+
+        const midpointX =
+            (
+                first.x
+                + second.x
+            )
+            / 2
+            - rect.left;
+
+        const midpointY =
+            (
+                first.y
+                + second.y
+            )
+            / 2
+            - rect.top;
+
+        const distance =
+            Math.max(
+                1,
+                Math.hypot(
+                    second.x
+                        - first.x,
+                    second.y
+                        - first.y
+                )
+            );
+
+        phonePinchState = {
+            pointerIds: [
+                entries[0][0],
+                entries[1][0],
+            ],
+
+            startDistance:
+                distance,
+
+            startScale:
+                scale,
+
+            worldX:
+                (
+                    midpointX
+                    - translateX
+                )
+                / scale,
+
+            worldY:
+                (
+                    midpointY
+                    - translateY
+                )
+                / scale,
+        };
+
+        phoneGestureMoved =
+            true;
+
+        phoneTapNode =
+            null;
+
+        panState =
+            null;
+    }
+
+
+    function phoneRebaseSinglePan() {
+        if (
+            !PHONE_UI
+            || phonePointers.size !== 1
+        ) {
+            panState =
+                null;
+
+            return;
+        }
+
+        const entry =
+            phonePointers
+                .entries()
+                .next()
+                .value;
+
+        const pointerId =
+            entry[0];
+
+        const point =
+            entry[1];
+
+        panState = {
+            pointerId,
+
+            startX:
+                point.x,
+
+            startY:
+                point.y,
+
+            translateX,
+            translateY,
+
+            moved:
+                true,
+        };
+    }
+
 
     viewport.addEventListener(
         'pointerdown',
         event => {
             if (
                 event.target.closest(
-                    '.relation-node'
-                )
-                || event.target.closest(
                     '.relations-legend'
                 )
                 || event.target.closest(
@@ -6094,6 +6470,82 @@ require_once __DIR__ . '/../navbar.php';
                 )
                 || event.target.closest(
                     '.relations-center-indicator'
+                )
+            ) {
+                return;
+            }
+
+
+            if (PHONE_UI) {
+                event.preventDefault();
+
+                phonePointers.set(
+                    event.pointerId,
+                    {
+                        x:
+                            event.clientX,
+
+                        y:
+                            event.clientY,
+                    }
+                );
+
+
+                try {
+                    viewport.setPointerCapture(
+                        event.pointerId
+                    );
+                } catch (_) {}
+
+
+                viewport.classList.add(
+                    'panning'
+                );
+
+
+                if (
+                    phonePointers.size === 1
+                ) {
+                    phoneGestureMoved =
+                        false;
+
+                    phonePinchState =
+                        null;
+
+                    phoneTapNode =
+                        event.target.closest(
+                            '.relation-node'
+                        );
+
+                    panState = {
+                        pointerId:
+                            event.pointerId,
+
+                        startX:
+                            event.clientX,
+
+                        startY:
+                            event.clientY,
+
+                        translateX,
+                        translateY,
+
+                        moved:
+                            false,
+                    };
+
+                    return;
+                }
+
+
+                phoneStartPinch();
+                return;
+            }
+
+
+            if (
+                event.target.closest(
+                    '.relation-node'
                 )
             ) {
                 return;
@@ -6135,6 +6587,184 @@ require_once __DIR__ . '/../navbar.php';
     viewport.addEventListener(
         'pointermove',
         event => {
+            if (PHONE_UI) {
+                if (
+                    !phonePointers.has(
+                        event.pointerId
+                    )
+                ) {
+                    return;
+                }
+
+                phonePointers.set(
+                    event.pointerId,
+                    {
+                        x:
+                            event.clientX,
+
+                        y:
+                            event.clientY,
+                    }
+                );
+
+
+                if (
+                    phonePointers.size >= 2
+                ) {
+                    const activeIds =
+                        [...phonePointers.keys()]
+                            .slice(0, 2);
+
+                    if (
+                        !phonePinchState
+                        || phonePinchState
+                            .pointerIds[0]
+                            !== activeIds[0]
+                        || phonePinchState
+                            .pointerIds[1]
+                            !== activeIds[1]
+                    ) {
+                        phoneStartPinch();
+                    }
+
+                    if (!phonePinchState) {
+                        return;
+                    }
+
+                    const first =
+                        phonePointers.get(
+                            phonePinchState
+                                .pointerIds[0]
+                        );
+
+                    const second =
+                        phonePointers.get(
+                            phonePinchState
+                                .pointerIds[1]
+                        );
+
+                    if (
+                        !first
+                        || !second
+                    ) {
+                        return;
+                    }
+
+                    const rect =
+                        viewport
+                            .getBoundingClientRect();
+
+                    const midpointX =
+                        (
+                            first.x
+                            + second.x
+                        )
+                        / 2
+                        - rect.left;
+
+                    const midpointY =
+                        (
+                            first.y
+                            + second.y
+                        )
+                        / 2
+                        - rect.top;
+
+                    const distance =
+                        Math.max(
+                            1,
+                            Math.hypot(
+                                second.x
+                                    - first.x,
+                                second.y
+                                    - first.y
+                            )
+                        );
+
+                    const nextScale =
+                        Math.max(
+                            PHONE_UI
+                                ? 0.35
+                                : 0.12,
+                            Math.min(
+                                3.2,
+                                phonePinchState
+                                    .startScale
+                                * (
+                                    distance
+                                    / phonePinchState
+                                        .startDistance
+                                )
+                            )
+                        );
+
+                    translateX =
+                        midpointX
+                        - phonePinchState
+                            .worldX
+                            * nextScale;
+
+                    translateY =
+                        midpointY
+                        - phonePinchState
+                            .worldY
+                            * nextScale;
+
+                    scale =
+                        nextScale;
+
+                    phoneGestureMoved =
+                        true;
+
+                    applyTransform();
+                    return;
+                }
+
+
+                if (
+                    !panState
+                    || panState.pointerId
+                        !== event.pointerId
+                ) {
+                    return;
+                }
+
+                const deltaX =
+                    event.clientX
+                    - panState.startX;
+
+                const deltaY =
+                    event.clientY
+                    - panState.startY;
+
+
+                if (
+                    Math.hypot(
+                        deltaX,
+                        deltaY
+                    ) > 5
+                ) {
+                    panState.moved =
+                        true;
+
+                    phoneGestureMoved =
+                        true;
+                }
+
+
+                translateX =
+                    panState.translateX
+                    + deltaX;
+
+                translateY =
+                    panState.translateY
+                    + deltaY;
+
+                applyTransform();
+                return;
+            }
+
+
             if (
                 !panState
                 || panState.pointerId
@@ -6172,7 +6802,6 @@ require_once __DIR__ . '/../navbar.php';
                 panState.translateY
                 + deltaY;
 
-
             applyTransform();
         }
     );
@@ -6181,6 +6810,103 @@ require_once __DIR__ . '/../navbar.php';
     function stopPan(
         event
     ) {
+        if (PHONE_UI) {
+            if (
+                !phonePointers.has(
+                    event.pointerId
+                )
+            ) {
+                return;
+            }
+
+            const wasOnlyPointer =
+                phonePointers.size === 1;
+
+            const wasTap =
+                wasOnlyPointer
+                && event.type
+                    === 'pointerup'
+                && !phoneGestureMoved;
+
+            const tappedNode =
+                wasTap
+                    ? phoneTapNode
+                    : null;
+
+            phonePointers.delete(
+                event.pointerId
+            );
+
+
+            if (
+                phonePointers.size >= 2
+            ) {
+                phoneStartPinch();
+                return;
+            }
+
+
+            if (
+                phonePointers.size === 1
+            ) {
+                phonePinchState =
+                    null;
+
+                phoneGestureMoved =
+                    true;
+
+                phoneTapNode =
+                    null;
+
+                phoneRebaseSinglePan();
+                return;
+            }
+
+
+            panState =
+                null;
+
+            phonePinchState =
+                null;
+
+            viewport.classList.remove(
+                'panning'
+            );
+
+
+            if (wasTap) {
+                if (tappedNode) {
+                    const id =
+                        Number(
+                            tappedNode
+                                .dataset
+                                .id
+                            || 0
+                        );
+
+                    if (id > 0) {
+                        enterCenteredMode(
+                            id
+                        );
+                    }
+                } else if (
+                    centeredCharId !== null
+                ) {
+                    exitCenteredMode();
+                }
+            }
+
+
+            phoneGestureMoved =
+                false;
+
+            phoneTapNode =
+                null;
+
+            return;
+        }
+
+
         const wasClick =
             panState
             && !panState.moved
@@ -6325,16 +7051,18 @@ require_once __DIR__ . '/../navbar.php';
             'relations-modal-open'
         );
 
-        window.setTimeout(
-            () => {
-                document
-                    .getElementById(
-                        'addFromSearch'
-                    )
-                    ?.focus();
-            },
-            0
-        );
+        if (!PHONE_UI) {
+            window.setTimeout(
+                () => {
+                    document
+                        .getElementById(
+                            'addFromSearch'
+                        )
+                        ?.focus();
+                },
+                0
+            );
+        }
     }
 
 
@@ -6422,11 +7150,13 @@ require_once __DIR__ . '/../navbar.php';
                     'Beziehung gespeichert'
                 );
 
-                document
-                    .getElementById(
-                        'addToSearch'
-                    )
-                    ?.focus();
+                if (!PHONE_UI) {
+                    document
+                        .getElementById(
+                            'addToSearch'
+                        )
+                        ?.focus();
+                }
 
             } catch (error) {
                 setStatus(
@@ -6754,12 +7484,14 @@ require_once __DIR__ . '/../navbar.php';
         );
 
 
-        window.setTimeout(
-            () => {
-                relationSearch?.focus();
-            },
-            0
-        );
+        if (!PHONE_UI) {
+            window.setTimeout(
+                () => {
+                    relationSearch?.focus();
+                },
+                0
+            );
+        }
     }
 
 

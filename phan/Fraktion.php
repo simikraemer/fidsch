@@ -1573,9 +1573,12 @@ require_once __DIR__ . '/../head.php';
 require_once __DIR__ . '/../navbar.php';
 ?>
 
-<div class="phan-page">
+<div
+    id="factionsPage"
+    class="phan-page factions-page <?= $faction ? 'factions-page--detail' : 'factions-page--overview' ?>"
+>
 
-    <div class="phan-head">
+    <div class="phan-head factions-head">
         <h1 class="ueberschrift phan-title">
             Fraktionen
         </h1>
@@ -1604,10 +1607,10 @@ require_once __DIR__ . '/../navbar.php';
     <?php endif; ?>
 
 
-    <div class="phan-detail">
+    <div class="phan-detail factions-layout">
 
-        <div class="phan-card">
-            <div class="relations-char-results">
+        <div class="phan-card factions-list-card">
+            <div class="relations-char-results factions-list">
 
                 <?php if (!$factions): ?>
                     <div class="relations-char-empty">
@@ -1627,12 +1630,13 @@ require_once __DIR__ . '/../navbar.php';
 
                     <button
                         type="button"
-                        class="relations-char-result"
+                        class="relations-char-result faction-list-item<?= $isActive ? ' is-active' : '' ?>"
                         style="<?= $isActive
                             ? 'border-color:var(--primary);background:#fff2e5;'
                             : ''
                         ?>"
                         onclick="location.href='/phan/factions?id=<?= $rowId ?>'"
+                        <?= $isActive ? 'aria-current="true"' : '' ?>
                     >
                         <span class="relations-char-avatar">
                             <?php if (!empty($row['image_path'])): ?>
@@ -1678,7 +1682,7 @@ require_once __DIR__ . '/../navbar.php';
         </div>
 
 
-        <div class="phan-card">
+        <div class="phan-card factions-editor-card">
 
             <?php if (!$faction): ?>
 
@@ -1692,6 +1696,7 @@ require_once __DIR__ . '/../navbar.php';
                     method="post"
                     enctype="multipart/form-data"
                     id="factionForm"
+                    class="faction-form"
                     autocomplete="off"
                 >
                     <input
@@ -1746,7 +1751,7 @@ require_once __DIR__ . '/../navbar.php';
                     >
 
 
-                    <div class="phan-form-grid">
+                    <div class="phan-form-grid faction-form-grid">
                         <label class="phan-wide">
                             Name
 
@@ -1765,8 +1770,7 @@ require_once __DIR__ . '/../navbar.php';
 
 
                     <div
-                        class="phan-image-card"
-                        style="margin-top:16px;"
+                        class="phan-image-card faction-image-card"
                     >
                         <div class="phan-image-card-head">
                             <div>
@@ -1808,7 +1812,7 @@ require_once __DIR__ . '/../navbar.php';
                                 </div>
                             </div>
 
-                            <div class="phan-image-actions">
+                            <div class="phan-image-actions faction-image-actions">
                                 <button
                                     type="button"
                                     id="factionCropButton"
@@ -1849,7 +1853,7 @@ require_once __DIR__ . '/../navbar.php';
                     </div>
 
 
-                    <div class="phan-bottom-actions">
+                    <div class="phan-bottom-actions faction-bottom-actions">
                         <div class="phan-bottom-actions-left">
                             <button
                                 type="button"
@@ -1899,6 +1903,11 @@ require_once __DIR__ . '/../navbar.php';
 <script>
 (() => {
     'use strict';
+
+    const PHONE_UI = !!(
+        window.matchMedia
+        && window.matchMedia('(max-width: 650px)').matches
+    );
 
     const form =
         document.getElementById(
@@ -2368,12 +2377,13 @@ require_once __DIR__ . '/../navbar.php';
     );
 
 
-    document
-        .querySelectorAll(
-            '.phan-image-dropzone'
-        )
-        .forEach(
-            zone => {
+    if (!PHONE_UI) {
+        document
+            .querySelectorAll(
+                '.phan-image-dropzone'
+            )
+            .forEach(
+                zone => {
                 zone.addEventListener(
                     'dragenter',
                     event => {
@@ -2437,6 +2447,7 @@ require_once __DIR__ . '/../navbar.php';
                 );
             }
         );
+    }
 
 
     removeImageButton

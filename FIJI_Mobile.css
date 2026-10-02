@@ -8212,3 +8212,4816 @@
         grid-column: 1 / -1;
     }
 }
+
+
+
+/* ==========================================================
+   PHAN / Alben – Smartphone/Fairphone v2
+   Explizites Phone-Layout für Liste, Detail, Songs und Modals.
+   ========================================================== */
+@media (max-width: 650px) {
+
+    /* ------------------------------------------------------
+       Grundseite
+       ------------------------------------------------------ */
+    #albumsPage.albums-page {
+        width: auto;
+        max-width: none;
+        margin: 4px auto 48px;
+        padding: 0 10px;
+        box-sizing: border-box;
+    }
+
+    #albumsPage .phan-msg {
+        margin: 0 0 9px;
+        padding: 8px 9px;
+        border-left-width: 4px;
+        border-radius: 10px;
+        font-size: .75rem;
+        line-height: 1.22;
+    }
+
+    #albumsPage .phan-card {
+        min-width: 0;
+        box-sizing: border-box;
+        border-radius: 14px;
+    }
+
+
+    /* ======================================================
+       LISTE
+       ====================================================== */
+
+    #albumsPage.albums-page--list .albums-head {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 9px;
+        width: 100%;
+        margin-bottom: 9px;
+    }
+
+    #albumsPage.albums-page--list .albums-head > div:first-child {
+        min-width: 0;
+        text-align: center;
+    }
+
+    #albumsPage.albums-page--list .phan-title {
+        margin: 0;
+        font-size: 1.38rem;
+        line-height: 1.10;
+        text-align: center;
+    }
+
+    #albumsPage.albums-page--list .albums-head-sub {
+        margin-top: 2px;
+        font-size: .68rem;
+        line-height: 1.1;
+        text-align: center;
+    }
+
+    /* 2 kompakte Aktionen, Import darunter */
+    #albumsPage.albums-page--list .albums-head-tools {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: stretch;
+        gap: 6px;
+        width: 100%;
+        margin: 0;
+    }
+
+    #albumsPage.albums-page--list .albums-duplicate-check,
+    #albumsPage.albums-page--list .albums-sync-all {
+        width: 100%;
+        min-width: 0;
+        min-height: 36px;
+        padding: 6px 5px;
+        border-radius: 9px;
+        font-size: .66rem;
+        line-height: 1.08;
+        white-space: normal;
+    }
+
+    #albumsPage.albums-page--list .albums-import-form {
+        grid-column: 1 / -1;
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) auto !important;
+        align-items: end;
+        gap: 6px;
+        width: 100%;
+        min-width: 0;
+    }
+
+    #albumsPage.albums-page--list .albums-import-field {
+        min-width: 0;
+    }
+
+    #albumsPage.albums-page--list .albums-import-field > span {
+        margin-bottom: 3px;
+        font-size: .62rem;
+        line-height: 1;
+    }
+
+    #albumsPage.albums-page--list .albums-import-field input {
+        width: 100%;
+        min-width: 0;
+        height: 36px;
+        box-sizing: border-box;
+        margin: 0;
+        padding: 5px 7px;
+        border-radius: 9px;
+        font-size: .72rem;
+    }
+
+    #albumsPage.albums-page--list .albums-import-form > button {
+        min-width: 104px;
+        min-height: 36px;
+        padding: 6px 7px;
+        border-radius: 9px;
+        font-size: .68rem;
+        line-height: 1.05;
+        white-space: nowrap;
+    }
+
+
+    /* Filter: Label + Künstler nebeneinander, Suche darunter */
+    #albumsPage .albums-filterbar {
+        z-index: 700;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 6px;
+        width: 100%;
+        margin: 0 0 9px;
+        padding: 7px;
+        box-sizing: border-box;
+        border-radius: 12px;
+    }
+
+    #albumsPage .albums-filterbar .phan-list-filter-dropdown {
+        position: static;
+        min-width: 0;
+    }
+
+    #albumsPage .albums-filterbar button.phan-list-filter-trigger {
+        grid-template-columns: 27px minmax(0,1fr) auto;
+        gap: 6px;
+        width: 100%;
+        height: 42px;
+        min-width: 0;
+        padding: 4px 7px;
+        border-radius: 9px;
+    }
+
+    #albumsPage .albums-filterbar .phan-list-filter-thumb,
+    #albumsPage .albums-filterbar .phan-list-filter-icon {
+        width: 27px;
+        height: 27px;
+        min-width: 27px;
+    }
+
+    #albumsPage .albums-filterbar .phan-list-filter-icon {
+        font-size: 1rem;
+    }
+
+    #albumsPage .albums-filterbar .phan-list-filter-text > span {
+        margin-bottom: 2px;
+        font-size: .56rem;
+    }
+
+    #albumsPage .albums-filterbar .phan-list-filter-text > strong {
+        font-size: .72rem;
+    }
+
+    /* Das Dropdown nutzt auf Phone die gesamte Filterkartenbreite. */
+    #albumsPage .albums-filterbar .phan-list-filter-menu {
+        top: 55px;
+        left: 7px;
+        right: 7px;
+        width: auto;
+        max-width: none;
+        max-height: min(52dvh, 430px);
+        padding: 6px;
+        border-radius: 11px;
+    }
+
+    #albumsPage .albums-filterbar button.phan-list-filter-option {
+        grid-template-columns: 30px minmax(0,1fr);
+        gap: 7px;
+        min-height: 38px;
+        padding: 5px 6px;
+        border-radius: 8px;
+    }
+
+    #albumsPage .albums-filterbar .phan-list-filter-option > strong {
+        font-size: .76rem;
+    }
+
+    #albumsPage .albums-filterbar .phan-list-search-wrap {
+        grid-column: 1 / -1 !important;
+        min-width: 0;
+    }
+
+    #albumsPage .albums-filterbar .phan-list-search {
+        width: 100%;
+        min-width: 0;
+        height: 38px;
+        box-sizing: border-box;
+        margin: 0;
+        padding: 5px 8px;
+        border-radius: 9px;
+        font-size: .76rem;
+    }
+
+
+    /* Albumübersicht: echte 2-spaltige Cover-Karten */
+    #albumsPage .albums-list-grid {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 8px;
+        width: 100%;
+    }
+
+    #albumsPage .album-card {
+        display: flex !important;
+        flex-direction: column;
+        min-width: 0;
+        overflow: hidden;
+        border-radius: 12px;
+        transform: none !important;
+    }
+
+    #albumsPage .album-card-cover,
+    #albumsPage .album-card-cover img,
+    #albumsPage .album-cover-placeholder {
+        width: 100% !important;
+        height: auto !important;
+        aspect-ratio: 1 / 1;
+    }
+
+    #albumsPage .album-card-cover {
+        flex: 0 0 auto;
+    }
+
+    #albumsPage .album-card-cover img {
+        object-fit: cover;
+    }
+
+    #albumsPage .album-cover-placeholder {
+        font-size: 2rem;
+    }
+
+    #albumsPage .album-card-body {
+        flex: 1 1 auto;
+        padding: 8px 8px 7px;
+    }
+
+    #albumsPage .album-card-body h2 {
+        display: -webkit-box;
+        min-height: 2.28em;
+        margin: 0 0 6px;
+        overflow: hidden;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        font-size: .80rem;
+        line-height: 1.14;
+        white-space: normal;
+        text-overflow: clip;
+        overflow-wrap: anywhere;
+    }
+
+    #albumsPage .album-card-meta {
+        gap: 5px;
+    }
+
+    #albumsPage .album-card-meta-section {
+        display: grid !important;
+        grid-template-columns: 40px minmax(0, 1fr) !important;
+        align-items: center;
+        gap: 4px !important;
+        min-width: 0;
+    }
+
+    #albumsPage .album-card-meta-label {
+        font-size: .52rem;
+        line-height: 1;
+    }
+
+    #albumsPage .album-card-entities {
+        min-height: 25px;
+    }
+
+    #albumsPage .album-card-entity,
+    #albumsPage .album-card-entity:last-child {
+        flex-basis: 23px;
+        max-width: none !important;
+    }
+
+    #albumsPage .album-card-entity-thumb {
+        width: 23px;
+        height: 26px;
+        flex: 0 0 22px;
+    }
+
+    #albumsPage .album-card-meta-empty {
+        font-size: .65rem;
+    }
+
+    #albumsPage .album-card-count {
+        gap: 5px;
+        margin-top: auto;
+        padding-top: 6px;
+        font-size: .61rem;
+        line-height: 1.05;
+    }
+
+    #albumsPage .albums-empty {
+        padding: 18px 10px;
+        border-radius: 12px;
+        font-size: .78rem;
+    }
+
+
+    /* ======================================================
+       DETAIL
+       ====================================================== */
+
+    #albumsPage.albums-page--detail {
+        padding-bottom: 0;
+    }
+
+    #albumsPage .albums-detail-layout {
+        display: flex !important;
+        flex-direction: column;
+        gap: 10px !important;
+        width: 100%;
+        margin-bottom: 0 !important;
+    }
+
+    #albumsPage .albums-detail-cover-column,
+    #albumsPage .albums-detail-content {
+        width: 100% !important;
+        max-width: none !important;
+        min-width: 0;
+    }
+
+    #albumsPage .albums-detail-cover-column {
+        position: static !important;
+        top: auto !important;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    #albumsPage .albums-back {
+        align-self: flex-start;
+        width: auto;
+        min-height: 34px;
+        padding: 5px 8px;
+        border-width: 1px;
+        border-radius: 8px;
+        font-size: .70rem;
+    }
+
+    #albumsPage .album-cover-panel {
+        padding: 12px;
+    }
+
+    #albumsPage .album-cover-panel-head {
+        margin-bottom: 8px;
+        gap: 7px;
+    }
+
+    #albumsPage .album-cover-panel-head h2 {
+        font-size: 1rem;
+        line-height: 1.1;
+    }
+
+    #albumsPage .album-cover-panel-head .albums-secondary-button {
+        min-height: 30px;
+        padding: 4px 7px;
+        font-size: .62rem;
+        line-height: 1.05;
+    }
+
+    /* Cover auf Phone nicht bildschirmbreit aufblasen. */
+    #albumsPage .album-cover-dropzone {
+        width: min(62vw, 235px);
+        max-width: 100%;
+        margin: 0 auto;
+    }
+
+    #albumsPage .album-cover-cropbox,
+    #albumsPage .album-cover-empty {
+        width: 100%;
+        border-radius: 11px;
+    }
+
+    #albumsPage .album-cover-empty-icon {
+        font-size: 2.8rem;
+    }
+
+    #albumsPage .album-cover-empty > strong {
+        font-size: .82rem;
+    }
+
+    #albumsPage .album-cover-empty > span:last-child {
+        font-size: .65rem;
+    }
+
+    #albumsPage .album-cover-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+        width: 100%;
+        margin-top: 9px;
+    }
+
+    #albumsPage .album-cover-actions button {
+        width: 100%;
+        min-width: 0;
+        min-height: 34px;
+        padding: 5px 6px;
+        border-radius: 8px;
+        font-size: .66rem;
+        line-height: 1.08;
+    }
+
+    #albumsPage #albumCoverRemove {
+        grid-column: 1 / -1;
+    }
+
+
+    /* Sync-Kopf */
+    #albumsPage .albums-detail-content {
+        display: flex;
+        flex-direction: column;
+        gap: 10px !important;
+    }
+
+    #albumsPage .albums-detail-head {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 5px;
+        min-height: 0;
+        margin: 0;
+    }
+
+    #albumsPage .albums-detail-head .phan-autosave-status {
+        position: static !important;
+        min-height: 0;
+        transform: none !important;
+        justify-self: start;
+        grid-row: auto !important;
+        padding-left: 2px;
+        font-size: .66rem;
+        line-height: 1.1;
+    }
+
+    #albumsPage .albums-detail-actions {
+        justify-self: stretch !important;
+        width: 100%;
+    }
+
+    #albumsPage .albums-sync-form,
+    #albumsPage .albums-sync-form button {
+        width: 100%;
+    }
+
+    #albumsPage .albums-sync-form button {
+        min-height: 36px;
+        padding: 6px 8px;
+        border-radius: 9px;
+        font-size: .72rem;
+    }
+
+
+    /* Metadaten */
+    #albumsPage .album-meta-panel {
+        gap: 11px;
+        padding: 12px;
+    }
+
+    #albumsPage .album-meta-title-row {
+        display: grid !important;
+        grid-template-columns: 1fr;
+        gap: 6px;
+        align-items: stretch !important;
+    }
+
+    #albumsPage .album-title-field > span,
+    #albumsPage .album-notes-field > span {
+        margin-bottom: 3px;
+        font-size: .65rem;
+    }
+
+    #albumsPage .album-title-field input {
+        width: 100%;
+        min-width: 0;
+        height: 38px;
+        box-sizing: border-box;
+        padding: 5px 8px;
+        font-size: .92rem;
+        border-radius: 9px;
+    }
+
+    #albumsPage .album-sync-meta {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 8px;
+        text-align: left !important;
+        font-size: .61rem;
+    }
+
+    #albumsPage .album-sync-meta span,
+    #albumsPage .album-sync-meta strong {
+        display: inline;
+        margin: 0;
+    }
+
+    #albumsPage .album-sync-meta strong {
+        font-size: .65rem;
+        text-align: right;
+    }
+
+    #albumsPage .album-notes-field textarea {
+        width: 100%;
+        min-width: 0;
+        min-height: 72px;
+        box-sizing: border-box;
+        margin: 0;
+        padding: 7px 8px;
+        border-radius: 9px;
+        resize: vertical;
+        font-size: .76rem;
+        line-height: 1.3;
+    }
+
+    #albumsPage .album-entity-section {
+        padding-top: 9px;
+    }
+
+    #albumsPage .album-entity-head {
+        margin-bottom: 6px;
+    }
+
+    #albumsPage .album-entity-kicker {
+        font-size: .55rem;
+    }
+
+    #albumsPage .album-entity-head strong {
+        font-size: .78rem;
+    }
+
+    #albumsPage .album-entity-head .albums-secondary-button {
+        min-height: 31px;
+        padding: 4px 7px;
+        font-size: .64rem;
+    }
+
+    #albumsPage .album-chip-list,
+    #albumsPage .album-feature-chips {
+        gap: 4px;
+    }
+
+    #albumsPage .album-entity-chip,
+    #albumsPage .album-empty-chip {
+        min-height: 27px;
+        padding: 2px 7px 2px 3px;
+        font-size: .68rem;
+    }
+
+    #albumsPage .album-entity-chip img {
+        width: 25px;
+        height: 25px;
+        flex: 0 0 22px;
+    }
+
+    #albumsPage .album-meta-bottom {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+        align-items: stretch !important;
+    }
+
+    #albumsPage .albums-spotify-link,
+    #albumsPage .album-meta-bottom form,
+    #albumsPage .album-meta-bottom button {
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+    }
+
+    #albumsPage .albums-spotify-link,
+    #albumsPage .album-meta-bottom button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 35px;
+        padding: 5px 6px;
+        border-radius: 8px;
+        font-size: .64rem;
+        line-height: 1.08;
+        text-align: center;
+    }
+
+
+    /* ------------------------------------------------------
+       Songs: keine 820px-Desktopzeile mehr, sondern Karten
+       ------------------------------------------------------ */
+    #albumsPage .album-songs-panel {
+        padding: 10px;
+        overflow: visible;
+    }
+
+    #albumsPage .album-songs-head {
+        margin-bottom: 7px;
+        padding: 0 2px;
+    }
+
+    #albumsPage .album-songs-head h2 {
+        font-size: 1rem;
+    }
+
+    #albumsPage .album-songs-head > div > span {
+        font-size: .64rem;
+    }
+
+    #albumsPage .album-song-cards {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        overflow: visible !important;
+    }
+
+    #albumsPage .album-song-row {
+        display: grid !important;
+        grid-template-columns: 31px minmax(0, 1fr) !important;
+        gap: 6px 7px;
+        min-width: 0 !important;
+        width: 100%;
+        padding: 8px;
+        box-sizing: border-box;
+        border: 1px solid rgba(0,0,0,.075);
+        border-radius: 10px;
+        background: #fff;
+        box-shadow: 0 1px 5px rgba(0,0,0,.06);
+    }
+
+    #albumsPage .album-song-row:last-child {
+        border-bottom: 1px solid rgba(0,0,0,.075);
+    }
+
+    #albumsPage .album-song-row:hover {
+        background: #fff;
+    }
+
+    #albumsPage .album-song-position {
+        grid-column: 1;
+        grid-row: 1;
+        width: 31px;
+        height: 31px;
+        align-self: start;
+        border: 0;
+        border-radius: 8px;
+        background: var(--bg-light);
+        font-size: .72rem;
+    }
+
+    #albumsPage .album-song-main {
+        grid-column: 2;
+        grid-row: 1;
+        min-width: 0;
+        padding: 0;
+        border: 0;
+    }
+
+    #albumsPage .album-song-title-row {
+        grid-template-columns: minmax(0,1fr) 32px;
+        gap: 5px;
+    }
+
+    #albumsPage .album-song-title {
+        width: 100%;
+        min-width: 0;
+        height: 34px;
+        box-sizing: border-box;
+        padding: 5px 7px;
+        border-radius: 8px;
+        font-size: .75rem;
+    }
+
+    #albumsPage .album-song-original-button {
+        width: 32px;
+        min-width: 32px;
+        height: 34px;
+        border-radius: 8px;
+        font-size: .90rem;
+    }
+
+    #albumsPage .album-song-notes {
+        width: 100%;
+        min-width: 0;
+        min-height: 46px;
+        box-sizing: border-box;
+        margin: 5px 0 0;
+        padding: 6px 7px;
+        border-radius: 8px;
+        resize: vertical;
+        font-size: .70rem;
+        line-height: 1.25;
+    }
+
+    #albumsPage .album-song-features {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        min-width: 0;
+        padding: 7px 0 0;
+        border-top: 1px solid rgba(0,0,0,.055);
+    }
+
+    #albumsPage .album-song-feature-head {
+        margin-bottom: 5px;
+    }
+
+    #albumsPage .album-song-feature-head > span {
+        font-size: .58rem;
+    }
+
+    #albumsPage .album-feature-button {
+        min-height: 29px;
+        padding: 4px 7px;
+        border-radius: 7px;
+        font-size: .61rem;
+    }
+
+    #albumsPage .album-song-features .album-entity-chip--small {
+        min-height: 27px;
+        padding: 2px 7px 2px 3px;
+        font-size: .67rem;
+    }
+
+    #albumsPage .album-song-features .album-entity-chip--small img {
+        width: 25px;
+        height: 25px;
+        flex-basis: 22px;
+    }
+
+    #albumsPage .album-song-save-state {
+        grid-column: 1 / -1 !important;
+        grid-row: 3;
+        min-height: 12px;
+        padding: 0;
+        justify-content: flex-end;
+        font-size: .58rem;
+        line-height: 1;
+        text-align: right;
+    }
+
+
+    /* ======================================================
+       MODALS
+       ====================================================== */
+    #albumsPage ~ .albums-modal,
+    .albums-page + .albums-modal,
+    .albums-modal {
+        padding: 8px;
+    }
+
+    .albums-modal-dialog,
+    .albums-duplicate-dialog,
+    .albums-sync-all-dialog {
+        width: calc(100vw - 16px) !important;
+        max-width: 620px !important;
+        height: auto !important;
+        max-height: calc(100dvh - 16px) !important;
+        border-radius: 14px;
+    }
+
+    .albums-modal-head {
+        gap: 8px;
+        padding: 10px 11px;
+    }
+
+    .albums-modal-head h2 {
+        font-size: .98rem;
+        line-height: 1.12;
+    }
+
+    .albums-modal-close {
+        width: 34px;
+        min-width: 34px;
+        height: 34px;
+        font-size: 1.2rem;
+    }
+
+    .albums-duplicate-summary,
+    .albums-sync-all-summary {
+        margin-top: 2px;
+        font-size: .65rem;
+        line-height: 1.15;
+    }
+
+    .albums-modal-body {
+        padding: 9px;
+    }
+
+    .albums-modal-body > input {
+        width: 100%;
+        height: 37px;
+        box-sizing: border-box;
+        margin: 0 0 7px;
+        padding: 5px 8px;
+        border-radius: 9px;
+        font-size: .76rem;
+    }
+
+    .albums-entity-results,
+    .albums-duplicate-results,
+    .albums-sync-all-results {
+        gap: 5px;
+    }
+
+    .albums-entity-option {
+        grid-template-columns: 38px minmax(0,1fr) 27px;
+        gap: 7px;
+        padding: 6px 7px;
+        border-radius: 9px;
+    }
+
+    .albums-entity-option .relations-char-avatar {
+        width: 38px;
+        height: 38px;
+        min-width: 38px;
+    }
+
+    .albums-entity-option-text strong {
+        font-size: .76rem;
+    }
+
+    .albums-entity-option-text small {
+        margin-top: 2px;
+        font-size: .62rem;
+    }
+
+    .albums-entity-check {
+        width: 24px;
+        height: 24px;
+        font-size: .82rem;
+    }
+
+    .albums-modal-footer {
+        gap: 8px;
+        padding: 9px 10px;
+    }
+
+    .albums-modal-count {
+        font-size: .66rem;
+    }
+
+    .albums-modal-footer > button {
+        min-height: 35px;
+        padding: 5px 8px;
+        border-radius: 8px;
+        font-size: .70rem;
+    }
+
+    .albums-duplicate-row,
+    .albums-sync-all-row {
+        grid-template-columns: 1fr !important;
+        gap: 4px !important;
+        padding: 8px 9px;
+        border-radius: 9px;
+    }
+
+    .albums-duplicate-song strong,
+    .albums-sync-all-row strong {
+        font-size: .76rem;
+        line-height: 1.2;
+    }
+
+    .albums-duplicate-albums {
+        justify-content: flex-start !important;
+        gap: 4px;
+    }
+
+    .albums-duplicate-album {
+        min-height: 26px;
+        padding: 3px 7px;
+        font-size: .64rem;
+    }
+
+    .albums-sync-all-row span,
+    .albums-sync-all-row--error span {
+        font-size: .64rem;
+        white-space: normal;
+        text-align: left;
+    }
+
+    .albums-duplicate-loading,
+    .albums-duplicate-empty,
+    .albums-sync-all-empty {
+        min-height: 100px;
+        padding: 16px 10px;
+        font-size: .74rem;
+    }
+}
+
+
+@media (max-width: 370px) {
+    #albumsPage.albums-page--list .albums-import-form {
+        grid-template-columns: minmax(0, 1fr) 92px !important;
+    }
+
+    #albumsPage.albums-page--list .albums-import-form > button {
+        min-width: 0;
+        padding-left: 4px;
+        padding-right: 4px;
+        font-size: .62rem;
+    }
+
+    #albumsPage .album-card-body {
+        padding: 7px 6px 6px;
+    }
+
+    #albumsPage .album-card-meta-section {
+        grid-template-columns: 35px minmax(0, 1fr) !important;
+    }
+
+    #albumsPage .album-card-meta-label {
+        font-size: .49rem;
+    }
+
+    #albumsPage .album-meta-bottom {
+        grid-template-columns: 1fr;
+    }
+}
+
+
+
+/* ==========================================================
+   PHAN / Chars – Smartphone/Fairphone v2
+   Liste als Charakterkarten, Detail als kompakter Mobile-Editor.
+   ========================================================== */
+@media (max-width: 650px) {
+
+    /* ------------------------------------------------------
+       Seite allgemein
+       ------------------------------------------------------ */
+    #charsPage.chars-page {
+        width: auto;
+        max-width: none;
+        margin: 4px auto 48px;
+        padding: 0 10px;
+        box-sizing: border-box;
+    }
+
+    #charsPage .phan-msg {
+        margin: 0 0 9px;
+        padding: 8px 9px;
+        border-left-width: 4px;
+        border-radius: 10px;
+        font-size: .75rem;
+        line-height: 1.22;
+    }
+
+    #charsPage .phan-card {
+        min-width: 0;
+        box-sizing: border-box;
+        border-radius: 14px;
+    }
+
+
+    /* ======================================================
+       LISTENANSICHT
+       ====================================================== */
+
+    #charsPage .chars-list-head {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        margin-bottom: 9px;
+    }
+
+    #charsPage .chars-list-head .phan-title {
+        margin: 0;
+        font-size: 1.38rem;
+        line-height: 1.1;
+        text-align: left;
+    }
+
+    #charsPage .chars-list-head .phan-actions {
+        margin: 0;
+    }
+
+    #charsPage .chars-list-head .phan-actions button {
+        min-height: 36px;
+        padding: 6px 9px;
+        border-radius: 9px;
+        font-size: .72rem;
+        white-space: nowrap;
+    }
+
+
+    /* Drei Filter in einer Reihe, Suche darunter. */
+    #charsPage .chars-filterbar {
+        position: relative;
+        z-index: 700;
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 6px;
+        width: 100%;
+        margin: 0 0 9px;
+        padding: 7px;
+        box-sizing: border-box;
+        border-radius: 12px;
+    }
+
+    #charsPage .chars-filterbar .phan-list-filter-dropdown {
+        position: static;
+        min-width: 0;
+    }
+
+    #charsPage .chars-filterbar .phan-list-filter-trigger {
+        display: grid;
+        grid-template-columns: 25px minmax(0, 1fr) auto;
+        gap: 5px;
+        width: 100%;
+        min-width: 0;
+        height: 42px;
+        padding: 4px 5px;
+        border-radius: 9px;
+    }
+
+    #charsPage .chars-filterbar .phan-list-filter-thumb,
+    #charsPage .chars-filterbar .phan-list-filter-icon,
+    #charsPage .chars-filterbar .phan-list-gender-symbol {
+        width: 25px;
+        height: 25px;
+        min-width: 25px;
+        box-sizing: border-box;
+    }
+
+    #charsPage .chars-filterbar .phan-list-filter-icon,
+    #charsPage .chars-filterbar .phan-list-gender-symbol {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: .90rem;
+    }
+
+    #charsPage .chars-filterbar .phan-list-filter-text {
+        min-width: 0;
+    }
+
+    #charsPage .chars-filterbar .phan-list-filter-text > span {
+        margin-bottom: 1px;
+        font-size: .49rem;
+        line-height: 1;
+    }
+
+    #charsPage .chars-filterbar .phan-list-filter-text > strong {
+        display: block;
+        max-width: 100%;
+        overflow: hidden;
+        font-size: .64rem;
+        line-height: 1.05;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+
+    #charsPage .chars-filterbar .phan-list-filter-arrow {
+        font-size: .63rem;
+    }
+
+    /* Dropdown immer über volle Filterkartenbreite. */
+    #charsPage .chars-filterbar .phan-list-filter-menu {
+        top: 55px;
+        left: 7px;
+        right: 7px;
+        width: auto;
+        max-width: none;
+        max-height: min(54dvh, 440px);
+        padding: 6px;
+        border-radius: 11px;
+    }
+
+    #charsPage .chars-filterbar .phan-list-filter-option {
+        grid-template-columns: 30px minmax(0, 1fr);
+        gap: 7px;
+        min-height: 38px;
+        padding: 5px 6px;
+        border-radius: 8px;
+    }
+
+    #charsPage .chars-filterbar .phan-list-filter-option .phan-list-filter-thumb,
+    #charsPage .chars-filterbar .phan-list-filter-option .phan-list-filter-icon,
+    #charsPage .chars-filterbar .phan-list-filter-option .phan-list-gender-symbol {
+        width: 30px;
+        height: 30px;
+        min-width: 30px;
+    }
+
+    #charsPage .chars-filterbar .phan-list-filter-option > strong,
+    #charsPage .chars-filterbar .phan-list-filter-option-copy strong {
+        font-size: .75rem;
+    }
+
+    #charsPage .chars-filterbar .phan-list-filter-option-copy small {
+        font-size: .60rem;
+    }
+
+    #charsPage .chars-filterbar .phan-list-search-wrap {
+        grid-column: 1 / -1 !important;
+        min-width: 0;
+    }
+
+    #charsPage .chars-filterbar .phan-list-search {
+        width: 100%;
+        min-width: 0;
+        height: 38px;
+        box-sizing: border-box;
+        margin: 0;
+        padding: 5px 8px;
+        border-radius: 9px;
+        font-size: .75rem;
+    }
+
+
+    /* ------------------------------------------------------
+       Tabelle -> Sortierleiste + Charakterkarten
+       ------------------------------------------------------ */
+    #charsPage .chars-table-wrap {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        overflow: visible !important;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+    }
+
+    #charsPage .chars-table {
+        display: block;
+        width: 100%;
+        min-width: 0 !important;
+        max-width: 100%;
+        margin: 0;
+        background: transparent;
+        box-shadow: none;
+    }
+
+    /* Desktop-Kopf wird zur horizontalen Sortierchip-Leiste. */
+    #charsPage .chars-table thead {
+        display: block;
+        width: 100%;
+        margin-bottom: 7px;
+        overflow: hidden;
+    }
+
+    #charsPage .chars-table thead tr {
+        display: flex;
+        gap: 5px;
+        width: 100%;
+        padding: 1px 0 4px;
+        overflow-x: auto;
+        scrollbar-width: none;
+        overscroll-behavior-x: contain;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    #charsPage .chars-table thead tr::-webkit-scrollbar {
+        display: none;
+    }
+
+    #charsPage .chars-table thead th {
+        flex: 0 0 auto;
+        width: auto !important;
+        min-width: 0;
+        padding: 0;
+        border: 0;
+        background: transparent;
+    }
+
+    #charsPage .chars-table thead th a {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        min-height: 29px;
+        padding: 4px 7px;
+        box-sizing: border-box;
+        border: 1px solid rgba(0,0,0,.09);
+        border-radius: 999px;
+        background: #fff;
+        box-shadow: 0 1px 4px rgba(0,0,0,.05);
+        font-size: .61rem;
+        line-height: 1;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+
+    #charsPage .chars-table thead th:first-child {
+        display: none;
+    }
+
+    #charsPage .chars-table thead th:nth-child(6),
+    #charsPage .chars-table thead th:nth-child(7),
+    #charsPage .chars-table thead th:nth-child(8),
+    #charsPage .chars-table thead th:nth-child(9) {
+        display: none;
+    }
+
+    #charsPage .chars-table tbody {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        width: 100%;
+        min-width: 0;
+    }
+
+    #charsPage .char-list-row {
+        display: grid !important;
+        grid-template-columns: 66px minmax(0, 1fr) auto;
+        grid-template-rows: auto auto auto;
+        gap: 3px 7px;
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        padding: 9px;
+        box-sizing: border-box;
+        border: 1px solid rgba(0,0,0,.075);
+        border-radius: 12px;
+        background: #fff;
+        box-shadow: var(--shadow);
+        cursor: pointer;
+        touch-action: manipulation;
+    }
+
+    #charsPage .char-list-row > td {
+        min-width: 0;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        line-height: 1.15;
+    }
+
+    /* Portrait */
+    #charsPage .char-list-row > td:nth-child(1) {
+        grid-column: 1;
+        grid-row: 1 / 4;
+        align-self: center;
+        justify-self: center;
+    }
+
+    #charsPage .char-list-row .phan-face {
+        width: 66px;
+        height: 66px;
+        min-width: 66px;
+        border-radius: 10px;
+        object-fit: cover;
+    }
+
+    #charsPage .char-list-row .phan-noimg {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-sizing: border-box;
+        padding: 5px;
+        font-size: .57rem;
+        line-height: 1.05;
+        text-align: center;
+    }
+
+    /* Rufname */
+    #charsPage .char-list-row > td:nth-child(2) {
+        grid-column: 2;
+        grid-row: 1;
+        align-self: center;
+    }
+
+    #charsPage .phan-char-name-cell {
+        gap: 4px;
+    }
+
+    #charsPage .phan-char-name-cell strong {
+        font-size: .88rem;
+        line-height: 1.08;
+        overflow-wrap: anywhere;
+    }
+
+    #charsPage .phan-char-warning {
+        width: 16px;
+        height: 16px;
+        min-width: 16px;
+        font-size: .61rem;
+    }
+
+    /* Geschlecht */
+    #charsPage .char-list-row > td:nth-child(3) {
+        grid-column: 3;
+        grid-row: 1;
+        align-self: center;
+        justify-self: end;
+    }
+
+    #charsPage .phan-table-gender-symbol {
+        width: 25px;
+        height: 25px;
+        min-width: 25px;
+        font-size: .90rem;
+        font-weight: 400 !important;
+        -webkit-text-stroke: 0 !important;
+        text-shadow: none !important;
+    }
+
+    #charsPage .phan-list-gender-symbol,
+    #charsPage .phan-list-gender-symbol.is-stroked,
+    #charsPage .phan-list-filter-option .phan-list-gender-symbol,
+    #charsPage .phan-list-filter-option .phan-list-gender-symbol.is-stroked {
+        font-weight: 400 !important;
+        -webkit-text-stroke: 0 !important;
+        text-shadow: none !important;
+    }
+
+    /* Phone-Fallback für „Trans Frau“:
+       Auf Phone dasselbe robuste ⚧-Symbol wie bei „Trans Mann“,
+       aber weiterhin mit der eigenen Trans-Frau-Farbe (#e03d81). */
+    #charsPage .phan-gender--trans-frau {
+        color: #e03d81 !important;
+        font-size: 0 !important;
+        font-weight: 400 !important;
+        -webkit-text-stroke: 0 !important;
+        text-shadow: none !important;
+    }
+
+    #charsPage .phan-gender--trans-frau::before {
+        content: "⚧";
+        display: inline-block;
+        color: inherit;
+        font: inherit;
+        font-family: sans-serif;
+        font-size: .90rem;
+        font-weight: 400;
+        line-height: 1;
+        letter-spacing: normal;
+        transform: none;
+    }
+
+    /* voller Name */
+    #charsPage .char-list-row > td:nth-child(4) {
+        grid-column: 2 / 4;
+        grid-row: 2;
+        color: rgba(0,0,0,.67);
+        font-size: .66rem;
+        overflow-wrap: anywhere;
+    }
+
+    /* Auf Phone nur Rufname, voller Name und Art als Textdaten.
+       Geschlecht bleibt als kompaktes Symbol rechts oben sichtbar. */
+    #charsPage .char-list-row > td:nth-child(5) {
+        grid-column: 2 / 4;
+        grid-row: 3;
+        display: block;
+        color: rgba(0,0,0,.67);
+        font-size: .66rem;
+        line-height: 1.15;
+        text-align: left;
+        overflow-wrap: anywhere;
+    }
+
+    #charsPage .char-list-row > td:nth-child(5)::before {
+        content: none;
+    }
+
+    #charsPage .char-list-row > td:nth-child(6),
+    #charsPage .char-list-row > td:nth-child(7),
+    #charsPage .char-list-row > td:nth-child(8),
+    #charsPage .char-list-row > td:nth-child(9) {
+        display: none !important;
+    }
+
+    #charsPage .chars-table tbody > tr:not(.char-list-row) {
+        display: block;
+        width: 100%;
+    }
+
+    #charsPage .chars-table .phan-empty-table {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+        padding: 18px 10px !important;
+        border-radius: 11px;
+        background: #fff;
+        font-size: .78rem;
+        text-align: center;
+    }
+
+
+    /* Pagination: kompakt, horizontal scrollbar statt Umbruch-Chaos. */
+    #charsPage .chars-pagination {
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: center;
+        gap: 5px;
+        width: 100%;
+        margin-top: 10px;
+        padding: 2px 0 4px;
+        overflow-x: auto;
+        scrollbar-width: none;
+        overscroll-behavior-x: contain;
+    }
+
+    #charsPage .chars-pagination::-webkit-scrollbar {
+        display: none;
+    }
+
+    #charsPage .chars-pagination .phan-page-button {
+        flex: 0 0 auto;
+        min-width: 32px;
+        min-height: 32px;
+        padding: 5px 7px;
+        border-radius: 8px;
+        font-size: .68rem;
+    }
+
+    #charsPage .chars-pagination .phan-page-ellipsis {
+        flex: 0 0 auto;
+        font-size: .72rem;
+    }
+
+    #charsPage .chars-pagination .phan-pagination-info {
+        flex: 0 0 auto;
+        width: auto !important;
+        margin: 0 0 0 4px !important;
+        font-size: .62rem;
+        white-space: nowrap;
+    }
+
+
+    /* ======================================================
+       DETAIL / EDITOR
+       ====================================================== */
+
+    #charsPage.chars-page--detail {
+        margin-bottom: 32px;
+    }
+
+    #charsPage .chars-detail-head {
+        display: grid !important;
+        grid-template-columns: auto minmax(0, 1fr);
+        grid-template-rows: auto auto;
+        align-items: center;
+        gap: 4px 8px;
+        min-height: 0;
+        margin-bottom: 8px;
+        padding: 0 !important;
+    }
+
+    #charsPage .chars-detail-head-left {
+        grid-column: 1;
+        grid-row: 1;
+    }
+
+    #charsPage .chars-detail-head-left button {
+        min-height: 34px;
+        padding: 5px 8px;
+        border-radius: 8px;
+        font-size: .68rem;
+        white-space: nowrap;
+    }
+
+    #charsPage .chars-detail-head .phan-last-saved {
+        grid-column: 2;
+        grid-row: 1;
+        justify-self: end;
+        align-self: center;
+        max-width: 100%;
+        margin: 0;
+        font-size: .56rem;
+        line-height: 1.12;
+        text-align: right;
+        white-space: normal;
+    }
+
+    #charsPage .chars-detail-head .phan-last-saved span {
+        display: block;
+        margin-top: 1px;
+        font-size: .62rem;
+        font-weight: 700;
+    }
+
+    #charsPage .chars-detail-head .phan-autosave-status {
+        position: static !important;
+        grid-column: 1 / -1;
+        grid-row: 2;
+        min-height: 11px;
+        padding: 0 2px;
+        transform: none !important;
+        justify-self: end;
+        font-size: .60rem;
+        line-height: 1;
+    }
+
+
+    #charsPage .chars-detail {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 10px;
+        width: 100%;
+        min-width: 0;
+    }
+
+
+    /* ------------------------------------------------------
+       Bilder
+       ------------------------------------------------------ */
+    #charsPage .chars-image-card {
+        width: 100%;
+        min-width: 0;
+        padding: 11px;
+    }
+
+    #charsPage .phan-image-card-head {
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+
+    #charsPage .phan-image-card-head strong {
+        font-size: .92rem;
+    }
+
+    #charsPage .phan-image-count {
+        font-size: .62rem;
+    }
+
+    #charsPage #addImageButton {
+        min-height: 32px;
+        padding: 4px 8px;
+        border-radius: 8px;
+        font-size: .66rem;
+    }
+
+    /* Hauptbild nicht überdimensionieren. */
+    #charsPage .phan-cropbox {
+        width: min(72vw, 285px) !important;
+        max-width: 100%;
+        margin: 0 auto;
+        border-radius: 11px;
+    }
+
+    #charsPage .phan-cropbox img {
+        width: 100%;
+        height: auto;
+        max-height: 48dvh;
+        object-fit: contain;
+    }
+
+    #charsPage .phan-image-drop-hint {
+        display: none;
+    }
+
+    #charsPage .phan-image-actions {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 5px;
+        width: 100%;
+        margin-top: 8px;
+    }
+
+    #charsPage .phan-image-actions button {
+        width: 100%;
+        min-width: 0;
+        min-height: 33px;
+        padding: 5px 4px;
+        border-radius: 8px;
+        font-size: .61rem;
+        line-height: 1.05;
+        white-space: normal;
+    }
+
+    /* Kleine Bilder horizontal – spart viel Höhe. */
+    #charsPage .phan-image-gallery {
+        display: flex !important;
+        grid-template-columns: none !important;
+        gap: 6px;
+        width: 100%;
+        margin-top: 8px;
+        padding: 1px 0 4px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: none;
+        overscroll-behavior-x: contain;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    #charsPage .phan-image-gallery::-webkit-scrollbar {
+        display: none;
+    }
+
+    #charsPage .phan-image-gallery-item {
+        flex: 0 0 70px;
+        width: 70px;
+        min-width: 70px;
+        padding: 4px;
+        border-radius: 9px;
+    }
+
+    #charsPage .phan-image-gallery-item img {
+        width: 60px;
+        height: 60px;
+        border-radius: 7px;
+    }
+
+    #charsPage .phan-image-gallery-item span {
+        display: block;
+        width: 100%;
+        margin-top: 3px;
+        overflow: hidden;
+        font-size: .54rem;
+        line-height: 1.05;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+
+    #charsPage .phan-image-meta {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 7px;
+        margin-top: 8px;
+    }
+
+    #charsPage .phan-image-meta label {
+        font-size: .66rem;
+    }
+
+    #charsPage .phan-image-title-input {
+        width: 100%;
+        min-width: 0;
+        height: 35px;
+        box-sizing: border-box;
+        margin: 3px 0 0;
+        padding: 5px 7px;
+        border-radius: 8px;
+        font-size: .72rem;
+    }
+
+    #charsPage .phan-image-filename {
+        min-width: 0;
+        padding: 6px 7px;
+        border-radius: 8px;
+        background: var(--bg-light);
+        font-size: .59rem;
+        line-height: 1.18;
+        overflow-wrap: anywhere;
+    }
+
+    #charsPage .phan-image-empty {
+        width: 100%;
+        min-height: 150px;
+        padding: 14px;
+        border-radius: 11px;
+        font-size: .84rem;
+    }
+
+    #charsPage .phan-image-empty-sub {
+        margin-top: 4px;
+        font-size: .63rem;
+    }
+
+
+    /* ------------------------------------------------------
+       Datenformular – kurze Felder 2-spaltig
+       ------------------------------------------------------ */
+    #charsPage .chars-data-card {
+        padding: 11px;
+    }
+
+    #charsPage .chars-form-grid {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 8px !important;
+        align-items: start;
+    }
+
+    #charsPage .chars-form-grid > label,
+    #charsPage .chars-form-grid > div {
+        min-width: 0;
+    }
+
+    #charsPage .chars-form-grid > label {
+        font-size: .66rem;
+        line-height: 1.08;
+    }
+
+    #charsPage .chars-form-grid input,
+    #charsPage .chars-form-grid select,
+    #charsPage .chars-form-grid textarea {
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+        margin: 3px 0 0;
+        padding: 5px 7px;
+        border-radius: 8px;
+        font-size: .73rem;
+    }
+
+    #charsPage .chars-form-grid input,
+    #charsPage .chars-form-grid select {
+        height: 36px;
+    }
+
+    #charsPage .chars-form-grid textarea {
+        min-height: 62px;
+        resize: vertical;
+        line-height: 1.25;
+    }
+
+    #charsPage .chars-field-wide,
+    #charsPage .phan-wide {
+        grid-column: 1 / -1 !important;
+    }
+
+    #charsPage #charFactionField > span {
+        display: block;
+        margin-bottom: 3px;
+        font-size: .66rem;
+        font-weight: 700;
+    }
+
+    #charsPage #charSelectedFactions {
+        gap: 4px;
+        margin-bottom: 5px;
+    }
+
+    #charsPage #charSelectedFactions .story-selected-char {
+        min-height: 27px;
+        padding: 2px 6px 2px 3px;
+        font-size: .66rem;
+    }
+
+    #charsPage #charFactionPicker {
+        position: relative;
+        width: 100%;
+        min-width: 0;
+    }
+
+    #charsPage #charFactionTrigger {
+        width: 100%;
+        min-height: 36px;
+        box-sizing: border-box;
+        padding: 5px 8px;
+        border-radius: 8px;
+        font-size: .72rem;
+        text-align: left;
+    }
+
+    #charsPage #charFactionMenu {
+        left: 0;
+        right: 0;
+        width: 100%;
+        max-width: none;
+        max-height: min(50dvh, 380px);
+        box-sizing: border-box;
+        padding: 7px;
+        border-radius: 10px;
+        z-index: 850;
+    }
+
+    #charsPage #charFactionSearch {
+        width: 100%;
+        min-width: 0;
+        height: 35px;
+        box-sizing: border-box;
+        margin: 0 0 6px;
+        padding: 5px 7px;
+        border-radius: 8px;
+        font-size: .72rem;
+    }
+
+    #charsPage #charFactionResults {
+        max-height: min(38dvh, 280px);
+        overflow-y: auto;
+    }
+
+    #charsPage #promptEditor textarea {
+        min-height: 190px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+        font-size: .67rem;
+        line-height: 1.3;
+    }
+
+
+    /* Aktionen unten */
+    #charsPage .chars-bottom-actions {
+        display: grid !important;
+        grid-template-columns: 1fr;
+        gap: 7px;
+        margin-top: 10px;
+        padding-top: 9px;
+    }
+
+    #charsPage .chars-bottom-actions-right {
+        grid-row: 1;
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+        width: 100%;
+        margin: 0 !important;
+    }
+
+    #charsPage .chars-bottom-actions-left {
+        grid-row: 2;
+        width: 100%;
+    }
+
+    #charsPage .chars-bottom-actions button {
+        width: 100%;
+        min-width: 0;
+        min-height: 35px;
+        padding: 5px 6px;
+        border-radius: 8px;
+        font-size: .68rem;
+        line-height: 1.08;
+    }
+
+    #charsPage .chars-bottom-actions-left #deleteCharButton {
+        width: 100%;
+    }
+
+    #charsPage .phan-copy-status {
+        grid-column: 1 / -1;
+        min-height: 10px;
+        font-size: .58rem;
+        line-height: 1;
+        text-align: right;
+    }
+
+
+    /* ======================================================
+       Bildergalerie Modal
+       ====================================================== */
+    .chars-gallery-modal {
+        padding: 8px !important;
+    }
+
+    .chars-gallery-modal .phan-gallery-modal-dialog {
+        grid-template-columns: 1fr !important;
+        grid-template-rows: minmax(0, 1fr) 96px !important;
+        width: calc(100vw - 16px) !important;
+        height: calc(100dvh - 16px) !important;
+        max-width: none !important;
+        max-height: none !important;
+        border-radius: 14px;
+        overflow: hidden;
+    }
+
+    .chars-gallery-modal .phan-gallery-modal-main {
+        min-width: 0;
+        min-height: 0;
+    }
+
+    .chars-gallery-modal .phan-gallery-modal-stage {
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        padding: 8px;
+        box-sizing: border-box;
+    }
+
+    .chars-gallery-modal .phan-gallery-modal-stage img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+    }
+
+    .chars-gallery-modal .phan-gallery-modal-sidebar {
+        display: flex !important;
+        gap: 6px;
+        min-width: 0;
+        padding: 6px;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        border-left: 0;
+        border-top: 1px solid rgba(0,0,0,.10);
+        scrollbar-width: none;
+    }
+
+    .chars-gallery-modal .phan-gallery-modal-sidebar::-webkit-scrollbar {
+        display: none;
+    }
+
+    .chars-gallery-modal .phan-gallery-modal-thumb {
+        flex: 0 0 74px !important;
+        width: 74px;
+        min-width: 74px;
+        margin: 0;
+        padding: 4px;
+        border-radius: 8px;
+    }
+
+    .chars-gallery-modal .phan-gallery-modal-thumb img {
+        width: 54px;
+        height: 54px;
+        border-radius: 6px;
+    }
+
+    .chars-gallery-modal .phan-gallery-modal-thumb span {
+        width: 100%;
+        overflow: hidden;
+        font-size: .50rem;
+        line-height: 1.05;
+        text-align: center;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+}
+
+
+@media (max-width: 370px) {
+    #charsPage .chars-list-head {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    #charsPage .chars-filterbar {
+        gap: 5px;
+        padding: 6px;
+    }
+
+    #charsPage .chars-filterbar .phan-list-filter-trigger {
+        grid-template-columns: 22px minmax(0,1fr) auto;
+        gap: 3px;
+        padding-left: 4px;
+        padding-right: 4px;
+    }
+
+    #charsPage .chars-filterbar .phan-list-filter-thumb,
+    #charsPage .chars-filterbar .phan-list-filter-icon,
+    #charsPage .chars-filterbar .phan-list-gender-symbol {
+        width: 22px;
+        height: 22px;
+        min-width: 22px;
+    }
+
+    #charsPage .chars-filterbar .phan-list-filter-text > strong {
+        font-size: .58rem;
+    }
+
+    #charsPage .char-list-row {
+        grid-template-columns: 60px minmax(0,1fr) auto;
+        padding: 8px;
+    }
+
+    #charsPage .char-list-row .phan-face {
+        width: 60px;
+        height: 60px;
+        min-width: 60px;
+    }
+
+    #charsPage .chars-form-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    #charsPage .chars-field-wide,
+    #charsPage .phan-wide {
+        grid-column: auto !important;
+    }
+
+    #charsPage .phan-image-actions {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    #charsPage .phan-image-actions #charGalleryButton {
+        grid-column: 1 / -1;
+    }
+}
+
+
+
+/* ==========================================================
+   PHAN / Fraktionen – Smartphone/Fairphone v2
+   Horizontale Fraktionsauswahl + kompakter Editor.
+   ========================================================== */
+@media (max-width: 650px) {
+
+    /* ------------------------------------------------------
+       Seite / Kopf
+       ------------------------------------------------------ */
+    #factionsPage.factions-page {
+        width: auto;
+        max-width: none;
+        margin: 4px auto 32px;
+        padding: 0 10px;
+        box-sizing: border-box;
+    }
+
+    #factionsPage .factions-head {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        margin-bottom: 9px;
+    }
+
+    #factionsPage .factions-head .phan-title {
+        margin: 0;
+        font-size: 1.38rem;
+        line-height: 1.10;
+        text-align: left;
+    }
+
+    #factionsPage .factions-head .phan-actions {
+        margin: 0;
+    }
+
+    #factionsPage .factions-head .phan-actions button {
+        min-height: 36px;
+        padding: 6px 9px;
+        border-radius: 9px;
+        font-size: .72rem;
+        white-space: nowrap;
+    }
+
+    #factionsPage .phan-msg {
+        margin: 0 0 9px;
+        padding: 8px 9px;
+        border-left-width: 4px;
+        border-radius: 10px;
+        font-size: .75rem;
+        line-height: 1.22;
+    }
+
+
+    /* ------------------------------------------------------
+       Hauptlayout: Liste oben, Editor darunter
+       ------------------------------------------------------ */
+    #factionsPage .factions-layout {
+        display: flex !important;
+        flex-direction: column;
+        gap: 9px !important;
+        width: 100%;
+        min-width: 0;
+    }
+
+    #factionsPage .factions-list-card,
+    #factionsPage .factions-editor-card {
+        width: 100%;
+        min-width: 0;
+        max-width: none;
+        box-sizing: border-box;
+        border-radius: 14px;
+    }
+
+    /* Auswahlleiste absichtlich flach halten:
+       viele Fraktionen kosten so nicht die halbe Bildschirmhöhe. */
+    #factionsPage .factions-list-card {
+        padding: 7px;
+        overflow: hidden;
+    }
+
+    #factionsPage .factions-list {
+        display: flex !important;
+        flex-direction: row !important;
+        gap: 6px;
+        width: 100%;
+        min-width: 0;
+        max-height: none !important;
+        padding: 1px 0 3px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: none;
+        overscroll-behavior-x: contain;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    #factionsPage .factions-list::-webkit-scrollbar {
+        display: none;
+    }
+
+    #factionsPage .faction-list-item {
+        flex: 0 0 96px;
+        display: flex !important;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        width: 96px;
+        min-width: 96px;
+        min-height: 91px;
+        padding: 6px 5px;
+        box-sizing: border-box;
+        border-radius: 10px;
+        text-align: center;
+    }
+
+    #factionsPage .faction-list-item.is-active {
+        box-shadow: inset 0 0 0 1px var(--primary);
+    }
+
+    #factionsPage .faction-list-item .relations-char-avatar {
+        width: 48px;
+        height: 48px;
+        min-width: 48px;
+        flex: 0 0 48px;
+        border-radius: 9px;
+        font-size: 1.05rem;
+    }
+
+    #factionsPage .faction-list-item .relations-char-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    #factionsPage .faction-list-item .relations-char-result-text {
+        display: block;
+        width: 100%;
+        min-width: 0;
+    }
+
+    #factionsPage .faction-list-item .relations-char-result-text strong {
+        display: block;
+        width: 100%;
+        overflow: hidden;
+        font-size: .66rem;
+        line-height: 1.08;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+
+    #factionsPage .faction-list-item .relations-char-result-text > span {
+        display: block;
+        margin-top: 2px;
+        font-size: .54rem;
+        line-height: 1;
+        opacity: .67;
+        white-space: nowrap;
+    }
+
+    #factionsPage .factions-list .relations-char-empty {
+        flex: 1 0 100%;
+        min-height: 58px;
+        padding: 12px;
+        box-sizing: border-box;
+        font-size: .74rem;
+    }
+
+
+    /* ------------------------------------------------------
+       Editor
+       ------------------------------------------------------ */
+    #factionsPage .factions-editor-card {
+        padding: 12px;
+    }
+
+    #factionsPage .factions-editor-card > .relations-char-empty {
+        min-height: 80px;
+        padding: 14px 8px;
+        font-size: .76rem;
+        line-height: 1.25;
+        text-align: center;
+    }
+
+    #factionsPage .faction-form {
+        width: 100%;
+        min-width: 0;
+    }
+
+    #factionsPage .faction-form-grid {
+        grid-template-columns: 1fr !important;
+        gap: 0 !important;
+    }
+
+    #factionsPage .faction-form-grid label {
+        min-width: 0;
+        font-size: .68rem;
+        line-height: 1.08;
+    }
+
+    #factionsPage #factionTitle {
+        width: 100%;
+        min-width: 0;
+        height: 38px;
+        box-sizing: border-box;
+        margin: 3px 0 0;
+        padding: 6px 8px;
+        border-radius: 9px;
+        font-size: .86rem;
+    }
+
+
+    /* ------------------------------------------------------
+       Bild
+       ------------------------------------------------------ */
+    #factionsPage .faction-image-card {
+        width: 100%;
+        min-width: 0;
+        margin-top: 10px !important;
+        padding: 10px;
+        box-sizing: border-box;
+        border-radius: 12px;
+    }
+
+    #factionsPage .faction-image-card .phan-image-card-head {
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+
+    #factionsPage .faction-image-card .phan-image-card-head strong {
+        font-size: .90rem;
+    }
+
+    #factionsPage #factionImageButton {
+        min-height: 32px;
+        padding: 4px 8px;
+        border-radius: 8px;
+        font-size: .66rem;
+    }
+
+    /* Bild bewusst nicht über die komplette Phonebreite aufblasen. */
+    #factionsPage #factionCropBox,
+    #factionsPage #factionEmptyImagePicker {
+        width: min(70vw, 265px) !important;
+        max-width: 100%;
+        margin: 0 auto;
+        box-sizing: border-box;
+        border-radius: 11px;
+    }
+
+    #factionsPage #factionCropBox {
+        touch-action: none;
+    }
+
+    #factionsPage #factionCropImage {
+        display: block;
+        width: 100%;
+        height: auto;
+        max-height: 52dvh;
+        object-fit: contain;
+        border-radius: inherit;
+    }
+
+    #factionsPage .phan-image-drop-hint {
+        display: none;
+    }
+
+    #factionsPage #factionEmptyImagePicker {
+        min-height: 180px;
+        padding: 14px;
+        font-size: .82rem;
+        line-height: 1.14;
+    }
+
+    #factionsPage #factionEmptyImagePicker .phan-image-empty-sub {
+        margin-top: 4px;
+        font-size: .62rem;
+        line-height: 1.18;
+    }
+
+    #factionsPage .faction-image-actions {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+        width: 100%;
+        margin-top: 8px;
+    }
+
+    #factionsPage .faction-image-actions button {
+        width: 100%;
+        min-width: 0;
+        min-height: 35px;
+        padding: 5px 6px;
+        border-radius: 8px;
+        font-size: .64rem;
+        line-height: 1.08;
+        white-space: normal;
+    }
+
+    /* Crop-Modus deutlicher, ohne Desktoplayout zu verändern. */
+    #factionsPage #factionCropBox.is-crop-mode {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+    }
+
+    #factionsPage #factionCropOverlay {
+        box-sizing: border-box;
+    }
+
+
+    /* ------------------------------------------------------
+       Bottom / Autosave
+       ------------------------------------------------------ */
+    #factionsPage .faction-bottom-actions {
+        display: grid !important;
+        grid-template-columns: 1fr;
+        gap: 7px;
+        margin-top: 10px;
+        padding-top: 9px;
+        border-top: 1px solid rgba(0,0,0,.065);
+    }
+
+    #factionsPage .faction-bottom-actions .phan-bottom-actions-right {
+        grid-row: 1;
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 7px;
+        width: 100%;
+        margin: 0 !important;
+    }
+
+    #factionsPage #factionAutosaveStatus {
+        position: static !important;
+        min-height: 11px;
+        transform: none !important;
+        font-size: .60rem;
+        line-height: 1;
+        text-align: left;
+    }
+
+    #factionsPage .faction-bottom-actions .phan-last-saved {
+        margin: 0;
+        font-size: .54rem;
+        line-height: 1.08;
+        text-align: right;
+        white-space: normal;
+    }
+
+    #factionsPage .faction-bottom-actions .phan-last-saved > span {
+        display: block;
+        margin-top: 1px;
+        font-size: .60rem;
+        font-weight: 700;
+    }
+
+    #factionsPage .faction-bottom-actions .phan-bottom-actions-left {
+        grid-row: 2;
+        width: 100%;
+    }
+
+    #factionsPage #deleteFactionButton {
+        width: 100%;
+        min-height: 35px;
+        padding: 5px 7px;
+        border-radius: 8px;
+        font-size: .68rem;
+    }
+}
+
+
+@media (max-width: 370px) {
+    #factionsPage .faction-list-item {
+        flex-basis: 88px;
+        width: 88px;
+        min-width: 88px;
+    }
+
+    #factionsPage .faction-bottom-actions .phan-bottom-actions-right {
+        grid-template-columns: 1fr;
+        gap: 3px;
+    }
+
+    #factionsPage .faction-bottom-actions .phan-last-saved {
+        text-align: left;
+    }
+}
+
+
+
+/* ==========================================================
+   PHAN / Regionen – Smartphone/Fairphone v2
+   Horizontale Regionsauswahl + einspaltiger Editor.
+   ========================================================== */
+@media (max-width: 650px) {
+
+    /* ------------------------------------------------------
+       Seite / Hintergrund
+       ------------------------------------------------------ */
+    #regionsPage.regions-page {
+        width: auto;
+        max-width: none;
+        margin: 4px auto 32px;
+        padding: 0 10px;
+        box-sizing: border-box;
+    }
+
+    #regionsPage.has-region-page-background::before,
+    #regionsPage.has-region-page-background::after {
+        inset: 54px 0 0 !important;
+    }
+
+    #regionsPage.has-region-page-background::before {
+        background-position: center center !important;
+        background-size: cover !important;
+        filter: blur(12px) saturate(.78);
+        transform: scale(1.06);
+        opacity: .30;
+    }
+
+    #regionsPage.has-region-page-background::after {
+        background: rgba(255, 250, 246, .64) !important;
+    }
+
+
+    /* ------------------------------------------------------
+       Kopf
+       ------------------------------------------------------ */
+    #regionsPage .regions-head {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-rows: auto auto;
+        align-items: center;
+        gap: 4px 8px;
+        width: 100%;
+        margin-bottom: 9px;
+    }
+
+    #regionsPage .regions-head .phan-title {
+        grid-column: 1;
+        grid-row: 1;
+        margin: 0;
+        font-size: 1.38rem;
+        line-height: 1.10;
+        text-align: left;
+    }
+
+    #regionsPage .regions-head-actions {
+        display: contents !important;
+    }
+
+    #regionsPage .regions-head-actions > button {
+        grid-column: 2;
+        grid-row: 1;
+        min-height: 36px;
+        padding: 6px 9px;
+        border-radius: 9px;
+        font-size: .72rem;
+        white-space: nowrap;
+    }
+
+    #regionsPage .regions-head-actions .phan-autosave-status {
+        position: static !important;
+        grid-column: 1;
+        grid-row: 2;
+        min-width: 0;
+        min-height: 11px;
+        padding: 0 2px;
+        transform: none !important;
+        justify-content: flex-start;
+        font-size: .60rem;
+        line-height: 1;
+    }
+
+    #regionsPage .regions-head-actions .phan-last-saved {
+        grid-column: 2;
+        grid-row: 2;
+        justify-self: end;
+        margin: 0;
+        font-size: .53rem;
+        line-height: 1.05;
+        text-align: right;
+        white-space: normal;
+    }
+
+    #regionsPage .regions-head-actions .phan-last-saved > span {
+        display: block;
+        margin-top: 1px;
+        font-size: .59rem;
+        font-weight: 700;
+    }
+
+    #regionsPage .phan-region-msg {
+        margin: 0 0 9px;
+        padding: 8px 9px;
+        border-left-width: 4px;
+        border-radius: 10px;
+        font-size: .75rem;
+        line-height: 1.22;
+    }
+
+
+    /* ------------------------------------------------------
+       Layout: Liste oben, Editor darunter
+       ------------------------------------------------------ */
+    #regionsPage .regions-layout {
+        display: flex !important;
+        flex-direction: column;
+        gap: 9px !important;
+        width: 100%;
+        min-width: 0;
+    }
+
+    #regionsPage .regions-list,
+    #regionsPage .regions-editor-card {
+        width: 100%;
+        min-width: 0;
+        max-width: none;
+        box-sizing: border-box;
+    }
+
+
+    /* ------------------------------------------------------
+       Regionsauswahl als horizontale 16:9-Karten
+       ------------------------------------------------------ */
+    #regionsPage .regions-list {
+        display: flex !important;
+        grid-template-columns: none !important;
+        gap: 7px;
+        padding: 7px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        border-radius: 14px;
+        background: rgba(255,255,255,.68);
+        backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
+        scrollbar-width: none;
+        overscroll-behavior-x: contain;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    #regionsPage .regions-list::-webkit-scrollbar {
+        display: none;
+    }
+
+    #regionsPage .region-list-item {
+        flex: 0 0 126px;
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        grid-template-rows: 71px auto;
+        gap: 5px;
+        width: 126px;
+        min-width: 126px;
+        padding: 5px;
+        box-sizing: border-box;
+        border-width: 1px;
+        border-radius: 10px;
+        background: rgba(255,255,255,.66);
+        touch-action: manipulation;
+    }
+
+    #regionsPage .region-list-item.is-active {
+        border-color: var(--primary) !important;
+        box-shadow: inset 0 0 0 1px var(--primary);
+        background: rgba(255,242,229,.90) !important;
+    }
+
+    #regionsPage .region-list-item .phan-region-thumb {
+        width: 100%;
+        height: 71px;
+        min-width: 0;
+        border-radius: 7px;
+        object-fit: cover;
+    }
+
+    #regionsPage .region-list-item .phan-region-noimg {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: .60rem;
+        line-height: 1;
+        text-align: center;
+    }
+
+    #regionsPage .region-list-item .phan-region-meta {
+        display: block;
+        min-width: 0;
+        text-align: center;
+    }
+
+    #regionsPage .region-list-item .phan-region-meta strong {
+        display: block;
+        width: 100%;
+        overflow: hidden;
+        font-size: .68rem;
+        line-height: 1.08;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+
+    #regionsPage .region-list-item .phan-region-meta > span {
+        display: block;
+        margin-top: 2px;
+        font-size: .54rem;
+        line-height: 1;
+        opacity: .68;
+        white-space: nowrap;
+    }
+
+    #regionsPage .regions-list > .phan-region-empty {
+        flex: 1 0 100%;
+        padding: 14px 8px;
+        font-size: .74rem;
+        text-align: center;
+    }
+
+
+    /* ------------------------------------------------------
+       Editor
+       ------------------------------------------------------ */
+    #regionsPage .regions-editor-card {
+        padding: 11px;
+        overflow: visible;
+        border-radius: 14px;
+        background: rgba(255,255,255,.76);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+    }
+
+    #regionsPage .phan-region-select-hint {
+        padding: 20px 10px;
+        font-size: .76rem;
+        line-height: 1.25;
+        text-align: center;
+    }
+
+    #regionsPage .region-form {
+        width: 100%;
+        min-width: 0;
+    }
+
+
+    /* ------------------------------------------------------
+       Bildsteuerung
+       ------------------------------------------------------ */
+    #regionsPage .region-image-controls {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0,1fr));
+        align-items: stretch;
+        gap: 6px;
+        width: 100%;
+        margin: 0 0 10px;
+        padding: 8px;
+        box-sizing: border-box;
+        border-width: 1px;
+        border-radius: 10px;
+        background: rgba(255,255,255,.72);
+    }
+
+    #regionsPage .region-image-controls button {
+        width: 100%;
+        min-width: 0;
+        min-height: 35px;
+        padding: 5px 6px;
+        border-radius: 8px;
+        font-size: .67rem;
+        line-height: 1.08;
+        white-space: normal;
+    }
+
+    #regionsPage .region-image-controls .phan-region-danger {
+        margin-left: 0 !important;
+    }
+
+    #regionsPage .phan-region-image-droptext {
+        display: none;
+    }
+
+    /* Bei neuer Region ohne Bild gibt es nur einen Button:
+       dann komplette Breite. */
+    #regionsPage .region-image-controls > button:only-of-type {
+        grid-column: 1 / -1;
+    }
+
+
+    /* ------------------------------------------------------
+       Formular
+       ------------------------------------------------------ */
+    #regionsPage .region-form-grid {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 8px !important;
+        margin-top: 0;
+    }
+
+    #regionsPage .region-form-grid > label {
+        min-width: 0;
+        padding: 0;
+        border-radius: 0;
+        background: transparent;
+        font-size: .67rem;
+        line-height: 1.08;
+    }
+
+    #regionsPage .region-form-grid .phan-region-wide {
+        grid-column: auto !important;
+    }
+
+    #regionsPage .region-form-grid input,
+    #regionsPage .region-form-grid textarea {
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+        margin: 3px 0 0;
+        padding: 6px 8px;
+        border-radius: 9px;
+        background: rgba(255,255,255,.90);
+        font-size: .74rem;
+    }
+
+    #regionsPage #regionTitle {
+        height: 38px;
+        font-size: .86rem;
+        font-weight: 650;
+    }
+
+    /* Viele Textfelder – kompakt starten, aber resize bleibt möglich. */
+    #regionsPage .region-form-grid textarea {
+        min-height: 82px !important;
+        height: 82px;
+        resize: vertical;
+        line-height: 1.28;
+    }
+
+    #regionsPage .region-form-grid label:nth-of-type(2) textarea,
+    #regionsPage .region-form-grid label:nth-of-type(3) textarea {
+        min-height: 72px !important;
+        height: 72px;
+    }
+
+
+    /* ------------------------------------------------------
+       Löschen
+       ------------------------------------------------------ */
+    #regionsPage .region-bottom-actions {
+        display: block;
+        width: 100%;
+        margin-top: 10px;
+        padding-top: 9px;
+        border-top: 1px solid rgba(0,0,0,.065);
+    }
+
+    #regionsPage #regionDeleteButton {
+        width: 100%;
+        min-height: 35px;
+        padding: 5px 7px;
+        border-radius: 8px;
+        font-size: .68rem;
+    }
+}
+
+
+@media (max-width: 370px) {
+    #regionsPage .region-list-item {
+        flex-basis: 116px;
+        width: 116px;
+        min-width: 116px;
+        grid-template-rows: 65px auto;
+    }
+
+    #regionsPage .region-list-item .phan-region-thumb {
+        height: 65px;
+    }
+
+    #regionsPage .regions-head-actions .phan-last-saved {
+        font-size: .49rem;
+    }
+}
+
+
+
+/* ==========================================================
+   PHAN / Stories – Smartphone/Fairphone v2
+   Übersicht, Reader, Story-Editor und Gesamtstory-Editor.
+   ========================================================== */
+@media (max-width: 650px) {
+
+    /* ------------------------------------------------------
+       Seite allgemein
+       ------------------------------------------------------ */
+    #storiesPage.stories-page {
+        width: auto;
+        max-width: none;
+        margin: 4px auto 36px;
+        padding: 0 10px;
+        box-sizing: border-box;
+    }
+
+    #storiesPage .phan-card {
+        min-width: 0;
+        box-sizing: border-box;
+        border-radius: 14px;
+    }
+
+    #storiesPage.story-has-cover-background::before,
+    #storiesPage.story-has-cover-background::after {
+        inset: 54px 0 0 !important;
+    }
+
+    #storiesPage.story-has-cover-background::before {
+        opacity: .32;
+        filter: blur(12px) saturate(.78);
+        transform: scale(1.05);
+    }
+
+    #storiesPage.story-has-cover-background::after {
+        background: rgba(255, 250, 246, .64);
+    }
+
+
+    /* ======================================================
+       ÜBERSICHT
+       ====================================================== */
+
+    #storiesPage .stories-overview-head {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 8px;
+        width: 100%;
+        margin-bottom: 9px;
+    }
+
+    #storiesPage .stories-overview-head > div:first-child {
+        min-width: 0;
+        text-align: center;
+    }
+
+    #storiesPage .stories-overview-head .phan-title {
+        margin: 0;
+        font-size: 1.38rem;
+        line-height: 1.10;
+        text-align: center;
+    }
+
+    #storiesPage .stories-result-count {
+        margin-top: 2px;
+        font-size: .66rem;
+        line-height: 1.05;
+        text-align: center;
+    }
+
+    #storiesPage .stories-head-actions {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+        width: 100%;
+    }
+
+    #storiesPage .stories-head-actions button {
+        width: 100%;
+        min-width: 0;
+        min-height: 36px;
+        padding: 6px 7px;
+        border-radius: 9px;
+        font-size: .70rem;
+        line-height: 1.06;
+    }
+
+
+    /* Suche full-width, Region + Charakter nebeneinander */
+    #storiesPage .stories-overview-toolbar {
+        position: relative;
+        z-index: 700;
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 7px;
+        width: 100%;
+        margin-bottom: 9px;
+        padding: 8px;
+        overflow: visible;
+    }
+
+    #storiesPage .stories-search-wrap {
+        grid-column: 1 / -1 !important;
+        min-width: 0;
+    }
+
+    #storiesPage .stories-search-wrap > span,
+    #storiesPage .stories-filter-label {
+        margin-bottom: 3px;
+        font-size: .61rem;
+        line-height: 1;
+    }
+
+    #storiesPage .stories-search-wrap input {
+        width: 100%;
+        min-width: 0;
+        height: 37px;
+        min-height: 37px;
+        box-sizing: border-box;
+        padding: 5px 8px;
+        border-radius: 9px;
+        font-size: .74rem;
+    }
+
+    #storiesPage .stories-filter {
+        position: relative;
+        min-width: 0;
+    }
+
+    #storiesPage .stories-filter-trigger {
+        grid-template-columns: 29px minmax(0, 1fr) auto;
+        gap: 5px;
+        width: 100%;
+        min-width: 0;
+        height: 40px;
+        min-height: 40px;
+        padding: 4px 6px;
+        border-radius: 9px;
+        font-size: .68rem;
+    }
+
+    #storiesPage .stories-filter-trigger .story-region-thumb--small,
+    #storiesPage .stories-filter-trigger .relations-char-avatar,
+    #storiesPage .story-filter-placeholder {
+        width: 29px;
+        height: 29px;
+        min-width: 29px;
+        min-height: 29px;
+        max-width: 29px;
+        max-height: 29px;
+        border-radius: 7px;
+    }
+
+    #storiesPage .stories-filter-trigger-text {
+        font-size: .66rem;
+        line-height: 1.05;
+    }
+
+    #storiesPage .stories-filter-reset {
+        grid-column: 1 / -1 !important;
+        width: 100%;
+        height: 32px;
+        min-height: 32px;
+        padding: 4px 7px;
+        border-radius: 8px;
+        font-size: .64rem;
+    }
+
+    /* Dropdown bekommt auf Phone beide Filterspalten. */
+    #storiesPage #storyRegionFilterMenu,
+    #storiesPage #storyCharFilterMenu {
+        top: calc(100% + 5px);
+        width: calc(200% + 7px);
+        max-width: none;
+        max-height: min(54dvh, 430px);
+        padding: 6px;
+        border-radius: 11px;
+    }
+
+    #storiesPage #storyRegionFilterMenu {
+        left: 0;
+        right: auto;
+    }
+
+    #storiesPage #storyCharFilterMenu {
+        left: auto;
+        right: 0;
+    }
+
+    #storiesPage .stories-filter-menu-search {
+        width: 100%;
+        min-width: 0;
+        height: 35px;
+        box-sizing: border-box;
+        margin: 0;
+        padding: 5px 7px;
+        border-radius: 8px;
+        font-size: .72rem;
+    }
+
+    #storiesPage .stories-filter-options {
+        gap: 4px;
+        max-height: min(41dvh, 315px);
+        margin-top: 5px;
+    }
+
+    #storiesPage .stories-filter-options .relations-char-result {
+        grid-template-columns: 36px minmax(0, 1fr);
+        gap: 7px;
+        min-height: 42px;
+        padding: 5px 6px;
+        border-radius: 8px;
+    }
+
+    #storiesPage .stories-filter-options .relations-char-avatar,
+    #storiesPage .stories-filter-options
+    .story-region-thumb.story-region-thumb--small {
+        width: 34px;
+        height: 34px;
+        min-width: 34px;
+        min-height: 34px;
+        max-width: 34px;
+        max-height: 34px;
+        border-radius: 7px;
+    }
+
+
+    /* ------------------------------------------------------
+       Übersichtstabelle -> Storykarten
+       ------------------------------------------------------ */
+    #storiesPage .stories-overview-list {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        overflow: visible !important;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+    }
+
+    #storiesPage .stories-table {
+        display: block;
+        width: 100%;
+        min-width: 0 !important;
+        max-width: 100%;
+        margin: 0;
+        background: transparent;
+        box-shadow: none;
+    }
+
+    #storiesPage .stories-table thead {
+        display: none;
+    }
+
+    #storiesPage .stories-table tbody {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        width: 100%;
+        min-width: 0;
+    }
+
+    #storiesPage .stories-row {
+        display: grid !important;
+        grid-template-columns: 68px minmax(0, 1fr) auto;
+        grid-template-rows: auto auto auto auto;
+        gap: 4px 8px;
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        padding: 9px;
+        box-sizing: border-box;
+        border: 1px solid rgba(0,0,0,.075);
+        border-radius: 12px;
+        background: #fff;
+        box-shadow: var(--shadow);
+        cursor: pointer;
+        touch-action: manipulation;
+    }
+
+    #storiesPage .stories-row > td {
+        min-width: 0;
+        padding: 0 !important;
+        border: 0 !important;
+        background: transparent !important;
+        line-height: 1.15;
+    }
+
+    #storiesPage .stories-cover-cell {
+        grid-column: 1;
+        grid-row: 1 / 4;
+        width: auto;
+        align-self: center;
+        justify-self: center;
+    }
+
+    #storiesPage .story-cover-table-thumb,
+    #storiesPage .story-cover-table-placeholder {
+        width: 68px;
+        height: 68px;
+        border-radius: 10px;
+    }
+
+    #storiesPage .stories-title-cell {
+        grid-column: 2 / 4;
+        grid-row: 1;
+        align-self: center;
+    }
+
+    #storiesPage .stories-title-cell > strong,
+    #storiesPage .stories-collection-title strong {
+        display: block;
+        min-width: 0;
+        overflow-wrap: anywhere;
+        font-size: .82rem;
+        line-height: 1.12;
+    }
+
+    #storiesPage .stories-title-cell > span,
+    #storiesPage .stories-collection-title span {
+        margin-top: 3px;
+        font-size: .57rem;
+        line-height: 1.08;
+    }
+
+    #storiesPage .stories-intime-cell {
+        grid-column: 2;
+        grid-row: 2;
+        min-width: 0;
+        align-self: center;
+    }
+
+    #storiesPage .stories-intime-cell::before {
+        content: "Datum · ";
+        font-size: .55rem;
+        font-weight: 750;
+        opacity: .50;
+    }
+
+    #storiesPage .stories-intime-cell strong {
+        font-size: .64rem;
+        font-weight: 750;
+    }
+
+    #storiesPage .stories-length-cell {
+        grid-column: 3;
+        grid-row: 2;
+        justify-self: end;
+        align-self: center;
+        text-align: right;
+    }
+
+    #storiesPage .stories-length-cell strong {
+        font-size: .62rem;
+    }
+
+    /* Region */
+    #storiesPage .stories-row > td:nth-child(4) {
+        grid-column: 2 / 4;
+        grid-row: 3;
+        min-width: 0;
+    }
+
+    #storiesPage .stories-region-cell,
+    #storiesPage .stories-region-stack {
+        min-width: 0;
+        gap: 5px;
+        flex-wrap: wrap;
+    }
+
+    #storiesPage .story-region-table-thumb,
+    #storiesPage .stories-region-placeholder {
+        width: 36px;
+        height: 23px;
+        flex: 0 0 36px;
+        border-radius: 5px;
+    }
+
+    #storiesPage .stories-region-cell > span:last-child {
+        font-size: .62rem;
+    }
+
+    /* Erzähler + Charaktere kompakt in der Fußzeile */
+    #storiesPage .stories-row > td:nth-child(5) {
+        grid-column: 1 / 2;
+        grid-row: 4;
+        align-self: center;
+    }
+
+    #storiesPage .stories-row > td:nth-child(6) {
+        grid-column: 2 / 4;
+        grid-row: 4;
+        align-self: center;
+    }
+
+    #storiesPage .stories-narrator-cell,
+    #storiesPage .stories-narrator-stack {
+        min-width: 0;
+        gap: 4px;
+        flex-wrap: nowrap;
+    }
+
+    #storiesPage .stories-narrator-item {
+        gap: 4px;
+    }
+
+    #storiesPage .stories-narrator-avatar {
+        width: 27px;
+        height: 27px;
+        flex: 0 0 27px;
+    }
+
+    #storiesPage .stories-narrator-cell > strong,
+    #storiesPage .stories-narrator-item strong {
+        display: none;
+    }
+
+    #storiesPage .stories-char-stack {
+        min-width: 0;
+    }
+
+    #storiesPage .stories-char-mini {
+        width: 27px;
+        height: 27px;
+        flex: 0 0 27px;
+        margin-left: -6px;
+        border-width: 1px;
+    }
+
+    #storiesPage .stories-char-names {
+        max-width: none;
+        margin-left: 7px;
+        font-size: .61rem;
+        line-height: 1.08;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    #storiesPage .stories-char-more {
+        margin-left: 4px;
+        font-size: .58rem;
+    }
+
+    /* Gesamtstory: Expandbutton in Titelzeile. */
+    #storiesPage .stories-collection-row {
+        background:
+            linear-gradient(
+                90deg,
+                rgba(255,107,0,.055),
+                rgba(255,255,255,.92)
+            );
+    }
+
+    #storiesPage .stories-collection-title {
+        display: grid;
+        grid-template-columns: 30px minmax(0,1fr);
+        gap: 6px;
+        min-width: 0;
+    }
+
+    #storiesPage .story-collection-expand {
+        width: 30px;
+        min-width: 30px;
+        height: 30px;
+        align-self: center;
+        border-radius: 8px;
+    }
+
+    /* Aufklapp-Kapitel sind kleinere, optisch eingerückte Karten. */
+    #storiesPage .stories-collection-chapter-table-row {
+        width: calc(100% - 14px);
+        margin-left: 14px;
+        grid-template-columns: 54px minmax(0, 1fr) auto;
+        padding: 8px;
+        border-left: 3px solid rgba(255,107,0,.28);
+        box-shadow: 0 1px 5px rgba(0,0,0,.05);
+    }
+
+    #storiesPage .stories-collection-chapter-table-row .stories-cover-cell {
+        grid-row: 1 / 4;
+    }
+
+    #storiesPage .stories-collection-chapter-table-row
+    .story-cover-table-thumb,
+    #storiesPage .stories-collection-chapter-table-row
+    .story-cover-table-placeholder {
+        width: 54px;
+        height: 54px;
+    }
+
+    #storiesPage .stories-chapter-title-cell {
+        padding-left: 0 !important;
+    }
+
+    #storiesPage .stories-chapter-number {
+        margin-bottom: 2px;
+        font-size: .55rem;
+    }
+
+    #storiesPage .stories-filter-empty,
+    #storiesPage .stories-db-empty {
+        display: block;
+        width: 100%;
+        padding: 0;
+        border: 0;
+        background: transparent;
+    }
+
+    #storiesPage .stories-filter-empty td,
+    #storiesPage .stories-db-empty td {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+        padding: 18px 10px !important;
+        border-radius: 12px;
+        background: #fff;
+        box-shadow: var(--shadow);
+        font-size: .76rem;
+    }
+
+
+    /* ======================================================
+       DETAILKOPF – Story und Gesamtstory
+       ====================================================== */
+
+    #storiesPage .stories-detail-head {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-rows: auto auto;
+        align-items: center;
+        gap: 4px 7px;
+        min-height: 0;
+        margin-bottom: 8px;
+        padding: 0 !important;
+    }
+
+    #storiesPage .stories-detail-head > button:first-child {
+        grid-column: 1;
+        grid-row: 1;
+        justify-self: start;
+        width: auto;
+        min-height: 34px;
+        padding: 5px 8px;
+        border-radius: 8px;
+        font-size: .66rem;
+        white-space: nowrap;
+    }
+
+    #storiesPage .stories-detail-head .story-detail-actions {
+        grid-column: 2;
+        grid-row: 1;
+        justify-self: end;
+        gap: 5px;
+    }
+
+    #storiesPage .stories-detail-head .story-detail-actions button {
+        min-height: 34px;
+        padding: 5px 8px;
+        border-radius: 8px;
+        font-size: .66rem;
+    }
+
+    #storiesPage .stories-detail-head .phan-autosave-status {
+        position: static !important;
+        grid-column: 1 / -1;
+        grid-row: 2;
+        min-height: 11px;
+        padding: 0 2px;
+        transform: none !important;
+        justify-self: end;
+        font-size: .59rem;
+        line-height: 1;
+    }
+
+
+    /* ======================================================
+       STORY – LESEMODUS
+       ====================================================== */
+
+    #storiesPage .story-reader {
+        width: 100%;
+        max-width: none;
+        margin: 0;
+        padding: 14px 13px 24px;
+    }
+
+    #storiesPage .story-reader-header {
+        padding-bottom: 11px;
+    }
+
+    #storiesPage .story-reader-header h1 {
+        font-size: 1.42rem;
+        line-height: 1.15;
+        overflow-wrap: anywhere;
+    }
+
+    #storiesPage .story-reader-meta {
+        gap: 4px;
+        margin-top: 6px;
+        font-size: .61rem;
+        line-height: 1.18;
+    }
+
+    #storiesPage .story-chapter-breadcrumb {
+        gap: 4px 7px;
+        margin-bottom: 7px;
+        font-size: .64rem;
+        line-height: 1.15;
+    }
+
+    #storiesPage .story-reader-context {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+        margin: 10px 0 16px;
+        padding: 0;
+        overflow: visible;
+    }
+
+    #storiesPage .story-reader-context-card {
+        min-width: 0 !important;
+        padding: 7px 8px;
+        border-radius: 9px;
+    }
+
+    #storiesPage .story-reader-context-card--chars {
+        grid-column: 1 / -1;
+    }
+
+    #storiesPage .story-reader-context-label {
+        margin-bottom: 4px;
+        font-size: .56rem;
+    }
+
+    #storiesPage .story-reader-region,
+    #storiesPage .story-reader-char,
+    #storiesPage .story-reader-chars {
+        gap: 5px;
+    }
+
+    #storiesPage .story-reader-region img {
+        width: 45px;
+        height: 29px;
+        border-radius: 6px;
+    }
+
+    #storiesPage .story-reader-context .relations-char-avatar {
+        width: 28px;
+        height: 28px;
+        flex: 0 0 28px;
+    }
+
+    #storiesPage .story-reader-char strong,
+    #storiesPage .story-reader-chars strong {
+        font-size: .66rem;
+    }
+
+    #storiesPage .story-reader-text {
+        font-size: .90rem;
+        line-height: 1.58;
+    }
+
+    #storiesPage .story-reader-cover {
+        margin: 14px 0 17px;
+    }
+
+    #storiesPage .story-reader-cover--end {
+        margin-top: 18px;
+        margin-bottom: 0;
+    }
+
+    #storiesPage .story-reader-cover img {
+        max-height: 52dvh;
+        border-radius: 10px;
+    }
+
+    #storiesPage .story-chapter-navigation {
+        grid-template-columns: 1fr !important;
+        gap: 6px;
+        margin-top: 20px;
+        padding-top: 12px;
+    }
+
+    #storiesPage .story-chapter-navigation > div:last-child {
+        text-align: left;
+    }
+
+    #storiesPage .story-chapter-nav-link,
+    #storiesPage .story-chapter-nav-overview {
+        width: 100%;
+        max-width: none;
+        min-height: 44px;
+        padding: 6px 8px;
+        border-radius: 8px;
+    }
+
+    #storiesPage .story-chapter-nav-link--next {
+        align-items: flex-start;
+    }
+
+    #storiesPage .story-chapter-nav-link span {
+        font-size: .58rem;
+    }
+
+    #storiesPage .story-chapter-nav-link strong {
+        font-size: .70rem;
+    }
+
+    #storiesPage .story-chapter-nav-overview {
+        min-width: 0;
+        font-size: .68rem;
+    }
+
+
+    /* ======================================================
+       STORY – EDITOR
+       ====================================================== */
+
+    #storiesPage .story-editor-form {
+        display: flex !important;
+        flex-direction: column;
+        gap: 9px !important;
+        width: 100%;
+        min-width: 0;
+    }
+
+    #storiesPage .story-editor-main {
+        order: 0;
+        width: 100%;
+        min-width: 0;
+        padding: 11px;
+    }
+
+    #storiesPage .story-editor-title-field > span,
+    #storiesPage .story-editor-text-field > span {
+        margin-bottom: 3px;
+        font-size: .65rem;
+    }
+
+    #storiesPage .story-editor-title-field input {
+        width: 100%;
+        min-width: 0;
+        height: 38px;
+        box-sizing: border-box;
+        margin: 0 0 8px;
+        padding: 6px 8px;
+        border-radius: 9px;
+        font-size: .88rem;
+    }
+
+    #storiesPage .story-editor-text-field textarea {
+        width: 100%;
+        min-width: 0;
+        min-height: 48dvh !important;
+        height: 48dvh;
+        max-height: none;
+        box-sizing: border-box;
+        margin: 0;
+        padding: 8px 9px;
+        border-radius: 9px;
+        resize: vertical;
+        font-size: .82rem;
+        line-height: 1.50;
+    }
+
+    #storiesPage .story-editor-live-length {
+        margin-top: 5px;
+        font-size: .60rem;
+    }
+
+    #storiesPage .story-editor-side {
+        order: 1;
+        display: flex !important;
+        flex-direction: column;
+        gap: 8px;
+        width: 100%;
+        min-width: 0;
+        overflow: visible;
+    }
+
+    #storiesPage .story-editor-panel {
+        width: 100%;
+        min-width: 0;
+        padding: 10px;
+    }
+
+    #storiesPage .story-editor-panel h2 {
+        margin-bottom: 7px;
+        font-size: .90rem;
+    }
+
+
+    /* Titelbild */
+    #storiesPage .story-cover-editor-head {
+        margin-bottom: 7px;
+    }
+
+    #storiesPage .story-cover-editor-head h2 {
+        font-size: .90rem;
+    }
+
+    #storiesPage #storyCoverChooseButton {
+        min-height: 31px;
+        padding: 4px 7px;
+        border-radius: 8px;
+        font-size: .64rem;
+    }
+
+    #storiesPage .story-cover-cropbox,
+    #storiesPage .story-cover-editor-empty {
+        width: min(76vw, 300px);
+        max-width: 100%;
+        margin: 0 auto;
+        border-radius: 10px;
+    }
+
+    #storiesPage .story-cover-cropbox {
+        touch-action: none;
+    }
+
+    #storiesPage .story-cover-editor-preview {
+        width: 100%;
+    }
+
+    #storiesPage .story-cover-image-actions {
+        margin-top: 7px;
+    }
+
+    #storiesPage .story-cover-image-actions button,
+    #storiesPage .story-cover-remove {
+        width: 100%;
+        min-height: 34px;
+        padding: 5px 7px;
+        border-radius: 8px;
+        font-size: .65rem;
+    }
+
+    #storiesPage .story-cover-position {
+        margin-top: 8px;
+    }
+
+    #storiesPage .story-cover-position > span {
+        margin-bottom: 4px;
+        font-size: .64rem;
+    }
+
+    #storiesPage .story-cover-position-options {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 4px;
+    }
+
+    #storiesPage .story-cover-position-options span {
+        min-height: 33px;
+        padding: 4px;
+        border-radius: 7px;
+        font-size: .61rem;
+    }
+
+
+    /* In-Time-Datum */
+    #storiesPage .story-intime-fields {
+        grid-template-columns: 1.15fr .85fr .75fr !important;
+        gap: 5px;
+    }
+
+    #storiesPage .story-intime-fields label:first-child {
+        grid-column: auto !important;
+    }
+
+    #storiesPage .story-intime-fields label > span,
+    #storiesPage .story-chapter-editor-panel label > span {
+        margin-bottom: 3px;
+        font-size: .61rem;
+    }
+
+    #storiesPage .story-intime-fields input,
+    #storiesPage .story-intime-fields select,
+    #storiesPage .story-chapter-editor-panel select,
+    #storiesPage .story-chapter-editor-panel input {
+        width: 100%;
+        min-width: 0;
+        height: 35px;
+        box-sizing: border-box;
+        margin: 0;
+        padding: 4px 5px;
+        border-radius: 8px;
+        font-size: .68rem;
+    }
+
+    #storiesPage .story-intime-hint,
+    #storiesPage .story-narrator-hint {
+        margin-top: 5px;
+        font-size: .60rem;
+        line-height: 1.25;
+    }
+
+    #storiesPage .story-chapter-order-field {
+        margin-top: 6px;
+    }
+
+    #storiesPage .story-chapter-editor-actions {
+        margin-top: 6px;
+    }
+
+    #storiesPage .story-chapter-editor-actions button {
+        min-height: 33px;
+        padding: 5px 7px;
+        border-radius: 8px;
+        font-size: .64rem;
+    }
+
+
+    /* Region / Erzähler Picker */
+    #storiesPage .story-editor-picker,
+    #storiesPage .story-narrator-picker {
+        position: relative;
+        width: 100%;
+        min-width: 0;
+    }
+
+    #storiesPage .story-editor-picker-trigger {
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 7px;
+        min-height: 46px;
+        padding: 5px 6px;
+        border-radius: 9px;
+        font-size: .68rem;
+    }
+
+    #storiesPage .story-editor-picker-trigger
+    .story-region-thumb,
+    #storiesPage .story-editor-picker-trigger
+    .story-region-placeholder {
+        width: 54px;
+        height: 34px;
+        min-width: 54px;
+        min-height: 34px;
+    }
+
+    #storiesPage .story-editor-picker-trigger
+    .relations-char-avatar {
+        width: 34px;
+        height: 34px;
+        min-width: 34px;
+    }
+
+    #storiesPage .story-editor-picker-menu {
+        left: 0;
+        right: 0;
+        width: 100%;
+        max-width: none;
+        max-height: min(52dvh, 400px);
+        padding: 6px;
+        box-sizing: border-box;
+        border-radius: 10px;
+    }
+
+    #storiesPage .story-editor-picker-menu input,
+    #storiesPage #storyCharSearch {
+        width: 100%;
+        min-width: 0;
+        height: 35px;
+        box-sizing: border-box;
+        margin: 0;
+        padding: 5px 7px;
+        border-radius: 8px;
+        font-size: .70rem;
+    }
+
+    #storiesPage .story-editor-picker-results,
+    #storiesPage .story-char-results {
+        gap: 4px;
+        max-height: min(36dvh, 280px);
+        margin-top: 5px;
+    }
+
+    #storiesPage .story-editor-picker-results .relations-char-result,
+    #storiesPage .story-char-results .relations-char-result {
+        min-height: 42px;
+        padding: 5px 6px;
+        border-radius: 8px;
+    }
+
+    #storiesPage .story-selected-chars {
+        gap: 5px;
+        margin-bottom: 6px;
+    }
+
+    #storiesPage .story-selected-char {
+        min-height: 37px;
+        padding: 4px 5px;
+        border-radius: 8px;
+    }
+
+    #storiesPage .story-selected-char .relations-char-avatar {
+        width: 31px;
+        height: 31px;
+        min-width: 31px;
+    }
+
+    #storiesPage .story-selected-char-remove {
+        width: 27px;
+        min-width: 27px;
+        height: 27px;
+        font-size: 1rem;
+    }
+
+    #storiesPage .story-editor-panel--meta {
+        padding: 8px 10px;
+        font-size: .62rem;
+    }
+
+    #storiesPage .story-editor-panel--meta strong {
+        margin-top: 2px;
+        font-size: .67rem;
+    }
+
+    #storiesPage .story-delete-button {
+        width: 100%;
+        min-height: 35px;
+        padding: 5px 7px;
+        border-radius: 8px;
+        font-size: .68rem;
+    }
+
+
+    /* ======================================================
+       GESAMTSTORY – LESEMODUS
+       ====================================================== */
+
+    #storiesPage .story-collection-reader {
+        width: 100%;
+        max-width: none;
+        margin: 0;
+        padding: 13px 12px 22px;
+    }
+
+    #storiesPage .story-collection-reader-cover {
+        margin: 0 0 12px;
+    }
+
+    #storiesPage .story-collection-reader-cover img {
+        width: min(100%, 420px);
+        max-height: 46dvh;
+        margin: 0 auto;
+        border-radius: 10px;
+    }
+
+    #storiesPage .story-collection-reader-header {
+        padding-bottom: 11px;
+    }
+
+    #storiesPage .story-collection-kicker {
+        margin-bottom: 3px;
+        font-size: .59rem;
+    }
+
+    #storiesPage .story-collection-reader-header h1 {
+        font-size: 1.45rem;
+        line-height: 1.14;
+        overflow-wrap: anywhere;
+    }
+
+    #storiesPage .story-collection-reader-chapters {
+        display: flex !important;
+        flex-direction: column;
+        gap: 7px;
+        margin-top: 12px;
+        overflow: visible !important;
+    }
+
+    #storiesPage .story-collection-reader-chapter {
+        display: grid !important;
+        grid-template-columns: 38px minmax(0, 1fr) auto;
+        gap: 7px;
+        width: 100%;
+        min-width: 0 !important;
+        min-height: 0;
+        padding: 8px;
+        box-sizing: border-box;
+        border-radius: 10px;
+    }
+
+    #storiesPage .story-collection-reader-number {
+        width: 34px;
+        height: 34px;
+        align-self: start;
+        border-radius: 8px;
+        font-size: .68rem;
+    }
+
+    #storiesPage .story-collection-reader-chapter-main {
+        gap: 5px;
+    }
+
+    #storiesPage .story-collection-reader-chapter-main > strong {
+        font-size: .76rem;
+        line-height: 1.10;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    #storiesPage .story-collection-reader-chapter-info {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 5px 7px;
+    }
+
+    #storiesPage .story-collection-reader-info-item {
+        gap: 2px;
+    }
+
+    #storiesPage .story-collection-reader-info-item > small {
+        font-size: .50rem;
+    }
+
+    #storiesPage .story-collection-reader-info-item b {
+        font-size: .62rem;
+        line-height: 1.10;
+    }
+
+    #storiesPage .story-collection-reader-info-chars {
+        grid-column: 1 / -1;
+    }
+
+    #storiesPage .stories-region-cell--reader
+    .story-region-table-thumb {
+        width: 34px;
+        height: 22px;
+        flex: 0 0 34px;
+    }
+
+    #storiesPage .stories-narrator-item--reader
+    .stories-narrator-avatar,
+    #storiesPage .stories-reader-mini-char
+    .stories-char-mini {
+        width: 24px;
+        height: 24px;
+        flex-basis: 24px;
+    }
+
+    #storiesPage .stories-reader-mini-char-list {
+        gap: 4px 6px;
+    }
+
+    #storiesPage .stories-reader-mini-char b {
+        font-size: .58rem;
+    }
+
+    #storiesPage .story-collection-reader-arrow {
+        font-size: .95rem;
+    }
+
+
+    /* ======================================================
+       GESAMTSTORY – EDITOR
+       ====================================================== */
+
+    #storiesPage .story-collection-editor-form {
+        display: flex !important;
+        flex-direction: column;
+        gap: 9px !important;
+        width: 100%;
+        min-width: 0;
+    }
+
+    #storiesPage .story-collection-editor-main,
+    #storiesPage .story-collection-chapter-editor {
+        width: 100%;
+        min-width: 0;
+        padding: 11px;
+    }
+
+    #storiesPage .story-collection-editor-main {
+        order: 0;
+    }
+
+    #storiesPage .story-collection-chapter-editor {
+        order: 1;
+    }
+
+    #storiesPage .story-collection-editor-image-head,
+    #storiesPage .story-collection-editor-section-head {
+        gap: 7px;
+        margin-top: 8px;
+        margin-bottom: 7px;
+    }
+
+    #storiesPage .story-collection-editor-section-head {
+        align-items: center;
+        margin-top: 0;
+    }
+
+    #storiesPage .story-collection-editor-section-head h2 {
+        font-size: .92rem;
+    }
+
+    #storiesPage .story-collection-editor-section-head span {
+        font-size: .58rem;
+        line-height: 1.15;
+    }
+
+    #storiesPage #collectionNewChapterButton,
+    #storiesPage #collectionCoverChooseButton {
+        min-height: 32px;
+        padding: 4px 7px;
+        border-radius: 8px;
+        font-size: .64rem;
+    }
+
+    #storiesPage .story-collection-cover-cropbox,
+    #storiesPage .story-collection-cover-empty {
+        width: min(76vw, 300px);
+        max-width: 100%;
+        margin: 0 auto;
+        border-radius: 10px;
+    }
+
+    #storiesPage .story-collection-cover-cropbox {
+        touch-action: none;
+    }
+
+    #storiesPage .story-collection-cover-actions button,
+    #storiesPage .story-collection-remove-cover {
+        width: 100%;
+        min-height: 34px;
+        padding: 5px 7px;
+        border-radius: 8px;
+        font-size: .65rem;
+    }
+
+    #storiesPage .story-collection-editor-meta {
+        margin-top: 10px;
+        padding-top: 8px;
+        font-size: .61rem;
+    }
+
+    #storiesPage .story-collection-editor-meta strong {
+        font-size: .66rem;
+    }
+
+    #storiesPage .story-collection-editor-chapters {
+        gap: 6px;
+    }
+
+    #storiesPage .story-collection-editor-chapter {
+        display: grid !important;
+        grid-template-columns: 34px minmax(0, 1fr) !important;
+        gap: 6px 7px;
+        width: 100%;
+        min-width: 0;
+        padding: 7px;
+        box-sizing: border-box;
+        border-radius: 9px;
+    }
+
+    #storiesPage .story-collection-editor-order {
+        width: 30px;
+        height: 30px;
+        border-radius: 7px;
+        font-size: .67rem;
+    }
+
+    #storiesPage .story-collection-editor-chapter-text strong {
+        font-size: .72rem;
+        line-height: 1.10;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    #storiesPage .story-collection-editor-chapter-text span {
+        font-size: .58rem;
+        line-height: 1.12;
+    }
+
+    #storiesPage .story-collection-editor-chapter-actions {
+        grid-column: 1 / -1 !important;
+        display: grid;
+        grid-template-columns: 32px 32px minmax(0, 1fr) minmax(0, .7fr);
+        gap: 4px;
+        justify-content: stretch;
+    }
+
+    #storiesPage .story-collection-editor-chapter-actions button {
+        width: 100%;
+        min-width: 0;
+        min-height: 32px;
+        padding: 4px 5px;
+        border-radius: 7px;
+        font-size: .61rem;
+        line-height: 1.04;
+    }
+
+    #storiesPage .story-collection-move {
+        width: 32px;
+    }
+
+    #storiesPage .story-collection-add-existing {
+        grid-template-columns: 1fr !important;
+        gap: 6px;
+        margin-top: 10px;
+        padding-top: 9px;
+    }
+
+    #storiesPage .story-collection-add-existing label {
+        min-width: 0;
+        font-size: .64rem;
+        line-height: 1.16;
+    }
+
+    #storiesPage .story-collection-add-existing select {
+        width: 100%;
+        min-width: 0;
+        height: 36px;
+        box-sizing: border-box;
+        margin: 4px 0 0;
+        padding: 5px 6px;
+        border-radius: 8px;
+        font-size: .67rem;
+    }
+
+    #storiesPage #collectionAddStoryButton {
+        width: 100%;
+        min-height: 34px;
+        padding: 5px 7px;
+        border-radius: 8px;
+        font-size: .66rem;
+    }
+
+    #storiesPage .story-collection-delete {
+        order: 2;
+        width: 100%;
+        min-width: 0;
+        min-height: 35px;
+        justify-self: stretch;
+        padding: 5px 7px;
+        border-radius: 8px;
+        font-size: .68rem;
+    }
+}
+
+
+@media (max-width: 370px) {
+    #storiesPage .stories-row {
+        grid-template-columns: 60px minmax(0,1fr) auto;
+        padding: 8px;
+    }
+
+    #storiesPage .story-cover-table-thumb,
+    #storiesPage .story-cover-table-placeholder {
+        width: 60px;
+        height: 60px;
+    }
+
+    #storiesPage .stories-collection-chapter-table-row {
+        width: calc(100% - 10px);
+        margin-left: 10px;
+        grid-template-columns: 48px minmax(0,1fr) auto;
+    }
+
+    #storiesPage .stories-collection-chapter-table-row
+    .story-cover-table-thumb,
+    #storiesPage .stories-collection-chapter-table-row
+    .story-cover-table-placeholder {
+        width: 48px;
+        height: 48px;
+    }
+
+    #storiesPage .story-intime-fields {
+        grid-template-columns: 1fr 1fr !important;
+    }
+
+    #storiesPage .story-intime-fields label:first-child {
+        grid-column: 1 / -1 !important;
+    }
+
+    #storiesPage .story-collection-editor-chapter-actions {
+        grid-template-columns: 30px 30px 1fr;
+    }
+
+    #storiesPage .story-collection-remove-chapter {
+        grid-column: 1 / -1;
+    }
+}
+
+
+
+/* ==========================================================
+   PHAN / Relations – Smartphone/Fairphone v2
+   Full-width Graph, reduzierte Overlays, mobile Modals.
+   ========================================================== */
+@media (max-width: 650px) {
+
+    body.relations-page-active {
+        margin-top: 54px !important;
+        overflow: hidden !important;
+        overscroll-behavior: none;
+    }
+
+    #relationsPage.relations-page {
+        width: 100vw !important;
+        max-width: none !important;
+        height: calc(100dvh - 54px) !important;
+        min-height: 0;
+        margin: 0 calc(50% - 50vw) 0 !important;
+        padding: 0 !important;
+        overflow: hidden;
+    }
+
+
+    /* Regionen */
+    #relationsPage .relations-region-tabs {
+        position: relative;
+        z-index: 120;
+        gap: 5px;
+        width: 100%;
+        min-height: 42px;
+        margin: 0;
+        padding: 5px 8px;
+        box-sizing: border-box;
+        overflow-x: auto;
+        overflow-y: hidden;
+        border-bottom: 1px solid rgba(0,0,0,.08);
+        background: rgba(255,255,255,.96);
+        box-shadow: 0 2px 7px rgba(0,0,0,.08);
+        scrollbar-width: none;
+        overscroll-behavior-x: contain;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    #relationsPage .relations-region-tabs::-webkit-scrollbar {
+        display: none;
+    }
+
+    #relationsPage .relations-region-tab {
+        flex: 0 0 auto;
+        min-height: 31px;
+        padding: 5px 10px;
+        border-radius: 999px;
+        font-size: .65rem;
+        line-height: 1;
+    }
+
+
+    /* Graph: bewusst ohne äußere Kartenränder */
+    #relationsPage .relations-shell {
+        flex: 1 1 auto;
+        width: 100%;
+        min-width: 0;
+        min-height: 0;
+        border: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+    }
+
+    #relationsPage .relations-shell.has-region-background::before,
+    #relationsPage .relations-shell.has-region-background::after {
+        border-radius: 0 !important;
+    }
+
+    #relationsPage .relations-viewport {
+        inset: 0;
+        touch-action: none;
+    }
+
+
+    /* Aktionen unten */
+    #relationsPage .relations-graph-actions {
+        top: auto !important;
+        right: 8px !important;
+        bottom: max(8px, env(safe-area-inset-bottom)) !important;
+        left: 8px !important;
+        z-index: 90;
+
+        display: grid !important;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        align-items: stretch;
+        gap: 5px;
+
+        width: auto;
+        padding: 5px;
+
+        border: 1px solid rgba(0,0,0,.08);
+        border-radius: 12px;
+        background: rgba(255,255,255,.94);
+
+        box-shadow:
+            0 3px 14px rgba(0,0,0,.17);
+
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+
+    #relationsPage .relations-graph-actions button {
+        width: 100%;
+        min-width: 0;
+        min-height: 36px;
+        padding: 5px 4px;
+        border-radius: 8px;
+        font-size: .61rem;
+        line-height: 1.05;
+        white-space: normal;
+    }
+
+    #relationsPage .relations-status {
+        right: 0;
+        bottom: calc(100% + 5px);
+        min-width: 0;
+        max-width: calc(100vw - 16px);
+        padding: 4px 7px;
+        border-radius: 7px;
+        background: rgba(255,255,255,.88);
+        font-size: .61rem;
+        text-align: right;
+        white-space: normal;
+    }
+
+
+    /* Center-Hinweis */
+    #relationsPage .relations-center-indicator {
+        top: 8px;
+        left: 50%;
+        z-index: 86;
+        max-width: calc(100% - 172px);
+        min-height: 36px;
+        padding: 5px 6px 5px 8px;
+        gap: 5px;
+        border-radius: 10px;
+        transform: translateX(-50%);
+    }
+
+    #relationsPage .relations-center-indicator-dot {
+        width: 7px;
+        height: 7px;
+    }
+
+    #relationsPage .relations-center-indicator-label,
+    #relationsPage .relations-center-indicator-hint {
+        display: none;
+    }
+
+    #relationsPage .relations-center-indicator strong {
+        font-size: .65rem;
+    }
+
+    #relationsPage .relations-center-indicator-close {
+        width: 25px;
+        min-width: 25px;
+        height: 25px;
+        font-size: .95rem;
+    }
+
+
+    /* Nodes */
+    #relationsPage .relations-world {
+        width: 640px !important;
+        height: 480px !important;
+        transform-origin: 0 0 !important;
+        will-change: transform;
+        backface-visibility: hidden;
+    }
+
+    #relationsPage .relations-svg {
+        width: 640px !important;
+        height: 480px !important;
+    }
+
+    #relationsPage .relation-node {
+        width: 28px;
+    }
+
+    #relationsPage .relation-node-face {
+        width: 15px !important;
+        height: 15px !important;
+        margin-bottom: 0;
+        border-width: 1px;
+        box-shadow: 0 1px 3px rgba(0,0,0,.18);
+    }
+
+    #relationsPage .relation-node-name {
+        display: none !important;
+    }
+
+    #relationsPage .relation-node-initial {
+        font-size: 1rem;
+    }
+
+    #relationsPage .relation-node:hover .relation-node-face,
+    #relationsPage .relation-node:hover .relation-node-name {
+        transform: none;
+    }
+
+    #relationsPage .relation-node.is-centered .relation-node-face {
+        width: 15px !important;
+        height: 15px !important;
+        border-width: 2px;
+        border-color: var(--primary);
+        border-radius: 50%;
+        box-shadow:
+            0 0 0 3px #fff,
+            0 0 0 6px var(--primary),
+            0 2px 8px rgba(0,0,0,.28);
+        filter: none !important;
+        opacity: 1 !important;
+        transform: none;
+    }
+
+    #relationsPage .relation-node.is-centered .relation-node-face img {
+        object-fit: cover !important;
+        background: transparent !important;
+    }
+
+    #relationsPage .relation-node.is-centered .relation-node-name {
+        display: none !important;
+    }
+
+    #relationsPage .relation-edge {
+        stroke-width: 1.5;
+    }
+
+    #relationsPage .relations-shell.is-center-mode
+    .relation-edge {
+        opacity: 0 !important;
+    }
+
+    #relationsPage .relations-shell.is-center-mode
+    .is-center-connected .relation-edge {
+        opacity: 1 !important;
+        stroke-width: 2.2;
+    }
+
+    #relationsPage .relation-edge-hit {
+        stroke-width: 18;
+    }
+
+    #relationsPage .relations-shell.is-center-mode
+    g:not(.is-center-connected)
+    .relation-edge-hit {
+        pointer-events: none;
+    }
+
+    /* Nicht direkt verbundene Charaktere:
+       schwarz-weiß und 50 % transparent. */
+    #relationsPage .relations-shell.is-center-mode
+    .relation-node:not(.is-centered):not(.is-center-neighbor)
+    .relation-node-face {
+        opacity: .5 !important;
+        filter: grayscale(1) !important;
+    }
+
+    #relationsPage .relations-shell.is-center-mode
+    .relation-node.is-center-neighbor
+    .relation-node-face {
+        opacity: 1 !important;
+        filter: none !important;
+    }
+
+
+    /* Filter/Legende als Bottom-Panel */
+    #relationsPage .relations-legend {
+        top: auto !important;
+        right: 8px;
+        bottom:
+            calc(
+                max(8px, env(safe-area-inset-bottom))
+                + 51px
+            );
+        left: 8px !important;
+        z-index: 88;
+
+        display: none;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 4px 8px;
+
+        min-width: 0 !important;
+        width: auto;
+        max-height: min(42dvh, 260px);
+        padding: 9px;
+        overflow-y: auto;
+
+        border: 1px solid rgba(0,0,0,.09);
+        border-radius: 11px;
+        background: rgba(255,255,255,.96);
+        box-shadow: 0 4px 18px rgba(0,0,0,.20);
+
+        backdrop-filter: blur(9px);
+        -webkit-backdrop-filter: blur(9px);
+    }
+
+    #relationsPage .relations-legend.is-open {
+        display: grid;
+    }
+
+    #relationsPage .relations-legend-title {
+        grid-column: 1 / -1;
+        margin: 0 0 3px;
+        font-size: .72rem;
+    }
+
+    #relationsPage .relations-legend label {
+        display: grid;
+        grid-template-columns: 17px 20px minmax(0, 1fr);
+        align-items: center;
+        gap: 5px;
+        min-width: 0;
+        margin: 0;
+        padding: 5px 4px;
+        border-radius: 7px;
+        font-size: .61rem;
+        line-height: 1.08;
+    }
+
+    #relationsPage .relations-legend input {
+        width: 17px;
+        height: 17px;
+        margin: 0;
+    }
+
+    #relationsPage .relations-legend-color {
+        width: 20px;
+        height: 4px;
+    }
+
+
+    #relationsPage .relations-empty {
+        width: calc(100% - 28px);
+        max-width: 340px;
+        padding: 12px 14px;
+        border-radius: 10px;
+        font-size: .72rem;
+    }
+
+
+    /* ======================================================
+       MODALS
+       ====================================================== */
+    .relations-modal {
+        padding: 0 !important;
+    }
+
+    .relations-modal-dialog,
+    .relations-modal-dialog--add {
+        width: 100vw !important;
+        height: 100dvh !important;
+        max-width: none !important;
+        max-height: none !important;
+        border-radius: 0 !important;
+        box-shadow: none;
+    }
+
+    .relations-modal-head {
+        min-height: 50px;
+        padding:
+            max(9px, env(safe-area-inset-top))
+            10px
+            9px;
+        box-sizing: border-box;
+        background: #fff;
+    }
+
+    .relations-modal-head h2 {
+        font-size: 1rem;
+        line-height: 1.1;
+    }
+
+    .relations-modal-close {
+        width: 34px;
+        min-width: 34px;
+        height: 34px;
+        padding: 0;
+        border-radius: 8px;
+        font-size: 1.2rem;
+    }
+
+
+    /* Charakterauswahl */
+    .relations-char-picker-title {
+        margin-bottom: 4px;
+        font-size: .70rem;
+    }
+
+    .relations-char-search,
+    #relationSearch {
+        width: 100%;
+        min-width: 0;
+        height: 36px;
+        box-sizing: border-box;
+        margin: 0 0 6px;
+        padding: 5px 7px;
+        border-radius: 8px;
+        font-size: .70rem;
+    }
+
+    .relations-char-results {
+        gap: 4px;
+        padding-right: 0;
+    }
+
+    .relations-char-result {
+        grid-template-columns: 38px minmax(0,1fr);
+        gap: 7px;
+        min-height: 45px;
+        padding: 5px 6px;
+        border-radius: 8px;
+    }
+
+    .relations-char-avatar {
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
+        font-size: .72rem;
+    }
+
+    .relations-char-result-text strong,
+    .relations-char-selected-text strong {
+        font-size: .72rem;
+        line-height: 1.08;
+    }
+
+    .relations-char-result-text span,
+    .relations-char-selected-text span {
+        margin-top: 1px;
+        font-size: .58rem;
+        line-height: 1.08;
+    }
+
+    .relations-char-selected {
+        margin-bottom: 6px;
+    }
+
+    .relations-char-selected-card {
+        grid-template-columns:
+            38px
+            minmax(0,1fr)
+            auto;
+        gap: 7px;
+        padding: 6px;
+        border-width: 1px;
+        border-radius: 8px;
+    }
+
+    .relations-char-selected-card button {
+        min-height: 30px;
+        padding: 4px 6px;
+        border-radius: 7px;
+        font-size: .62rem;
+    }
+
+    .relations-char-empty {
+        padding: 12px 8px;
+        font-size: .67rem;
+    }
+
+
+    /* Neue Beziehung */
+    .relations-add-form {
+        padding: 9px;
+    }
+
+    .relations-add-grid {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        grid-template-rows:
+            minmax(0, 1fr)
+            auto
+            minmax(0, 1fr);
+        gap: 7px;
+        overflow: hidden !important;
+    }
+
+    .relations-add-grid > .relations-char-picker {
+        min-height: 0;
+    }
+
+    .relations-add-grid .relations-char-results {
+        max-height: none;
+        min-height: 0;
+        overflow-y: auto;
+    }
+
+    .relations-add-type {
+        display: block !important;
+        padding: 6px 0;
+        border-top: 1px solid rgba(0,0,0,.065);
+        border-bottom: 1px solid rgba(0,0,0,.065);
+    }
+
+    .relations-add-type label {
+        gap: 3px;
+        font-size: .68rem;
+    }
+
+    .relations-add-type select {
+        width: 100%;
+        height: 35px;
+        margin: 0;
+        padding: 4px 7px;
+        border-radius: 8px;
+        font-size: .70rem;
+    }
+
+    .relations-modal-footer {
+        margin-top: 7px;
+        padding-top: 7px;
+    }
+
+    .relations-modal-footer button {
+        width: 100%;
+        min-height: 37px;
+        padding: 5px 8px;
+        border-radius: 8px;
+        font-size: .70rem;
+    }
+
+
+    /* Verwalten */
+    .relations-modal-body {
+        display: flex !important;
+        flex-direction: column;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .relations-manager-list {
+        flex: 0 0 min(30dvh, 235px);
+        max-height: none !important;
+        gap: 6px;
+        padding: 8px;
+        border-right: 0;
+        border-bottom: 1px solid rgba(0,0,0,.08);
+    }
+
+    .relations-manager-results {
+        gap: 4px;
+        overflow-y: auto;
+    }
+
+    .relations-manager-result {
+        grid-template-columns: 18px minmax(0,1fr);
+        gap: 6px;
+        min-height: 36px;
+        padding: 5px 7px;
+        border-radius: 7px;
+        font-size: .66rem;
+        line-height: 1.1;
+    }
+
+    .relations-manager-color {
+        width: 18px;
+        height: 4px;
+    }
+
+    .relations-manager-editor {
+        flex: 1 1 auto;
+        min-height: 0;
+        padding: 9px;
+        overflow-y: auto;
+    }
+
+    .relations-manager-placeholder {
+        min-height: 100%;
+        padding: 14px 8px;
+        box-sizing: border-box;
+        font-size: .70rem;
+    }
+
+    .relations-manager-fields {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 8px;
+        height: auto;
+        overflow: visible !important;
+    }
+
+    .relations-manager-type {
+        gap: 3px;
+        font-size: .68rem;
+    }
+
+    .relations-manager-type select {
+        width: 100%;
+        height: 35px;
+        margin: 0;
+        padding: 4px 7px;
+        border-radius: 8px;
+        font-size: .70rem;
+    }
+
+    .relations-manager-editor .relations-char-results {
+        max-height: 190px !important;
+    }
+
+    .relations-manager-buttons {
+        grid-column: auto;
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0,1fr));
+        gap: 6px;
+        padding-top: 8px;
+    }
+
+    .relations-manager-buttons button {
+        width: 100%;
+        min-width: 0;
+        min-height: 36px;
+        padding: 5px 6px;
+        border-radius: 8px;
+        font-size: .66rem;
+        line-height: 1.08;
+    }
+}
+
+
+@media (max-width: 370px) {
+    #relationsPage .relations-graph-actions {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    #relationsPage .relations-legend {
+        bottom:
+            calc(
+                max(8px, env(safe-area-inset-bottom))
+                + 92px
+            );
+    }
+
+    #relationsPage .relations-center-indicator {
+        max-width: calc(100% - 154px);
+    }
+
+    #relationsPage .relation-node-face {
+        width: 14px !important;
+        height: 14px !important;
+    }
+
+    #relationsPage .relation-node.is-centered .relation-node-face {
+        width: 14px !important;
+        height: 14px !important;
+    }
+
+    #relationsPage .relation-node-name {
+        display: none !important;
+    }
+
+    .relations-manager-list {
+        flex-basis: min(27dvh, 200px);
+    }
+}

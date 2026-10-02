@@ -2278,11 +2278,15 @@ require_once __DIR__ . '/../head.php';
 require_once __DIR__ . '/../navbar.php';
 ?>
 
-<div class="phan-page">
+<div
+    id="charsPage"
+    class="phan-page chars-page <?= (!$detailId && !$isNew) ? 'chars-page--list' : 'chars-page--detail' ?>"
+    data-chars-view="<?= (!$detailId && !$isNew) ? 'list' : 'detail' ?>"
+>
 
     <?php if (!$detailId && !$isNew): ?>
 
-        <div class="phan-head">
+        <div class="phan-head chars-list-head">
             <h1 class="ueberschrift phan-title">
                 Charaktere
             </h1>
@@ -2301,7 +2305,7 @@ require_once __DIR__ . '/../navbar.php';
 
     <?php else: ?>
 
-        <div class="phan-detail-head">
+        <div class="phan-detail-head chars-detail-head">
 
             <div class="phan-detail-head-left">
                 <button
@@ -2352,7 +2356,7 @@ require_once __DIR__ . '/../navbar.php';
     <?php if (!$detailId && !$isNew): ?>
 
         <div
-            class="phan-list-filterbar"
+            class="phan-list-filterbar chars-filterbar"
             id="charListFilters"
         >
 
@@ -2705,12 +2709,6 @@ require_once __DIR__ . '/../navbar.php';
                                 <strong>
                                     <?= phan_h($genderInfo['label']) ?>
                                 </strong>
-
-                                <small>
-                                    <?= phan_h(
-                                        $genderInfo['symbol']
-                                    ) ?>
-                                </small>
                             </span>
                         </button>
 
@@ -2736,8 +2734,8 @@ require_once __DIR__ . '/../navbar.php';
 
         </div>
 
-        <div class="phan-table-wrap">
-            <table class="phan-table">
+        <div class="phan-table-wrap chars-table-wrap">
+            <table class="phan-table chars-table">
 
                 <thead>
                     <tr>
@@ -2845,7 +2843,7 @@ require_once __DIR__ . '/../navbar.php';
                 <?php foreach ($chars as $c): ?>
 
                     <tr
-                        class="phan-row"
+                        class="phan-row char-list-row"
                         data-href="<?= phan_h(
                             phan_detail_url(
                                 (int)$c['id']
@@ -3042,7 +3040,7 @@ require_once __DIR__ . '/../navbar.php';
         <?php if ($totalPages > 1): ?>
 
             <nav
-                class="phan-pagination"
+                class="phan-pagination chars-pagination"
                 aria-label="Charakterseiten"
             >
 
@@ -3193,7 +3191,7 @@ require_once __DIR__ . '/../navbar.php';
         <form
             method="post"
             enctype="multipart/form-data"
-            class="phan-detail"
+            class="phan-detail chars-detail"
             id="charForm"
             autocomplete="off"
         >
@@ -3262,7 +3260,7 @@ require_once __DIR__ . '/../navbar.php';
             >
 
 
-            <div class="phan-card phan-image-card">
+            <div class="phan-card phan-image-card chars-image-card">
 
                 <div class="phan-image-card-head">
 
@@ -3450,9 +3448,9 @@ require_once __DIR__ . '/../navbar.php';
             </div>
 
 
-            <div class="phan-card">
+            <div class="phan-card chars-data-card">
 
-                <div class="phan-form-grid">
+                <div class="phan-form-grid chars-form-grid">
 
                     <label>
                         Rufname
@@ -3563,7 +3561,7 @@ require_once __DIR__ . '/../navbar.php';
                     
 
 
-                    <div id="charFactionField">
+                    <div id="charFactionField" class="chars-field-wide">
                         <span>Fraktion</span>
 
                         <div
@@ -3615,7 +3613,7 @@ require_once __DIR__ . '/../navbar.php';
                     </div>
 
 
-                    <label>
+                    <label class="chars-field-wide">
                         Notizen
 
                         <textarea
@@ -3717,7 +3715,7 @@ require_once __DIR__ . '/../navbar.php';
                 </div>
 
 
-                <div class="phan-bottom-actions">
+                <div class="phan-bottom-actions chars-bottom-actions">
 
                     <div class="phan-bottom-actions-left">
 
@@ -3769,7 +3767,7 @@ require_once __DIR__ . '/../navbar.php';
         <?php if (count($charImages) > 2): ?>
 
             <div
-                class="phan-gallery-modal"
+                class="phan-gallery-modal chars-gallery-modal"
                 id="charGalleryModal"
                 hidden
             >
@@ -3849,6 +3847,11 @@ require_once __DIR__ . '/../navbar.php';
 <script>
 (() => {
     'use strict';
+
+    const PHONE_UI = !!(
+        window.matchMedia
+        && window.matchMedia('(max-width: 650px)').matches
+    );
 
     const FACTIONS =
         <?= json_encode(
@@ -4100,7 +4103,8 @@ require_once __DIR__ . '/../navbar.php';
 
 
     if (
-        charListSearch
+        !PHONE_UI
+        && charListSearch
         && charListSearch.value !== ''
     ) {
         window.setTimeout(
@@ -4830,7 +4834,9 @@ require_once __DIR__ . '/../navbar.php';
                     || ''
                 );
 
-                factionSearch?.focus();
+                if (!PHONE_UI) {
+                    factionSearch?.focus();
+                }
             }
         }
     );

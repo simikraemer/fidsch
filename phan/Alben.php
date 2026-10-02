@@ -2088,7 +2088,11 @@ require_once __DIR__ . '/../navbar.php';
 ?>
 
 
-<main class="phan-page albums-page">
+<main
+    id="albumsPage"
+    class="phan-page albums-page <?= $album ? 'albums-page--detail' : 'albums-page--list' ?>"
+    data-albums-view="<?= $album ? 'detail' : 'list' ?>"
+>
 
     <?php if ($pageError !== ''): ?>
         <div class="phan-msg phan-error">
@@ -2168,7 +2172,7 @@ require_once __DIR__ . '/../navbar.php';
 
 
         <div
-            class="phan-list-filterbar-3zellen"
+            class="phan-list-filterbar-3zellen albums-filterbar"
             id="albumListFilters"
         >
 
@@ -2505,7 +2509,7 @@ require_once __DIR__ . '/../navbar.php';
 
         <?php else: ?>
 
-            <div class="albums-grid">
+            <div class="albums-grid albums-list-grid">
 
                 <?php foreach ($albums as $albumRow): ?>
                     <?php $listAlbumId = (int)$albumRow['id']; ?>
@@ -4104,9 +4108,9 @@ require_once __DIR__ . '/../navbar.php';
         ?>
 
 
-        <div class="albums-detail-grid">
+        <div class="albums-detail-grid albums-detail-layout">
 
-            <div class="album-cover-sticky">
+            <div class="album-cover-sticky albums-detail-cover-column">
 
                 <a
                     class="phan-page-button albums-back"
@@ -4225,7 +4229,7 @@ require_once __DIR__ . '/../navbar.php';
             </div>
 
 
-            <div class="albums-detail-main">
+            <div class="albums-detail-main albums-detail-content">
 
                 <div class="phan-detail-head albums-detail-head">
 
@@ -4530,7 +4534,7 @@ require_once __DIR__ . '/../navbar.php';
 
             <?php else: ?>
 
-                <div class="album-song-list">
+                <div class="album-song-list album-song-cards">
 
                     <?php foreach ($albumSongs as $song): ?>
 
@@ -4726,6 +4730,11 @@ require_once __DIR__ . '/../navbar.php';
                 ) ?>;
 
             const ALBUM_ID = <?= $albumId ?>;
+
+            const PHONE_UI = !!(
+                window.matchMedia
+                && window.matchMedia('(max-width: 650px)').matches
+            );
 
             const CHARS =
                 <?= json_encode(
@@ -5382,10 +5391,12 @@ require_once __DIR__ . '/../navbar.php';
 
                 renderModalResults();
 
-                window.setTimeout(
-                    () => modalSearch?.focus(),
-                    0
-                );
+                if (!PHONE_UI) {
+                    window.setTimeout(
+                        () => modalSearch?.focus(),
+                        0
+                    );
+                }
             }
 
             document

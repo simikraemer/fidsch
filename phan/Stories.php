@@ -3772,7 +3772,15 @@ $storyHasBackground =
 ?>
 
 <div
-    class="phan-page stories-page <?= $storyHasBackground ? 'story-has-cover-background' : '' ?>"
+    id="storiesPage"
+    class="
+        phan-page
+        stories-page
+        <?= !$isDetail ? 'stories-page--overview' : '' ?>
+        <?= $isCollectionDetail ? 'stories-page--collection' : '' ?>
+        <?= $isStoryDetail ? 'stories-page--story' : '' ?>
+        <?= $storyHasBackground ? 'story-has-cover-background' : '' ?>
+    "
     <?= $storyHasBackground
         ? 'style="--story-cover-background: url(&quot;/phan/stories?image='
             . (int)$story['id']
@@ -3783,7 +3791,7 @@ $storyHasBackground =
 
     <?php if (!$isDetail): ?>
 
-        <div class="phan-head">
+        <div class="phan-head stories-overview-head">
             <div>
                 <h1 class="ueberschrift phan-title">
                     Storys
@@ -3813,7 +3821,7 @@ $storyHasBackground =
         </div>
 
 
-        <div class="phan-card stories-toolbar">
+        <div class="phan-card stories-toolbar stories-overview-toolbar">
 
             <label class="stories-search-wrap">
                 <span>Suche</span>
@@ -3902,7 +3910,7 @@ $storyHasBackground =
         </div>
 
 
-        <div class="phan-table-wrap stories-table-wrap">
+        <div class="phan-table-wrap stories-table-wrap stories-overview-list">
             <table class="phan-table stories-table">
                 <thead>
                     <tr>
@@ -4642,7 +4650,7 @@ $storyHasBackground =
 
     <?php elseif ($isCollectionDetail): ?>
 
-        <div class="phan-detail-head">
+        <div class="phan-detail-head stories-detail-head stories-collection-detail-head">
             <button
                 type="button"
                 onclick="location.href='/phan/stories'"
@@ -4946,7 +4954,7 @@ $storyHasBackground =
 
 
         <form
-            class="story-collection-editor"
+            class="story-collection-editor story-collection-editor-form"
             id="collectionEditor"
             autocomplete="off"
             enctype="multipart/form-data"
@@ -5336,7 +5344,7 @@ $storyHasBackground =
 
     <?php else: ?>
 
-        <div class="phan-detail-head">
+        <div class="phan-detail-head stories-detail-head stories-story-detail-head">
             <button
                 type="button"
                 onclick="location.href='/phan/stories'"
@@ -5675,7 +5683,7 @@ $storyHasBackground =
 
 
         <form
-            class="story-editor"
+            class="story-editor story-editor-form"
             id="storyEditor"
             autocomplete="off"
             enctype="multipart/form-data"
@@ -6185,6 +6193,11 @@ $storyHasBackground =
 <script>
 (() => {
     'use strict';
+
+    const PHONE_UI = !!(
+        window.matchMedia
+        && window.matchMedia('(max-width: 650px)').matches
+    );
 
     const REGIONS =
         <?= json_encode(
@@ -6833,7 +6846,11 @@ $storyHasBackground =
                     regionSearch?.value
                     || ''
                 );
+                if (!PHONE_UI) {
+                    if (!PHONE_UI) {
                 regionSearch?.focus();
+            }
+                }
             }
         );
 
@@ -6848,7 +6865,9 @@ $storyHasBackground =
                     charSearch?.value
                     || ''
                 );
-                charSearch?.focus();
+                if (!PHONE_UI) {
+                    charSearch?.focus();
+                }
             }
         );
 
@@ -9960,7 +9979,9 @@ $storyHasBackground =
                 + url.search
             );
 
-            storyTitle?.focus();
+            if (!PHONE_UI) {
+                storyTitle?.focus();
+            }
         }
     );
 

@@ -837,8 +837,11 @@ require_once __DIR__ . '/../navbar.php';
 ?>
 
 <div
+    id="regionsPage"
     class="
         phan-region-page
+        regions-page
+        <?= $region ? 'regions-page--detail' : 'regions-page--overview' ?>
         <?= (
             $region
             && !empty($region['image_path'])
@@ -858,13 +861,13 @@ require_once __DIR__ . '/../navbar.php';
     <?php endif; ?>
 >
 
-    <div class="phan-region-head">
+    <div class="phan-region-head regions-head">
 
         <h1 class="ueberschrift phan-title">
             Regionen
         </h1>
 
-        <div class="phan-region-head-actions">
+        <div class="phan-region-head-actions regions-head-actions">
 
             <?php if ($region): ?>
 
@@ -912,9 +915,9 @@ require_once __DIR__ . '/../navbar.php';
     <?php endif; ?>
 
 
-    <div class="phan-region-layout">
+    <div class="phan-region-layout regions-layout">
 
-        <div class="phan-region-list">
+        <div class="phan-region-list regions-list">
 
             <?php if (!$regions): ?>
                 <div class="phan-region-empty">
@@ -928,9 +931,11 @@ require_once __DIR__ . '/../navbar.php';
                 <div
                     class="
                         phan-region-item
-                        <?= $id === (int)$r['id'] ? 'active' : '' ?>
+                        region-list-item
+                        <?= $id === (int)$r['id'] ? 'active is-active' : '' ?>
                     "
                     data-href="/phan/regions?id=<?= (int)$r['id'] ?>"
+                    <?= $id === (int)$r['id'] ? 'aria-current="true"' : '' ?>
                 >
 
                     <?php if (!empty($r['image_path'])): ?>
@@ -982,7 +987,7 @@ require_once __DIR__ . '/../navbar.php';
         </div>
 
 
-        <div class="phan-region-card">
+        <div class="phan-region-card regions-editor-card">
 
             <?php if (!$region): ?>
 
@@ -996,6 +1001,7 @@ require_once __DIR__ . '/../navbar.php';
                     method="post"
                     enctype="multipart/form-data"
                     id="regionForm"
+                    class="region-form"
                     autocomplete="off"
                 >
 
@@ -1031,6 +1037,7 @@ require_once __DIR__ . '/../navbar.php';
                         class="
                             phan-region-image-controls
                             phan-region-image-dropzone
+                            region-image-controls
                         "
                         id="regionImageControls"
                     >
@@ -1064,7 +1071,7 @@ require_once __DIR__ . '/../navbar.php';
                     </div>
 
 
-                    <div class="phan-region-form">
+                    <div class="phan-region-form region-form-grid">
 
                         <label class="phan-region-wide">
                             Titel
@@ -1160,7 +1167,7 @@ require_once __DIR__ . '/../navbar.php';
                     </div>
 
 
-                    <div class="phan-region-bottom-actions">
+                    <div class="phan-region-bottom-actions region-bottom-actions">
 
                         <button
                             type="button"
@@ -1190,6 +1197,11 @@ require_once __DIR__ . '/../navbar.php';
 <script>
 (() => {
     'use strict';
+
+    const PHONE_UI = !!(
+        window.matchMedia
+        && window.matchMedia('(max-width: 650px)').matches
+    );
 
     document
         .querySelectorAll('.phan-region-item')
@@ -1498,11 +1510,12 @@ require_once __DIR__ . '/../navbar.php';
     }
 
 
-    document
-        .querySelectorAll(
-            '.phan-region-image-dropzone'
-        )
-        .forEach(zone => {
+    if (!PHONE_UI) {
+        document
+            .querySelectorAll(
+                '.phan-region-image-dropzone'
+            )
+            .forEach(zone => {
 
             zone.addEventListener(
                 'dragenter',
@@ -1561,6 +1574,7 @@ require_once __DIR__ . '/../navbar.php';
                 }
             );
         });
+    }
 
 
     if (removeImageButton) {

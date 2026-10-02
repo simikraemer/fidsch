@@ -4644,7 +4644,7 @@ body.relations-page-active {
 
 .relations-shell.is-center-mode
 .relation-edge {
-    opacity: 0.34;
+    opacity: 0;
 }
 
 .relations-shell.is-center-mode
@@ -4652,6 +4652,12 @@ body.relations-page-active {
 .relation-edge {
     opacity: 1;
     stroke-width: 5;
+}
+
+.relations-shell.is-center-mode
+g:not(.is-center-connected)
+.relation-edge-hit {
+    pointer-events: none;
 }
 
 .relation-edge.parent_child {
@@ -4750,34 +4756,26 @@ body.relations-page-active {
 
 .relation-node.is-centered
 .relation-node-face {
-    width: 150px;
-    height: 225px;
+    width: 74px;
+    height: 74px;
 
     overflow: hidden;
 
     border-color: var(--primary);
-    border-radius: 12px;
+    border-radius: 50%;
 
-    background: #fff;
+    background: #ddd;
 
     box-shadow:
-        0 8px 22px
-        rgba(0, 0, 0, 0.28),
-        0 0 0 5px
-        color-mix(
-            in srgb,
-            var(--primary) 28%,
-            transparent
-        ),
-        0 0 0 9px
-        color-mix(
-            in srgb,
-            var(--primary) 10%,
-            transparent
-        );
+        0 0 0 4px #fff,
+        0 0 0 8px var(--primary),
+        0 5px 16px
+        rgba(0, 0, 0, 0.28);
 
-    transform:
-        translateY(-4px);
+    filter: none;
+    opacity: 1;
+
+    transform: none;
 }
 
 .relation-node.is-centered
@@ -4785,9 +4783,9 @@ body.relations-page-active {
     width: 100%;
     height: 100%;
 
-    object-fit: contain;
+    object-fit: cover;
 
-    background: #fff;
+    background: transparent;
 }
 
 .relation-node-face img {
@@ -4860,36 +4858,36 @@ body.relations-page-active {
 
 .relation-node.is-centered
 .relation-node-name {
-    border-color: var(--primary);
-    background: var(--primary);
-    color: #fff;
+    border-color: transparent;
+    background: rgba(255, 255, 255, 0.92);
+    color: var(--text);
 
     box-shadow:
-        0 4px 12px
-        color-mix(
-            in srgb,
-            var(--primary) 34%,
-            transparent
-        );
+        0 1px 5px
+        rgba(0, 0, 0, 0.14);
+
+    opacity: 1;
+    transform: none;
 }
 
 /*
- * Im Center-Modus:
- * - Mittelpunkt: maximal hervorgehoben
+ * Im Auswahlmodus:
+ * - ausgewählter Charakter: nur Icon-Ring/Glow
  * - direkte Nachbarn: vollständig sichtbar
- * - erst Charaktere ab Distanz 2 werden zurückgenommen
+ * - alle anderen Charaktere: schwarz-weiß + 50 % Transparenz
+ * - Hover hebt diesen Filter bewusst nicht auf
  */
 .relations-shell.is-center-mode
 .relation-node:not(.is-centered):not(.is-center-neighbor)
 .relation-node-face {
-    opacity: 0.72;
-    filter: saturate(0.82);
+    opacity: 0.5;
+    filter: grayscale(1);
 }
 
 .relations-shell.is-center-mode
 .relation-node:not(.is-centered):not(.is-center-neighbor)
 .relation-node-name {
-    opacity: 0.68;
+    opacity: 0.5;
 }
 
 .relations-shell.is-center-mode
@@ -4903,13 +4901,16 @@ body.relations-page-active {
 }
 
 .relations-shell.is-center-mode
-.relation-node:not(.is-centered):hover
-.relation-node-face,
+.relation-node:not(.is-centered):not(.is-center-neighbor):hover
+.relation-node-face {
+    opacity: 0.5;
+    filter: grayscale(1);
+}
+
 .relations-shell.is-center-mode
-.relation-node:not(.is-centered):hover
+.relation-node:not(.is-centered):not(.is-center-neighbor):hover
 .relation-node-name {
-    opacity: 1;
-    filter: none;
+    opacity: 0.5;
 }
 
 /* ---------------------------------------------------------
