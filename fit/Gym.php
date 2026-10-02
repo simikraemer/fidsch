@@ -397,6 +397,26 @@ function gymUploadImage(?array $file, ?string $oldPath = null): ?string
     return $newPath;
 }
 
+function gymExerciseImageUrl(int $exerciseId, ?string $imagePath): ?string
+{
+    if (!$imagePath) {
+        return null;
+    }
+
+    return '/fit/gym?api=image&exercise_id=' . $exerciseId
+        . '&v=' . rawurlencode(basename($imagePath));
+}
+
+function gymPlanImageUrl(int $planId, ?string $imagePath): ?string
+{
+    if (!$imagePath) {
+        return null;
+    }
+
+    return '/fit/gym?api=image&plan_id=' . $planId
+        . '&v=' . rawurlencode(basename($imagePath));
+}
+
 function gymGetExercise(mysqli $conn, int $exerciseId, bool $includeArchived = false): ?array
 {
     $sql = "
@@ -423,7 +443,7 @@ function gymGetExercise(mysqli $conn, int $exerciseId, bool $includeArchived = f
         $row['cardio_kcal_per_km'] = $row['cardio_kcal_per_km'] !== null ? (float)$row['cardio_kcal_per_km'] : null;
         $row['is_archived'] = (bool)$row['is_archived'];
         gymAttachExerciseMuscles($conn, $row);
-        $row['image_url'] = $row['image_path'] ? '/fit/gym?api=image&exercise_id=' . $row['id'] : null;
+        $row['image_url'] = gymExerciseImageUrl((int)$row['id'], $row['image_path']);
     }
 
     return $row;
@@ -450,7 +470,7 @@ function gymGetActiveSession(mysqli $conn): ?array
     if ($row) {
         $row['id'] = (int)$row['id'];
         $row['plan_id'] = (int)$row['plan_id'];
-        $row['plan_image_url'] = $row['plan_image_path'] ? '/fit/gym?api=image&plan_id=' . $row['plan_id'] : null;
+        $row['plan_image_url'] = gymPlanImageUrl((int)$row['plan_id'], $row['plan_image_path']);
     }
 
     return $row;
@@ -477,7 +497,7 @@ function gymGetPlanDetail(mysqli $conn, int $planId, bool $includeArchived = fal
     $plan['id'] = (int)$plan['id'];
     $plan['is_quick'] = !empty($plan['is_quick']);
     $plan['is_archived'] = (bool)$plan['is_archived'];
-    $plan['image_url'] = $plan['image_path'] ? '/fit/gym?api=image&plan_id=' . $plan['id'] : null;
+    $plan['image_url'] = gymPlanImageUrl((int)$plan['id'], $plan['image_path']);
 
     $stmt = $conn->prepare("SELECT weekday FROM gym_plan_days WHERE plan_id = ? ORDER BY weekday ASC");
     $stmt->bind_param('i', $planId);
@@ -494,11 +514,6 @@ function gymGetPlanDetail(mysqli $conn, int $planId, bool $includeArchived = fal
             pe.id AS plan_exercise_id,
             pe.exercise_id,
             pe.sort_order,
-            pe.sets_target,
-            pe.target_reps,
-            pe.target_weight,
-            pe.target_cardio_minutes,
-            pe.target_cardio_distance_km,
             e.name,
             e.type,
             e.cardio_mode,
@@ -521,17 +536,12 @@ function gymGetPlanDetail(mysqli $conn, int $planId, bool $includeArchived = fal
         $row['plan_exercise_id'] = (int)$row['plan_exercise_id'];
         $row['exercise_id'] = (int)$row['exercise_id'];
         $row['sort_order'] = (int)$row['sort_order'];
-        $row['sets_target'] = (int)$row['sets_target'];
-        $row['target_reps'] = $row['target_reps'] !== null ? (int)$row['target_reps'] : null;
-        $row['target_weight'] = $row['target_weight'] !== null ? (float)$row['target_weight'] : null;
-        $row['target_cardio_minutes'] = $row['target_cardio_minutes'] !== null ? (int)$row['target_cardio_minutes'] : null;
-        $row['target_cardio_distance_km'] = $row['target_cardio_distance_km'] !== null ? (float)$row['target_cardio_distance_km'] : null;
         $row['cardio_mode'] = $row['type'] === 'kardio' ? (($row['cardio_mode'] ?? null) ?: 'zeit') : null;
         $row['cardio_kcal_per_hour'] = $row['cardio_kcal_per_hour'] !== null ? (int)$row['cardio_kcal_per_hour'] : null;
         $row['cardio_kcal_per_km'] = $row['cardio_kcal_per_km'] !== null ? (float)$row['cardio_kcal_per_km'] : null;
         $row['exercise_archived'] = (bool)$row['exercise_archived'];
         gymAttachExerciseMuscles($conn, $row);
-        $row['image_url'] = $row['image_path'] ? '/fit/gym?api=image&exercise_id=' . $row['exercise_id'] : null;
+        $row['image_url'] = gymExerciseImageUrl((int)$row['exercise_id'], $row['image_path']);
     }
     unset($row);
 
@@ -563,7 +573,7 @@ function gymGetSessionDetail(mysqli $conn, int $sessionId): ?array
     $session['is_quick'] = !empty($session['plan_is_quick']);
     unset($session['plan_is_quick']);
     $session['is_finished'] = $session['finished_at'] !== null;
-    $session['plan_image_url'] = $session['plan_image_path'] ? '/fit/gym?api=image&plan_id=' . $session['plan_id'] : null;
+    $session['plan_image_url'] = gymPlanImageUrl((int)$session['plan_id'], $session['plan_image_path']);
 
     $planId = (int)$session['plan_id'];
 
@@ -576,11 +586,6 @@ function gymGetSessionDetail(mysqli $conn, int $sessionId): ?array
                 pe.id AS plan_exercise_id,
                 pe.exercise_id,
                 pe.sort_order,
-                pe.sets_target,
-                pe.target_reps,
-                pe.target_weight,
-                pe.target_cardio_minutes,
-                pe.target_cardio_distance_km,
                 e.name,
                 e.type,
                 e.cardio_mode,
@@ -605,11 +610,6 @@ function gymGetSessionDetail(mysqli $conn, int $sessionId): ?array
                 pe.id AS plan_exercise_id,
                 pe.exercise_id,
                 pe.sort_order,
-                pe.sets_target,
-                pe.target_reps,
-                pe.target_weight,
-                pe.target_cardio_minutes,
-                pe.target_cardio_distance_km,
                 e.name,
                 e.type,
                 e.cardio_mode,
@@ -715,7 +715,14 @@ function gymGetSessionDetail(mysqli $conn, int $sessionId): ?array
             unset($previousSet);
         }
 
-        $setsTarget = max(1, (int)$exerciseRow['sets_target']);
+        // Die Anzahl der beim Öffnen angezeigten Sätze kommt nicht mehr aus dem
+        // Trainingsplan. Für Kraft wird die Anzahl des letzten Trainings derselben
+        // Übung übernommen. Ohne Historie starten Kraftübungen mit 3 Sätzen.
+        // Kardio bleibt ein einzelner Eintrag.
+        $baseSetCount = $exerciseRow['type'] === 'kardio'
+            ? 1
+            : ($previousSets ? count($previousSets) : 3);
+
         $exerciseMuscles = gymGetExerciseMuscles($conn, $exerciseId);
 
         // Bei abgeschlossenen Logs die historische Kardio-Erfassungsart aus dem
@@ -745,23 +752,18 @@ function gymGetSessionDetail(mysqli $conn, int $sessionId): ?array
             'name' => $exerciseRow['name'],
             'type' => $exerciseRow['type'],
             'cardio_mode' => $resolvedCardioMode,
-            'image_url' => $exerciseRow['image_path'] ? '/fit/gym?api=image&exercise_id=' . $exerciseId : null,
+            'image_url' => gymExerciseImageUrl($exerciseId, $exerciseRow['image_path']),
             'primary_muscle_ids' => $exerciseMuscles['primary_muscle_ids'],
             'secondary_muscle_ids' => $exerciseMuscles['secondary_muscle_ids'],
             'primary_muscles' => $exerciseMuscles['primary_muscles'],
             'secondary_muscles' => $exerciseMuscles['secondary_muscles'],
             'cardio_kcal_per_hour' => $exerciseRow['cardio_kcal_per_hour'] !== null ? (int)$exerciseRow['cardio_kcal_per_hour'] : null,
             'cardio_kcal_per_km' => $exerciseRow['cardio_kcal_per_km'] !== null ? (float)$exerciseRow['cardio_kcal_per_km'] : null,
-            'sets_target' => $setsTarget,
-            'target_reps' => $exerciseRow['target_reps'] !== null ? (int)$exerciseRow['target_reps'] : null,
-            'target_weight' => $exerciseRow['target_weight'] !== null ? (float)$exerciseRow['target_weight'] : null,
-            'target_cardio_minutes' => $exerciseRow['target_cardio_minutes'] !== null ? (int)$exerciseRow['target_cardio_minutes'] : null,
-            'target_cardio_distance_km' => $exerciseRow['target_cardio_distance_km'] !== null ? (float)$exerciseRow['target_cardio_distance_km'] : null,
             'current_sets' => $currentSets,
             'previous_sets' => $previousSets,
             'previous_started_at' => $previousStartedAt,
             'previous_when' => $previousWhen,
-            'display_set_count' => max($setsTarget, $maxCurrentSet),
+            'display_set_count' => max($baseSetCount, $maxCurrentSet),
         ];
     }
 
@@ -842,7 +844,7 @@ if ($api !== '') {
                     $row['cardio_kcal_per_hour'] = $row['cardio_kcal_per_hour'] !== null ? (int)$row['cardio_kcal_per_hour'] : null;
                     $row['cardio_kcal_per_km'] = $row['cardio_kcal_per_km'] !== null ? (float)$row['cardio_kcal_per_km'] : null;
                     gymAttachExerciseMuscles($fitconn, $row);
-                    $row['image_url'] = $row['image_path'] ? '/fit/gym?api=image&exercise_id=' . $row['id'] : null;
+                    $row['image_url'] = gymExerciseImageUrl((int)$row['id'], $row['image_path']);
                     $exercises[] = $row;
                 }
                 $result->free();
@@ -895,7 +897,7 @@ if ($api !== '') {
                         'id' => (int)$row['id'],
                         'name' => $row['name'],
                         'image_path' => $row['image_path'],
-                        'image_url' => $row['image_path'] ? '/fit/gym?api=image&plan_id=' . (int)$row['id'] : null,
+                        'image_url' => gymPlanImageUrl((int)$row['id'], $row['image_path']),
                         'days' => $days,
                         'exercise_count' => (int)$row['exercise_count'],
                         'is_today' => in_array($todayWeekday, $days, true),
@@ -1026,9 +1028,7 @@ if ($api !== '') {
                         'plan_id' => (int)$row['plan_id'],
                         'plan_name' => (string)$row['plan_name'],
                         'is_quick' => !empty($row['plan_is_quick']),
-                        'plan_image_url' => $row['plan_image_path']
-                            ? '/fit/gym?api=image&plan_id=' . (int)$row['plan_id']
-                            : null,
+                        'plan_image_url' => gymPlanImageUrl((int)$row['plan_id'], $row['plan_image_path']),
                         'started_at' => $row['started_at'],
                         'finished_at' => $row['finished_at'],
                         'calories' => (int)$row['calories'],
@@ -1312,7 +1312,6 @@ if ($api !== '') {
             }
             $items = is_array($itemsValue) ? $itemsValue : [];
 
-
             if ($name === '' || mb_strlen($name, 'UTF-8') > 255) {
                 gymError('Bitte einen gültigen Namen für den Trainingsplan angeben.');
             }
@@ -1355,63 +1354,11 @@ if ($api !== '') {
                 }
 
                 $seenExerciseIds[$exerciseId] = true;
-                $planExerciseId = (int)($item['plan_exercise_id'] ?? 0);
-
-                if ($exercise['type'] === 'kardio') {
-                    $cardioMode = ($exercise['cardio_mode'] ?? null) ?: 'zeit';
-                    $targetMinutes = null;
-                    $targetDistanceKm = null;
-
-                    if ($cardioMode === 'strecke') {
-                        $distanceRaw = str_replace(',', '.', (string)($item['target_cardio_distance_km'] ?? ''));
-                        $targetDistanceKm = is_numeric($distanceRaw) ? (float)$distanceRaw : -1;
-                        if ($targetDistanceKm <= 0 || $targetDistanceKm > 10000) {
-                            gymError('Für Strecken-Kardio bitte eine gültige Richtstrecke in Kilometern angeben.');
-                        }
-                    } else {
-                        $targetMinutes = (int)($item['target_cardio_minutes'] ?? 0);
-                        if ($targetMinutes <= 0 || $targetMinutes > 1440) {
-                            gymError('Für Zeit-Kardio bitte eine gültige Richtzeit in Minuten angeben.');
-                        }
-                    }
-
-                    $validatedItems[] = [
-                        'plan_exercise_id' => $planExerciseId,
-                        'exercise_id' => $exerciseId,
-                        'sort_order' => $index,
-                        'sets_target' => 1,
-                        'target_reps' => null,
-                        'target_weight' => null,
-                        'target_cardio_minutes' => $targetMinutes,
-                        'target_cardio_distance_km' => $targetDistanceKm,
-                    ];
-                } else {
-                    $sets = (int)($item['sets_target'] ?? 0);
-                    $reps = (int)($item['target_reps'] ?? 0);
-                    $weightRaw = str_replace(',', '.', (string)($item['target_weight'] ?? ''));
-                    $weight = is_numeric($weightRaw) ? (float)$weightRaw : -1;
-
-                    if ($sets <= 0 || $sets > 20) {
-                        gymError('Sätze müssen zwischen 1 und 20 liegen.');
-                    }
-                    if ($reps <= 0 || $reps > 1000) {
-                        gymError('Wiederholungen müssen zwischen 1 und 1000 liegen.');
-                    }
-                    if ($weight < 0 || $weight > 9999.99) {
-                        gymError('Bitte ein gültiges Richtgewicht angeben.');
-                    }
-
-                    $validatedItems[] = [
-                        'plan_exercise_id' => $planExerciseId,
-                        'exercise_id' => $exerciseId,
-                        'sort_order' => $index,
-                        'sets_target' => $sets,
-                        'target_reps' => $reps,
-                        'target_weight' => $weight,
-                        'target_cardio_minutes' => null,
-                        'target_cardio_distance_km' => null,
-                    ];
-                }
+                $validatedItems[] = [
+                    'plan_exercise_id' => (int)($item['plan_exercise_id'] ?? 0),
+                    'exercise_id' => $exerciseId,
+                    'sort_order' => $index,
+                ];
             }
 
             $existingPlan = $planId > 0 ? gymGetPlanDetail($fitconn, $planId, true) : null;
@@ -1422,7 +1369,6 @@ if ($api !== '') {
                 gymError('Interne Einzelübungs-Trainings können nicht als Trainingsplan bearbeitet werden.', 409);
             }
 
-            // Einen laufenden Plan nicht unter den Füßen der Session verändern.
             if ($planId > 0) {
                 $stmt = $fitconn->prepare("SELECT COUNT(*) AS c FROM gym_sessions WHERE plan_id = ? AND finished_at IS NULL");
                 $stmt->bind_param('i', $planId);
@@ -1468,7 +1414,8 @@ if ($api !== '') {
                 }
                 $stmtDay->close();
 
-                // Historische plan_exercise-Zeilen werden nie gelöscht, damit alte Session-Sets erhalten bleiben.
+                // Historische plan_exercise-Zeilen werden weiterhin nur archiviert,
+                // damit bereits vorhandene Session-Sets ihren Referenzanker behalten.
                 $stmt = $fitconn->prepare("UPDATE gym_plan_exercises SET is_archived = 1 WHERE plan_id = ?");
                 $stmt->bind_param('i', $planId);
                 $stmt->execute();
@@ -1478,11 +1425,6 @@ if ($api !== '') {
                     $planExerciseId = (int)$item['plan_exercise_id'];
                     $exerciseId = (int)$item['exercise_id'];
                     $sortOrder = (int)$item['sort_order'];
-                    $setsTarget = (int)$item['sets_target'];
-                    $targetReps = $item['target_reps'];
-                    $targetWeight = $item['target_weight'];
-                    $targetCardioMinutes = $item['target_cardio_minutes'];
-                    $targetCardioDistanceKm = $item['target_cardio_distance_km'];
 
                     $updatedExisting = false;
                     if ($planExerciseId > 0) {
@@ -1500,20 +1442,10 @@ if ($api !== '') {
                         if ($exists) {
                             $stmt = $fitconn->prepare("
                                 UPDATE gym_plan_exercises
-                                SET sort_order = ?, sets_target = ?, target_reps = ?, target_weight = ?,
-                                    target_cardio_minutes = ?, target_cardio_distance_km = ?, is_archived = 0
+                                SET sort_order = ?, is_archived = 0
                                 WHERE id = ?
                             ");
-                            $stmt->bind_param(
-                                'iiididi',
-                                $sortOrder,
-                                $setsTarget,
-                                $targetReps,
-                                $targetWeight,
-                                $targetCardioMinutes,
-                                $targetCardioDistanceKm,
-                                $planExerciseId
-                            );
+                            $stmt->bind_param('ii', $sortOrder, $planExerciseId);
                             $stmt->execute();
                             $stmt->close();
                             $updatedExisting = true;
@@ -1523,21 +1455,10 @@ if ($api !== '') {
                     if (!$updatedExisting) {
                         $stmt = $fitconn->prepare("
                             INSERT INTO gym_plan_exercises
-                                (plan_id, exercise_id, sort_order, sets_target, target_reps, target_weight,
-                                 target_cardio_minutes, target_cardio_distance_km, is_archived)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
+                                (plan_id, exercise_id, sort_order, is_archived)
+                            VALUES (?, ?, ?, 0)
                         ");
-                        $stmt->bind_param(
-                            'iiiiidid',
-                            $planId,
-                            $exerciseId,
-                            $sortOrder,
-                            $setsTarget,
-                            $targetReps,
-                            $targetWeight,
-                            $targetCardioMinutes,
-                            $targetCardioDistanceKm
-                        );
+                        $stmt->bind_param('iii', $planId, $exerciseId, $sortOrder);
                         $stmt->execute();
                         $stmt->close();
                     }
@@ -1661,13 +1582,6 @@ if ($api !== '') {
             $quickName = 'Einzelübung · ' . $exercise['name'];
             $quickImagePath = $exercise['image_path'] ?? null;
 
-            // Die Plan-Richtwerte des internen Ein-Übungs-Plans spiegeln genau diesen
-            // Direkteintrag wider. Historische Logs bleiben damit vollständig lesbar.
-            $targetReps = $exercise['type'] === 'kraft' ? $reps : null;
-            $targetWeight = $exercise['type'] === 'kraft' ? $weight : null;
-            $targetCardioMinutes = $exercise['type'] === 'kardio' ? $cardioMinutes : null;
-            $targetCardioDistanceKm = $exercise['type'] === 'kardio' ? $cardioDistanceKm : null;
-
             $fitconn->begin_transaction();
             try {
                 $stmt = $fitconn->prepare("\n                    INSERT INTO gym_plans (name, image_path, is_quick, is_archived)\n                    VALUES (?, ?, 1, 1)\n                ");
@@ -1676,16 +1590,8 @@ if ($api !== '') {
                 $planId = (int)$fitconn->insert_id;
                 $stmt->close();
 
-                $stmt = $fitconn->prepare("\n                    INSERT INTO gym_plan_exercises\n                        (plan_id, exercise_id, sort_order, sets_target, target_reps, target_weight,\n                         target_cardio_minutes, target_cardio_distance_km, is_archived)\n                    VALUES (?, ?, 0, 1, ?, ?, ?, ?, 1)\n                ");
-                $stmt->bind_param(
-                    'iiidid',
-                    $planId,
-                    $exerciseId,
-                    $targetReps,
-                    $targetWeight,
-                    $targetCardioMinutes,
-                    $targetCardioDistanceKm
-                );
+                $stmt = $fitconn->prepare("\n                    INSERT INTO gym_plan_exercises\n                        (plan_id, exercise_id, sort_order, is_archived)\n                    VALUES (?, ?, 0, 1)\n                ");
+                $stmt->bind_param('ii', $planId, $exerciseId);
                 $stmt->execute();
                 $planExerciseId = (int)$fitconn->insert_id;
                 $stmt->close();
@@ -2324,14 +2230,6 @@ require_once __DIR__ . '/../navbar.php';
         return item?.cardio_mode === 'strecke' ? 'strecke' : 'zeit';
     }
 
-    function formatTarget(item) {
-        if (item.type === 'kardio') {
-            return cardioMode(item) === 'strecke'
-                ? `1 × ${formatNumber(item.target_cardio_distance_km)} km`
-                : `1 × ${formatNumber(item.target_cardio_minutes, 0)} min`;
-        }
-        return `${formatNumber(item.sets_target, 0)} × ${formatNumber(item.target_reps, 0)} × ${formatNumber(item.target_weight)} kg`;
-    }
 
     function formatSet(set, exercise) {
         if (!set) return '—';
@@ -2683,9 +2581,7 @@ require_once __DIR__ . '/../navbar.php';
                         <div class="gym-card-body">
                             <div class="gym-card-title-row">
                                 <h3>${escapeHtml(exercise.name)}</h3>
-                                <span class="gym-badge">${exercise.type === 'kardio' ? `Kardio · ${cardioMode(exercise) === 'strecke' ? 'Strecke' : 'Zeit'}` : 'Kraft'}</span>
                             </div>
-                            <div class="gym-card-meta">${escapeHtml(muscleText(exercise))}</div>
                         </div>
                     </article>
                 `).join('')}
@@ -2741,7 +2637,6 @@ require_once __DIR__ . '/../navbar.php';
                                         <strong>${escapeHtml(exercise.name)}</strong>
                                         <span>${exercise.type === 'kardio' ? `Kardio · ${cardioMode(exercise) === 'strecke' ? 'Strecke' : 'Zeit'}` : 'Krafttraining'}</span>
                                     </div>
-                                    <div class="gym-plan-exercise-target">${escapeHtml(formatTarget(exercise))}</div>
                                 </div>
                             `).join('')}
                         </div>
@@ -2869,10 +2764,9 @@ require_once __DIR__ . '/../navbar.php';
 
     function sessionExerciseProgress(exercise) {
         const completed = (exercise.current_sets || []).length;
-        if (exercise.type === 'kardio') {
-            return completed > 0 ? 'Erfasst' : 'Offen';
-        }
-        return `${completed}/${exercise.sets_target} Sätze`;
+        if (completed <= 0) return 'Offen';
+        if (exercise.type === 'kardio') return 'Erfasst';
+        return completed === 1 ? '1 Satz' : `${completed} Sätze`;
     }
 
     async function loadSession(sessionId) {
@@ -2925,7 +2819,6 @@ require_once __DIR__ . '/../navbar.php';
                         ${imageMarkup(exercise, 'gym-workout-exercise-image')}
                         <div class="gym-workout-exercise-copy">
                             <h2>${escapeHtml(exercise.name)}</h2>
-                            <div class="gym-workout-target">Richtwert: ${escapeHtml(formatTarget(exercise))}</div>
                             <div class="gym-workout-last">Letztes Mal: ${escapeHtml(exercise.previous_when)}</div>
                         </div>
                         <div class="gym-workout-progress">
@@ -2961,6 +2854,30 @@ require_once __DIR__ . '/../navbar.php';
         return (exercise.previous_sets || []).find(set => Number(set.set_number) === Number(number)) || null;
     }
 
+    function prefillSetByNumber(exercise, number) {
+        const previous = previousSetByNumber(exercise, number);
+        if (previous) {
+            return { set: previous, source: `Letztes Mal · ${exercise.previous_when}` };
+        }
+
+        if (exercise.type === 'kraft' && !(exercise.previous_sets || []).length) {
+            return {
+                set: {
+                    set_number: Number(number),
+                    reps: 8,
+                    weight: 0,
+                    cardio_minutes: null,
+                    cardio_distance_km: null,
+                    calories: null,
+                    calories_manual: false
+                },
+                source: 'Startwert'
+            };
+        }
+
+        return { set: null, source: exercise.previous_when || 'Noch nie' };
+    }
+
     async function renderSessionExercise(planExerciseId) {
         if (!state.currentSession) {
             const sessionId = state.route.sessionId;
@@ -2990,7 +2907,7 @@ require_once __DIR__ . '/../navbar.php';
                 {
                     length: exercise.type === 'kardio'
                         ? 1
-                        : Math.max(1, Number(exercise.display_set_count || exercise.sets_target || 1) + extra)
+                        : Math.max(1, Number(exercise.display_set_count || 3) + extra)
                 },
                 (_, index) => index + 1
             );
@@ -2998,8 +2915,10 @@ require_once __DIR__ . '/../navbar.php';
         const cards = [];
         for (const setNumber of setNumbers) {
             const current = currentSetByNumber(exercise, setNumber);
-            const previous = previousSetByNumber(exercise, setNumber);
-            const isExtra = exercise.type !== 'kardio' && setNumber > Number(exercise.sets_target);
+            const prefill = prefillSetByNumber(exercise, setNumber);
+            const previous = prefill.set;
+            const baseSetCount = Number(exercise.display_set_count || (exercise.type === 'kardio' ? 1 : 3));
+            const isExtra = exercise.type !== 'kardio' && setNumber > baseSetCount;
 
             cards.push(`
                 <button type="button" class="gym-set-card ${current ? 'is-complete' : ''} ${isExtra ? 'is-extra' : ''}" data-set-number="${setNumber}">
@@ -3009,16 +2928,7 @@ require_once __DIR__ . '/../navbar.php';
                     </div>
                     <div class="gym-set-columns">
                         <div>
-                            <span>Richtwert</span>
-                            <strong>${exercise.type === 'kardio'
-                                ? (cardioMode(exercise) === 'strecke'
-                                    ? `${formatNumber(exercise.target_cardio_distance_km)} km`
-                                    : `${formatNumber(exercise.target_cardio_minutes, 0)} min`)
-                                : `${formatNumber(exercise.target_reps, 0)} × ${formatNumber(exercise.target_weight)} kg`}
-                            </strong>
-                        </div>
-                        <div>
-                            <span>Letztes Mal · ${escapeHtml(exercise.previous_when)}</span>
+                            <span>${escapeHtml(prefill.source)}</span>
                             <strong>${escapeHtml(formatSet(previous, exercise))}</strong>
                         </div>
                         <div>
@@ -3035,7 +2945,9 @@ require_once __DIR__ . '/../navbar.php';
                 ${imageMarkup(exercise, 'gym-session-exercise-image')}
                 <div>
                     <span class="gym-badge">${exercise.type === 'kardio' ? `Kardio · ${cardioMode(exercise) === 'strecke' ? 'Strecke' : 'Zeit'}` : 'Krafttraining'}</span>
-                    <strong>Richtwert: ${escapeHtml(formatTarget(exercise))}</strong>
+                    <strong>${exercise.previous_sets?.length
+                        ? `Geladen von ${escapeHtml(exercise.previous_when)}`
+                        : (exercise.type === 'kraft' ? 'Start mit 3 × 8 bei 0 kg' : 'Noch kein vorheriger Eintrag')}</strong>
                     ${exercise.type === 'kardio'
                         ? `<span>${escapeHtml(cardioRateText(exercise))}</span>`
                         : ''}
@@ -3301,49 +3213,18 @@ require_once __DIR__ . '/../navbar.php';
             exercises: plan?.exercises ? plan.exercises.map(item => ({
                 plan_exercise_id: item.plan_exercise_id,
                 exercise_id: item.exercise_id,
-                sets_target: item.sets_target,
-                target_reps: item.target_reps,
-                target_weight: item.target_weight,
-                target_cardio_minutes: item.target_cardio_minutes,
-                target_cardio_distance_km: item.target_cardio_distance_km,
             })) : []
         };
     }
 
     function syncPlanDraftFromDom() {
         if (!state.planDraft) return;
+
         const nameInput = document.getElementById('gymPlanName');
         if (nameInput) state.planDraft.name = nameInput.value;
 
         state.planDraft.days = Array.from(document.querySelectorAll('input[name="gym_plan_day"]:checked'))
             .map(input => Number(input.value));
-
-        document.querySelectorAll('.gym-plan-builder-row').forEach(row => {
-            const index = Number(row.dataset.index);
-            const item = state.planDraft.exercises[index];
-            if (!item) return;
-            const exercise = exerciseById(item.exercise_id);
-            if (!exercise) return;
-
-            if (exercise.type === 'kardio') {
-                if (cardioMode(exercise) === 'strecke') {
-                    item.target_cardio_distance_km = parseNumber(row.querySelector('[data-field="target_cardio_distance_km"]')?.value, 0);
-                    item.target_cardio_minutes = null;
-                } else {
-                    item.target_cardio_minutes = parseNumber(row.querySelector('[data-field="target_cardio_minutes"]')?.value, 0);
-                    item.target_cardio_distance_km = null;
-                }
-                item.sets_target = 1;
-                item.target_reps = null;
-                item.target_weight = null;
-            } else {
-                item.sets_target = parseNumber(row.querySelector('[data-field="sets_target"]')?.value, 0);
-                item.target_reps = parseNumber(row.querySelector('[data-field="target_reps"]')?.value, 0);
-                item.target_weight = parseNumber(row.querySelector('[data-field="target_weight"]')?.value, 0);
-                item.target_cardio_minutes = null;
-                item.target_cardio_distance_km = null;
-            }
-        });
     }
 
     function renderPlanBuilderRows() {
@@ -3365,39 +3246,7 @@ require_once __DIR__ . '/../navbar.php';
                     ${imageMarkup(exercise, 'gym-plan-builder-image')}
                     <div class="gym-plan-builder-copy">
                         <strong>${escapeHtml(exercise.name)}</strong>
-                        <span>${exercise.type === 'kardio' ? `Kardio · ${cardioMode(exercise) === 'strecke' ? 'Strecke' : 'Zeit'}` : 'Krafttraining'}</span>
                     </div>
-                    ${exercise.type === 'kardio' ? (
-                        cardioMode(exercise) === 'strecke' ? `
-                            <label class="gym-mini-field">
-                                <span>Strecke</span>
-                                <input type="number" min="0.01" max="10000" step="0.01" inputmode="decimal" data-field="target_cardio_distance_km" value="${item.target_cardio_distance_km ?? 5}">
-                                <small>km</small>
-                            </label>
-                        ` : `
-                            <label class="gym-mini-field">
-                                <span>Zeit</span>
-                                <input type="number" min="1" max="1440" step="1" data-field="target_cardio_minutes" value="${item.target_cardio_minutes ?? 30}">
-                                <small>min</small>
-                            </label>
-                        `
-                    ) : `
-                        <label class="gym-mini-field">
-                            <span>Sätze</span>
-                            <input type="number" min="1" max="20" step="1" data-field="sets_target" value="${item.sets_target ?? 3}">
-                        </label>
-                        <span class="gym-builder-times">×</span>
-                        <label class="gym-mini-field">
-                            <span>Reps</span>
-                            <input type="number" min="1" max="1000" step="1" data-field="target_reps" value="${item.target_reps ?? 8}">
-                        </label>
-                        <span class="gym-builder-times">×</span>
-                        <label class="gym-mini-field">
-                            <span>Gewicht</span>
-                            <input type="number" min="0" max="9999.99" step="0.25" inputmode="decimal" data-field="target_weight" value="${item.target_weight ?? 0}">
-                            <small>kg</small>
-                        </label>
-                    `}
                     <div class="gym-plan-builder-move">
                         <button type="button" class="gym-icon-button" data-action="plan-move-up" data-index="${index}" ${index === 0 ? 'disabled' : ''}>↑</button>
                         <button type="button" class="gym-icon-button" data-action="plan-move-down" data-index="${index}" ${index === state.planDraft.exercises.length - 1 ? 'disabled' : ''}>↓</button>
@@ -3460,11 +3309,6 @@ require_once __DIR__ . '/../navbar.php';
         state.planDraft.exercises.push({
             plan_exercise_id: null,
             exercise_id: Number(exercise.id),
-            sets_target: exercise.type === 'kardio' ? 1 : 3,
-            target_reps: exercise.type === 'kardio' ? null : 8,
-            target_weight: exercise.type === 'kardio' ? null : 0,
-            target_cardio_minutes: exercise.type === 'kardio' && cardioMode(exercise) === 'zeit' ? 30 : null,
-            target_cardio_distance_km: exercise.type === 'kardio' && cardioMode(exercise) === 'strecke' ? 5 : null,
         });
 
         renderPlanBuilderRows();
@@ -3527,7 +3371,8 @@ require_once __DIR__ . '/../navbar.php';
 
     function openSetModal(exercise, setNumber) {
         const current = currentSetByNumber(exercise, setNumber);
-        const previous = previousSetByNumber(exercise, setNumber);
+        const prefill = prefillSetByNumber(exercise, setNumber);
+        const previous = prefill.set;
         const editingLog = Boolean(state.currentSession?.is_finished);
         const manualCaloriesEnabled = Boolean(current?.calories_manual);
 
@@ -3536,7 +3381,7 @@ require_once __DIR__ . '/../navbar.php';
                 <label class="gym-field">
                     <span>Strecke</span>
                     <div class="gym-input-suffix">
-                        <input type="number" id="gymSetCardioDistanceKm" min="0.01" max="10000" step="0.01" inputmode="decimal" required value="${current?.cardio_distance_km ?? previous?.cardio_distance_km ?? exercise.target_cardio_distance_km ?? ''}">
+                        <input type="number" id="gymSetCardioDistanceKm" min="0.01" max="10000" step="0.01" inputmode="decimal" required value="${current?.cardio_distance_km ?? previous?.cardio_distance_km ?? ''}">
                         <span>km</span>
                     </div>
                 </label>
@@ -3544,7 +3389,7 @@ require_once __DIR__ . '/../navbar.php';
                 <label class="gym-field">
                     <span>Zeit</span>
                     <div class="gym-input-suffix">
-                        <input type="number" id="gymSetCardioMinutes" min="1" max="1440" step="1" inputmode="numeric" required value="${current?.cardio_minutes ?? previous?.cardio_minutes ?? exercise.target_cardio_minutes ?? ''}">
+                        <input type="number" id="gymSetCardioMinutes" min="1" max="1440" step="1" inputmode="numeric" required value="${current?.cardio_minutes ?? previous?.cardio_minutes ?? ''}">
                         <span>min</span>
                     </div>
                 </label>
@@ -3557,11 +3402,7 @@ require_once __DIR__ . '/../navbar.php';
 
                 <div class="gym-set-modal-context">
                     <div>
-                        <span>Richtwert</span>
-                        <strong>${escapeHtml(formatTarget(exercise))}</strong>
-                    </div>
-                    <div>
-                        <span>Letztes Mal · ${escapeHtml(exercise.previous_when)}</span>
+                        <span>${escapeHtml(prefill.source)}</span>
                         <strong>${escapeHtml(formatSet(previous, exercise))}</strong>
                     </div>
                 </div>
@@ -3589,13 +3430,13 @@ require_once __DIR__ . '/../navbar.php';
                     <div class="gym-set-entry-grid">
                         <label class="gym-field">
                             <span>Reps</span>
-                            <input type="number" id="gymSetReps" min="1" max="1000" step="1" inputmode="numeric" required value="${current?.reps ?? previous?.reps ?? exercise.target_reps ?? ''}">
+                            <input type="number" id="gymSetReps" min="1" max="1000" step="1" inputmode="numeric" required value="${current?.reps ?? previous?.reps ?? 8}">
                         </label>
                         <span class="gym-set-entry-times">×</span>
                         <label class="gym-field">
                             <span>Gewicht</span>
                             <div class="gym-input-suffix">
-                                <input type="number" id="gymSetWeight" min="0" max="9999.99" step="0.25" inputmode="decimal" required value="${current?.weight ?? previous?.weight ?? exercise.target_weight ?? ''}">
+                                <input type="number" id="gymSetWeight" min="0" max="9999.99" step="0.25" inputmode="decimal" required value="${current?.weight ?? previous?.weight ?? 0}">
                                 <span>kg</span>
                             </div>
                         </label>
@@ -3619,7 +3460,7 @@ require_once __DIR__ . '/../navbar.php';
             updateCardioPreview(exercise);
         }
 
-        // Auf dem Smartphone soll ein Tap den bestehenden Richtwert/Altwert komplett
+        // Auf dem Smartphone soll ein Tap den vorbefüllten/aktuellen Wert komplett
         // markieren. Die erste Zahl ersetzt damit sofort den gesamten Feldinhalt.
         if (window.matchMedia('(max-width: 650px)').matches) {
             ['gymSetCardioMinutes', 'gymSetCardioDistanceKm', 'gymSetManualKcal', 'gymSetReps', 'gymSetWeight'].forEach(inputId => {

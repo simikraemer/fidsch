@@ -1,3 +1,15 @@
+/*
+ * FIJI_FullHD.css
+ * --------------------------------------------------------------------------
+ * Basis- und Desktop-Layout für FIJI.
+ * Responsive/Mobile-Overrides stehen ausschließlich in FIJI_Mobile.css.
+ *
+ * WICHTIG:
+ * FIJI_FullHD.css zuerst laden, FIJI_Mobile.css direkt danach.
+ * Die Reihenfolge der CSS-Bereiche bleibt bewusst erhalten, damit die
+ * bestehende Cascade nicht durch eine alphabetische Umsortierung verändert wird.
+ */
+
 @import "CSSVAR.css";
 
 body {
@@ -80,22 +92,6 @@ input[type="radio"] {
 
 .container-duo .container-table {
     overflow-x: auto;
-}
-
-@media (max-width: 1180px) {
-    .container-duo {
-        grid-template-columns: 1fr;
-        width: min(800px, calc(100% - 24px));
-        gap: 25px;
-    }
-}
-
-@media (max-width: 640px) {
-    .container-duo {
-        width: calc(100% - 20px);
-        margin: 30px auto;
-        gap: 20px;
-    }
 }
 
 .form-block {
@@ -862,13 +858,6 @@ input[type="radio"] {
     opacity: 0.78;
 }
 
-.lt-task-top {
-    display: flex;
-    align-items: baseline;
-    gap: 12px;
-    flex-wrap: wrap;
-}
-
 .lt-unit {
     font-weight: 900;
     font-size: 1.05rem;
@@ -1251,19 +1240,6 @@ tr.lt-dragging .lt-grip {
     color: var(--error);
 }
 
-@media (max-width: 1100px) {
-    .dashboard-page .dashboard-pies.dashboard-pies-3 {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-}
-
-@media (max-width: 820px) {
-    .dashboard-page .dashboard-pies,
-    .dashboard-page .dashboard-pies.dashboard-pies-3 {
-        grid-template-columns: 1fr;
-    }
-}
-
 .dashboard-page .dashboard-sober-counters {
     display: flex;
     flex-wrap: wrap;
@@ -1362,7 +1338,10 @@ button.chart-back:focus-visible {
 }
 
 .lt-task-top{
-  align-items:center;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
 }
 
 .lt-indent{
@@ -1497,9 +1476,6 @@ button.chart-back:focus-visible {
     border-top: 1px solid #ddd;
     margin: 4px 0 2px 0;
 }
-
-
-
 
 .kartei-shell {
     max-width: 1460px;
@@ -1790,57 +1766,6 @@ button.chart-back:focus-visible {
     outline: none;
 }
 
-@media (max-width: 1180px) {
-    .kartei-options {
-        grid-template-columns: 1fr;
-    }
-
-    .kartei-panel {
-        min-height: auto;
-    }
-}
-
-@media (max-width: 760px) {
-    .kartei-shell {
-        padding-left: 12px;
-        padding-right: 12px;
-    }
-
-    .kartei-topbar {
-        padding: 12px;
-    }
-
-    .kartei-topmeta {
-        white-space: normal;
-        margin-left: 0;
-        width: 100%;
-    }
-
-    .kartei-panel {
-        padding: 16px;
-    }
-
-    .kartei-question-body {
-        font-size: 1.45rem;
-        min-height: 0;
-    }
-
-    .kartei-option {
-        min-height: 96px;
-        padding: 14px;
-    }
-
-    .kartei-option-letter {
-        width: 40px;
-        height: 40px;
-        flex-basis: 40px;
-    }
-
-    .kartei-option-content {
-        font-size: 1rem;
-    }
-}
-
 .kartei-header-row {
     display: flex;
     align-items: stretch;
@@ -1852,15 +1777,6 @@ button.chart-back:focus-visible {
     flex: 0 0 25%;
     max-width: 25%;
     min-width: 0;
-}
-
-.kartei-header-stats {
-    flex: 0 0 75%;
-    max-width: 75%;
-    min-width: 0;
-}
-
-.kartei-header-topic {
     display: flex;
     align-items: center;
     padding-right: 12px;
@@ -1878,11 +1794,13 @@ button.chart-back:focus-visible {
 }
 
 .kartei-header-stats {
+    flex: 0 0 75%;
+    max-width: 75%;
+    min-width: 0;
     display: flex;
     align-items: center;
     padding-left: 12px;
 }
-
 
 .kartei-header-row-with-action {
     align-items: stretch;
@@ -2122,10 +2040,6 @@ button.chart-back:focus-visible {
 .life-event::before,
 .life-event::after {
     display: none;
-}
-
-.life-event::before,
-.life-event::after {
     content: "";
     position: absolute;
     left: 50%;
@@ -2231,18 +2145,10 @@ button.chart-back:focus-visible {
     display: none !important;
 }
 
-@media (max-width: 1100px) {
-    .life-axis-row,
-    .life-row {
-        grid-template-columns: 280px minmax(620px, 1fr);
-    }
-}
-
 .life-sidewrap {
     width: 180px;
     min-width: 160px;
 }
-
 
 .life-interactive {
     cursor: pointer;
@@ -2320,118 +2226,6 @@ button.chart-back:focus-visible {
     word-break: break-word;
 }
 
-
-
-
-
-
-@supports (-webkit-touch-callout: none) {
-    .life-body-scroll {
-        overflow-x: auto;
-        overflow-y: visible;
-        -webkit-overflow-scrolling: touch;
-    }
-
-    .life-axis-row,
-    .life-row {
-        display: flex;
-        align-items: stretch;
-    }
-
-    .life-ordinate-spacer,
-    .life-label {
-        flex: 0 0 180px;
-        width: 180px;
-        min-width: 180px;
-        max-width: 180px;
-    }
-
-    .life-months,
-    .life-track {
-        flex: 1 0 auto;
-        min-width: 540px;
-        width: auto;
-        max-width: none;
-    }
-
-    .life-board {
-        /* Auf iOS ohne viewport-meta nicht auf die intrinsischen ~720px
-           zusammenschrumpfen; sonst bleibt rechts ein leerer Streifen. */
-        width: 100%;
-        min-width: 0;
-    }
-
-    .life-label {
-        padding: 0 8px !important;
-        padding-left: 8px !important;
-        overflow: hidden;
-        position: relative;
-        z-index: 2;
-    }
-
-    .life-label-text {
-        display: block;
-        overflow: visible;
-        text-overflow: clip;
-        white-space: nowrap;
-        font-size: 0.9rem;
-        line-height: 1.15;
-        color: var(--text);
-        opacity: 1;
-        visibility: visible;
-    }
-
-    .life-track {
-        position: relative;
-        overflow: visible;
-        z-index: 1;
-    }
-
-    .life-bar {
-        position: absolute;
-        z-index: 3;
-        height: 14px;
-        min-width: 3px;
-        opacity: 1;
-        visibility: visible;
-    }
-
-    .life-event {
-        position: absolute;
-        z-index: 4;
-        width: 14px;
-        height: 14px;
-        opacity: 1;
-        visibility: visible;
-    }
-
-    .life-event::before,
-    .life-event::after {
-        width: 14px;
-        height: 2.5px;
-    }
-
-    .life-group-toggle {
-        width: 18px;
-        height: 18px;
-        min-width: 18px;
-        margin-right: 6px;
-        flex: 0 0 18px;
-        opacity: 1;
-        visibility: visible;
-    }
-
-    .life-group-toggle-icon {
-        border-top: 4px solid transparent;
-        border-bottom: 4px solid transparent;
-        border-left: 6px solid currentColor;
-        margin-left: 1px;
-    }
-}
-
-
-
-
 .spotify-token-page .container {
     margin-top: 0;
 }
@@ -2506,8 +2300,6 @@ button.chart-back:focus-visible {
     word-break: break-word;
     margin-bottom: 12px;
 }
-
-
 
 /* =========================================================
  * SCI / YOLO-Auswertung
@@ -3376,91 +3168,6 @@ button.chart-back:focus-visible {
     color: rgba(0, 0, 0, .58);
 }
 
-/* ---------------------------------------------------------
- * Responsive
- * --------------------------------------------------------- */
-
-@media (max-width: 1050px) {
-    .yolo-chart-grid,
-    .yolo-glossary-list {
-        grid-template-columns: 1fr;
-    }
-
-    .yolo-metric-picker {
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-        justify-content: stretch;
-        width: 100%;
-        max-width: none;
-    }
-}
-
-@media (max-width: 760px) {
-    .yolo-page {
-        padding: 0 10px;
-    }
-
-    .yolo-tabs {
-        top: 70px;
-        margin-left: -2px;
-        margin-right: -2px;
-    }
-
-    .yolo-tab {
-        flex: 0 0 auto;
-        min-width: 126px;
-        padding: 9px 11px;
-    }
-
-    .yolo-section {
-        padding: 13px 12px 14px;
-    }
-
-    .yolo-selector-tools,
-    .yolo-selector-tools .kategorie-select,
-    .yolo-glossary-search-wrap {
-        width: 100%;
-        max-width: none;
-    }
-
-    .yolo-run-list,
-    .yolo-summary-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .yolo-kpi-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .yolo-chart-canvas {
-        height: 275px;
-    }
-
-    .yolo-help-modal-content {
-        width: calc(100vw - 20px);
-        max-width: none;
-        padding: 24px 18px 20px;
-    }
-
-    .yolo-glossary-card-head {
-        flex-direction: column;
-    }
-
-    .yolo-glossary-raw {
-        max-width: 100%;
-    }
-}
-
-@media (max-width: 620px) {
-    .yolo-final-report-row {
-        grid-template-columns: 1fr auto;
-    }
-
-    .yolo-final-report-row > span:nth-child(2) {
-        grid-column: 1 / -1;
-        grid-row: 2;
-    }
-}
-
 .yolo-images-section {
     min-width: 0;
 }
@@ -3573,17 +3280,6 @@ button.chart-back:focus-visible {
     font-weight: 650;
 }
 
-@media (max-width: 760px) {
-    .yolo-image-row {
-        padding: 9px;
-    }
-
-    .yolo-image-run-grid {
-        grid-template-columns: repeat(var(--yolo-image-cols, 1), minmax(245px, 1fr));
-        min-width: calc(var(--yolo-image-cols, 1) * 245px);
-    }
-}
-
 /* =========================================================
  * PHAN / Charaktere + Regionen
  * ========================================================= */
@@ -3676,7 +3372,6 @@ button.chart-back:focus-visible {
     color: #fff;
 }
 
-
 /* ---------------------------------------------------------
  * Charaktere: Detail-Kopf
  * --------------------------------------------------------- */
@@ -3717,7 +3412,6 @@ button.chart-back:focus-visible {
     font-weight: 700;
 }
 
-
 /* ---------------------------------------------------------
  * Charaktere: Regions-Tabs
  * --------------------------------------------------------- */
@@ -3747,7 +3441,6 @@ button.chart-back:focus-visible {
     background: var(--primary);
     color: #fff;
 }
-
 
 /* ---------------------------------------------------------
  * Charaktere: Tabelle
@@ -3822,7 +3515,6 @@ button.chart-back:focus-visible {
     font-size: 0.72rem;
 }
 
-
 /* Sortierbare Tabellenköpfe */
 
 .phan-table th.phan-sortable {
@@ -3859,7 +3551,6 @@ button.chart-back:focus-visible {
     font-size: 0.72em;
     vertical-align: 0.08em;
 }
-
 
 /* Pagination */
 
@@ -3912,7 +3603,6 @@ button.chart-back:focus-visible {
     font-size: 0.86rem;
     white-space: nowrap;
 }
-
 
 /* ---------------------------------------------------------
  * Charaktere: Detailansicht
@@ -3979,7 +3669,6 @@ button.chart-back:focus-visible {
 .phan-wide {
     grid-column: 1 / -1;
 }
-
 
 /* Charakterbild / Drag & Drop / Gesichtscrop */
 
@@ -4054,7 +3743,6 @@ button.chart-back:focus-visible {
     flex-wrap: wrap;
     margin-top: 12px;
 }
-
 
 .phan-image-card-head {
     display: flex;
@@ -4165,7 +3853,6 @@ button.chart-back:focus-visible {
 .phan-image-filename strong {
     color: rgba(34, 34, 34, 0.76);
 }
-
 
 /* Charaktere: große Bildgalerie */
 
@@ -4292,47 +3979,6 @@ body.phan-gallery-modal-open {
     white-space: nowrap;
 }
 
-@media (max-width: 800px) {
-    .phan-gallery-modal {
-        padding: 10px;
-    }
-
-    .phan-gallery-modal-dialog {
-        grid-template-columns: 1fr;
-        grid-template-rows: minmax(0, 1fr) 112px;
-        width: calc(100vw - 20px);
-        height: calc(100dvh - 20px);
-    }
-
-    .phan-gallery-modal-sidebar {
-        display: flex;
-        gap: 8px;
-        overflow-x: auto;
-        overflow-y: hidden;
-        border-left: 0;
-        border-top: 1px solid rgba(0, 0, 0, 0.10);
-    }
-
-    .phan-gallery-modal-thumb {
-        flex: 0 0 92px;
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        margin: 0;
-    }
-
-    .phan-gallery-modal-thumb img {
-        width: 64px;
-        height: 64px;
-    }
-
-    .phan-gallery-modal-thumb span {
-        width: 100%;
-        text-align: center;
-    }
-}
-
-
 /* Prompt + untere Aktionen */
 
 .phan-prompt-editor[hidden] {
@@ -4371,7 +4017,6 @@ body.phan-gallery-modal-open {
     font-size: 0.85rem;
     font-weight: 700;
 }
-
 
 /* ---------------------------------------------------------
  * Regionen: Seitenlayout
@@ -4419,7 +4064,6 @@ body.phan-gallery-modal-open {
     -webkit-backdrop-filter: blur(3px);
 }
 
-
 /* Regionsbild als Hintergrund der gesamten Regionsseite */
 
 .phan-region-page.has-region-page-background::before {
@@ -4448,7 +4092,6 @@ body.phan-gallery-modal-open {
 .phan-region-page:not(.has-region-page-background)::after {
     content: none;
 }
-
 
 /* Regionsliste */
 
@@ -4494,7 +4137,6 @@ body.phan-gallery-modal-open {
     font-size: 1.08rem;
 }
 
-
 /* Kompakte Regionsbild-Steuerung */
 
 .phan-region-image-controls {
@@ -4524,7 +4166,6 @@ body.phan-gallery-modal-open {
 .phan-region-image-controls .phan-region-danger {
     margin-left: auto;
 }
-
 
 /* Regionsformular */
 
@@ -4573,110 +4214,6 @@ body.phan-gallery-modal-open {
     text-align: center;
 }
 
-
-/* ---------------------------------------------------------
- * PHAN Responsive
- * --------------------------------------------------------- */
-
-@media (max-width: 1050px) {
-    .phan-region-layout {
-        grid-template-columns: 1fr;
-    }
-
-    .phan-region-list {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 8px;
-    }
-}
-
-@media (max-width: 900px) {
-    .phan-detail {
-        grid-template-columns: 1fr;
-    }
-
-    .phan-form-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .phan-table-wrap {
-        overflow-x: auto;
-    }
-
-    .phan-table {
-        min-width: 850px;
-    }
-
-    .phan-bottom-actions-right {
-        margin-left: 0;
-    }
-}
-
-@media (max-width: 700px) {
-    .phan-detail-head {
-        grid-template-columns: 1fr;
-        padding-bottom: 30px;
-    }
-
-    .phan-last-saved {
-        justify-self: start;
-        text-align: left;
-        white-space: normal;
-    }
-
-    .phan-detail-head .phan-autosave-status {
-        top: auto;
-        bottom: 0;
-        transform: translateX(-50%);
-    }
-
-    .phan-pagination-info {
-        width: 100%;
-        margin-left: 0;
-        text-align: center;
-    }
-
-    .phan-region-list,
-    .phan-region-form {
-        grid-template-columns: 1fr;
-    }
-
-    .phan-region-wide {
-        grid-column: auto;
-    }
-
-    .phan-region-head-actions {
-        justify-content: flex-start;
-    }
-
-    .phan-region-image-controls .phan-region-danger {
-        margin-left: 0;
-    }
-
-    .phan-region-page.has-region-page-background::before,
-    .phan-region-page.has-region-page-background::after {
-        inset: 0;
-    }
-}
-
-
-
-
-@media (max-width: 700px) {
-    .phan-image-gallery {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
-    .phan-image-meta {
-        grid-template-columns: 1fr;
-    }
-
-    .phan-image-filename {
-        padding-bottom: 0;
-        text-align: left;
-    }
-}
-
 /* =========================================================
  * PHAN / Beziehungen
  * ========================================================= */
@@ -4702,7 +4239,6 @@ body.relations-page-active {
 
     overflow: hidden;
 }
-
 
 /* ---------------------------------------------------------
  * Regions-Tabs
@@ -4755,7 +4291,6 @@ body.relations-page-active {
     background: var(--primary);
     color: #fff;
 }
-
 
 /* ---------------------------------------------------------
  * Diagrammcontainer
@@ -4817,7 +4352,6 @@ body.relations-page-active {
         );
 }
 
-
 /* Regionsbild im Diagramm */
 
 .relations-shell::before {
@@ -4861,7 +4395,6 @@ body.relations-page-active {
 .relations-shell.has-region-background::after {
     background: rgba(255, 255, 255, 0.40);
 }
-
 
 /* ---------------------------------------------------------
  * Aktiver Center-Modus
@@ -4995,7 +4528,6 @@ body.relations-page-active {
     color: var(--primary);
 }
 
-
 /* ---------------------------------------------------------
  * Graph-Aktionen
  * --------------------------------------------------------- */
@@ -5046,7 +4578,6 @@ body.relations-page-active {
 .relations-status.error {
     color: #c0392b;
 }
-
 
 /* ---------------------------------------------------------
  * Graph
@@ -5126,7 +4657,6 @@ body.relations-page-active {
 .relation-edge.parent_child {
     stroke-dasharray: 10 7;
 }
-
 
 /* ---------------------------------------------------------
  * Charakter-Nodes
@@ -5343,7 +4873,6 @@ body.relations-page-active {
         );
 }
 
-
 /*
  * Im Center-Modus:
  * - Mittelpunkt: maximal hervorgehoben
@@ -5382,7 +4911,6 @@ body.relations-page-active {
     opacity: 1;
     filter: none;
 }
-
 
 /* ---------------------------------------------------------
  * Legende
@@ -5447,7 +4975,6 @@ body.relations-page-active {
     color: rgba(34, 34, 34, 0.50);
     text-align: center;
 }
-
 
 /* =========================================================
  * Relations-Modals
@@ -5533,7 +5060,6 @@ body.relations-modal-open {
     font-size: 1.45rem;
     line-height: 1;
 }
-
 
 /* ---------------------------------------------------------
  * Suchbare Charakterauswahl
@@ -5688,7 +5214,6 @@ body.relations-modal-open {
     text-align: center;
 }
 
-
 /* ---------------------------------------------------------
  * Add-Modal
  * --------------------------------------------------------- */
@@ -5741,7 +5266,6 @@ body.relations-modal-open {
         1px solid
         rgba(0, 0, 0, 0.08);
 }
-
 
 /* ---------------------------------------------------------
  * Edit-Modal
@@ -5899,142 +5423,6 @@ body.relations-modal-open {
     border-top:
         1px solid
         rgba(0, 0, 0, 0.08);
-}
-
-
-/* ---------------------------------------------------------
- * Relations Responsive
- * --------------------------------------------------------- */
-
-@media (max-width: 950px) {
-    .relations-add-grid {
-        grid-template-columns:
-            1fr
-            180px
-            1fr;
-    }
-
-    .relations-modal-body {
-        grid-template-columns:
-            300px
-            minmax(0, 1fr);
-    }
-
-    .relations-manager-fields {
-        grid-template-columns:
-            1fr
-            160px
-            1fr;
-    }
-}
-
-@media (max-width: 950px) {
-    .relations-center-indicator {
-        max-width: calc(100% - 330px);
-    }
-
-    .relations-center-indicator-hint {
-        display: none;
-    }
-}
-
-@media (max-width: 760px) {
-    .relations-page {
-        width: calc(100vw - 16px);
-        height: calc(100dvh - 110px);
-        margin-top: 5px;
-    }
-
-    .relations-graph-actions {
-        top: 8px;
-        right: 8px;
-    }
-
-    .relations-modal {
-        padding: 10px;
-    }
-
-    .relations-modal-dialog,
-    .relations-modal-dialog--add {
-        width: calc(100vw - 20px);
-        height: calc(100dvh - 20px);
-    }
-
-    .relations-add-grid,
-    .relations-modal-body,
-    .relations-manager-fields {
-        grid-template-columns: 1fr;
-    }
-
-    .relations-add-grid,
-    .relations-manager-fields {
-        overflow-y: auto;
-    }
-
-    .relations-add-type {
-        display: block;
-    }
-
-    .relations-manager-list {
-        max-height: 34vh;
-
-        border-right: 0;
-        border-bottom:
-            1px solid
-            rgba(0, 0, 0, 0.08);
-    }
-
-    .relations-manager-buttons {
-        grid-column: auto;
-    }
-}
-
-@media (max-width: 620px) {
-    .relations-center-indicator {
-        top: 8px;
-
-        max-width:
-            calc(100% - 150px);
-
-        padding-left: 8px;
-    }
-
-    .relations-center-indicator-label {
-        display: none;
-    }
-
-    .relations-legend {
-        left: 8px;
-        top: 8px;
-
-        min-width: 180px;
-    }
-
-    .relations-graph-actions {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .relation-node-face {
-        width: 64px;
-        height: 64px;
-    }
-
-    .relation-node-name {
-        max-width: 100px;
-    }
-}
-
-@media (max-height: 800px) {
-    .relations-manager-editor .relations-char-results {
-        max-height: 220px;
-    }
-}
-
-@media (max-height: 680px) {
-    .relations-manager-editor .relations-char-results {
-        max-height: 150px;
-    }
 }
 
 /* =========================================================
@@ -6436,7 +5824,6 @@ body.relations-modal-open {
     line-height: 1.35;
 }
 
-
 /* Lesemodus */
 .story-reader {
     max-width: 1120px;
@@ -6762,14 +6149,6 @@ body.relations-modal-open {
 
 .story-cover-editor-head h2 { margin: 0; }
 
-.story-cover-editor-empty {
-    display: block;
-    width: 100%;
-    aspect-ratio: 16 / 9;
-    box-sizing: border-box;
-    border-radius: 8px;
-}
-
 .story-cover-cropbox {
     width: 100%;
     border-radius: 8px;
@@ -6795,6 +6174,11 @@ body.relations-modal-open {
 }
 
 .story-cover-editor-empty {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    box-sizing: border-box;
+    border-radius: 8px;
     border: 2px dashed rgba(0, 0, 0, .16);
     background: var(--bg-light);
     color: rgba(34, 34, 34, .52);
@@ -6990,7 +6374,6 @@ body.relations-modal-open {
     font-weight: 650;
 }
 
-
 /* Gesamtstory: Reader */
 
 .story-collection-reader {
@@ -7184,7 +6567,6 @@ body.relations-modal-open {
     font-weight: 900;
 }
 
-
 /* Einzelkapitel: Breadcrumb + Navigation */
 
 .story-chapter-breadcrumb {
@@ -7283,7 +6665,6 @@ body.relations-modal-open {
     text-decoration: none;
 }
 
-
 /* Story-Editor: Kapitelzuordnung */
 
 .story-chapter-editor-panel label > span {
@@ -7311,7 +6692,6 @@ body.relations-modal-open {
 .story-chapter-editor-actions button {
     width: 100%;
 }
-
 
 /* Gesamtstory: Editor */
 
@@ -7496,139 +6876,6 @@ body.relations-modal-open {
     min-width: 180px;
 }
 
-
-/* Responsive */
-@media (max-width: 1050px) {
-    .stories-toolbar { grid-template-columns: 1fr 1fr; }
-
-    .stories-search-wrap,
-    .stories-filter-reset { grid-column: 1 / -1; }
-
-    .story-editor { grid-template-columns: 1fr; }
-
-    .story-editor-main,
-    .story-editor-side { grid-column: 1; }
-
-    .story-editor-side {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-    }
-
-    .story-editor-panel--meta,
-    .story-delete-button { grid-column: 1 / -1; }
-
-    .story-collection-editor {
-        grid-template-columns: 1fr;
-    }
-
-    .story-collection-delete {
-        justify-self: stretch;
-        width: 100%;
-    }
-}
-
-@media (max-width: 900px) {
-    .stories-table-wrap { overflow-x: auto; }
-    .stories-table { min-width: 1180px; }
-    .story-editor-text-field textarea { min-height: 58vh; }
-}
-
-@media (max-width: 650px) {
-    .story-intime-fields {
-        grid-template-columns: 1fr 1fr;
-    }
-
-    .story-intime-fields label:first-child {
-        grid-column: 1 / -1;
-    }
-
-    .stories-toolbar,
-    .story-editor-side,
-    .story-cover-position-options { grid-template-columns: 1fr; }
-
-    .stories-search-wrap,
-    .stories-filter-reset,
-    .story-editor-panel--meta,
-    .story-delete-button { grid-column: auto; }
-
-    .story-reader { padding: 20px 18px 34px; }
-    .story-reader-context {
-        flex-direction: row;
-        flex-wrap: nowrap;
-    }
-
-    .story-reader-context-card--intime {
-        min-width: 115px;
-    }
-
-    .story-reader-context-card--region {
-        min-width: 180px;
-    }
-
-    .story-reader-context-card--narrator {
-        min-width: 160px;
-    }
-
-    .story-reader-context-card--chars {
-        min-width: 300px;
-    }
-
-    .stories-head-actions {
-        width: 100%;
-        justify-content: stretch;
-    }
-
-    .stories-head-actions button {
-        flex: 1 1 auto;
-    }
-
-    .story-collection-reader {
-        padding: 20px 18px 30px;
-    }
-
-    .story-collection-reader-chapter {
-        min-width: 900px;
-    }
-
-    .story-collection-reader-chapters {
-        overflow-x: auto;
-    }
-
-    .story-chapter-navigation {
-        grid-template-columns: 1fr;
-    }
-
-    .story-chapter-navigation > div:last-child {
-        text-align: left;
-    }
-
-    .story-chapter-nav-link,
-    .story-chapter-nav-overview {
-        width: 100%;
-        max-width: none;
-    }
-
-    .story-chapter-nav-link--next {
-        align-items: flex-start;
-    }
-
-    .story-collection-editor-chapter {
-        grid-template-columns: 38px minmax(0, 1fr);
-    }
-
-    .story-collection-editor-chapter-actions {
-        grid-column: 1 / -1;
-        justify-content: flex-end;
-    }
-
-    .story-collection-add-existing {
-        grid-template-columns: 1fr;
-    }
-
-    .stories-page.story-has-cover-background::before,
-    .stories-page.story-has-cover-background::after { inset: 0; }
-}
-
 .phan-char-name-cell {
     display: flex;
     align-items: center;
@@ -7660,7 +6907,6 @@ body.relations-modal-open {
     cursor: help;
 }
 
-
 /* =========================================================
  * PHAN / Chars – kompakte Fraktionsauswahl
  * ========================================================= */
@@ -7677,7 +6923,6 @@ body.relations-modal-open {
     line-height: 1.2;
 }
 
-
 /* Ausgewählte Fraktionen nebeneinander */
 
 #charSelectedFactions.story-selected-chars {
@@ -7691,7 +6936,6 @@ body.relations-modal-open {
     min-height: 0;
     margin: 0;
 }
-
 
 /* einzelne Fraktion = kleiner Chip */
 
@@ -7712,7 +6956,6 @@ body.relations-modal-open {
     background: #fff2e5;
 }
 
-
 /* Initialen-Kreis kleiner */
 
 #charSelectedFactions .relations-char-avatar {
@@ -7723,7 +6966,6 @@ body.relations-modal-open {
 
     font-size: 0.68rem;
 }
-
 
 /* Fraktionsname */
 
@@ -7745,14 +6987,12 @@ body.relations-modal-open {
     line-height: 1;
 }
 
-
 /* eventuell vorhandene zweite Textzeile weg */
 
 #charSelectedFactions
 .relations-char-selected-text span {
     display: none;
 }
-
 
 /* kleines X */
 
@@ -7767,7 +7007,6 @@ body.relations-modal-open {
     line-height: 1;
 }
 
-
 /* "Keine Fraktion" kompakt */
 
 #charSelectedFactions .relations-char-empty {
@@ -7781,7 +7020,6 @@ body.relations-modal-open {
     font-size: 0.76rem;
     text-align: left;
 }
-
 
 /* Dropdown direkt darunter */
 
@@ -7804,7 +7042,6 @@ body.relations-modal-open {
     padding: 3px 6px;
 }
 
-
 /* Avatar im Dropdown ebenfalls klein */
 
 #charFactionPicker .relations-char-avatar {
@@ -7815,7 +7052,6 @@ body.relations-modal-open {
 
     font-size: 0.68rem;
 }
-
 
 /* Dropdown-Text kompakter */
 
@@ -7835,7 +7071,6 @@ body.relations-modal-open {
 .relations-char-selected-text span {
     display: none;
 }
-
 
 /* aufgeklapptes Menü */
 
@@ -8126,7 +7361,6 @@ button.phan-list-filter-option.active {
         var(--phan-gender-color, currentColor);
 }
 
-
 /* Gender-Gruppentrenner */
 
 .phan-list-filter-separator {
@@ -8134,7 +7368,6 @@ button.phan-list-filter-option.active {
     margin: 5px 7px;
     background: rgba(0, 0, 0, .12);
 }
-
 
 /* Gender-Farben und Strichstärken
  *
@@ -8180,7 +7413,6 @@ button.phan-list-filter-option.active {
     color: #2e9f52;
 }
 
-
 /* Geschlechtsspalte der Charaktertabelle */
 
 .phan-table td.phan-table-gender-cell {
@@ -8195,7 +7427,6 @@ button.phan-list-filter-option.active {
     line-height: 1;
     text-align: center;
 }
-
 
 /* Verstecktes Hilfsfeld für Clipboard-Fallback */
 
@@ -8242,28 +7473,6 @@ input.phan-list-search:focus {
             transparent
         );
 }
-
-@media (max-width: 900px) {
-    .phan-list-filterbar {
-        grid-template-columns:
-            repeat(3, minmax(160px, 1fr));
-    }
-
-    .phan-list-search-wrap {
-        grid-column: 1 / -1;
-    }
-}
-
-@media (max-width: 620px) {
-    .phan-list-filterbar {
-        grid-template-columns: 1fr;
-    }
-
-    .phan-list-search-wrap {
-        grid-column: auto;
-    }
-}
-
 
 /* =========================================================
  * PHAN / Alben
@@ -8514,7 +7723,6 @@ input.phan-list-search:focus {
     color: rgba(34, 34, 34, .54);
     text-align: center;
 }
-
 
 /* ---------------------------------------------------------
  * Detail
@@ -8849,7 +8057,6 @@ input.phan-list-search:focus {
     font-weight: 850;
 }
 
-
 /* ---------------------------------------------------------
  * Songs
  * --------------------------------------------------------- */
@@ -8976,7 +8183,6 @@ input.phan-list-search:focus {
 .album-song-save-state.is-error {
     color: #c0392b;
 }
-
 
 /* ---------------------------------------------------------
  * Zuordnungsmodal
@@ -9141,129 +8347,6 @@ body.albums-modal-open {
     font-weight: 750;
 }
 
-
-/* ---------------------------------------------------------
- * Responsive
- * --------------------------------------------------------- */
-
-@media (max-width: 1100px) {
-    .album-song-row {
-        grid-template-columns:
-            52px
-            minmax(280px, 1.2fr)
-            minmax(210px, .8fr);
-    }
-
-    .album-song-save-state {
-        grid-column: 2 / -1;
-        padding-top: 0;
-        justify-content: flex-start;
-        text-align: left;
-    }
-}
-
-@media (max-width: 900px) {
-    .albums-head {
-        align-items: stretch;
-        flex-direction: column;
-    }
-
-    .albums-import-form {
-        width: 100%;
-        grid-template-columns: 1fr auto;
-    }
-
-    .albums-detail-head {
-        grid-template-columns: 1fr auto;
-    }
-
-    .albums-detail-head
-    .phan-autosave-status {
-        grid-column: 1 / -1;
-        grid-row: 2;
-        justify-self: start;
-    }
-
-    .albums-detail-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .album-cover-sticky {
-        position: static;
-        top: auto;
-        max-width: 520px;
-        width: 100%;
-        justify-self: center;
-    }
-
-    .album-cover-panel,
-    .album-meta-panel,
-    .album-songs-panel {
-        width: 100%;
-    }
-
-    .albums-detail-main {
-        width: 100%;
-    }
-
-    .album-song-list {
-        overflow-x: auto;
-    }
-
-    .album-song-row {
-        min-width: 820px;
-    }
-}
-
-@media (max-width: 650px) {
-    .albums-import-form {
-        grid-template-columns: 1fr;
-    }
-
-    .albums-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .albums-detail-head {
-        grid-template-columns: 1fr;
-    }
-
-    .albums-detail-actions {
-        justify-self: start;
-    }
-
-    .album-meta-title-row,
-    .album-meta-bottom {
-        align-items: stretch;
-        flex-direction: column;
-    }
-
-    .album-sync-meta {
-        text-align: left;
-    }
-
-    .album-card {
-        grid-template-columns: 100px minmax(0, 1fr);
-    }
-
-    .album-card-cover,
-    .album-card-cover img,
-    .album-cover-placeholder {
-        width: 100px;
-        height: 100px;
-    }
-
-    .album-card-meta-section {
-        grid-template-columns: 1fr;
-        gap: 3px;
-    }
-
-    .album-card-entity {
-        max-width: 130px;
-    }
-}
-
-
 /* =========================================================
  * SCI / Karteikarten v2
  * Klausur -> Kategorie/Topic
@@ -9293,39 +8376,6 @@ body.albums-modal-open {
     flex: 0 0 58%;
     max-width: 58%;
 }
-
-@media (max-width: 900px) {
-    .kartei-topbar .kartei-header-row {
-        flex-wrap: wrap;
-        row-gap: 12px;
-    }
-
-    .kartei-topbar .kartei-header-topic,
-    .kartei-topbar .kartei-header-stats {
-        flex: 0 0 100%;
-        max-width: 100%;
-        width: 100%;
-    }
-
-    .kartei-topbar .kartei-header-topic {
-        padding-right: 0;
-    }
-
-    .kartei-topbar .kartei-header-stats {
-        padding-left: 0;
-    }
-
-    .kartei-topbar .kartei-header-divider {
-        display: none;
-    }
-}
-
-@media (max-width: 560px) {
-    .kartei-filter-selects {
-        grid-template-columns: 1fr;
-    }
-}
-
 
 .sci-review-shell {
     width: min(1500px, calc(100% - 28px));
@@ -9691,88 +8741,11 @@ body.albums-modal-open {
     display: none !important;
 }
 
-@media (max-width: 900px) {
-    .sci-review-topbar {
-        align-items: stretch;
-        flex-direction: column;
-    }
-
-    .sci-review-stats {
-        justify-content: flex-start;
-    }
-
-    .sci-review-rating-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .sci-review-choice-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
-@media (max-width: 620px) {
-    .sci-review-shell {
-        width: calc(100% - 16px);
-        margin-top: 14px;
-    }
-
-    .sci-review-filters {
-        display: grid;
-        grid-template-columns: 1fr;
-    }
-
-    .sci-review-filters .kategorie-select {
-        width: 100%;
-        min-width: 0;
-    }
-
-    .sci-review-question {
-        padding: 24px 16px 14px;
-        font-size: 1.35rem;
-    }
-
-    .sci-review-image-wrap {
-        padding: 6px 12px 18px;
-    }
-
-    .sci-review-answer {
-        margin-inline: 12px;
-        padding-inline: 4px;
-    }
-
-    .sci-review-answer-body {
-        font-size: 1.03rem;
-    }
-
-    .sci-review-rating {
-        padding-inline: 12px;
-    }
-
-    .sci-review-rating-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .sci-review-shortcuts {
-        display: none;
-    }
-
-    .sci-review-choice-grid {
-        padding-inline: 12px;
-    }
-}
-
-
 .album-release-date-row {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 14px;
     align-items: end;
-}
-
-@media (max-width: 650px) {
-    .album-release-date-row {
-        grid-template-columns: 1fr;
-    }
 }
 
 /* =========================================================
@@ -9833,22 +8806,6 @@ body.albums-modal-open {
 
 .food-modal-spacer {
     visibility: hidden;
-}
-
-@media (max-width: 700px) {
-    .food-data-toolbar-left {
-        width: 100%;
-    }
-
-    .food-data-toolbar-left .search-input,
-    .food-category-filter {
-        width: 100%;
-        max-width: none;
-    }
-
-    .food-modal-spacer {
-        display: none;
-    }
 }
 
 /* =========================================================
@@ -10268,118 +9225,6 @@ button.food-dashboard-back[hidden] {
     text-align: center !important;
 }
 
-/* ---------------------------------------------------------
- * Responsive
- * --------------------------------------------------------- */
-
-@media (max-width: 1180px) {
-    .food-dashboard-main-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        height: auto;
-    }
-
-    .food-dashboard-chart-card {
-        grid-column: 1 / -1;
-        min-height: 390px;
-    }
-}
-
-@media (max-width: 760px) {
-    .food-dashboard-page {
-        padding-left: 10px;
-        padding-right: 10px;
-    }
-
-    .food-dashboard-topbar {
-        align-items: stretch;
-    }
-
-    .food-dashboard-period-form {
-        width: 100%;
-        flex-basis: 100%;
-    }
-
-    .food-dashboard-metric-tabs {
-        gap: 6px;
-    }
-
-    .food-dashboard-metric-tab {
-        flex-basis: calc(50% - 6px);
-        max-width: none;
-    }
-
-    .food-dashboard-main-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .food-dashboard-chart-card {
-        grid-column: auto;
-        min-height: 430px;
-    }
-
-    .food-dashboard-chart-wrap {
-        grid-template-columns: minmax(0, 1fr) minmax(165px, 0.48fr);
-        min-height: 350px;
-    }
-
-    .food-dashboard-chart-wrap.is-frequency-chart {
-        min-height: 340px;
-    }
-
-    .food-dashboard-card-head {
-        align-items: flex-start;
-        flex-direction: column;
-    }
-
-    .food-dashboard-chart-card .food-dashboard-card-head {
-        flex-direction: row;
-        align-items: center;
-        flex-wrap: wrap;
-    }
-
-    .food-dashboard-line-legend {
-        order: 3;
-        max-width: 100%;
-        width: 100%;
-        margin-left: 0;
-        justify-content: flex-start;
-    }
-
-    .food-dashboard-card-head > strong {
-        margin-left: 0;
-    }
-
-    .food-dashboard-chart-card .food-dashboard-card-head > strong {
-        margin-left: auto;
-    }
-}
-
-@media (max-width: 520px) {
-    .food-dashboard-metric-tab {
-        flex-basis: 100%;
-    }
-
-    .food-dashboard-chart-card {
-        min-height: 650px;
-    }
-
-    .food-dashboard-chart-wrap {
-        grid-template-columns: 1fr;
-        grid-template-rows: minmax(330px, 1fr) auto;
-        min-height: 560px;
-    }
-
-    .food-dashboard-chart-wrap.is-frequency-chart {
-        grid-template-rows: minmax(340px, 1fr);
-        min-height: 340px;
-    }
-
-    .food-dashboard-pie-legend {
-        grid-auto-flow: column;
-        align-content: start;
-    }
-}
-
 /* =========================================================
  * SCI / Karteikarten
  * Neue obere Lernleiste
@@ -10397,7 +9242,6 @@ button.food-dashboard-back[hidden] {
     box-shadow: var(--shadow);
 }
 
-
 /* ---------------------------------------------------------
  * Hauptzeile: Fach + aktueller Lernstand
  * --------------------------------------------------------- */
@@ -10413,7 +9257,6 @@ button.food-dashboard-back[hidden] {
     padding: 15px 18px 14px;
 }
 
-
 .sci-deckbar-label {
     display: block;
 
@@ -10428,7 +9271,6 @@ button.food-dashboard-back[hidden] {
     text-transform: uppercase;
 }
 
-
 /* ---------------------------------------------------------
  * Fach-Dropdown
  * --------------------------------------------------------- */
@@ -10437,7 +9279,6 @@ button.food-dashboard-back[hidden] {
     display: block;
     min-width: 0;
 }
-
 
 .sci-deckbar-select {
     display: block;
@@ -10469,11 +9310,9 @@ button.food-dashboard-back[hidden] {
         background-color 0.15s ease;
 }
 
-
 .sci-deckbar-select:hover {
     border-color: rgba(255, 107, 0, 0.48);
 }
-
 
 .sci-deckbar-select:focus {
     outline: none;
@@ -10489,7 +9328,6 @@ button.food-dashboard-back[hidden] {
         );
 }
 
-
 /* ---------------------------------------------------------
  * Aktuelle Deck-Statistik
  * --------------------------------------------------------- */
@@ -10497,7 +9335,6 @@ button.food-dashboard-back[hidden] {
 .sci-deckbar-current {
     min-width: 0;
 }
-
 
 .sci-deckbar-kpis {
     display: grid;
@@ -10507,7 +9344,6 @@ button.food-dashboard-back[hidden] {
 
     gap: 8px;
 }
-
 
 .sci-deckbar-kpi {
     display: flex;
@@ -10529,7 +9365,6 @@ button.food-dashboard-back[hidden] {
     text-align: center;
 }
 
-
 .sci-deckbar-kpi strong {
     display: block;
 
@@ -10543,7 +9378,6 @@ button.food-dashboard-back[hidden] {
     font-variant-numeric: tabular-nums;
 }
 
-
 .sci-deckbar-kpi span {
     display: block;
 
@@ -10554,7 +9388,6 @@ button.food-dashboard-back[hidden] {
     font-size: 0.72rem;
     font-weight: 750;
 }
-
 
 .sci-deckbar-kpi.is-due {
     border-color:
@@ -10572,11 +9405,9 @@ button.food-dashboard-back[hidden] {
         );
 }
 
-
 .sci-deckbar-kpi.is-due strong {
     color: var(--primary-dark);
 }
-
 
 /* ---------------------------------------------------------
  * Themen
@@ -10593,11 +9424,9 @@ button.food-dashboard-back[hidden] {
         rgba(0, 0, 0, 0.012);
 }
 
-
 .sci-deckbar-topicrow .sci-deckbar-label {
     margin-bottom: 8px;
 }
-
 
 .sci-deckbar-topiclist {
     display: flex;
@@ -10607,45 +9436,6 @@ button.food-dashboard-back[hidden] {
 
     flex-wrap: wrap;
 }
-
-
-.sci-deckbar-topic {
-    appearance: none;
-
-    width: auto;
-    min-width: 0;
-    min-height: 36px;
-
-    box-sizing: border-box;
-
-    margin: 0;
-    padding: 7px 12px;
-
-    border: 1px solid rgba(0, 0, 0, 0.13);
-    border-radius: 7px;
-
-    background: #fff;
-    color: var(--text);
-
-    box-shadow: none;
-
-    font-family: var(--font);
-    font-size: 0.84rem;
-    font-weight: 800;
-
-    line-height: 1.15;
-
-    white-space: nowrap;
-
-    cursor: pointer;
-
-    transition:
-        border-color 0.14s ease,
-        background-color 0.14s ease,
-        color 0.14s ease,
-        transform 0.08s ease;
-}
-
 
 .sci-deckbar-topic:hover {
     border-color: var(--primary);
@@ -10660,11 +9450,9 @@ button.food-dashboard-back[hidden] {
     color: var(--text);
 }
 
-
 .sci-deckbar-topic:active {
     transform: scale(0.985);
 }
-
 
 .sci-deckbar-topic.is-active {
     border-color: var(--primary);
@@ -10681,14 +9469,12 @@ button.food-dashboard-back[hidden] {
         );
 }
 
-
 .sci-deckbar-topic.is-active:hover {
     border-color: var(--primary-dark);
 
     background: var(--primary-dark);
     color: var(--text-light);
 }
-
 
 /* ---------------------------------------------------------
  * Langzeitstatistik
@@ -10716,7 +9502,6 @@ button.food-dashboard-back[hidden] {
     background: var(--bg-light);
 }
 
-
 .sci-deckbar-history-head {
     display: flex;
     align-items: baseline;
@@ -10726,11 +9511,9 @@ button.food-dashboard-back[hidden] {
     white-space: nowrap;
 }
 
-
 .sci-deckbar-history-head .sci-deckbar-label {
     margin: 0;
 }
-
 
 .sci-deckbar-history-hint {
     color: rgba(34, 34, 34, 0.43);
@@ -10738,7 +9521,6 @@ button.food-dashboard-back[hidden] {
     font-size: 0.72rem;
     font-weight: 650;
 }
-
 
 .sci-deckbar-history-list {
     display: flex;
@@ -10752,7 +9534,6 @@ button.food-dashboard-back[hidden] {
     flex-wrap: wrap;
 }
 
-
 .sci-deckbar-history-stat {
     display: inline-flex;
     align-items: baseline;
@@ -10764,13 +9545,11 @@ button.food-dashboard-back[hidden] {
     white-space: nowrap;
 }
 
-
 .sci-deckbar-history-stat + .sci-deckbar-history-stat {
     border-left:
         1px solid
         rgba(0, 0, 0, 0.10);
 }
-
 
 .sci-deckbar-history-stat span {
     color: rgba(34, 34, 34, 0.55);
@@ -10778,7 +9557,6 @@ button.food-dashboard-back[hidden] {
     font-size: 0.75rem;
     font-weight: 700;
 }
-
 
 .sci-deckbar-history-stat strong {
     color: var(--text);
@@ -10789,100 +9567,16 @@ button.food-dashboard-back[hidden] {
     font-variant-numeric: tabular-nums;
 }
 
-
 .sci-deckbar-history-stat.is-correct strong {
     color: #2e8b50;
 }
-
 
 .sci-deckbar-history-stat.is-wrong strong {
     color: #b03a31;
 }
 
-
 .sci-deckbar-history-stat.is-rate strong {
     color: var(--primary-dark);
-}
-
-
-/* ---------------------------------------------------------
- * Responsive
- * --------------------------------------------------------- */
-
-@media (max-width: 950px) {
-
-    .sci-deckbar-main {
-        grid-template-columns: 1fr;
-
-        gap: 13px;
-    }
-
-
-    .sci-deckbar-kpis {
-        grid-template-columns:
-            repeat(4, minmax(0, 1fr));
-    }
-
-
-    .sci-deckbar-history {
-        grid-template-columns: 1fr;
-
-        gap: 6px;
-    }
-
-
-    .sci-deckbar-history-list {
-        justify-content: flex-start;
-    }
-}
-
-
-@media (max-width: 620px) {
-
-    .sci-deckbar-main,
-    .sci-deckbar-topicrow {
-        padding-left: 12px;
-        padding-right: 12px;
-    }
-
-
-    .sci-deckbar-history {
-        padding-left: 12px;
-        padding-right: 12px;
-    }
-
-
-    .sci-deckbar-kpis {
-        grid-template-columns:
-            repeat(2, minmax(0, 1fr));
-    }
-
-
-    .sci-deckbar-topiclist {
-        gap: 6px;
-    }
-
-
-    .sci-deckbar-topic {
-        padding: 7px 10px;
-
-        font-size: 0.80rem;
-    }
-
-
-    .sci-deckbar-history-head {
-        flex-wrap: wrap;
-    }
-
-
-    .sci-deckbar-history-stat {
-        padding: 3px 9px;
-    }
-
-
-    .sci-deckbar-history-stat:first-child {
-        padding-left: 0;
-    }
 }
 
 /* Choice-Auswertung nach falscher Antwort */
@@ -10914,6 +9608,28 @@ button.food-dashboard-back[hidden] {
  * ========================================================= */
 
 .sci-deckbar-topic {
+    appearance: none;
+    width: auto;
+    min-width: 0;
+    min-height: 36px;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 7px 12px;
+    border: 1px solid rgba(0, 0, 0, 0.13);
+    border-radius: 7px;
+    background: #fff;
+    color: var(--text);
+    box-shadow: none;
+    font-family: var(--font);
+    font-size: 0.84rem;
+    font-weight: 800;
+    line-height: 1.15;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: border-color 0.14s ease,
+        background-color 0.14s ease,
+        color 0.14s ease,
+        transform 0.08s ease;
     position: relative;
     overflow: visible;
 }
@@ -11099,7 +9815,6 @@ button.food-dashboard-back[hidden] {
     display: none;
 }
 
-
 /* PHAN / Alben: Dublettenprüfung in der Startansicht */
 
 .albums-head-tools {
@@ -11204,37 +9919,6 @@ button.food-dashboard-back[hidden] {
 .albums-duplicate-error {
     color: #c0392b;
 }
-
-@media (max-width: 900px) {
-    .albums-head-tools {
-        width: 100%;
-        margin-left: 0;
-    }
-
-    .albums-import-form {
-        flex: 1 1 auto;
-    }
-}
-
-@media (max-width: 650px) {
-    .albums-head-tools {
-        align-items: stretch;
-        flex-direction: column;
-    }
-
-    .albums-duplicate-check {
-        width: 100%;
-    }
-
-    .albums-duplicate-row {
-        grid-template-columns: 1fr;
-    }
-
-    .albums-duplicate-albums {
-        justify-content: flex-start;
-    }
-}
-
 
 /* PHAN / Alben: Sammel-Synchronisation */
 
@@ -11344,24 +10028,6 @@ button.food-dashboard-back[hidden] {
 .albums-sync-all-error {
     color: #c0392b;
 }
-
-@media (max-width: 650px) {
-    .albums-sync-all {
-        width: 100%;
-    }
-
-    .albums-sync-all-row {
-        grid-template-columns: 1fr;
-        gap: 4px;
-    }
-
-    .albums-sync-all-row span,
-    .albums-sync-all-row--error span {
-        white-space: normal;
-        text-align: left;
-    }
-}
-
 
 /* =========================================================
  * RWTH Jobs
@@ -11586,7 +10252,7 @@ button.food-dashboard-back[hidden] {
 }
 
 .rwth-job-meta-item--expandable::after {
-    content: 'Mehr';
+    content: "Mehr";
     position: absolute;
     right: 9px;
     bottom: 6px;
@@ -11611,7 +10277,7 @@ button.food-dashboard-back[hidden] {
 }
 
 .rwth-job-meta-item--expanded::after {
-    content: 'Weniger';
+    content: "Weniger";
 }
 
 .rwth-job-section {
@@ -11696,29 +10362,6 @@ body.rwth-jobs-modal-open {
 .rwth-jobs-toast--error {
     border-left-color: var(--error);
 }
-
-@media (max-width: 760px) {
-    .rwth-jobs-toolbar-actions {
-        justify-content: flex-start;
-    }
-
-    .rwth-jobs-summary {
-        width: 100%;
-    }
-
-    .rwth-jobs-summary-item {
-        flex: 1 1 0;
-        justify-content: center;
-    }
-
-    .rwth-job-modal-content {
-        width: calc(100vw - 20px);
-        max-height: calc(100vh - 20px);
-        padding: 22px 18px;
-    }
-}
-
-
 
 .life-edit-inline-actions {
     flex: 1 1 auto;
@@ -11957,47 +10600,6 @@ body.rwth-jobs-modal-open {
     border: 2px solid #c0392b;
 }
 
-@media (max-width: 760px) {
-    .life-edit-inline-actions {
-        flex: 1 1 100%;
-        width: 100%;
-        min-width: 0;
-        justify-content: center;
-        order: 3;
-    }
-
-    .life-edit-inline-actions .life-edit-new {
-        flex: 1 1 auto;
-    }
-
-    .life-edit-modal {
-        padding: 10px;
-    }
-
-    .life-edit-dialog {
-        width: calc(100vw - 20px);
-        max-height: calc(100vh - 20px);
-    }
-
-    .life-edit-dialog-body {
-        padding: 14px;
-    }
-
-    .life-edit-form {
-        grid-template-columns: 1fr;
-    }
-
-    .life-edit-field--wide {
-        grid-column: auto;
-    }
-
-    .life-edit-actions {
-        flex-direction: column;
-        align-items: stretch;
-    }
-}
-
-
 /* =========================================================
  * SCI / Anki-Webreview v3
  *
@@ -12024,7 +10626,6 @@ body.anki-page-active {
     min-height: 0;
     overflow: hidden;
 }
-
 
 /* ---------------------------------------------------------
  * Linke Seitenleiste
@@ -12177,7 +10778,6 @@ body.anki-page-active {
     color: rgba(34, 34, 34, .72);
 }
 
-
 /* ---------------------------------------------------------
  * Rechte Hauptfläche
  * --------------------------------------------------------- */
@@ -12216,7 +10816,6 @@ body.anki-page-active {
     background: transparent;
     box-shadow: none;
 }
-
 
 /* ---------------------------------------------------------
  * Kartenkopf
@@ -12267,7 +10866,6 @@ body.anki-page-active {
     font-size: .68rem;
     font-weight: 800;
 }
-
 
 /* ---------------------------------------------------------
  * Bewertungsbuttons OBEN
@@ -12350,7 +10948,6 @@ body.anki-page-active {
     background: var(--primary);
 }
 
-
 /* ---------------------------------------------------------
  * Frage / Antwort
  *
@@ -12385,7 +10982,6 @@ body.anki-page-active {
 
     background: transparent;
 }
-
 
 /* ---------------------------------------------------------
  * Leer / Status
@@ -12441,263 +11037,6 @@ body.anki-page-active {
     border-left-color: #2e9b55;
     color: #256f3d;
 }
-
-
-/* ---------------------------------------------------------
- * Responsive
- * --------------------------------------------------------- */
-
-@media (max-width: 900px) {
-    .anki-page {
-        grid-template-columns: 230px minmax(0, 1fr);
-        gap: 10px;
-
-        width: calc(100vw - 16px);
-    }
-
-    .anki-sidebar {
-        padding: 11px;
-    }
-
-    .anki-rating-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-}
-
-@media (max-width: 650px) {
-    .anki-page {
-        grid-template-columns: 185px minmax(0, 1fr);
-        gap: 7px;
-
-        width: calc(100vw - 10px);
-    }
-
-    .anki-sidebar {
-        padding: 8px;
-    }
-
-    .anki-toolbar-stats {
-        grid-template-columns: 1fr;
-    }
-
-    .anki-card-head {
-        flex-direction: column;
-    }
-
-    .anki-card-tags {
-        justify-content: flex-start;
-    }
-
-    .anki-rating {
-        min-height: 48px;
-        padding-left: 5px;
-        padding-right: 5px;
-    }
-}
-
-/* SCI / Lerntime: iOS-Performance bei vielen Tabellenzeilen.
-   Keine Größen/Abstände/Buttons werden verändert. */
-@supports (-webkit-touch-callout: none) {
-    #ltPage .lt-row {
-        transition: none;
-    }
-
-    #ltPage .lt-row:active {
-        transform: none;
-    }
-
-    #ltPage .lt-row.done {
-        /* CSS-Filter auf vielen <tr> erzeugen in Mobile Safari teure
-           Compositing-Layer. Die vorhandene opacity bleibt erhalten. */
-        filter: none;
-    }
-
-    #ltPage .lt-check label,
-    #ltPage .lt-checkmark path {
-        transition: none;
-    }
-}
-
-/* =========================================================
- * SCI / Life: iPhone-Timeline
- *
- * head.php besitzt bewusst kein viewport-meta. Mobile Safari
- * arbeitet deshalb mit einem Layout-Viewport um ~980 CSS-px.
- * Dieser Block ist deshalb iOS-spezifisch und verwendet 1100px
- * statt eines klassischen 760px-Breakpoints.
- * Desktop / Full-HD bleibt vollständig unverändert.
- * ========================================================= */
-@supports (-webkit-touch-callout: none) {
-    @media (max-width: 1100px) {
-        /* Topbar & Controls umbrechen statt zu quetschen */
-        .life-page .lt-topbar {
-            display: flex;
-            flex-direction: column;
-            align-items: stretch;
-            gap: 14px;
-        }
-
-        .life-page .ueberschrift.dashboard-title {
-            text-align: left;
-            margin-bottom: 4px;
-        }
-
-        .life-page .life-edit-inline-actions {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: flex-start;
-            gap: 8px;
-            width: 100%;
-            min-width: 0;
-            order: 2;
-        }
-
-        .life-page .life-edit-inline-actions .life-edit-new {
-            flex: 1 1 auto;
-            padding: 10px 14px;
-            font-size: 0.95rem;
-        }
-
-        .life-page .life-controls {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: flex-end;
-            gap: 10px;
-            width: 100%;
-            order: 3;
-        }
-
-        .life-page .life-sidewrap,
-        .life-page .life-sidewrap--year-range,
-        .life-page .life-modewrap {
-            flex: 1 1 calc(50% - 10px);
-            min-width: 140px;
-            width: auto;
-        }
-
-        .life-page .kategorie-select {
-            height: 44px;
-            font-size: 1rem;
-        }
-
-        /* Timeline-Scrolling & Board */
-        .life-page .life-wrap {
-            padding-left: 0;
-            padding-right: 0;
-            overflow: visible;
-        }
-
-        .life-page .life-axis-scroll,
-        .life-page .life-body-scroll {
-            overflow-x: auto;
-            overflow-y: visible;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        /* Board-Breite: Fixe Spalte (330px) + dynamische Track-Breite */
-        .life-page .life-board {
-            width: max-content;
-            min-width: calc(330px + var(--life-mobile-track-width, 1000px));
-        }
-
-        .life-page .life-axis-row,
-        .life-page .life-row {
-            grid-template-columns: 330px minmax(var(--life-mobile-track-width, 1000px), 1fr);
-            align-items: stretch;
-            width: 100%;
-        }
-
-        /* Obere Achsenzeile (Jahre / Monate) vergrößern */
-        .life-page .life-ordinate-spacer,
-        .life-page .life-months {
-            min-height: 52px;
-        }
-
-        .life-page .life-month-cell {
-            font-size: 1.35rem;
-            font-weight: 850;
-            padding-bottom: 8px;
-        }
-
-        /* Zeilenhöhe vergrößern für Lesbarkeit & Touch-Ziele */
-        .life-page .life-row--group {
-            min-height: 48px;
-        }
-
-        .life-page .life-row--entry {
-            min-height: 52px;
-        }
-
-        .life-page .life-ordinate-spacer,
-        .life-page .life-label {
-            width: 330px;
-            min-width: 330px;
-            max-width: 330px;
-            flex: none;
-            box-sizing: border-box;
-            padding: 0 12px;
-            padding-left: calc(12px + (var(--life-depth, 0) * 16px)) !important;
-            background: #fff;
-            position: sticky;
-            left: 0;
-            z-index: 10;
-        }
-
-        /* Größere, deutliche Schrift für Fach- und Gruppennamen */
-        .life-page .life-label-text {
-            font-size: 1.22rem;
-            font-weight: 600;
-            line-height: 1.2;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .life-page .life-label--group .life-label-text {
-            font-size: 1.28rem;
-            font-weight: 850;
-        }
-
-        /* Klapp-Pfeil passend zur Schrift skalieren */
-        .life-page .life-group-toggle {
-            width: 28px;
-            height: 28px;
-            min-width: 28px;
-            margin-right: 10px;
-        }
-
-        .life-page .life-group-toggle-icon {
-            border-top: 6px solid transparent;
-            border-bottom: 6px solid transparent;
-            border-left: 8px solid currentColor;
-        }
-
-        .life-page .life-months,
-        .life-page .life-track {
-            min-width: var(--life-mobile-track-width, 1000px);
-            width: 100%;
-            flex: none;
-        }
-
-        .life-page .life-bar {
-            height: 18px;
-            border-radius: 4px;
-            z-index: 4;
-        }
-
-        .life-page .life-event {
-            width: 14px;
-            height: 14px;
-            z-index: 5;
-        }
-
-        .life-page .life-event::before,
-        .life-page .life-event::after {
-            width: 16px;
-            height: 3px;
-        }
-    }
-}
 /* ========================================================================== */
 /* Gym / fit/Gym.php                                                          */
 /* ========================================================================== */
@@ -12733,12 +11072,6 @@ body.anki-page-active {
     color: var(--text);
     font-size: clamp(1.7rem, 2.4vw, 2.45rem);
     line-height: 1.08;
-}
-
-.gym-subtitle {
-    margin: 6px 0 0;
-    color: #666;
-    font-size: 0.98rem;
 }
 
 .gym-header-actions {
@@ -12866,14 +11199,6 @@ body.anki-page-active {
     font-weight: 700;
 }
 
-.gym-overview-head {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 16px;
-    margin: 4px 0 14px;
-}
-
 .gym-overview-head h2,
 .gym-detail-section h2 {
     margin: 0 0 4px;
@@ -12888,14 +11213,6 @@ body.anki-page-active {
 .gym-card-grid {
     display: grid;
     gap: 14px;
-}
-
-.gym-plan-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.gym-exercise-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .gym-card {
@@ -12918,38 +11235,11 @@ body.anki-page-active {
     border-color: rgba(0, 0, 0, 0.18);
 }
 
-.gym-plan-card {
-    min-height: 300px;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    border-left: 6px solid transparent;
-}
-
-.gym-plan-card-image,
-.gym-plan-card > .gym-image-placeholder {
-    display: block;
-    width: 100%;
-    height: 156px;
-    object-fit: cover;
-    background: #ededed;
-}
-
-.gym-plan-card > .gym-image-placeholder {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
 .gym-plan-card-content {
     min-width: 0;
     flex: 1;
     display: flex;
     align-items: stretch;
-}
-
-.gym-plan-card.is-today {
-    border-left-color: var(--primary);
 }
 
 .gym-card-body {
@@ -13038,12 +11328,6 @@ body.anki-page-active {
     outline: 2px solid var(--primary);
     background: #fff;
     color: var(--primary-dark);
-}
-
-.gym-exercise-card {
-    display: flex;
-    flex-direction: column;
-    min-height: 275px;
 }
 
 .gym-card-image,
@@ -13670,7 +11954,7 @@ body.gym-modal-open {
 
 .gym-check-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 8px;
 }
 
@@ -14024,595 +12308,6 @@ body.gym-modal-open {
     font-weight: 700;
 }
 
-.gym-toast.is-error {
-    border-left-color: #a51d1d;
-}
-
-@media (max-width: 1150px) {
-    .gym-plan-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .gym-exercise-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
-    .gym-plan-builder-row {
-        grid-template-columns: 36px 52px minmax(120px, 1fr) auto;
-    }
-
-    .gym-builder-times {
-        display: none;
-    }
-
-    .gym-plan-builder-move {
-        grid-column: auto;
-    }
-}
-
-@media (max-width: 850px) {
-    .gym-exercise-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .gym-set-list {
-        grid-template-columns: 1fr;
-    }
-
-    .gym-plan-builder-row {
-        grid-template-columns: 36px 52px minmax(0, 1fr) auto;
-    }
-
-    .gym-plan-builder-row .gym-mini-field,
-    .gym-plan-builder-row .gym-builder-times {
-        grid-row: 2;
-    }
-
-    .gym-plan-builder-row .gym-mini-field:first-of-type {
-        grid-column: 2;
-    }
-
-    .gym-plan-builder-move {
-        grid-column: 4;
-        grid-row: 1 / span 2;
-        flex-direction: column;
-    }
-
-    .gym-weekday-selector {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
-}
-
-@media (max-width: 650px) {
-    .gym-page {
-        padding: 10px 10px 42px;
-    }
-
-    .gym-header {
-        align-items: flex-start;
-        gap: 12px;
-        margin-bottom: 13px;
-    }
-
-    .gym-header-copy {
-        flex: 1;
-        min-width: 0;
-    }
-
-    .gym-header-actions {
-        gap: 6px;
-    }
-
-    .gym-header-actions .gym-button {
-        min-height: 40px;
-        padding: 8px 10px;
-        font-size: 0.86rem;
-    }
-
-    .gym-title {
-        font-size: 1.55rem;
-    }
-
-    .gym-subtitle {
-        font-size: 0.84rem;
-        line-height: 1.3;
-    }
-
-    .gym-back-button {
-        width: 42px;
-        height: 42px;
-        min-width: 42px;
-    }
-
-    .gym-tabs {
-        width: 100%;
-        box-sizing: border-box;
-        margin-bottom: 13px;
-    }
-
-    .gym-tab {
-        flex: 1;
-        min-width: 0;
-    }
-
-    .gym-active-session-banner {
-        align-items: stretch;
-        flex-direction: column;
-    }
-
-    .gym-active-session-banner .gym-button {
-        width: 100%;
-    }
-
-    .gym-overview-head {
-        margin-top: 0;
-    }
-
-    .gym-overview-head h2 {
-        font-size: 1.18rem;
-    }
-
-    .gym-overview-head p {
-        font-size: 0.84rem;
-    }
-
-    .gym-plan-grid,
-    .gym-exercise-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .gym-plan-card {
-        min-height: 132px;
-        display: grid;
-        grid-template-columns: 112px minmax(0, 1fr);
-        grid-template-rows: 1fr;
-    }
-
-    .gym-plan-card-image,
-    .gym-plan-card > .gym-image-placeholder {
-        width: 112px;
-        height: 100%;
-        min-height: 132px;
-    }
-
-    .gym-plan-card-content {
-        min-width: 0;
-        height: 100%;
-    }
-
-    .gym-exercise-card {
-        min-height: 118px;
-        display: grid;
-        grid-template-columns: 112px minmax(0, 1fr);
-        align-items: stretch;
-    }
-
-    .gym-card-image,
-    .gym-exercise-card .gym-image-placeholder {
-        width: 112px;
-        height: 100%;
-        min-height: 118px;
-    }
-
-    .gym-exercise-card .gym-card-body {
-        padding: 13px;
-    }
-
-    .gym-card-title-row {
-        align-items: flex-start;
-    }
-
-    .gym-card-title-row h3 {
-        font-size: 1rem;
-    }
-
-    .gym-card-meta {
-        margin-top: 8px;
-        font-size: 0.82rem;
-    }
-
-    .gym-detail-card {
-        padding: 13px;
-    }
-
-    .gym-plan-hero {
-        grid-template-columns: 1fr;
-        gap: 12px;
-    }
-
-    .gym-plan-hero-image,
-    .gym-plan-hero > .gym-image-placeholder {
-        max-height: none;
-        aspect-ratio: 16 / 9;
-    }
-
-    .gym-plan-hero-copy {
-        gap: 10px;
-    }
-
-    .gym-plan-hero-meta {
-        font-size: 0.82rem;
-    }
-
-    .gym-detail-actions {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .gym-detail-actions .gym-button:first-child {
-        grid-column: 1 / -1;
-    }
-
-    .gym-plan-exercise-row {
-        grid-template-columns: 31px 50px minmax(0, 1fr);
-        gap: 9px;
-        padding: 8px;
-    }
-
-    .gym-plan-exercise-image {
-        width: 50px;
-        height: 50px;
-    }
-
-    .gym-plan-exercise-target {
-        grid-column: 3;
-        font-size: 0.9rem;
-    }
-
-    .gym-exercise-hero {
-        grid-template-columns: 1fr;
-        gap: 14px;
-    }
-
-    .gym-exercise-hero-image {
-        max-height: none;
-        aspect-ratio: 16 / 10;
-    }
-
-    .gym-workout-exercise-card {
-        min-height: 96px;
-        grid-template-columns: 30px 66px minmax(0, 1fr) 34px;
-        gap: 8px;
-        padding: 9px;
-    }
-
-    .gym-workout-order {
-        font-size: 1rem;
-    }
-
-    .gym-workout-exercise-image {
-        width: 66px;
-        height: 66px;
-        border-radius: 10px;
-    }
-
-    .gym-workout-exercise-copy h2 {
-        margin-bottom: 5px;
-        font-size: 1rem;
-    }
-
-    .gym-workout-target,
-    .gym-workout-last {
-        font-size: 0.78rem;
-    }
-
-    .gym-workout-progress {
-        min-width: 0;
-    }
-
-    .gym-workout-progress strong {
-        display: none;
-    }
-
-    .gym-workout-progress span {
-        font-size: 1.65rem;
-    }
-
-    .gym-session-head-card {
-        padding: 12px;
-        gap: 10px;
-    }
-
-    .gym-session-plan-image {
-        width: 62px;
-        height: 48px;
-        border-radius: 8px;
-    }
-
-    .gym-session-bottom-actions {
-        display: grid;
-        grid-template-columns: 1fr;
-    }
-
-    .gym-session-bottom-actions .gym-button {
-        width: 100%;
-    }
-
-    .gym-session-exercise-summary {
-        min-height: 90px;
-        padding: 10px;
-    }
-
-    .gym-session-exercise-image {
-        width: 72px;
-        height: 72px;
-    }
-
-    button.gym-set-card {
-        min-height: 144px;
-        padding: 13px;
-    }
-
-    .gym-set-columns {
-        grid-template-columns: 1fr;
-        gap: 7px;
-    }
-
-    .gym-set-columns > div {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        align-items: baseline;
-        gap: 10px;
-    }
-
-    .gym-set-columns span {
-        min-height: 0;
-    }
-
-    .gym-set-columns strong {
-        text-align: right;
-    }
-
-    .gym-modal {
-        align-items: flex-end;
-        padding: 0;
-    }
-
-    .gym-modal-panel {
-        width: 100%;
-        max-height: 94dvh;
-        padding: 20px 12px calc(16px + env(safe-area-inset-bottom));
-        border-radius: 16px 16px 0 0;
-    }
-
-    .gym-check-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 6px;
-    }
-
-    .gym-check-chip > span {
-        min-height: 45px;
-        padding: 6px 7px;
-        font-size: 0.86rem;
-    }
-
-    .gym-weekday-selector {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
-
-    .gym-weekday-selector label > span {
-        min-height: 54px;
-    }
-
-    .gym-plan-add-row {
-        grid-template-columns: 1fr;
-    }
-
-    .gym-plan-add-row .gym-button {
-        width: 100%;
-    }
-
-    .gym-plan-builder-row {
-        grid-template-columns: 31px 46px minmax(0, 1fr) auto;
-        gap: 6px;
-        padding: 8px 6px;
-    }
-
-    .gym-drag-handle {
-        width: 31px;
-    }
-
-    .gym-plan-builder-image {
-        width: 46px;
-        height: 46px;
-    }
-
-    .gym-plan-builder-copy strong {
-        font-size: 0.9rem;
-    }
-
-    .gym-plan-builder-row .gym-mini-field {
-        width: 69px;
-        grid-row: 2;
-    }
-
-    .gym-plan-builder-row .gym-mini-field:first-of-type {
-        grid-column: 2;
-    }
-
-    .gym-plan-builder-row .gym-mini-field:nth-of-type(2) {
-        grid-column: 3;
-    }
-
-    .gym-plan-builder-row .gym-mini-field:nth-of-type(3) {
-        grid-column: 3;
-        justify-self: end;
-    }
-
-    .gym-plan-builder-move {
-        grid-column: 4;
-        grid-row: 1 / span 2;
-        flex-direction: column;
-    }
-
-    .gym-icon-button {
-        width: 36px;
-        height: 36px;
-        min-height: 36px;
-    }
-
-    .gym-modal-actions {
-        display: grid;
-        grid-template-columns: 1fr;
-    }
-
-    .gym-modal-actions .gym-button {
-        width: 100%;
-    }
-
-    /* Satz-Erfassung ist der wichtigste Mobile-Flow: kompakt, ohne sofortige Tastatur. */
-    .gym-modal.gym-set-modal-active {
-        align-items: center;
-        padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
-    }
-
-    .gym-modal.gym-set-modal-active .gym-modal-panel {
-        width: min(430px, calc(100vw - 24px));
-        max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-        padding: 18px 14px 14px;
-        border-radius: 16px;
-    }
-
-    .gym-modal.gym-set-modal-active .gym-form h2 {
-        margin: 0 42px 14px 0;
-        font-size: 1.18rem;
-        line-height: 1.25;
-    }
-
-    .gym-modal.gym-set-modal-active .gym-modal-close {
-        top: 7px;
-        right: 8px;
-        width: 36px;
-        height: 36px;
-    }
-
-    .gym-modal.gym-set-modal-active .gym-set-modal-context {
-        grid-template-columns: 1fr;
-        gap: 7px;
-        margin-bottom: 12px;
-    }
-
-    .gym-modal.gym-set-modal-active .gym-set-modal-context > div {
-        min-width: 0;
-        padding: 9px 8px;
-    }
-
-    .gym-modal.gym-set-modal-active .gym-set-modal-context span {
-        font-size: 0.7rem;
-        line-height: 1.2;
-    }
-
-    .gym-modal.gym-set-modal-active .gym-set-modal-context strong {
-        font-size: 0.9rem;
-        line-height: 1.25;
-        overflow-wrap: anywhere;
-    }
-
-    .gym-modal.gym-set-modal-active .gym-set-entry-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 8px;
-    }
-
-    .gym-modal.gym-set-modal-active .gym-set-entry-grid .gym-field {
-        min-width: 0;
-    }
-
-    .gym-modal.gym-set-modal-active .gym-set-entry-times {
-        display: none;
-    }
-
-    .gym-modal.gym-set-modal-active .gym-set-cancel-button {
-        display: none !important;
-    }
-
-    .gym-modal.gym-set-modal-active .gym-set-modal-actions {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 8px;
-        margin-top: 12px;
-    }
-
-    .gym-modal.gym-set-modal-active .gym-set-modal-actions.has-delete {
-        grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
-    }
-
-    .gym-modal.gym-set-modal-active .gym-set-modal-actions .gym-button {
-        width: 100%;
-        min-width: 0;
-    }
-
-    .gym-modal.gym-set-modal-active .gym-strength-kcal-preview,
-    .gym-modal.gym-set-modal-active .gym-cardio-kcal-preview {
-        margin-top: 8px;
-        padding: 7px 9px;
-        font-size: 0.82rem;
-    }
-
-    .gym-toast {
-        left: 10px;
-        right: 10px;
-        bottom: calc(10px + env(safe-area-inset-bottom));
-        max-width: none;
-    }
-}
-
-@media (max-width: 410px) {
-    .gym-header {
-        flex-wrap: wrap;
-    }
-
-    .gym-header-actions {
-        width: 100%;
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .gym-header-actions .gym-button {
-        width: 100%;
-    }
-
-    .gym-weekday-selector {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-
-    .gym-check-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
-/* Mobile Navbar: relevant für die Gym-Nutzung auf dem Smartphone. */
-@media (max-width: 650px) {
-    .navbar {
-        height: 42px;
-        padding: 6px;
-    }
-
-    .nav-links {
-        gap: 0.35rem;
-        padding: 6px 0;
-    }
-
-    .nav-icon {
-        width: 30px;
-        height: 30px;
-    }
-
-    .nav-divider {
-        width: 3px;
-        height: 34px;
-        margin: 0 0.1rem;
-    }
-
-    .has-submenu .submenu {
-        top: 48px;
-    }
-
-    .submenu .nav-icon {
-        width: 28px;
-        height: 28px;
-    }
-}
-
 /* Gym: eindeutige JavaScript-/API-Rückmeldungen */
 .gym-toast.is-info {
     border-left-color: var(--primary);
@@ -14743,58 +12438,6 @@ body.gym-modal-open {
     display: none !important;
 }
 
-@media (max-width: 1200px) {
-    .gym-log-list {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-}
-
-@media (max-width: 900px) {
-    .gym-log-list {
-        grid-template-columns: 1fr;
-    }
-}
-
-@media (max-width: 650px) {
-    .gym-log-card {
-        grid-template-columns: 86px minmax(0, 1fr) 24px;
-        gap: 9px;
-    }
-
-    .gym-log-image {
-        width: 86px;
-        min-height: 88px;
-    }
-
-    .gym-log-copy {
-        padding: 9px 0;
-    }
-
-    .gym-log-copy h3 {
-        margin: 2px 0 5px;
-        font-size: 0.98rem;
-    }
-
-    .gym-log-date,
-    .gym-log-meta {
-        font-size: 0.75rem;
-    }
-
-    .gym-log-card > .gym-card-arrow {
-        padding-right: 6px;
-    }
-
-    .gym-modal.gym-set-modal-active .gym-cardio-kcal-control {
-        gap: 7px;
-    }
-
-    .gym-modal.gym-set-modal-active .gym-manual-kcal-toggle {
-        min-height: 40px;
-        padding: 7px 9px;
-        font-size: 0.84rem;
-    }
-}
-
 /* =========================================================
  * GYM – Übungsdetail / Direkteintrag kompakt
  * ========================================================= */
@@ -14888,79 +12531,6 @@ body.gym-modal-open {
 .gym-direct-entry-submit {
     flex: 0 0 auto;
     white-space: nowrap;
-}
-
-@media (max-width: 900px) {
-    .gym-exercise-entry-layout {
-        grid-template-columns: 1fr;
-        gap: 14px;
-    }
-
-    .gym-exercise-entry-layout > .gym-exercise-hero-image {
-        height: auto;
-        min-height: 0;
-        aspect-ratio: 16 / 10;
-    }
-
-    .gym-exercise-entry-panel {
-        gap: 14px;
-    }
-
-    .gym-direct-entry-form {
-        flex-wrap: wrap;
-    }
-}
-
-@media (max-width: 650px) {
-    .gym-exercise-detail-actions {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 8px;
-    }
-
-    .gym-exercise-detail-actions .gym-button,
-    .gym-exercise-detail-actions .gym-button:first-child {
-        width: 100%;
-        min-width: 0;
-        grid-column: auto;
-    }
-
-    .gym-direct-entry-form {
-        display: flex;
-        flex-direction: column;
-        align-items: stretch;
-        gap: 10px;
-    }
-
-    .gym-direct-entry-form > .gym-field,
-    .gym-direct-entry-form > .gym-set-entry-grid {
-        width: 100%;
-        min-width: 0;
-        flex: 0 0 auto;
-    }
-
-    .gym-direct-entry-form .gym-cardio-kcal-control {
-        width: 100%;
-        flex: 0 0 auto;
-        flex-direction: column;
-        align-items: stretch;
-        gap: 9px;
-    }
-
-    .gym-direct-entry-form .gym-manual-kcal-toggle,
-    .gym-direct-entry-form .gym-manual-kcal-field,
-    .gym-direct-entry-form .gym-cardio-kcal-preview,
-    .gym-direct-entry-form .gym-strength-kcal-preview {
-        width: 100%;
-        min-width: 0;
-        flex: 0 0 auto;
-        box-sizing: border-box;
-    }
-
-    .gym-direct-entry-submit {
-        width: 100%;
-        margin-top: 10px;
-    }
 }
 
 /* =========================================================
@@ -15124,61 +12694,24 @@ body.gym-modal-open {
     white-space: nowrap;
 }
 
-@media (max-width: 650px) {
-    .gym-exercise-type-tabs {
-        width: fit-content;
-        max-width: 100%;
-        overflow-x: auto;
-        scrollbar-width: none;
-    }
-
-    .gym-exercise-type-tabs::-webkit-scrollbar {
-        display: none;
-    }
-
-    .gym-exercise-type-tabs .gym-tab {
-        flex: 0 0 auto;
-        min-width: 0;
-        padding: 8px 12px;
-        font-size: 0.86rem;
-    }
-
-    .gym-plan-card-body-grid {
-        grid-template-columns: minmax(0, 1fr) minmax(78px, auto);
-        gap: 8px;
-    }
-
-    .gym-plan-card-summary .gym-card-meta {
-        padding-top: 8px;
-    }
-
-    .gym-plan-muscle-section {
-        max-width: 118px;
-        padding-left: 8px;
-    }
-
-    .gym-plan-muscles {
-        gap: 4px;
-    }
-
-    .gym-plan-muscle-chip {
-        min-height: 23px;
-        padding: 3px 7px;
-        font-size: 0.68rem;
-    }
-}
-
-
 /* =========================================================
  * GYM – Planübersicht v2
  * ========================================================= */
 
 /* Untertitel im Gym-Kopf sind bewusst entfernt. */
 .gym-subtitle {
+    margin: 6px 0 0;
+    color: #666;
+    font-size: 0.98rem;
     display: none !important;
 }
 
 .gym-overview-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 4px 0 14px;
     margin-bottom: 12px;
 }
 
@@ -15197,6 +12730,7 @@ body.gym-modal-open {
  * usw. Dadurch bleibt auf dem Desktop nie eine einzelne Karte in der letzten Zeile.
  */
 .gym-plan-grid {
+    container-type: inline-size;
     grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 18px;
 }
@@ -15217,115 +12751,117 @@ body.gym-modal-open {
     grid-column: span 3;
 }
 
-.gym-plan-card {
-    min-height: 0;
-    display: block;
-    overflow: hidden;
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    border-left: 1px solid rgba(0, 0, 0, 0.08);
-    border-radius: 16px;
-    background: #fff;
-    box-shadow: 0 3px 14px rgba(0, 0, 0, 0.10);
-    transition: transform 0.13s ease, box-shadow 0.13s ease, border-color 0.13s ease;
-}
+@media (min-width: 901px) {
+    .gym-plan-card {
+        position: relative;
+        display: block;
+        min-height: 0;
+        height: calc((100cqw - 36px) * 0.1875);
+        aspect-ratio: auto;
+        overflow: hidden;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        border-left: 1px solid rgba(0, 0, 0, 0.08);
+        border-radius: 20px;
+        background: #f1f1f1;
+        box-shadow: 0 3px 14px rgba(0, 0, 0, 0.10);
+        transition: transform 0.13s ease, box-shadow 0.13s ease, border-color 0.13s ease;
+        isolation: isolate;
+    }
 
-.gym-plan-card:hover {
-    transform: translateY(-2px);
-    border-color: rgba(0, 0, 0, 0.15);
-    box-shadow: 0 7px 22px rgba(0, 0, 0, 0.13);
-}
+    .gym-plan-card:hover {
+        transform: translateY(-2px);
+        border-color: rgba(0, 0, 0, 0.15);
+        box-shadow: 0 7px 22px rgba(0, 0, 0, 0.13);
+    }
 
-.gym-plan-card.is-today {
-    border-left-color: rgba(0, 0, 0, 0.08);
-}
+    .gym-plan-card.is-today {
+        border-left-color: rgba(0, 0, 0, 0.08);
+    }
 
-.gym-plan-card-image,
-.gym-plan-card > .gym-image-placeholder {
-    width: 100%;
-    height: 190px;
-    display: block;
-    object-fit: cover;
-    background: #ededed;
-}
+    .gym-plan-card-image,
+    .gym-plan-card > .gym-image-placeholder {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        display: block;
+        object-fit: cover;
+        background: #ededed;
+    }
 
-.gym-plan-card > .gym-image-placeholder {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
+    .gym-plan-card > .gym-image-placeholder {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
 
-.gym-plan-card-info {
-    display: grid;
-    grid-template-columns: minmax(150px, 0.82fr) minmax(0, 1.18fr);
-    align-items: center;
-    gap: 22px;
-    min-height: 112px;
-    padding: 18px 20px;
-    box-sizing: border-box;
-}
+    .gym-plan-card-info {
+        position: absolute;
+        z-index: 2;
+        inset: 0;
+        display: block;
+        min-height: 0;
+        padding: 0;
+        pointer-events: none;
+    }
 
-.gym-plan-card-main {
-    min-width: 0;
-}
+    .gym-plan-card-main {
+        min-width: 0;
+    }
 
-.gym-plan-card-title {
-    margin: 0;
-    color: var(--text);
-    font-size: 1.28rem;
-    font-weight: 850;
-    line-height: 1.18;
-    overflow-wrap: anywhere;
-}
+    .gym-plan-card-title {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        margin: 0;
+        padding: 16px 18px 17px;
+        background: rgba(255, 255, 255, 0.5);
+        backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
+        color: var(--text);
+        font-size: 1.5rem;
+        font-weight: 850;
+        line-height: 1.15;
+        text-align: center;
+        overflow-wrap: anywhere;
+    }
 
-.gym-plan-card .gym-weekday-row {
-    margin-top: 13px;
-    gap: 7px;
-}
+    .gym-plan-card .gym-weekday-row {
+        position: absolute;
+        z-index: 3;
+        top: 14px;
+        left: 14px;
+        margin: 0;
+        gap: 7px;
+    }
 
-.gym-plan-card .gym-weekday-chip {
-    min-width: 34px;
-    padding: 5px 9px;
-    border: 1px solid transparent;
-    background: #f1f1f1;
-    color: #555;
-    font-size: 0.80rem;
-    font-weight: 800;
-}
+    .gym-plan-card .gym-weekday-chip {
+        min-width: 34px;
+        padding: 6px 10px;
+        border: 1px solid rgba(255, 255, 255, 0.58);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.82);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+        color: #444;
+        font-size: 0.82rem;
+        font-weight: 850;
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+    }
 
-/* Heute steckt ausschließlich im betreffenden Wochentag. */
-.gym-plan-card .gym-weekday-chip.is-today {
-    outline: none;
-    border-color: var(--primary);
-    background: var(--primary);
-    color: #fff;
-}
+    .gym-plan-card .gym-weekday-chip.is-today {
+        outline: none;
+        border-color: var(--primary);
+        background: var(--primary);
+        color: #fff;
+    }
 
-.gym-plan-card .gym-plan-muscles {
-    min-width: 0;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: flex-end;
-    align-content: center;
-    gap: 8px;
-}
-
-.gym-plan-card .gym-plan-muscles--empty {
-    min-height: 1px;
-}
-
-.gym-plan-card .gym-plan-muscle-chip {
-    min-height: 30px;
-    box-sizing: border-box;
-    padding: 6px 11px;
-    border: 1px solid rgba(255, 102, 0, 0.28);
-    border-radius: 999px;
-    background: rgba(255, 102, 0, 0.055);
-    color: var(--primary-dark);
-    font-size: 0.79rem;
-    font-weight: 800;
-    line-height: 1.1;
-    white-space: nowrap;
+    .gym-plan-card .gym-plan-muscles,
+    .gym-plan-card .gym-plan-muscles--empty {
+        display: none;
+    }
 }
 
 /* Alte Plan-Innenstruktur wird in der neuen Ansicht nicht mehr verwendet. */
@@ -15335,60 +12871,6 @@ body.gym-modal-open {
 .gym-plan-muscle-section {
     min-width: 0;
 }
-
-@media (max-width: 900px) {
-    .gym-plan-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .gym-plan-grid > .gym-plan-card,
-    .gym-plan-grid--one > .gym-plan-card,
-    .gym-plan-grid--tail-two > .gym-plan-card:nth-last-child(-n + 2),
-    .gym-plan-grid--tail-four > .gym-plan-card:nth-last-child(-n + 4) {
-        grid-column: auto;
-    }
-}
-
-@media (max-width: 650px) {
-    .gym-plan-card-image,
-    .gym-plan-card > .gym-image-placeholder {
-        height: 145px;
-    }
-
-    .gym-plan-card-info {
-        grid-template-columns: minmax(105px, 0.72fr) minmax(0, 1.28fr);
-        gap: 12px;
-        min-height: 96px;
-        padding: 14px 15px;
-    }
-
-    .gym-plan-card-title {
-        font-size: 1.08rem;
-    }
-
-    .gym-plan-card .gym-weekday-row {
-        margin-top: 10px;
-        gap: 5px;
-    }
-
-    .gym-plan-card .gym-weekday-chip {
-        min-width: 29px;
-        padding: 4px 7px;
-        font-size: 0.72rem;
-    }
-
-    .gym-plan-card .gym-plan-muscles {
-        justify-content: flex-end;
-        gap: 5px;
-    }
-
-    .gym-plan-card .gym-plan-muscle-chip {
-        min-height: 25px;
-        padding: 4px 8px;
-        font-size: 0.68rem;
-    }
-}
-
 
 /* ==========================================================
    Gym – Übungsübersicht als quadratische Bildkarten
@@ -15401,6 +12883,7 @@ body.gym-modal-open {
 }
 
 .gym-exercise-card {
+    flex-direction: column;
     position: relative;
     display: block;
     min-height: 0;
@@ -15456,80 +12939,4 @@ body.gym-modal-open {
 .gym-exercise-card .gym-badge {
     background: rgba(255, 255, 255, 0.7);
     box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
-}
-
-@media (max-width: 1400px) {
-    .gym-exercise-grid {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
-}
-
-@media (max-width: 1150px) {
-    .gym-exercise-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-}
-
-@media (max-width: 850px) {
-    .gym-exercise-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-}
-
-@media (max-width: 650px) {
-    .gym-exercise-grid {
-        grid-template-columns: 1fr;
-    }
-
-    /* Mobile Übungsübersicht bleibt kompakt als Zeile.
-       Die quadratische Trainingsansicht wird hiervon nicht verändert. */
-    .gym-exercise-card {
-        position: relative;
-        display: grid;
-        min-height: 118px;
-        aspect-ratio: auto;
-        grid-template-columns: 112px minmax(0, 1fr);
-        align-items: stretch;
-        border-radius: calc(var(--border-radius) + 2px);
-        background: #fff;
-        isolation: auto;
-    }
-
-    .gym-exercise-card .gym-card-image,
-    .gym-exercise-card > .gym-image-placeholder {
-        position: static;
-        inset: auto;
-        width: 112px;
-        height: 100%;
-        min-height: 118px;
-        object-fit: cover;
-        background: #ededed;
-    }
-
-    .gym-exercise-card .gym-card-body {
-        position: static;
-        z-index: auto;
-        padding: 13px;
-        background: #fff;
-        backdrop-filter: none;
-        -webkit-backdrop-filter: none;
-    }
-
-    .gym-exercise-card .gym-card-title-row {
-        align-items: flex-start;
-    }
-
-    .gym-exercise-card .gym-card-title-row h3 {
-        font-size: 1rem;
-    }
-
-    .gym-exercise-card .gym-card-meta {
-        margin-top: 8px;
-        font-size: 0.82rem;
-    }
-
-    .gym-exercise-card .gym-badge {
-        background: rgba(0, 0, 0, 0.06);
-        box-shadow: none;
-    }
 }

@@ -24,11 +24,15 @@ if (!isset($page_title) || $page_title === '') {
     </script>
 
     <?php
-    $cssFile = $_SERVER['DOCUMENT_ROOT'] . '/FIJI.css';
-    $cssVersion = is_file($cssFile) ? filemtime($cssFile) : time();
+    $fullHdCssFile = $_SERVER['DOCUMENT_ROOT'] . '/FIJI_FullHD.css';
+    $mobileCssFile = $_SERVER['DOCUMENT_ROOT'] . '/FIJI_Mobile.css';
+
+    $fullHdCssVersion = is_file($fullHdCssFile) ? filemtime($fullHdCssFile) : time();
+    $mobileCssVersion = is_file($mobileCssFile) ? filemtime($mobileCssFile) : time();
     ?>
 
-    <link rel="stylesheet" href="/FIJI.css?v=<?= $cssVersion ?>">
+    <link rel="stylesheet" href="/FIJI_FullHD.css?v=<?= $fullHdCssVersion ?>">
+    <link rel="stylesheet" href="/FIJI_Mobile.css?v=<?= $mobileCssVersion ?>">
 
     <!-- 1) Standard: Navbar nur verstecken, bis wir einmalig confirmed haben -->
     <style>

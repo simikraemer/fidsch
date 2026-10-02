@@ -505,13 +505,15 @@ if ($isAuthed && $rwthJobsCounterEnabled) {
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   const navbar = document.querySelector('.navbar');
-  const items = document.querySelectorAll('.nav-item.has-submenu');
+  const items = Array.from(document.querySelectorAll('.nav-item.has-submenu'));
+  const mobileNav = window.matchMedia('(max-width: 650px)');
   let r1, r2;
 
   const pulseInstantClose = () => {
     if (!navbar) return;
     navbar.classList.add('submenu-switch');
-    cancelAnimationFrame(r1); cancelAnimationFrame(r2);
+    cancelAnimationFrame(r1);
+    cancelAnimationFrame(r2);
     r1 = requestAnimationFrame(() => {
       r2 = requestAnimationFrame(() => {
         navbar.classList.remove('submenu-switch');
@@ -519,9 +521,46 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
+  const closeMobileSubmenus = (except = null) => {
+    items.forEach(item => {
+      if (item !== except) {
+        item.classList.remove('submenu-open');
+      }
+    });
+  };
+
   items.forEach(item => {
+    // Desktop bleibt unverändert: Hover steuert weiterhin das Untermenü.
     item.addEventListener('mouseenter', pulseInstantClose);
-    item.addEventListener('touchstart', pulseInstantClose, { passive: true });
+
+    const trigger = item.querySelector(':scope > a');
+    if (!trigger) return;
+
+    trigger.addEventListener('click', event => {
+      if (!mobileNav.matches) return;
+
+      // Auf Smartphones ist das Haupticon ausschließlich der Menü-Trigger.
+      // Der hinterlegte href wird dort bewusst NICHT aufgerufen.
+      event.preventDefault();
+      event.stopPropagation();
+
+      const shouldOpen = !item.classList.contains('submenu-open');
+      closeMobileSubmenus(item);
+      item.classList.toggle('submenu-open', shouldOpen);
+    });
+  });
+
+  document.addEventListener('click', event => {
+    if (!mobileNav.matches || !navbar) return;
+    if (!navbar.contains(event.target)) {
+      closeMobileSubmenus();
+    }
+  });
+
+  mobileNav.addEventListener('change', event => {
+    if (!event.matches) {
+      closeMobileSubmenus();
+    }
   });
 });
 </script>
