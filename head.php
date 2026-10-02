@@ -9,6 +9,7 @@ if (!isset($page_title) || $page_title === '') {
 <html lang="de">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title><?= htmlspecialchars($page_title, ENT_QUOTES, 'UTF-8') ?></title>
 
     <!-- 0) Sofort beim Parsen: wenn schon einmal erfolgreich geladen, Navbar nicht mehr verstecken -->

@@ -12698,3 +12698,2687 @@ body.anki-page-active {
         }
     }
 }
+/* ========================================================================== */
+/* Gym / fit/Gym.php                                                          */
+/* ========================================================================== */
+
+.gym-page {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 24px 18px 72px;
+}
+
+.gym-shell {
+    width: min(1500px, 100%);
+    margin: 0 auto;
+}
+
+.gym-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 18px;
+}
+
+.gym-header-copy {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.gym-title {
+    margin: 0;
+    color: var(--text);
+    font-size: clamp(1.7rem, 2.4vw, 2.45rem);
+    line-height: 1.08;
+}
+
+.gym-subtitle {
+    margin: 6px 0 0;
+    color: #666;
+    font-size: 0.98rem;
+}
+
+.gym-header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.gym-button {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    border-radius: var(--border-radius);
+    white-space: nowrap;
+}
+
+.gym-button-small {
+    min-height: 36px;
+    padding: 7px 12px;
+    font-size: 0.9rem;
+}
+
+.gym-button-secondary {
+    background: #fff;
+    color: var(--primary-dark);
+    border: 2px solid var(--primary);
+    box-shadow: none;
+}
+
+.gym-button-secondary:hover {
+    background: rgba(0, 0, 0, 0.035);
+    color: var(--primary-dark);
+}
+
+.gym-button-danger-outline {
+    background: #fff;
+    color: #a51d1d;
+    border: 2px solid rgba(165, 29, 29, 0.42);
+    box-shadow: none;
+}
+
+.gym-button-danger-outline:hover {
+    background: #fff2f2;
+    color: #861616;
+}
+
+.gym-back-button {
+    width: 46px;
+    height: 46px;
+    min-width: 46px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    line-height: 1;
+}
+
+.gym-back-button svg {
+    display: block;
+    width: 22px;
+    height: 22px;
+    margin: 0;
+    overflow: visible;
+}
+
+.gym-back-button svg path {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* Eigene display-Regeln dürfen das native hidden-Attribut nicht überschreiben. */
+.gym-back-button[hidden],
+.gym-header-actions[hidden],
+.gym-tabs[hidden] {
+    display: none !important;
+}
+
+.gym-tabs {
+    display: inline-flex;
+    gap: 6px;
+    padding: 5px;
+    margin-bottom: 18px;
+    background: #fff;
+    border-radius: 999px;
+    box-shadow: var(--shadow);
+}
+
+.gym-tab {
+    min-width: 125px;
+    min-height: 42px;
+    padding: 8px 16px;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text);
+    box-shadow: none;
+}
+
+.gym-tab:hover {
+    background: rgba(0, 0, 0, 0.045);
+}
+
+.gym-tab.is-active {
+    background: var(--primary);
+    color: var(--text-light);
+}
+
+.gym-view {
+    min-height: 220px;
+}
+
+.gym-loading {
+    min-height: 240px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #777;
+    font-weight: 700;
+}
+
+.gym-overview-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 4px 0 14px;
+}
+
+.gym-overview-head h2,
+.gym-detail-section h2 {
+    margin: 0 0 4px;
+    color: var(--text);
+}
+
+.gym-overview-head p {
+    margin: 0;
+    color: #747474;
+}
+
+.gym-card-grid {
+    display: grid;
+    gap: 14px;
+}
+
+.gym-plan-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.gym-exercise-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.gym-card {
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: calc(var(--border-radius) + 2px);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+.gym-plan-card,
+.gym-exercise-card {
+    cursor: pointer;
+    transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+}
+
+.gym-plan-card:hover,
+.gym-exercise-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(0, 0, 0, 0.18);
+}
+
+.gym-plan-card {
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    border-left: 6px solid transparent;
+}
+
+.gym-plan-card-image,
+.gym-plan-card > .gym-image-placeholder {
+    display: block;
+    width: 100%;
+    height: 156px;
+    object-fit: cover;
+    background: #ededed;
+}
+
+.gym-plan-card > .gym-image-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.gym-plan-card-content {
+    min-width: 0;
+    flex: 1;
+    display: flex;
+    align-items: stretch;
+}
+
+.gym-plan-card.is-today {
+    border-left-color: var(--primary);
+}
+
+.gym-card-body {
+    min-width: 0;
+    padding: 16px;
+}
+
+.gym-plan-card .gym-card-body {
+    flex: 1;
+}
+
+.gym-plan-image-placeholder {
+    font-size: 2rem;
+}
+
+.gym-card-arrow {
+    width: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: #8a8a8a;
+}
+
+.gym-card-title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.gym-card-title-row h3 {
+    min-width: 0;
+    margin: 0;
+    color: var(--text);
+    font-size: 1.1rem;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+}
+
+.gym-card-meta {
+    margin-top: 10px;
+    color: #666;
+    font-size: 0.92rem;
+    line-height: 1.35;
+}
+
+.gym-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 25px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.06);
+    color: var(--text);
+    font-size: 0.78rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.gym-badge-today {
+    background: var(--primary);
+    color: var(--text-light);
+}
+
+.gym-weekday-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 18px;
+}
+
+.gym-weekday-chip {
+    min-width: 31px;
+    padding: 4px 7px;
+    border-radius: 999px;
+    background: #f3f3f3;
+    color: #555;
+    text-align: center;
+    font-size: 0.8rem;
+    font-weight: 750;
+}
+
+.gym-weekday-chip.is-today {
+    outline: 2px solid var(--primary);
+    background: #fff;
+    color: var(--primary-dark);
+}
+
+.gym-exercise-card {
+    display: flex;
+    flex-direction: column;
+    min-height: 275px;
+}
+
+.gym-card-image,
+.gym-image-placeholder {
+    display: block;
+    width: 100%;
+    height: 175px;
+    object-fit: cover;
+    background: #ededed;
+}
+
+.gym-image-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #aaa;
+    font-size: 2.2rem;
+}
+
+.gym-active-session-banner {
+    margin-bottom: 16px;
+    padding: 11px 13px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: #fff;
+    border: 2px solid var(--primary);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+}
+
+.gym-active-session-banner[hidden] {
+    display: none !important;
+}
+
+.gym-active-session-banner > div {
+    min-width: 0;
+    display: flex;
+    gap: 7px;
+    flex-wrap: wrap;
+}
+
+.gym-empty-state {
+    min-height: 300px;
+    padding: 28px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    background: #fff;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+}
+
+.gym-empty-state h2 {
+    margin: 0 0 8px;
+}
+
+.gym-empty-state p {
+    max-width: 560px;
+    margin: 0 0 18px;
+    color: #666;
+}
+
+.gym-empty-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.gym-error-state {
+    border-top: 5px solid #a51d1d;
+}
+
+.gym-detail-card,
+.gym-session-head-card,
+.gym-session-exercise-summary {
+    background: #fff;
+    border-radius: calc(var(--border-radius) + 2px);
+    box-shadow: var(--shadow);
+}
+
+.gym-detail-card {
+    padding: 20px;
+}
+
+.gym-detail-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.gym-plan-hero {
+    display: grid;
+    grid-template-columns: minmax(260px, 420px) minmax(0, 1fr);
+    gap: 20px;
+    align-items: stretch;
+}
+
+.gym-plan-hero-image,
+.gym-plan-hero > .gym-image-placeholder {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    max-height: 280px;
+    object-fit: cover;
+    border-radius: var(--border-radius);
+    background: #ededed;
+}
+
+.gym-plan-hero > .gym-image-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.gym-plan-hero-copy {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 16px;
+}
+
+.gym-plan-hero-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    color: #666;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.gym-plan-hero-meta span {
+    padding: 6px 9px;
+    background: #f5f5f5;
+    border-radius: 999px;
+}
+
+.gym-plan-edit-image {
+    display: block;
+    width: min(260px, 100%);
+    aspect-ratio: 16 / 9;
+    margin: 6px 0 8px;
+    object-fit: cover;
+    border-radius: var(--border-radius);
+    background: #ededed;
+}
+
+.gym-detail-section {
+    margin-top: 26px;
+}
+
+.gym-plan-exercise-list {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    margin-top: 12px;
+}
+
+.gym-plan-exercise-row {
+    min-height: 74px;
+    display: grid;
+    grid-template-columns: 40px 58px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 12px;
+    background: #f8f8f8;
+    border: 1px solid rgba(0, 0, 0, 0.055);
+    border-radius: var(--border-radius);
+}
+
+.gym-plan-exercise-index {
+    font-size: 1.15rem;
+    font-weight: 900;
+    text-align: center;
+    color: #777;
+}
+
+.gym-plan-exercise-image {
+    width: 58px;
+    height: 58px;
+    object-fit: cover;
+    border-radius: 10px;
+    background: #e7e7e7;
+}
+
+.gym-plan-exercise-main {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.gym-plan-exercise-main strong {
+    overflow-wrap: anywhere;
+}
+
+.gym-plan-exercise-main span {
+    color: #777;
+    font-size: 0.86rem;
+}
+
+.gym-plan-exercise-target {
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.gym-inline-empty {
+    margin-top: 10px;
+    padding: 18px;
+    border-radius: var(--border-radius);
+    background: #f7f7f7;
+    color: #777;
+    text-align: center;
+}
+
+.gym-exercise-hero {
+    display: grid;
+    grid-template-columns: minmax(220px, 440px) minmax(0, 1fr);
+    gap: 22px;
+    align-items: stretch;
+    margin-bottom: 20px;
+}
+
+.gym-exercise-hero-image {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    max-height: 360px;
+    object-fit: cover;
+    border-radius: var(--border-radius);
+    background: #ededed;
+}
+
+.gym-exercise-hero-copy {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 14px;
+}
+
+.gym-fact {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 11px 13px;
+    box-sizing: border-box;
+    background: #f7f7f7;
+    border-radius: var(--border-radius);
+}
+
+.gym-fact span {
+    color: #777;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.gym-chip-list {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+}
+
+.gym-link-chip {
+    min-height: 38px;
+    padding: 7px 11px;
+    background: #f4f4f4;
+    color: var(--text);
+    box-shadow: none;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.gym-link-chip:hover {
+    background: #eaeaea;
+}
+
+.gym-session-head-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 15px 18px;
+    margin-bottom: 14px;
+}
+
+.gym-session-plan-image {
+    width: 78px;
+    height: 58px;
+    flex: 0 0 auto;
+    object-fit: cover;
+    border-radius: 10px;
+    background: #ededed;
+}
+
+.gym-session-head-copy {
+    min-width: 0;
+    flex: 1;
+}
+
+.gym-session-head-card > div {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.gym-session-kicker,
+.gym-session-calories span {
+    color: #777;
+    font-size: 0.82rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.gym-session-calories {
+    text-align: right;
+}
+
+.gym-session-calories strong {
+    font-size: 1.18rem;
+}
+
+.gym-workout-exercise-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.gym-workout-exercise-card {
+    min-height: 112px;
+    display: grid;
+    grid-template-columns: 44px 86px minmax(0, 1fr) auto;
+    gap: 13px;
+    align-items: center;
+    padding: 12px 14px;
+    box-sizing: border-box;
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-left: 6px solid transparent;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    transition: transform 0.1s ease, border-color 0.1s ease;
+}
+
+.gym-workout-exercise-card:hover {
+    transform: translateY(-1px);
+}
+
+.gym-workout-exercise-card.has-data {
+    border-left-color: var(--primary);
+}
+
+.gym-workout-order {
+    text-align: center;
+    font-size: 1.25rem;
+    font-weight: 900;
+    color: #777;
+}
+
+.gym-workout-exercise-image {
+    width: 86px;
+    height: 86px;
+    object-fit: cover;
+    border-radius: 12px;
+    background: #ededed;
+}
+
+.gym-workout-exercise-copy {
+    min-width: 0;
+}
+
+.gym-workout-exercise-copy h2 {
+    margin: 0 0 8px;
+    font-size: 1.12rem;
+    overflow-wrap: anywhere;
+}
+
+.gym-workout-target,
+.gym-workout-last {
+    color: #666;
+    font-size: 0.9rem;
+    line-height: 1.35;
+}
+
+.gym-workout-progress {
+    min-width: 110px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    text-align: right;
+}
+
+.gym-workout-progress span {
+    color: #999;
+    font-size: 1.8rem;
+}
+
+.gym-session-bottom-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 18px;
+}
+
+.gym-session-exercise-summary {
+    min-height: 112px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 14px;
+    margin-bottom: 14px;
+}
+
+.gym-session-exercise-image {
+    width: 92px;
+    height: 92px;
+    object-fit: cover;
+    border-radius: 13px;
+    background: #ededed;
+}
+
+.gym-session-exercise-summary > div {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 7px;
+}
+
+.gym-set-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+button.gym-set-card {
+    min-height: 150px;
+    padding: 15px;
+    display: block;
+    background: #fff;
+    color: var(--text);
+    border: 1px solid rgba(0, 0, 0, 0.09);
+    border-left: 6px solid transparent;
+    box-shadow: var(--shadow);
+    text-align: left;
+}
+
+button.gym-set-card:hover {
+    background: #fff;
+    border-color: rgba(0, 0, 0, 0.2);
+}
+
+button.gym-set-card.is-complete {
+    border-left-color: var(--primary);
+}
+
+button.gym-set-card.is-extra {
+    border-style: dashed;
+}
+
+.gym-set-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 13px;
+    font-size: 1.04rem;
+    font-weight: 900;
+}
+
+.gym-set-check {
+    width: 29px;
+    height: 29px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: var(--primary);
+    color: var(--text-light);
+}
+
+.gym-set-open {
+    color: #999;
+    font-size: 1.6rem;
+}
+
+.gym-set-columns {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.gym-set-columns > div {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.gym-set-columns span {
+    min-height: 2.5em;
+    color: #777;
+    font-size: 0.78rem;
+    line-height: 1.25;
+}
+
+.gym-set-columns strong {
+    font-size: 1.02rem;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+}
+
+.gym-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 12000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    box-sizing: border-box;
+    background: rgba(0, 0, 0, 0.62);
+    overflow-y: auto;
+}
+
+.gym-modal.hidden {
+    display: none !important;
+}
+
+body.gym-modal-open {
+    overflow: hidden;
+}
+
+.gym-modal-panel {
+    position: relative;
+    width: min(900px, 100%);
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    box-sizing: border-box;
+    padding: 25px;
+    background: #fff;
+    border-top: 6px solid var(--primary);
+    border-radius: var(--border-radius);
+    box-shadow: 0 16px 60px rgba(0, 0, 0, 0.3);
+}
+
+.gym-modal-close {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    color: #777;
+    box-shadow: none;
+    font-size: 1.8rem;
+    line-height: 1;
+}
+
+.gym-modal-close:hover {
+    background: #f2f2f2;
+    color: #444;
+}
+
+.gym-form h2 {
+    margin: 0 46px 20px 0;
+}
+
+.gym-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 14px;
+}
+
+.gym-field > span,
+.gym-fieldset legend {
+    font-weight: 800;
+    color: var(--text);
+}
+
+.gym-field > span small {
+    margin-left: 5px;
+    color: #777;
+    font-weight: 500;
+}
+
+.gym-field input,
+.gym-field select,
+.gym-plan-add-row select,
+.gym-mini-field input {
+    margin: 0;
+}
+
+.gym-dynamic-fields[hidden] {
+    display: none !important;
+}
+
+.gym-fieldset {
+    margin: 0 0 18px;
+    padding: 14px;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: var(--border-radius);
+}
+
+.gym-fieldset legend {
+    padding: 0 6px;
+}
+
+.gym-check-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.gym-check-chip {
+    min-width: 0;
+}
+
+.gym-check-chip input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.gym-check-chip > span {
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 9px;
+    box-sizing: border-box;
+    border: 2px solid rgba(0, 0, 0, 0.12);
+    border-radius: 10px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.gym-check-chip input:checked + span {
+    border-color: var(--primary);
+    background: rgba(0, 0, 0, 0.035);
+}
+
+.gym-check-chip-order {
+    width: 24px;
+    height: 24px;
+    flex: 0 0 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: #efefef;
+    color: #666;
+    font-size: 0.75rem;
+    font-weight: 900;
+}
+
+.gym-check-chip input:checked + span .gym-check-chip-order {
+    background: var(--primary);
+    color: var(--text-light);
+}
+
+.gym-input-suffix {
+    display: flex;
+    align-items: stretch;
+}
+
+.gym-input-suffix input {
+    min-width: 0;
+    flex: 1;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.gym-input-suffix > span {
+    min-width: 62px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 10px;
+    box-sizing: border-box;
+    border: 1px solid #ccc;
+    border-left: none;
+    border-radius: 0 var(--border-radius) var(--border-radius) 0;
+    background: #f3f3f3;
+    color: #555;
+    font-weight: 750;
+}
+
+.gym-modal-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 22px;
+}
+
+.gym-weekday-selector {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 7px;
+}
+
+.gym-weekday-selector label {
+    min-width: 0;
+}
+
+.gym-weekday-selector input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.gym-weekday-selector label > span {
+    min-height: 59px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 6px 3px;
+    box-sizing: border-box;
+    border: 2px solid rgba(0, 0, 0, 0.12);
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 900;
+}
+
+.gym-weekday-selector small {
+    max-width: 100%;
+    color: #777;
+    font-size: 0.66rem;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.gym-weekday-selector input:checked + span {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: var(--text-light);
+}
+
+.gym-weekday-selector input:checked + span small {
+    color: inherit;
+}
+
+.gym-plan-add-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 9px;
+    align-items: center;
+    margin-bottom: 13px;
+}
+
+.gym-plan-builder {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.gym-plan-builder-empty {
+    padding: 20px;
+    background: #f7f7f7;
+    border-radius: var(--border-radius);
+    color: #777;
+    text-align: center;
+}
+
+.gym-plan-builder-row {
+    display: grid;
+    grid-template-columns: 36px 52px minmax(120px, 1fr) auto auto auto auto auto auto;
+    align-items: center;
+    gap: 7px;
+    padding: 9px;
+    background: #f8f8f8;
+    border: 2px solid transparent;
+    border-radius: var(--border-radius);
+}
+
+.gym-plan-builder-row.is-dragging {
+    opacity: 0.5;
+}
+
+.gym-plan-builder-row.is-drag-over {
+    border-color: var(--primary);
+}
+
+.gym-drag-handle {
+    width: 36px;
+    height: 50px;
+    min-height: 50px;
+    padding: 0;
+    background: transparent;
+    color: #777;
+    box-shadow: none;
+    cursor: grab;
+    font-size: 1.2rem;
+}
+
+.gym-drag-handle:hover {
+    background: #ececec;
+    color: #555;
+}
+
+.gym-plan-builder-image {
+    width: 52px;
+    height: 52px;
+    object-fit: cover;
+    border-radius: 9px;
+    background: #e7e7e7;
+}
+
+.gym-plan-builder-copy {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.gym-plan-builder-copy strong {
+    overflow-wrap: anywhere;
+}
+
+.gym-plan-builder-copy span {
+    color: #777;
+    font-size: 0.78rem;
+}
+
+.gym-mini-field {
+    width: 78px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 2px;
+}
+
+.gym-mini-field > span {
+    grid-column: 1 / -1;
+    color: #666;
+    font-size: 0.68rem;
+    font-weight: 800;
+}
+
+.gym-mini-field input {
+    min-width: 0;
+    padding: 7px;
+}
+
+.gym-mini-field small {
+    color: #666;
+    font-size: 0.72rem;
+}
+
+.gym-builder-times {
+    color: #777;
+    font-weight: 900;
+}
+
+.gym-plan-builder-move {
+    display: flex;
+    gap: 4px;
+}
+
+.gym-icon-button {
+    width: 34px;
+    height: 34px;
+    min-height: 34px;
+    padding: 0;
+    background: #fff;
+    color: #555;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    box-shadow: none;
+}
+
+.gym-icon-button:hover {
+    background: #ededed;
+}
+
+.gym-icon-button:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.gym-icon-button-danger {
+    color: #a51d1d;
+}
+
+.gym-set-modal-context {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.gym-set-modal-context > div {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 11px 12px;
+    background: #f5f5f5;
+    border-radius: var(--border-radius);
+}
+
+.gym-set-modal-context span {
+    color: #777;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.gym-set-entry-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+}
+
+.gym-set-entry-grid .gym-field {
+    margin-bottom: 0;
+}
+
+.gym-set-entry-times {
+    margin-top: 23px;
+    color: #777;
+    font-size: 1.35rem;
+    font-weight: 900;
+}
+
+.gym-cardio-kcal-preview {
+    margin-top: -4px;
+    padding: 10px 12px;
+    background: #f6f6f6;
+    border-radius: var(--border-radius);
+    color: var(--primary-dark);
+    font-weight: 900;
+    text-align: center;
+}
+
+.gym-strength-kcal-preview {
+    margin-top: 10px;
+    padding: 9px 12px;
+    background: #f6f6f6;
+    border-radius: var(--border-radius);
+    color: var(--primary-dark);
+    font-size: 0.9rem;
+    font-weight: 800;
+    text-align: center;
+}
+
+.gym-toast {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 13000;
+    max-width: min(420px, calc(100vw - 40px));
+    padding: 11px 14px;
+    background: #fff;
+    color: var(--text);
+    border-left: 6px solid var(--primary);
+    border-radius: var(--border-radius);
+    box-shadow: 0 10px 34px rgba(0, 0, 0, 0.25);
+    font-weight: 700;
+}
+
+.gym-toast.is-error {
+    border-left-color: #a51d1d;
+}
+
+@media (max-width: 1150px) {
+    .gym-plan-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .gym-exercise-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .gym-plan-builder-row {
+        grid-template-columns: 36px 52px minmax(120px, 1fr) repeat(3, 76px) auto;
+    }
+
+    .gym-builder-times {
+        display: none;
+    }
+
+    .gym-plan-builder-move {
+        grid-column: auto;
+    }
+}
+
+@media (max-width: 850px) {
+    .gym-exercise-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .gym-set-list {
+        grid-template-columns: 1fr;
+    }
+
+    .gym-plan-builder-row {
+        grid-template-columns: 36px 52px minmax(0, 1fr) auto;
+    }
+
+    .gym-plan-builder-row .gym-mini-field,
+    .gym-plan-builder-row .gym-builder-times {
+        grid-row: 2;
+    }
+
+    .gym-plan-builder-row .gym-mini-field:first-of-type {
+        grid-column: 2;
+    }
+
+    .gym-plan-builder-move {
+        grid-column: 4;
+        grid-row: 1 / span 2;
+        flex-direction: column;
+    }
+
+    .gym-weekday-selector {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 650px) {
+    .gym-page {
+        padding: 10px 10px 42px;
+    }
+
+    .gym-header {
+        align-items: flex-start;
+        gap: 12px;
+        margin-bottom: 13px;
+    }
+
+    .gym-header-copy {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .gym-header-actions {
+        gap: 6px;
+    }
+
+    .gym-header-actions .gym-button {
+        min-height: 40px;
+        padding: 8px 10px;
+        font-size: 0.86rem;
+    }
+
+    .gym-title {
+        font-size: 1.55rem;
+    }
+
+    .gym-subtitle {
+        font-size: 0.84rem;
+        line-height: 1.3;
+    }
+
+    .gym-back-button {
+        width: 42px;
+        height: 42px;
+        min-width: 42px;
+    }
+
+    .gym-tabs {
+        width: 100%;
+        box-sizing: border-box;
+        margin-bottom: 13px;
+    }
+
+    .gym-tab {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .gym-active-session-banner {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .gym-active-session-banner .gym-button {
+        width: 100%;
+    }
+
+    .gym-overview-head {
+        margin-top: 0;
+    }
+
+    .gym-overview-head h2 {
+        font-size: 1.18rem;
+    }
+
+    .gym-overview-head p {
+        font-size: 0.84rem;
+    }
+
+    .gym-plan-grid,
+    .gym-exercise-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .gym-plan-card {
+        min-height: 132px;
+        display: grid;
+        grid-template-columns: 112px minmax(0, 1fr);
+        grid-template-rows: 1fr;
+    }
+
+    .gym-plan-card-image,
+    .gym-plan-card > .gym-image-placeholder {
+        width: 112px;
+        height: 100%;
+        min-height: 132px;
+    }
+
+    .gym-plan-card-content {
+        min-width: 0;
+        height: 100%;
+    }
+
+    .gym-exercise-card {
+        min-height: 118px;
+        display: grid;
+        grid-template-columns: 112px minmax(0, 1fr);
+        align-items: stretch;
+    }
+
+    .gym-card-image,
+    .gym-exercise-card .gym-image-placeholder {
+        width: 112px;
+        height: 100%;
+        min-height: 118px;
+    }
+
+    .gym-exercise-card .gym-card-body {
+        padding: 13px;
+    }
+
+    .gym-card-title-row {
+        align-items: flex-start;
+    }
+
+    .gym-card-title-row h3 {
+        font-size: 1rem;
+    }
+
+    .gym-card-meta {
+        margin-top: 8px;
+        font-size: 0.82rem;
+    }
+
+    .gym-detail-card {
+        padding: 13px;
+    }
+
+    .gym-plan-hero {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .gym-plan-hero-image,
+    .gym-plan-hero > .gym-image-placeholder {
+        max-height: none;
+        aspect-ratio: 16 / 9;
+    }
+
+    .gym-plan-hero-copy {
+        gap: 10px;
+    }
+
+    .gym-plan-hero-meta {
+        font-size: 0.82rem;
+    }
+
+    .gym-detail-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .gym-detail-actions .gym-button:first-child {
+        grid-column: 1 / -1;
+    }
+
+    .gym-plan-exercise-row {
+        grid-template-columns: 31px 50px minmax(0, 1fr);
+        gap: 9px;
+        padding: 8px;
+    }
+
+    .gym-plan-exercise-image {
+        width: 50px;
+        height: 50px;
+    }
+
+    .gym-plan-exercise-target {
+        grid-column: 3;
+        font-size: 0.9rem;
+    }
+
+    .gym-exercise-hero {
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+
+    .gym-exercise-hero-image {
+        max-height: none;
+        aspect-ratio: 16 / 10;
+    }
+
+    .gym-workout-exercise-card {
+        min-height: 96px;
+        grid-template-columns: 30px 66px minmax(0, 1fr) 34px;
+        gap: 8px;
+        padding: 9px;
+    }
+
+    .gym-workout-order {
+        font-size: 1rem;
+    }
+
+    .gym-workout-exercise-image {
+        width: 66px;
+        height: 66px;
+        border-radius: 10px;
+    }
+
+    .gym-workout-exercise-copy h2 {
+        margin-bottom: 5px;
+        font-size: 1rem;
+    }
+
+    .gym-workout-target,
+    .gym-workout-last {
+        font-size: 0.78rem;
+    }
+
+    .gym-workout-progress {
+        min-width: 0;
+    }
+
+    .gym-workout-progress strong {
+        display: none;
+    }
+
+    .gym-workout-progress span {
+        font-size: 1.65rem;
+    }
+
+    .gym-session-head-card {
+        padding: 12px;
+        gap: 10px;
+    }
+
+    .gym-session-plan-image {
+        width: 62px;
+        height: 48px;
+        border-radius: 8px;
+    }
+
+    .gym-session-bottom-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .gym-session-bottom-actions .gym-button {
+        width: 100%;
+    }
+
+    .gym-session-exercise-summary {
+        min-height: 90px;
+        padding: 10px;
+    }
+
+    .gym-session-exercise-image {
+        width: 72px;
+        height: 72px;
+    }
+
+    button.gym-set-card {
+        min-height: 144px;
+        padding: 13px;
+    }
+
+    .gym-set-columns {
+        grid-template-columns: 1fr;
+        gap: 7px;
+    }
+
+    .gym-set-columns > div {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: baseline;
+        gap: 10px;
+    }
+
+    .gym-set-columns span {
+        min-height: 0;
+    }
+
+    .gym-set-columns strong {
+        text-align: right;
+    }
+
+    .gym-modal {
+        align-items: flex-end;
+        padding: 0;
+    }
+
+    .gym-modal-panel {
+        width: 100%;
+        max-height: 94dvh;
+        padding: 20px 12px calc(16px + env(safe-area-inset-bottom));
+        border-radius: 16px 16px 0 0;
+    }
+
+    .gym-check-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+    }
+
+    .gym-check-chip > span {
+        min-height: 45px;
+        padding: 6px 7px;
+        font-size: 0.86rem;
+    }
+
+    .gym-weekday-selector {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .gym-weekday-selector label > span {
+        min-height: 54px;
+    }
+
+    .gym-plan-add-row {
+        grid-template-columns: 1fr;
+    }
+
+    .gym-plan-add-row .gym-button {
+        width: 100%;
+    }
+
+    .gym-plan-builder-row {
+        grid-template-columns: 31px 46px minmax(0, 1fr) auto;
+        gap: 6px;
+        padding: 8px 6px;
+    }
+
+    .gym-drag-handle {
+        width: 31px;
+    }
+
+    .gym-plan-builder-image {
+        width: 46px;
+        height: 46px;
+    }
+
+    .gym-plan-builder-copy strong {
+        font-size: 0.9rem;
+    }
+
+    .gym-plan-builder-row .gym-mini-field {
+        width: 69px;
+        grid-row: 2;
+    }
+
+    .gym-plan-builder-row .gym-mini-field:first-of-type {
+        grid-column: 2;
+    }
+
+    .gym-plan-builder-row .gym-mini-field:nth-of-type(2) {
+        grid-column: 3;
+    }
+
+    .gym-plan-builder-row .gym-mini-field:nth-of-type(3) {
+        grid-column: 3;
+        justify-self: end;
+    }
+
+    .gym-plan-builder-move {
+        grid-column: 4;
+        grid-row: 1 / span 2;
+        flex-direction: column;
+    }
+
+    .gym-icon-button {
+        width: 36px;
+        height: 36px;
+        min-height: 36px;
+    }
+
+    .gym-modal-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .gym-modal-actions .gym-button {
+        width: 100%;
+    }
+
+    /* Satz-Erfassung ist der wichtigste Mobile-Flow: kompakt, ohne sofortige Tastatur. */
+    .gym-modal.gym-set-modal-active {
+        align-items: center;
+        padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+    }
+
+    .gym-modal.gym-set-modal-active .gym-modal-panel {
+        width: min(430px, calc(100vw - 24px));
+        max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        padding: 18px 14px 14px;
+        border-radius: 16px;
+    }
+
+    .gym-modal.gym-set-modal-active .gym-form h2 {
+        margin: 0 42px 14px 0;
+        font-size: 1.18rem;
+        line-height: 1.25;
+    }
+
+    .gym-modal.gym-set-modal-active .gym-modal-close {
+        top: 7px;
+        right: 8px;
+        width: 36px;
+        height: 36px;
+    }
+
+    .gym-modal.gym-set-modal-active .gym-set-modal-context {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 7px;
+        margin-bottom: 12px;
+    }
+
+    .gym-modal.gym-set-modal-active .gym-set-modal-context > div {
+        min-width: 0;
+        padding: 9px 8px;
+    }
+
+    .gym-modal.gym-set-modal-active .gym-set-modal-context span {
+        font-size: 0.7rem;
+        line-height: 1.2;
+    }
+
+    .gym-modal.gym-set-modal-active .gym-set-modal-context strong {
+        font-size: 0.9rem;
+        line-height: 1.25;
+        overflow-wrap: anywhere;
+    }
+
+    .gym-modal.gym-set-modal-active .gym-set-entry-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .gym-modal.gym-set-modal-active .gym-set-entry-grid .gym-field {
+        min-width: 0;
+    }
+
+    .gym-modal.gym-set-modal-active .gym-set-entry-times {
+        display: none;
+    }
+
+    .gym-modal.gym-set-modal-active .gym-set-cancel-button {
+        display: none !important;
+    }
+
+    .gym-modal.gym-set-modal-active .gym-set-modal-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+        margin-top: 12px;
+    }
+
+    .gym-modal.gym-set-modal-active .gym-set-modal-actions.has-delete {
+        grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    }
+
+    .gym-modal.gym-set-modal-active .gym-set-modal-actions .gym-button {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .gym-modal.gym-set-modal-active .gym-strength-kcal-preview,
+    .gym-modal.gym-set-modal-active .gym-cardio-kcal-preview {
+        margin-top: 8px;
+        padding: 7px 9px;
+        font-size: 0.82rem;
+    }
+
+    .gym-toast {
+        left: 10px;
+        right: 10px;
+        bottom: calc(10px + env(safe-area-inset-bottom));
+        max-width: none;
+    }
+}
+
+@media (max-width: 410px) {
+    .gym-header {
+        flex-wrap: wrap;
+    }
+
+    .gym-header-actions {
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .gym-header-actions .gym-button {
+        width: 100%;
+    }
+
+    .gym-weekday-selector {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .gym-check-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Mobile Navbar: relevant für die Gym-Nutzung auf dem Smartphone. */
+@media (max-width: 650px) {
+    .navbar {
+        height: 42px;
+        padding: 6px;
+    }
+
+    .nav-links {
+        gap: 0.35rem;
+        padding: 6px 0;
+    }
+
+    .nav-icon {
+        width: 30px;
+        height: 30px;
+    }
+
+    .nav-divider {
+        width: 3px;
+        height: 34px;
+        margin: 0 0.1rem;
+    }
+
+    .has-submenu .submenu {
+        top: 48px;
+    }
+
+    .submenu .nav-icon {
+        width: 28px;
+        height: 28px;
+    }
+}
+
+/* Gym: eindeutige JavaScript-/API-Rückmeldungen */
+.gym-toast.is-info {
+    border-left-color: var(--primary);
+}
+
+.gym-toast.is-success {
+    border-left-color: #22863a;
+}
+
+.gym-toast.is-error {
+    border-left-color: #a51d1d;
+}
+
+.gym-toast[hidden] {
+    display: none !important;
+}
+
+/* =========================================================
+ * GYM – Logs + Kardio Zeit/Strecke + manuelle kcal
+ * ========================================================= */
+
+.gym-log-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.gym-log-card {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: 126px minmax(0, 1fr) auto;
+    align-items: stretch;
+    gap: 14px;
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: calc(var(--border-radius) + 2px);
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    transition: transform 0.12s ease, border-color 0.12s ease;
+}
+
+.gym-log-card:hover {
+    transform: translateY(-1px);
+    border-color: rgba(0, 0, 0, 0.18);
+}
+
+.gym-log-image {
+    width: 126px;
+    height: 100%;
+    min-height: 112px;
+    display: block;
+    object-fit: cover;
+    background: #ededed;
+}
+
+.gym-log-copy {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 13px 0;
+}
+
+.gym-log-copy h3 {
+    margin: 3px 0 8px;
+    overflow: hidden;
+    font-size: 1.08rem;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.gym-log-date {
+    color: #777;
+    font-size: 0.82rem;
+    font-weight: 800;
+}
+
+.gym-log-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px 14px;
+    flex-wrap: wrap;
+    color: #666;
+    font-size: 0.86rem;
+}
+
+.gym-log-card > .gym-card-arrow {
+    align-self: center;
+    padding-right: 14px;
+}
+
+.gym-cardio-kcal-control {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    margin-top: 2px;
+}
+
+.gym-manual-kcal-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    box-sizing: border-box;
+    padding: 9px 11px;
+    border: 1px solid rgba(0, 0, 0, 0.10);
+    border-radius: var(--border-radius);
+    background: rgba(0, 0, 0, 0.025);
+    cursor: pointer;
+    font-weight: 800;
+}
+
+.gym-manual-kcal-toggle input {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 auto;
+    margin: 0;
+    accent-color: var(--primary);
+}
+
+.gym-manual-kcal-field {
+    margin: 0;
+}
+
+.gym-manual-kcal-field[hidden] {
+    display: none !important;
+}
+
+@media (max-width: 900px) {
+    .gym-log-list {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 650px) {
+    .gym-log-card {
+        grid-template-columns: 86px minmax(0, 1fr) 24px;
+        gap: 9px;
+    }
+
+    .gym-log-image {
+        width: 86px;
+        min-height: 88px;
+    }
+
+    .gym-log-copy {
+        padding: 9px 0;
+    }
+
+    .gym-log-copy h3 {
+        margin: 2px 0 5px;
+        font-size: 0.98rem;
+    }
+
+    .gym-log-date,
+    .gym-log-meta {
+        font-size: 0.75rem;
+    }
+
+    .gym-log-card > .gym-card-arrow {
+        padding-right: 6px;
+    }
+
+    .gym-modal.gym-set-modal-active .gym-cardio-kcal-control {
+        gap: 7px;
+    }
+
+    .gym-modal.gym-set-modal-active .gym-manual-kcal-toggle {
+        min-height: 40px;
+        padding: 7px 9px;
+        font-size: 0.84rem;
+    }
+}
+
+/* =========================================================
+ * GYM – Übungsdetail / Direkteintrag kompakt
+ * ========================================================= */
+
+.gym-exercise-entry-layout {
+    display: grid;
+    grid-template-columns: minmax(260px, 440px) minmax(0, 1fr);
+    gap: 22px;
+    align-items: stretch;
+    margin-bottom: 20px;
+}
+
+.gym-exercise-entry-layout > .gym-exercise-hero-image {
+    align-self: stretch;
+    max-height: none;
+    height: 100%;
+    min-height: 260px;
+}
+
+.gym-exercise-entry-panel {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 18px;
+}
+
+.gym-exercise-detail-actions {
+    flex-wrap: nowrap;
+}
+
+.gym-exercise-detail-actions .gym-button {
+    flex: 0 0 auto;
+}
+
+.gym-direct-entry-section {
+    min-width: 0;
+}
+
+.gym-direct-entry-form {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    min-width: 0;
+}
+
+.gym-direct-entry-form > .gym-field {
+    flex: 1 1 170px;
+    min-width: 120px;
+    margin-bottom: 0;
+}
+
+.gym-direct-entry-form > .gym-set-entry-grid {
+    flex: 1 1 360px;
+    min-width: 300px;
+}
+
+.gym-direct-entry-form .gym-cardio-kcal-control {
+    flex: 1 1 auto;
+    min-width: 0;
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 10px;
+    margin: 0;
+}
+
+.gym-direct-entry-form .gym-manual-kcal-toggle {
+    flex: 0 1 auto;
+    white-space: nowrap;
+}
+
+.gym-direct-entry-form .gym-manual-kcal-field {
+    flex: 1 1 190px;
+    min-width: 160px;
+}
+
+.gym-direct-entry-form .gym-cardio-kcal-preview,
+.gym-direct-entry-form .gym-strength-kcal-preview {
+    flex: 0 0 auto;
+    min-width: 105px;
+    margin: 0;
+    padding: 11px 12px;
+    box-sizing: border-box;
+    white-space: nowrap;
+}
+
+.gym-cardio-kcal-preview[hidden] {
+    display: none !important;
+}
+
+.gym-direct-entry-submit {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+    .gym-exercise-entry-layout {
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+
+    .gym-exercise-entry-layout > .gym-exercise-hero-image {
+        height: auto;
+        min-height: 0;
+        aspect-ratio: 16 / 10;
+    }
+
+    .gym-exercise-entry-panel {
+        gap: 14px;
+    }
+
+    .gym-direct-entry-form {
+        flex-wrap: wrap;
+    }
+}
+
+@media (max-width: 650px) {
+    .gym-exercise-detail-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .gym-exercise-detail-actions .gym-button,
+    .gym-exercise-detail-actions .gym-button:first-child {
+        width: 100%;
+        min-width: 0;
+        grid-column: auto;
+    }
+
+    .gym-direct-entry-form {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .gym-direct-entry-form > .gym-field,
+    .gym-direct-entry-form > .gym-set-entry-grid {
+        width: 100%;
+        min-width: 0;
+        flex: 0 0 auto;
+    }
+
+    .gym-direct-entry-form .gym-cardio-kcal-control {
+        width: 100%;
+        flex: 0 0 auto;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 9px;
+    }
+
+    .gym-direct-entry-form .gym-manual-kcal-toggle,
+    .gym-direct-entry-form .gym-manual-kcal-field,
+    .gym-direct-entry-form .gym-cardio-kcal-preview,
+    .gym-direct-entry-form .gym-strength-kcal-preview {
+        width: 100%;
+        min-width: 0;
+        flex: 0 0 auto;
+        box-sizing: border-box;
+    }
+
+    .gym-direct-entry-submit {
+        width: 100%;
+        margin-top: 10px;
+    }
+}
+
+/* =========================================================
+ * GYM – Übungsdetail / Direkteintrag Desktop-Anordnung
+ * Nur Desktop: Mobile/Tablet-Regeln bleiben unverändert.
+ * ========================================================= */
+@media (min-width: 901px) {
+    .gym-exercise-entry-panel {
+        position: relative;
+        justify-content: flex-start;
+        padding-top: 82px;
+    }
+
+    .gym-exercise-detail-actions {
+        position: absolute;
+        top: 0;
+        right: 0;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+
+    .gym-direct-entry-section {
+        width: min(100%, 520px);
+    }
+
+    .gym-direct-entry-form {
+        width: 100%;
+        max-width: 520px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .gym-direct-entry-form > .gym-field {
+        flex: 0 0 auto;
+        width: min(100%, 360px);
+        min-width: 0;
+    }
+
+    .gym-direct-entry-form > .gym-set-entry-grid {
+        flex: 0 0 auto;
+        width: min(100%, 460px);
+        min-width: 0;
+    }
+
+    .gym-direct-entry-form .gym-cardio-kcal-control {
+        flex: 0 0 auto;
+        width: auto;
+        max-width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+        margin: 0;
+    }
+
+    .gym-direct-entry-form .gym-manual-kcal-toggle {
+        flex: 0 0 auto;
+        width: auto;
+        max-width: 100%;
+        white-space: nowrap;
+    }
+
+    .gym-direct-entry-form .gym-manual-kcal-field {
+        flex: 0 0 auto;
+        width: min(100%, 360px);
+        min-width: 0;
+    }
+
+    .gym-direct-entry-form .gym-cardio-kcal-preview,
+    .gym-direct-entry-form .gym-strength-kcal-preview {
+        flex: 0 0 auto;
+        width: auto;
+        min-width: 0;
+        margin: 0;
+        padding: 11px 12px;
+        white-space: nowrap;
+    }
+
+    .gym-direct-entry-submit {
+        flex: 0 0 auto;
+        width: auto;
+        margin-top: 2px;
+    }
+}
+
+/* =========================================================
+ * GYM – kompakter Übungstyp-Schalter + Muskelgruppen auf Plänen
+ * ========================================================= */
+
+.gym-exercise-type-tabs {
+    width: fit-content;
+    max-width: 100%;
+    margin-bottom: 0;
+    align-self: flex-start;
+}
+
+.gym-exercise-type-tabs .gym-tab {
+    min-width: 0;
+    flex: 0 0 auto;
+    padding-inline: 18px;
+    white-space: nowrap;
+}
+
+.gym-plan-card-body-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(150px, 0.9fr);
+    align-items: center;
+    gap: 16px;
+    min-height: 100%;
+}
+
+.gym-plan-card-summary {
+    min-width: 0;
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+}
+
+.gym-plan-card-summary .gym-card-meta {
+    margin-top: auto;
+    padding-top: 12px;
+}
+
+.gym-plan-muscle-section {
+    min-width: 0;
+    align-self: center;
+    margin: 0;
+    padding-left: 16px;
+    border-left: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.gym-plan-muscle-section--empty {
+    visibility: hidden;
+}
+
+.gym-plan-muscles {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 7px;
+}
+
+.gym-plan-muscle-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    box-sizing: border-box;
+    padding: 5px 10px;
+    border: 1px solid color-mix(in srgb, var(--primary) 38%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--primary) 7%, #fff);
+    color: var(--primary-dark);
+    font-size: 0.78rem;
+    font-weight: 800;
+    line-height: 1.1;
+    white-space: nowrap;
+}
+
+@media (max-width: 650px) {
+    .gym-exercise-type-tabs {
+        width: fit-content;
+        max-width: 100%;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    .gym-exercise-type-tabs::-webkit-scrollbar {
+        display: none;
+    }
+
+    .gym-exercise-type-tabs .gym-tab {
+        flex: 0 0 auto;
+        min-width: 0;
+        padding: 8px 12px;
+        font-size: 0.86rem;
+    }
+
+    .gym-plan-card-body-grid {
+        grid-template-columns: minmax(0, 1fr) minmax(78px, auto);
+        gap: 8px;
+    }
+
+    .gym-plan-card-summary .gym-card-meta {
+        padding-top: 8px;
+    }
+
+    .gym-plan-muscle-section {
+        max-width: 118px;
+        padding-left: 8px;
+    }
+
+    .gym-plan-muscles {
+        gap: 4px;
+    }
+
+    .gym-plan-muscle-chip {
+        min-height: 23px;
+        padding: 3px 7px;
+        font-size: 0.68rem;
+    }
+}
+
+
+/* =========================================================
+ * GYM – Planübersicht v2
+ * ========================================================= */
+
+/* Untertitel im Gym-Kopf sind bewusst entfernt. */
+.gym-subtitle {
+    display: none !important;
+}
+
+.gym-overview-head {
+    margin-bottom: 12px;
+}
+
+.gym-overview-head h2 {
+    margin-bottom: 0;
+}
+
+/* Die Planübersicht verteilt Karten dynamisch auf maximal drei Karten pro Zeile.
+ * 1       -> 1
+ * 2       -> 2
+ * 3       -> 3
+ * 4       -> 2 + 2
+ * 5       -> 3 + 2
+ * 6       -> 3 + 3
+ * 7       -> 3 + 2 + 2
+ * usw. Dadurch bleibt auf dem Desktop nie eine einzelne Karte in der letzten Zeile.
+ */
+.gym-plan-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.gym-plan-grid > .gym-plan-card {
+    grid-column: span 2;
+}
+
+.gym-plan-grid--one > .gym-plan-card {
+    grid-column: span 6;
+}
+
+.gym-plan-grid--tail-two > .gym-plan-card:nth-last-child(-n + 2) {
+    grid-column: span 3;
+}
+
+.gym-plan-grid--tail-four > .gym-plan-card:nth-last-child(-n + 4) {
+    grid-column: span 3;
+}
+
+.gym-plan-card {
+    min-height: 0;
+    display: block;
+    overflow: hidden;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-left: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 3px 14px rgba(0, 0, 0, 0.10);
+    transition: transform 0.13s ease, box-shadow 0.13s ease, border-color 0.13s ease;
+}
+
+.gym-plan-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(0, 0, 0, 0.15);
+    box-shadow: 0 7px 22px rgba(0, 0, 0, 0.13);
+}
+
+.gym-plan-card.is-today {
+    border-left-color: rgba(0, 0, 0, 0.08);
+}
+
+.gym-plan-card-image,
+.gym-plan-card > .gym-image-placeholder {
+    width: 100%;
+    height: 190px;
+    display: block;
+    object-fit: cover;
+    background: #ededed;
+}
+
+.gym-plan-card > .gym-image-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.gym-plan-card-info {
+    display: grid;
+    grid-template-columns: minmax(150px, 0.82fr) minmax(0, 1.18fr);
+    align-items: center;
+    gap: 22px;
+    min-height: 112px;
+    padding: 18px 20px;
+    box-sizing: border-box;
+}
+
+.gym-plan-card-main {
+    min-width: 0;
+}
+
+.gym-plan-card-title {
+    margin: 0;
+    color: var(--text);
+    font-size: 1.28rem;
+    font-weight: 850;
+    line-height: 1.18;
+    overflow-wrap: anywhere;
+}
+
+.gym-plan-card .gym-weekday-row {
+    margin-top: 13px;
+    gap: 7px;
+}
+
+.gym-plan-card .gym-weekday-chip {
+    min-width: 34px;
+    padding: 5px 9px;
+    border: 1px solid transparent;
+    background: #f1f1f1;
+    color: #555;
+    font-size: 0.80rem;
+    font-weight: 800;
+}
+
+/* Heute steckt ausschließlich im betreffenden Wochentag. */
+.gym-plan-card .gym-weekday-chip.is-today {
+    outline: none;
+    border-color: var(--primary);
+    background: var(--primary);
+    color: #fff;
+}
+
+.gym-plan-card .gym-plan-muscles {
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    align-content: center;
+    gap: 8px;
+}
+
+.gym-plan-card .gym-plan-muscles--empty {
+    min-height: 1px;
+}
+
+.gym-plan-card .gym-plan-muscle-chip {
+    min-height: 30px;
+    box-sizing: border-box;
+    padding: 6px 11px;
+    border: 1px solid rgba(255, 102, 0, 0.28);
+    border-radius: 999px;
+    background: rgba(255, 102, 0, 0.055);
+    color: var(--primary-dark);
+    font-size: 0.79rem;
+    font-weight: 800;
+    line-height: 1.1;
+    white-space: nowrap;
+}
+
+/* Alte Plan-Innenstruktur wird in der neuen Ansicht nicht mehr verwendet. */
+.gym-plan-card-content,
+.gym-plan-card-body-grid,
+.gym-plan-card-summary,
+.gym-plan-muscle-section {
+    min-width: 0;
+}
+
+@media (max-width: 900px) {
+    .gym-plan-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .gym-plan-grid > .gym-plan-card,
+    .gym-plan-grid--one > .gym-plan-card,
+    .gym-plan-grid--tail-two > .gym-plan-card:nth-last-child(-n + 2),
+    .gym-plan-grid--tail-four > .gym-plan-card:nth-last-child(-n + 4) {
+        grid-column: auto;
+    }
+}
+
+@media (max-width: 650px) {
+    .gym-plan-card-image,
+    .gym-plan-card > .gym-image-placeholder {
+        height: 145px;
+    }
+
+    .gym-plan-card-info {
+        grid-template-columns: minmax(105px, 0.72fr) minmax(0, 1.28fr);
+        gap: 12px;
+        min-height: 96px;
+        padding: 14px 15px;
+    }
+
+    .gym-plan-card-title {
+        font-size: 1.08rem;
+    }
+
+    .gym-plan-card .gym-weekday-row {
+        margin-top: 10px;
+        gap: 5px;
+    }
+
+    .gym-plan-card .gym-weekday-chip {
+        min-width: 29px;
+        padding: 4px 7px;
+        font-size: 0.72rem;
+    }
+
+    .gym-plan-card .gym-plan-muscles {
+        justify-content: flex-end;
+        gap: 5px;
+    }
+
+    .gym-plan-card .gym-plan-muscle-chip {
+        min-height: 25px;
+        padding: 4px 8px;
+        font-size: 0.68rem;
+    }
+}

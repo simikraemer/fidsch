@@ -11,6 +11,7 @@ $routesFit = [
     'gewicht'       => 'Gewicht_New.php',
     'pizza'         => 'Pizza.php',
     'training'      => 'Training_New.php',
+    'gym'           => 'Gym.php',
     'food'          => 'FoodDashboard.php',
 ];
 
