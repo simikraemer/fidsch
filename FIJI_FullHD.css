@@ -12940,3 +12940,21 @@ body.gym-modal-open {
     background: rgba(255, 255, 255, 0.7);
     box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
 }
+
+/* ==========================================================
+   fit/Start.php – Sport-Modus
+   ========================================================== */
+
+#healthPage .dashboard-sport-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+#healthPage .dashboard-sport-card {
+    min-width: 0;
+}
+
+#healthPage .dashboard-sport-wrap {
+    height: 330px;
+    max-height: none;
+    aspect-ratio: auto;
+}

@@ -14,11 +14,12 @@ $kalorienziel = 3000;
 $aktJahr = (int)(new DateTime())->format('Y');
 
 $modus = isset($_GET['modus']) ? (string)$_GET['modus'] : 'verlauf';
-$gueltigeModi = ['verlauf', 'wochentage'];
+$gueltigeModi = ['verlauf', 'wochentage', 'sport'];
 if (!in_array($modus, $gueltigeModi, true)) {
     $modus = 'verlauf';
 }
 $isWochentageMode = ($modus === 'wochentage');
+$isSportMode = ($modus === 'sport');
 
 // verfügbare Jahre (nur Jahre, in denen irgendeine Tabelle Daten hat)
 $verfuegbareJahre = [];
@@ -29,6 +30,15 @@ $yearsSql = "
         SELECT YEAR(tstamp) AS y FROM training
         UNION
         SELECT YEAR(tstamp) AS y FROM gewicht
+        UNION
+        SELECT YEAR(gs.started_at) AS y
+        FROM gym_sessions gs
+        WHERE gs.finished_at IS NOT NULL
+          AND EXISTS (
+              SELECT 1
+              FROM gym_session_sets gss
+              WHERE gss.session_id = gs.id
+          )
     ) t
     WHERE y IS NOT NULL
     ORDER BY y DESC
@@ -44,6 +54,16 @@ if (!$verfuegbareJahre) {
 }
 
 $jahrParam = isset($_GET['jahr']) ? trim((string)$_GET['jahr']) : (string)$aktJahr;
+
+// Sport wird immer für genau ein Kalenderjahr dargestellt.
+if ($isSportMode && $jahrParam === 'all') {
+    $jahrParam = (string)(
+        in_array($aktJahr, $verfuegbareJahre, true)
+            ? $aktJahr
+            : $verfuegbareJahre[0]
+    );
+}
+
 $isAllYears = ($jahrParam === 'all');
 
 $allStartYear = min($verfuegbareJahre);
@@ -190,19 +210,39 @@ while ($row = $result->fetch_assoc()) {
 $stmt->close();
 
 // 5) Netto-Kalorien (Zufuhr - Verbrauch)
+//
+// Historische Einträge aus fit.training bleiben unverändert enthalten.
+// Zusätzlich werden die kcal abgeschlossener neuer Gym-Sessions abgezogen.
 $stmt = $fitconn->prepare("
     SELECT DATE(tstamp) AS tag, SUM(kalorien) AS gesamt
     FROM kalorien
     WHERE tstamp >= ? AND tstamp < ?
     GROUP BY DATE(tstamp)
+
     UNION ALL
+
     SELECT DATE(tstamp) AS tag, -SUM(kalorien) AS gesamt
     FROM training
     WHERE tstamp >= ? AND tstamp < ?
     GROUP BY DATE(tstamp)
+
+    UNION ALL
+
+    SELECT DATE(gs.started_at) AS tag, -SUM(COALESCE(gss.calories, 0)) AS gesamt
+    FROM gym_sessions gs
+    JOIN gym_session_sets gss ON gss.session_id = gs.id
+    WHERE gs.finished_at IS NOT NULL
+      AND gs.started_at >= ? AND gs.started_at < ?
+    GROUP BY DATE(gs.started_at)
+
     ORDER BY tag
 ");
-$stmt->bind_param('ssss', $startDate, $endDate, $startDate, $endDate);
+$stmt->bind_param(
+    'ssssss',
+    $startDate, $endDate,
+    $startDate, $endDate,
+    $startDate, $endDate
+);
 $stmt->execute();
 $result = $stmt->get_result();
 
@@ -220,6 +260,60 @@ $stmt->close();
 $nettoSumme         = array_sum($nettoTage);
 $tageMitNettoWerten = count($nettoTage);
 $nettoDurchschnitt  = $tageMitNettoWerten > 0 ? round($nettoSumme / $tageMitNettoWerten) : 0;
+
+// 5b) Sportdaten aus dem neuen Gym-System.
+//
+// Kraft: Trainingsvolumen = Summe(Reps × Gewicht) in kg.
+// Kardio: gespeicherte kcal, damit Zeit- und Strecken-Kardio vergleichbar bleiben.
+$sportKraftTage = [];
+$sportCardioTage = [];
+
+if ($isSportMode) {
+    $stmt = $fitconn->prepare("
+        SELECT
+            DATE(gs.started_at) AS tag,
+            SUM(
+                CASE
+                    WHEN ge.type = 'kraft'
+                    THEN COALESCE(gss.reps, 0) * COALESCE(gss.weight, 0)
+                    ELSE 0
+                END
+            ) AS kraft_volumen,
+            SUM(
+                CASE
+                    WHEN ge.type = 'kardio'
+                    THEN COALESCE(gss.calories, 0)
+                    ELSE 0
+                END
+            ) AS cardio_kcal
+        FROM gym_sessions gs
+        JOIN gym_session_sets gss ON gss.session_id = gs.id
+        JOIN gym_plan_exercises gpe ON gpe.id = gss.plan_exercise_id
+        JOIN gym_exercises ge ON ge.id = gpe.exercise_id
+        WHERE gs.finished_at IS NOT NULL
+          AND gs.started_at >= ? AND gs.started_at < ?
+        GROUP BY DATE(gs.started_at)
+        ORDER BY tag
+    ");
+    $stmt->bind_param('ss', $startDate, $endDate);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    while ($row = $result->fetch_assoc()) {
+        $tag = (string)$row['tag'];
+        $kraft = (float)($row['kraft_volumen'] ?? 0);
+        $cardio = (float)($row['cardio_kcal'] ?? 0);
+
+        if ($kraft > 0) {
+            $sportKraftTage[$tag] = round($kraft, 2);
+        }
+        if ($cardio > 0) {
+            $sportCardioTage[$tag] = round($cardio, 2);
+        }
+    }
+
+    $stmt->close();
+}
 
 // 6) Gewichtsdaten
 $stmt = $fitconn->prepare("
@@ -435,6 +529,46 @@ $fettMonatsavg    = monthAvgSerie($alleTage, $fettTage, 2);
 $khMonatsavg      = monthAvgSerie($alleTage, $khTage, 2);
 $alkMonatsavg     = monthAvgSerie($alleTage, $alkTage, 2);
 
+// Sport-Wochenmittel als horizontale Linie je Kalenderwoche.
+// Tage ohne Training zählen als 0.
+function sportWeeklyAverageSeries(array $alleTage, array $tageMap, int $precision = 1): array
+{
+    $out = array_fill(0, count($alleTage), null);
+    $wochen = [];
+
+    foreach ($alleTage as $index => $tag) {
+        $kw = date('o-W', strtotime($tag));
+        if (!isset($wochen[$kw])) {
+            $wochen[$kw] = [
+                'indices' => [],
+                'sum' => 0.0,
+                'has_value' => false,
+            ];
+        }
+
+        $wochen[$kw]['indices'][] = $index;
+
+        if (array_key_exists($tag, $tageMap)) {
+            $wochen[$kw]['sum'] += (float)$tageMap[$tag];
+            $wochen[$kw]['has_value'] = true;
+        }
+    }
+
+    foreach ($wochen as $woche) {
+        $dayCount = count($woche['indices']);
+        if ($dayCount === 0 || !$woche['has_value']) {
+            continue;
+        }
+
+        $avg = round($woche['sum'] / $dayCount, $precision);
+        foreach ($woche['indices'] as $index) {
+            $out[$index] = $avg;
+        }
+    }
+
+    return $out;
+}
+
 // 10) Anzeige-Serien je nach Modus
 $wochentagLabels = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
 
@@ -478,6 +612,27 @@ if ($isWochentageMode) {
     );
 }
 
+// Sport-Serien: Tagespunkte + Wochenmittel.
+$sportKraftWerte = [];
+$sportCardioWerte = [];
+
+foreach ($alleTage as $tag) {
+    $sportKraftWerte[] = array_key_exists($tag, $sportKraftTage) ? $sportKraftTage[$tag] : null;
+    $sportCardioWerte[] = array_key_exists($tag, $sportCardioTage) ? $sportCardioTage[$tag] : null;
+}
+
+$sportKraftKWavg = sportWeeklyAverageSeries($alleTage, $sportKraftTage, 1);
+$sportCardioKWavg = sportWeeklyAverageSeries($alleTage, $sportCardioTage, 1);
+
+$sportKraftGesamt = array_sum($sportKraftTage);
+$sportCardioGesamt = array_sum($sportCardioTage);
+
+$sportKraftGesamtText = $sportKraftGesamt >= 1000
+    ? number_format($sportKraftGesamt / 1000, 1, ',', '.') . ' t gesamt'
+    : number_format($sportKraftGesamt, 0, ',', '.') . ' kg gesamt';
+
+$sportCardioGesamtText = number_format($sportCardioGesamt, 0, ',', '.') . ' kcal gesamt';
+
 // Trendlinie nur im Zeitverlauf
 $trendWerte = $isWochentageMode ? [] : computeExponentialTrendSeries($anzeigeGewicht, 1);
 
@@ -500,8 +655,13 @@ $fettKWJson    = json_encode($anzeigeFettKW);
 $khKWJson      = json_encode($anzeigeKhKW);
 $alkKWJson     = json_encode($anzeigeAlkKW);
 
+$sportKraftJson    = json_encode($sportKraftWerte);
+$sportKraftKWJson  = json_encode($sportKraftKWavg);
+$sportCardioJson   = json_encode($sportCardioWerte);
+$sportCardioKWJson = json_encode($sportCardioKWavg);
+
 // 12) Rendering starten (kein Output davor!)
-$page_title = 'Ernährung';
+$page_title = $isSportMode ? 'Sport' : 'Ernährung';
 require_once __DIR__ . '/../head.php';
 require_once __DIR__ . '/../navbar.php';
 ?>
@@ -509,8 +669,13 @@ require_once __DIR__ . '/../navbar.php';
 <div id="healthPage" class="lt-page dashboard-page">
   <div class="lt-topbar">
   <h1 class="ueberschrift dashboard-title">
-    <span class="dashboard-title-main">Ernährung <?= $isAllYears ? 'Alle' : htmlspecialchars((string)$jahr, ENT_QUOTES, 'UTF-8') ?></span>
-    <span class="dashboard-title-soft">| <?= htmlspecialchars($gewichtsDiffText, ENT_QUOTES, 'UTF-8') ?></span>
+    <span class="dashboard-title-main">
+      <?= $isSportMode ? 'Sport' : 'Ernährung' ?>
+      <?= $isAllYears ? 'Alle' : htmlspecialchars((string)$jahr, ENT_QUOTES, 'UTF-8') ?>
+    </span>
+    <?php if (!$isSportMode): ?>
+      <span class="dashboard-title-soft">| <?= htmlspecialchars($gewichtsDiffText, ENT_QUOTES, 'UTF-8') ?></span>
+    <?php endif; ?>
   </h1>
 
   <div class="dashboard-sober-counters" aria-label="Abstinenz-Counter">
@@ -547,13 +712,16 @@ require_once __DIR__ . '/../navbar.php';
         <select id="modus" name="modus" class="kategorie-select" onchange="this.form.submit()">
           <option value="verlauf" <?= $modus === 'verlauf' ? 'selected' : '' ?>>Jahr</option>
           <option value="wochentage" <?= $modus === 'wochentage' ? 'selected' : '' ?>>Wochentage</option>
+          <option value="sport" <?= $modus === 'sport' ? 'selected' : '' ?>>Sport</option>
         </select>
       </div>
 
       <div class="lt-yearwrap">
         <label for="jahr" class="lt-label">Jahr</label>
         <select id="jahr" name="jahr" class="kategorie-select" onchange="this.form.submit()">
-          <option value="all" <?= $isAllYears ? 'selected' : '' ?>>Alle</option>
+          <?php if (!$isSportMode): ?>
+            <option value="all" <?= $isAllYears ? 'selected' : '' ?>>Alle</option>
+          <?php endif; ?>
           <?php foreach ($verfuegbareJahre as $y): ?>
             <option value="<?= (int)$y ?>" <?= (!$isAllYears && (int)$y === (int)$jahr ? 'selected' : '') ?>>
               <?= (int)$y ?>
@@ -565,73 +733,87 @@ require_once __DIR__ . '/../navbar.php';
   </div>
 
   <div class="ernährungsdiablock">
-    <div class="dashboard-pies<?= $isWochentageMode ? ' dashboard-pies--single' : '' ?>">
-      <div class="dashboard-pie-card<?= $isWochentageMode ? ' dashboard-pie-card--full' : '' ?>">
-        <div class="dashboard-pie-kpi">
-          <span class="dashboard-pie-kpi-label">Kalorien</span>
-          <span class="dashboard-pie-kpi-value">Ø<?= (int)$nettoDurchschnitt ?> kcal/Tag</span>
+    <?php if ($isSportMode): ?>
+      <div class="dashboard-pies dashboard-sport-grid">
+        <div class="dashboard-pie-card dashboard-sport-card">
+          <div class="dashboard-pie-kpi">
+            <span class="dashboard-pie-kpi-label">Kraft · Trainingsvolumen</span>
+            <span class="dashboard-pie-kpi-value"><?= htmlspecialchars($sportKraftGesamtText, ENT_QUOTES, 'UTF-8') ?></span>
+          </div>
+          <div class="dashboard-pie-wrap dashboard-sport-wrap">
+            <canvas id="sportKraftChart"></canvas>
+          </div>
         </div>
-        <div class="dashboard-pie-wrap">
-          <canvas id="kalorienChart"></canvas>
+
+        <div class="dashboard-pie-card dashboard-sport-card">
+          <div class="dashboard-pie-kpi">
+            <span class="dashboard-pie-kpi-label">Kardio · Verbrauch</span>
+            <span class="dashboard-pie-kpi-value"><?= htmlspecialchars($sportCardioGesamtText, ENT_QUOTES, 'UTF-8') ?></span>
+          </div>
+          <div class="dashboard-pie-wrap dashboard-sport-wrap">
+            <canvas id="sportCardioChart"></canvas>
+          </div>
         </div>
       </div>
+    <?php else: ?>
+      <div class="dashboard-pies<?= $isWochentageMode ? ' dashboard-pies--single' : '' ?>">
+        <div class="dashboard-pie-card<?= $isWochentageMode ? ' dashboard-pie-card--full' : '' ?>">
+          <div class="dashboard-pie-kpi">
+            <span class="dashboard-pie-kpi-label">Kalorien</span>
+            <span class="dashboard-pie-kpi-value">Ø<?= (int)$nettoDurchschnitt ?> kcal/Tag</span>
+          </div>
+          <div class="dashboard-pie-wrap">
+            <canvas id="kalorienChart"></canvas>
+          </div>
+        </div>
 
-      <?php if (!$isWochentageMode): ?>
-      <div class="dashboard-pie-card">
-        <div class="dashboard-pie-kpi">
-          <span class="dashboard-pie-kpi-label">Körpergewicht</span>
-          <span class="dashboard-pie-kpi-value">
-            <?= ($erstesGewicht !== null ? $erstesGewicht : '—') ?> kg → <?= ($letztesGewicht !== null ? $letztesGewicht : '—') ?> kg
-          </span>
+        <?php if (!$isWochentageMode): ?>
+        <div class="dashboard-pie-card">
+          <div class="dashboard-pie-kpi">
+            <span class="dashboard-pie-kpi-label">Körpergewicht</span>
+            <span class="dashboard-pie-kpi-value">
+              <?= ($erstesGewicht !== null ? $erstesGewicht : '—') ?> kg → <?= ($letztesGewicht !== null ? $letztesGewicht : '—') ?> kg
+            </span>
+          </div>
+          <div class="dashboard-pie-wrap">
+            <canvas id="gewichtChart"></canvas>
+          </div>
         </div>
-        <div class="dashboard-pie-wrap">
-          <canvas id="gewichtChart"></canvas>
-        </div>
-      </div>
-      <?php endif; ?>
-    </div>
-
-    <div class="dashboard-pies dashboard-pies-3">
-      <div class="dashboard-pie-card">
-        <div class="dashboard-pie-kpi">
-          <span class="dashboard-pie-kpi-label">Protein</span>
-          <span class="dashboard-pie-kpi-value">Ø<?= (int)$eiweissDurchschnitt ?> g/Tag</span>
-        </div>
-        <div class="dashboard-pie-wrap">
-          <canvas id="eiweissChart"></canvas>
-        </div>
-      </div>
-
-      <div class="dashboard-pie-card">
-        <div class="dashboard-pie-kpi">
-          <span class="dashboard-pie-kpi-label">Fett</span>
-          <span class="dashboard-pie-kpi-value">Ø<?= (int)$fettDurchschnitt ?> g/Tag</span>
-        </div>
-        <div class="dashboard-pie-wrap">
-          <canvas id="fettChart"></canvas>
-        </div>
+        <?php endif; ?>
       </div>
 
-      <div class="dashboard-pie-card">
-        <div class="dashboard-pie-kpi">
-          <span class="dashboard-pie-kpi-label">Carbs</span>
-          <span class="dashboard-pie-kpi-value">Ø<?= (int)$khDurchschnitt ?> g/Tag</span>
+      <div class="dashboard-pies dashboard-pies-3">
+        <div class="dashboard-pie-card">
+          <div class="dashboard-pie-kpi">
+            <span class="dashboard-pie-kpi-label">Protein</span>
+            <span class="dashboard-pie-kpi-value">Ø<?= (int)$eiweissDurchschnitt ?> g/Tag</span>
+          </div>
+          <div class="dashboard-pie-wrap">
+            <canvas id="eiweissChart"></canvas>
+          </div>
         </div>
-        <div class="dashboard-pie-wrap">
-          <canvas id="khChart"></canvas>
+
+        <div class="dashboard-pie-card">
+          <div class="dashboard-pie-kpi">
+            <span class="dashboard-pie-kpi-label">Fett</span>
+            <span class="dashboard-pie-kpi-value">Ø<?= (int)$fettDurchschnitt ?> g/Tag</span>
+          </div>
+          <div class="dashboard-pie-wrap">
+            <canvas id="fettChart"></canvas>
+          </div>
+        </div>
+
+        <div class="dashboard-pie-card">
+          <div class="dashboard-pie-kpi">
+            <span class="dashboard-pie-kpi-label">Carbs</span>
+            <span class="dashboard-pie-kpi-value">Ø<?= (int)$khDurchschnitt ?> g/Tag</span>
+          </div>
+          <div class="dashboard-pie-wrap">
+            <canvas id="khChart"></canvas>
+          </div>
         </div>
       </div>
-
-      <!-- <div class="dashboard-pie-card">
-        <div class="dashboard-pie-kpi">
-          <span class="dashboard-pie-kpi-label">Alkohol</span>
-          <span class="dashboard-pie-kpi-value">Ø<?= (int)$alkDurchschnitt ?> g/Tag</span>
-        </div>
-        <div class="dashboard-pie-wrap">
-          <canvas id="alkChart"></canvas>
-        </div>
-      </div> -->
-    </div>
+    <?php endif; ?>
   </div>
 </div>
 
@@ -643,6 +825,7 @@ require_once __DIR__ . '/../navbar.php';
 <script>
 const chartMode      = <?= json_encode($modus, JSON_UNESCAPED_UNICODE) ?>;
 const isWeekdayMode  = chartMode === 'wochentage';
+const isSportMode    = chartMode === 'sport';
 const isAllYears     = <?= $isAllYears ? 'true' : 'false' ?>;
 const chartStartDate = <?= json_encode($startDate, JSON_UNESCAPED_UNICODE) ?>;
 const chartEndDate   = <?= json_encode($endDate, JSON_UNESCAPED_UNICODE) ?>;
@@ -666,6 +849,11 @@ const eiweissKW      = <?= $eiweissKWJson ?>;
 const fettKW         = <?= $fettKWJson ?>;
 const khKW           = <?= $khKWJson ?>;
 const alkKW          = <?= $alkKWJson ?>;
+
+const sportKraftData    = <?= $sportKraftJson ?>;
+const sportKraftKWData  = <?= $sportKraftKWJson ?>;
+const sportCardioData   = <?= $sportCardioJson ?>;
+const sportCardioKWData = <?= $sportCardioKWJson ?>;
 
 const weekdayShortLabels = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
@@ -793,7 +981,13 @@ const midPeriodLabelsPlugin = {
     const compactW = xOpts.midPeriodLabelCompactWidth ?? 300;
     const availableWidth = (typeof scale.width === 'number') ? scale.width : 0;
     const pxPerLabel = starts.length > 0 ? (availableWidth / starts.length) : availableWidth;
-    const step = (drawMonths && availableWidth < compactW) || (drawYears && pxPerLabel < 42) ? 2 : 1;
+    const isMobileChart = window.matchMedia('(max-width: 650px)').matches;
+
+    // Auf Smartphones sind einzelne Monatsbuchstaben kompakt genug,
+    // um wirklich jeden Monat darzustellen.
+    const step = drawMonths && isMobileChart
+      ? 1
+      : ((drawMonths && availableWidth < compactW) || (drawYears && pxPerLabel < 42) ? 2 : 1);
 
     let fontStr = '12px sans-serif';
     try {
@@ -823,7 +1017,11 @@ const midPeriodLabelsPlugin = {
       const x = scale.getPixelForValue(midMillis);
       const text = drawYears
         ? start.toFormat('yyyy')
-        : start.setLocale('de').toFormat('MMM');
+        : (
+            isMobileChart
+              ? start.setLocale('de').toFormat('MMM').charAt(0).toUpperCase()
+              : start.setLocale('de').toFormat('MMM')
+          );
 
       ctx.fillText(text, x, y);
     }
@@ -946,6 +1144,7 @@ function computeTrend(values) {
   return out;
 }
 
+if (!isSportMode) {
 const kalorienDatasets = isWeekdayMode
   ? [
       {
@@ -1249,6 +1448,112 @@ if (toggleAlkElement) {
   applyAlcoholToggle();
   toggleAlkElement.addEventListener('change', applyAlcoholToggle);
 }
+}
+
+function makeSportChart(canvasId, dailyData, weeklyData, color, dailyLabel, weeklyLabel, unitLabel) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+
+  new Chart(canvas.getContext('2d'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: dailyLabel,
+          data: dailyData,
+          showLine: false,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          pointStyle: 'circle',
+          pointBorderWidth: 1.5,
+          pointBorderColor: withAlpha(color, 0.72),
+          pointBackgroundColor: withAlpha(color, 0.34),
+          borderColor: color,
+          fill: false
+        },
+        {
+          label: weeklyLabel,
+          data: weeklyData,
+          fill: false,
+          borderWidth: 3,
+          borderColor: color,
+          pointRadius: 0,
+          tension: 0,
+          stepped: 'before',
+          spanGaps: false
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'bottom',
+          labels: {
+            usePointStyle: true,
+            boxWidth: 9,
+            boxHeight: 9
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label(context) {
+              const value = Number(context.parsed.y ?? 0);
+              return `${context.dataset.label}: ${value.toLocaleString('de-DE', {
+                maximumFractionDigits: 1
+              })} ${unitLabel}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: monthXAxisScale(),
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: unitLabel
+          },
+          ticks: {
+            callback(value) {
+              return Number(value).toLocaleString('de-DE');
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+if (isSportMode) {
+  makeSportChart(
+    'sportKraftChart',
+    sportKraftData,
+    sportKraftKWData,
+    '#ff6400',
+    'Tagesvolumen',
+    'Ø pro Tag der KW',
+    'kg'
+  );
+
+  makeSportChart(
+    'sportCardioChart',
+    sportCardioData,
+    sportCardioKWData,
+    '#007bb4',
+    'Tagesverbrauch',
+    'Ø pro Tag der KW',
+    'kcal'
+  );
+}
+
 </script>
 
 </body>

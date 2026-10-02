@@ -2474,3 +2474,141 @@
         filter: brightness(0) saturate(100%) invert(86%) sepia(82%) saturate(5000%) hue-rotate(1deg);
     }
 }
+
+/* ==========================================================
+   fit/Start.php – Smartphone/Fairphone
+   ========================================================== */
+
+@media (max-width: 650px) {
+    #healthPage.lt-page {
+        width: auto;
+        max-width: none;
+        margin: 16px auto 56px;
+        padding: 0 10px;
+    }
+
+    #healthPage .lt-topbar {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        align-items: stretch;
+        gap: 11px;
+    }
+
+    #healthPage .dashboard-title {
+        margin: 0;
+        gap: 6px;
+        font-size: 1.55rem;
+        line-height: 1.12;
+    }
+
+    #healthPage .dashboard-title-main {
+        min-width: 0;
+    }
+
+    #healthPage .dashboard-title-soft {
+        font-size: 0.72em;
+        white-space: nowrap;
+    }
+
+    #healthPage .dashboard-filterform {
+        order: 2;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+        gap: 8px;
+        align-items: end;
+    }
+
+    #healthPage .lt-yearwrap {
+        width: auto;
+        min-width: 0;
+    }
+
+    #healthPage .lt-label {
+        margin-bottom: 4px;
+        font-size: 0.76rem;
+    }
+
+    #healthPage .kategorie-select {
+        width: 100%;
+        min-width: 0;
+    }
+
+    #healthPage .dashboard-sober-counters {
+        order: 3;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        width: 100%;
+        gap: 6px;
+        justify-content: stretch;
+    }
+
+    #healthPage .dashboard-sober-counter {
+        min-width: 0;
+        padding: 5px 3px;
+        border-width: 1.5px;
+        border-radius: 12px;
+    }
+
+    #healthPage .dashboard-sober-label {
+        font-size: 0.66rem;
+        line-height: 1.1;
+    }
+
+    #healthPage .dashboard-sober-value {
+        margin-top: 2px;
+        font-size: 0.88rem;
+        line-height: 1.05;
+    }
+
+    #healthPage .ernährungsdiablock {
+        margin-top: 12px;
+        gap: 12px;
+    }
+
+    #healthPage .dashboard-pies,
+    #healthPage .dashboard-pies.dashboard-pies-3,
+    #healthPage .dashboard-sport-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    #healthPage .dashboard-pie-card {
+        min-width: 0;
+        padding: 11px 10px 9px;
+        border-radius: 14px;
+    }
+
+    #healthPage .dashboard-pie-kpi {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: baseline;
+        gap: 8px;
+        margin-bottom: 7px;
+    }
+
+    #healthPage .dashboard-pie-kpi-label {
+        min-width: 0;
+        font-size: 0.86rem;
+        text-align: left;
+    }
+
+    #healthPage .dashboard-pie-kpi-value {
+        font-size: 0.78rem;
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    #healthPage .dashboard-pie-wrap,
+    #healthPage .dashboard-sport-wrap {
+        width: 100%;
+        height: 255px;
+        max-height: none;
+        aspect-ratio: auto;
+    }
+
+    #healthPage .dashboard-sport-card .dashboard-pie-wrap {
+        height: 275px;
+    }
+}
+
