@@ -7,9 +7,9 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
 
-$SUBJECTS = []; // name => ['id'=>int,'color'=>string,'legend_hidden_default'=>int,'sort_order'=>int]
+$SUBJECTS = []; // name => ['id'=>int,'abkuerzung'=>string,'color'=>string,'legend_hidden_default'=>int,'sort_order'=>int]
 $resF = $sciconn->query("
-    SELECT id, name, color, legend_hidden_default, sort_order
+    SELECT id, name, abkuerzung, color, legend_hidden_default, sort_order
     FROM lerntime_faecher
     WHERE is_active = 1
     ORDER BY sort_order ASC, id ASC
@@ -23,6 +23,7 @@ while ($r = $resF->fetch_assoc()) {
     $name = (string)$r['name'];
     $SUBJECTS[$name] = [
         'id' => (int)$r['id'],
+        'abkuerzung' => trim((string)($r['abkuerzung'] ?? '')),
         'color' => (string)$r['color'],
         'legend_hidden_default' => (int)$r['legend_hidden_default'],
         'sort_order' => (int)$r['sort_order'],
@@ -305,8 +306,8 @@ require_once __DIR__ . '/../navbar.php';
     <div class="lt-topbar">
         <h1 class="ueberschrift dashboard-title">
             <span class="dashboard-title-main">B.Sc. Maschinenbau</span>
-            <span class="dashboard-title-soft">| <span id="ltDoneHours"><?= htmlspecialchars((string)$bereichLernzeitStunden, ENT_QUOTES, 'UTF-8') ?></span>h erledigt</span>
-            <span class="dashboard-title-soft"><-> <span id="ltOpenHours"><?= htmlspecialchars((string)$offenStunden, ENT_QUOTES, 'UTF-8') ?></span>h offen</span>
+            <span class="dashboard-title-soft"><span class="lt-title-sep">| </span><span id="ltDoneHours"><?= htmlspecialchars((string)$bereichLernzeitStunden, ENT_QUOTES, 'UTF-8') ?></span>h erledigt</span>
+            <span class="dashboard-title-soft"><span class="lt-title-sep">&lt;-&gt; </span><span id="ltOpenHours"><?= htmlspecialchars((string)$offenStunden, ENT_QUOTES, 'UTF-8') ?></span>h offen</span>
         </h1>
     </div>
 
@@ -423,6 +424,7 @@ require_once __DIR__ . '/../navbar.php';
     const validSubjects = new Set(Object.keys(SUBJECTS));
     const DRAG_ENABLED = !!(window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches);
     const TOUCH_UI = !!(window.matchMedia && window.matchMedia('(hover: none) and (pointer: coarse)').matches);
+    const PHONE_UI = !!(window.matchMedia && window.matchMedia('(max-width: 650px)').matches);
 
     function subjectColor(fach) {
         return SUBJECTS?.[String(fach ?? '')]?.color || '#999';
@@ -705,7 +707,11 @@ require_once __DIR__ . '/../navbar.php';
             btn.style.setProperty('--tab-accent-text', pickTextColor(c));
             btn.type = 'button';
             btn.className = 'lt-tab' + (fach === selectedFach ? ' active' : '');
-            btn.textContent = fach;
+
+            const abbreviation = String(SUBJECTS?.[fach]?.abkuerzung ?? '').trim();
+            btn.textContent = PHONE_UI && abbreviation !== '' ? abbreviation : fach;
+            btn.title = fach;
+            btn.setAttribute('aria-label', fach);
             btn.setAttribute('role', 'tab');
             btn.setAttribute('aria-selected', fach === selectedFach ? 'true' : 'false');
             btn.addEventListener('click', async () => {
@@ -1080,9 +1086,20 @@ require_once __DIR__ . '/../navbar.php';
                     .plus({ days: Math.floor(mStart.daysInMonth / 2), hours: 12 });
                 const x = scale.getPixelForValue(mid.toMillis());
                 const monthLabel = mStart.setLocale('de').toFormat('MMM').replace('.', '');
-                const label = multiYear && mStart.month === 1
-                    ? `${monthLabel} ${String(mStart.year).slice(-2)}`
-                    : monthLabel;
+                const isMobileChart = window.matchMedia('(max-width: 650px)').matches;
+
+                const label = isMobileChart
+                    ? (
+                        mStart.month === 1
+                            ? `${monthLabel.charAt(0).toUpperCase()}${String(mStart.year).slice(-2)}`
+                            : monthLabel.charAt(0).toUpperCase()
+                      )
+                    : (
+                        multiYear && mStart.month === 1
+                            ? `${monthLabel} ${String(mStart.year).slice(-2)}`
+                            : monthLabel
+                      );
+
                 ctx.fillText(label, x, y);
             });
             ctx.restore();
@@ -1316,8 +1333,12 @@ require_once __DIR__ . '/../navbar.php';
                     legend: {
                         position: 'top',
                         labels: {
-                            boxWidth: 14,
-                            boxHeight: 14,
+                            boxWidth: TOUCH_UI ? 9 : 14,
+                            boxHeight: TOUCH_UI ? 9 : 14,
+                            padding: TOUCH_UI ? 8 : 10,
+                            font: {
+                                size: TOUCH_UI ? 10 : 12
+                            },
                             filter: (legendItem, data) => {
                                 const ds = data?.datasets?.[legendItem.datasetIndex];
                                 return !ds?.ltHover; // Hover-Serie aus Legend raus

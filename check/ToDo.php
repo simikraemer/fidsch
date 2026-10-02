@@ -456,12 +456,12 @@ require_once __DIR__ . '/../head.php';
 require_once __DIR__ . '/../navbar.php';
 ?>
 
-<div id="ltPage" class="lt-page dashboard-page">
+<div id="ltPage" class="lt-page dashboard-page todo-page">
     <div class="lt-topbar">
         <h1 class="ueberschrift dashboard-title">
             <span class="dashboard-title-main">ToDo-Liste</span>
             <span class="dashboard-title-soft">
-                | <span id="ltStatusCount"><?= htmlspecialchars((string)$headerCount, ENT_QUOTES, 'UTF-8') ?></span>
+                <span class="lt-title-sep">| </span><span id="ltStatusCount"><?= htmlspecialchars((string)$headerCount, ENT_QUOTES, 'UTF-8') ?></span>
                 <span id="ltStatusLabel"><?= htmlspecialchars((string)$headerLabel, ENT_QUOTES, 'UTF-8') ?></span>
             </span>
         </h1>
@@ -591,6 +591,14 @@ require_once __DIR__ . '/../navbar.php';
     const elSaveNew = document.getElementById('ltSaveNew');
 
     const validSubjects = new Set(Object.keys(SUBJECTS));
+    const DRAG_ENABLED = !!(
+        window.matchMedia
+        && window.matchMedia('(hover: hover) and (pointer: fine)').matches
+    );
+    const PHONE_UI = !!(
+        window.matchMedia
+        && window.matchMedia('(max-width: 650px)').matches
+    );
 
     function subjectColor(fach) {
         return SUBJECTS?.[String(fach ?? '')]?.color || '#999';
@@ -877,6 +885,9 @@ require_once __DIR__ . '/../navbar.php';
     function openModal(focusEl = null) {
         elModal.classList.remove('hidden');
         elModal.setAttribute('aria-hidden', 'false');
+
+        if (PHONE_UI) return;
+
         setTimeout(() => {
             const el = focusEl || elNewTitel;
             if (el && typeof el.focus === 'function') el.focus();
@@ -1243,7 +1254,7 @@ require_once __DIR__ . '/../navbar.php';
                 (st === 'pending' ? ' pending' : '') +
                 (depth > 0 ? ' lt-child' : '');
 
-            tr.draggable = true;
+            tr.draggable = DRAG_ENABLED;
 
             const tdDrag = document.createElement('td');
             tdDrag.className = 'lt-dragcell';

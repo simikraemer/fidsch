@@ -1110,8 +1110,8 @@ require_once __DIR__ . '/../navbar.php';
           <span class="dashboard-title-main" id="pageTitleYear">
             Finanzen <?= $allYearsMode ? 'Alle' : htmlspecialchars((string)$jahr, ENT_QUOTES, 'UTF-8') ?>
           </span>
-          <span class="dashboard-title-soft" id="pageTitleSaldo">
-            | <?= euro($dashboardSaldoGesamt) ?>
+          <span class="dashboard-title-soft">
+            <span class="dashboard-title-sep">| </span><span id="pageTitleSaldo"><?= euro($dashboardSaldoGesamt) ?></span>
           </span>
         </h1>
 
@@ -2094,7 +2094,7 @@ function updateHeader(year, saldoGesamt, saldoAccounts = [], saldoDetails = []) 
   }
 
   if (sEl) {
-    sEl.textContent = `| ${fmtEuro(saldoGesamt)}`;
+    sEl.textContent = fmtEuro(saldoGesamt);
   }
 
   renderSaldoDetailBlocks(saldoAccounts, saldoDetails);

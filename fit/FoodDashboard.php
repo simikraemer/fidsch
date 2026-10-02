@@ -723,10 +723,14 @@ require_once __DIR__ . '/../navbar.php';
     }
 
     function tableVisibleRowCount(body) {
-        // Im Desktop-Layout ist die Höhe der drei Karten fest an die verfügbare
-        // Viewport-Höhe gekoppelt. Dadurch können wir exakt so viele Tabellenzeilen
-        // rendern, wie ohne Scrollen in die Karte passen. Die Daten selbst sind
-        // bereits vollständig geladen; hier wird nur die sichtbare Anzahl begrenzt.
+        // Auf dem Smartphone darf die Seite vertikal wachsen. Dort zeigen wir
+        // deshalb die maximal vorgesehenen 50 Ranking-Zeilen und nutzen den
+        // normalen Seiten-Scroll statt künstlich Inhalte abzuschneiden.
+        if (window.matchMedia('(max-width: 650px)').matches) {
+            return 50;
+        }
+
+        // Tablet: kompakt halten.
         if (window.matchMedia('(max-width: 1180px)').matches) {
             return 12;
         }
@@ -932,7 +936,10 @@ require_once __DIR__ . '/../navbar.php';
             if (!periods.length) return;
 
             const width = Number(scale.width) || 0;
-            const targetPx = unit === 'day' ? 34 : (unit === 'month' ? 54 : 48);
+            const isPhoneChart = window.matchMedia('(max-width: 650px)').matches;
+            const targetPx = unit === 'day'
+                ? 34
+                : (unit === 'month' ? (isPhoneChart ? 22 : 54) : 48);
             const labelsThatFit = Math.max(1, Math.floor(width / targetPx));
             const step = Math.max(1, Math.ceil(periods.length / labelsThatFit));
 
@@ -964,7 +971,10 @@ require_once __DIR__ . '/../navbar.php';
                 if (unit === 'day') {
                     text = period.start.toFormat('dd');
                 } else if (unit === 'month') {
-                    text = period.start.setLocale('de').toFormat('MMM').replace('.', '');
+                    const monthText = period.start.setLocale('de').toFormat('MMM').replace('.', '');
+                    text = isPhoneChart
+                        ? monthText.charAt(0).toUpperCase()
+                        : monthText;
                 } else {
                     text = period.start.toFormat('yyyy');
                 }

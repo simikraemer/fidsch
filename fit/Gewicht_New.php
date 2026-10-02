@@ -189,19 +189,19 @@ $page_title = 'Gewicht eintragen';
 require_once __DIR__ . '/../head.php';    // <!DOCTYPE html> … <body>
 require_once __DIR__ . '/../navbar.php';  // nur die Navbar
 ?>
-<div class="container-duo">
-    <div class="container">
-        <h1 class="ueberschrift">Gewicht eintragen</h1>
+<div id="gewichtPage" class="container-duo gewicht-page">
+    <div class="container gewicht-entry-card">
+        <h1 class="ueberschrift gewicht-entry-title">Gewicht eintragen</h1>
 
-        <form method="post" class="form-block" action="/fit/gewicht">
+        <form method="post" class="form-block gewicht-entry-form" action="/fit/gewicht">
             <label for="gewicht">Gewicht (kg):</label>
             <input type="number" id="gewicht" name="gewicht" step="0.1" required>
             <button type="submit">Eintragen</button>
         </form>
     </div>
 
-    <div class="container">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+    <div class="container gewicht-day-card">
+        <div class="gewicht-day-nav" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
             <div style="display:flex; justify-content:center; align-items:center; gap:12px;">
                 <button type="button" id="tag-zurueck" style="padding:4px 8px;">&laquo;</button>
                 <input type="date" id="tag-date" style="padding:4px 6px;">
@@ -285,7 +285,7 @@ require_once __DIR__ . '/../navbar.php';  // nur die Navbar
         const avg   = count ? (summe / count) : 0;
 
         let html = '';
-        html += '<tr style="border-bottom: 3px solid black; font-weight: bold;">';
+        html += '<tr class="gewicht-day-summary" style="border-bottom: 3px solid black; font-weight: bold;">';
         html += '<td></td>';
         html += '<td style="white-space:nowrap;">Ø</td>';
         html += '<td style="white-space:nowrap;">' + (count ? avg.toFixed(1) : '—') + ' kg</td>';
@@ -297,12 +297,12 @@ require_once __DIR__ . '/../navbar.php';  // nur die Navbar
             const id   = Number(e.id) || 0;
             const gw   = Number(e.gewicht) || 0;
 
-            html += '<tr>';
+            html += '<tr class="gewicht-day-entry">';
             html += '<td>' + escHtml(zeit) + '</td>';
             html += '<td>' + gw.toFixed(1) + ' kg</td>';
             html += '<td></td>';
             html += '<td>';
-            html += '<div style="display: flex; gap: 6px; align-items: stretch;">';
+            html += '<div class="gewicht-day-actions" style="display: flex; gap: 6px; align-items: stretch;">';
 
             html += '<form method="post" style="margin:0;">'
                  +  '<input type="hidden" name="current_date" value="' + escHtml(datum) + '">'

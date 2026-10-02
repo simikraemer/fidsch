@@ -89,9 +89,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $beschreibung = trim($_POST['beschreibung'] ?? '');
     $kategorie    = trim($_POST['kategorie'] ?? '');
     $kalorien     = (int)($_POST['kalorien'] ?? 0);
-    $eiweiss      = (float)($_POST['eiweiss'] ?? 0);
-    $fett         = (float)($_POST['fett'] ?? 0);
-    $kh           = (float)($_POST['kohlenhydrate'] ?? 0);
+    $eiweiss      = ($_POST['eiweiss'] ?? '') === '' ? 0.0 : (float)$_POST['eiweiss'];
+    $fett         = ($_POST['fett'] ?? '') === '' ? 0.0 : (float)$_POST['fett'];
+    $kh           = ($_POST['kohlenhydrate'] ?? '') === '' ? 0.0 : (float)$_POST['kohlenhydrate'];
     $alkohol      = 0.0; // kein Input-Feld mehr
     $anzahl       = max(1, (int)($_POST['anzahl'] ?? 1)); // Standard = 1
 
@@ -294,14 +294,14 @@ $page_title = 'Kalorien eintragen';
 require_once __DIR__ . '/../head.php';
 require_once __DIR__ . '/../navbar.php';
 ?>
-<div class="container-duo">
-    <div class="container">
-        <h1 class="ueberschrift">Kalorienzufuhr eintragen</h1>
+<div id="kalorienPage" class="container-duo kalorien-page">
+    <div class="container kalorien-entry-card">
+        <h1 class="ueberschrift kalorien-entry-title">Kalorienzufuhr eintragen</h1>
 
-        <form method="post" class="form-block" action="/fit/kalorien">
+        <form method="post" class="form-block kalorien-entry-form" action="/fit/kalorien">
             <div class="input-group food-autocomplete-field">
                 <label for="beschreibung">Beschreibung:</label>
-                <input type="text" id="beschreibung" name="beschreibung" autocomplete="off" autofocus>
+                <input type="text" id="beschreibung" name="beschreibung" autocomplete="off">
                 <ul id="vorschlaege" class="autocomplete-list"></ul>
             </div>
 
@@ -340,18 +340,18 @@ require_once __DIR__ . '/../navbar.php';
                 </div>
                 <div class="input-group">
                     <label for="fett">Fett (g):</label>
-                    <input type="number" id="fett" name="fett" step="0.01" min="0" value="0">
+                    <input type="number" id="fett" name="fett" step="0.01" min="0">
                 </div>
             </div>
 
             <div class="input-row">
                 <div class="input-group">
                     <label for="kohlenhydrate">Kohlenhydrate (g):</label>
-                    <input type="number" id="kohlenhydrate" name="kohlenhydrate" step="0.01" min="0" value="0">
+                    <input type="number" id="kohlenhydrate" name="kohlenhydrate" step="0.01" min="0">
                 </div>
                 <div class="input-group">
                     <label for="eiweiss">Eiweiß (g):</label>
-                    <input type="number" id="eiweiss" name="eiweiss" step="0.01" min="0" value="0">
+                    <input type="number" id="eiweiss" name="eiweiss" step="0.01" min="0">
                 </div>
             </div>
 
@@ -359,8 +359,8 @@ require_once __DIR__ . '/../navbar.php';
         </form>
     </div>
 
-    <div class="container">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+    <div class="container kalorien-day-card">
+        <div class="kalorien-day-nav" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
             <div style="display:flex; justify-content:center; align-items:center; gap:12px;">
                 <button type="button" id="tag-zurueck" style="padding:4px 8px;">&laquo;</button>
                 <input type="date" id="tag-date" style="padding:4px 6px;">
@@ -406,18 +406,18 @@ require_once __DIR__ . '/../navbar.php';
         <div class="input-row">
             <div class="input-group">
                 <label for="modal-fett-100">Fett /100g:</label>
-                <input type="number" id="modal-fett-100" step="0.01" min="0" value="0">
+                <input type="number" id="modal-fett-100" step="0.01" min="0">
             </div>
             <div class="input-group">
                 <label for="modal-kh-100">Kohlenhydrate /100g:</label>
-                <input type="number" id="modal-kh-100" step="0.01" min="0" value="0">
+                <input type="number" id="modal-kh-100" step="0.01" min="0">
             </div>
         </div>
 
         <div class="input-row">
             <div class="input-group">
                 <label for="modal-eiweiss-100">Eiweiß /100g:</label>
-                <input type="number" id="modal-eiweiss-100" step="0.01" min="0" value="0">
+                <input type="number" id="modal-eiweiss-100" step="0.01" min="0">
             </div>
             <div class="input-group">
                 <label>&nbsp;</label>
@@ -455,7 +455,12 @@ require_once __DIR__ . '/../navbar.php';
     const modalKh100       = document.getElementById('modal-kh-100');
     const modalEiweiss100  = document.getElementById('modal-eiweiss-100');
 
-    if (beschreibungsInput) {
+    const PHONE_UI = !!(
+        window.matchMedia
+        && window.matchMedia('(max-width: 650px)').matches
+    );
+
+    if (beschreibungsInput && !PHONE_UI) {
         beschreibungsInput.focus({ preventScroll: true });
         if (typeof beschreibungsInput.select === 'function') beschreibungsInput.select();
     }
@@ -624,7 +629,7 @@ require_once __DIR__ . '/../navbar.php';
     // --- /100g Modal ---
     function openNutritionModal() {
         nutritionModal.classList.remove('hidden');
-        if (modalGesamtGramm) modalGesamtGramm.focus();
+        if (!PHONE_UI && modalGesamtGramm) modalGesamtGramm.focus();
     }
 
     function closeNutritionModal() {
@@ -758,7 +763,7 @@ require_once __DIR__ . '/../navbar.php';
         const nettoSumme  = Number.isFinite(nettoSummeRaw)  ? nettoSummeRaw  : bruttoSumme;
 
         let html = '';
-        html += '<tr style="border-bottom: 3px solid black; font-weight: bold;">';
+        html += '<tr class="kalorien-day-summary" style="border-bottom: 3px solid black; font-weight: bold;">';
         html += '<td></td>';
         html += '<td style="white-space:nowrap;">SUMME</td>';
         html += '<td style="white-space:nowrap;">' + bruttoSumme + ' kcal</td>';
@@ -770,12 +775,12 @@ require_once __DIR__ . '/../navbar.php';
             const id   = Number(e.id) || 0;
             const kcal = Number(e.kalorien) || 0;
 
-            html += '<tr>';
+            html += '<tr class="kalorien-day-entry">';
             html += '<td>' + escHtml(zeit) + '</td>';
             html += '<td>' + escHtml(e.beschreibung || '') + '</td>';
             html += '<td>' + kcal + ' kcal</td>';
             html += '<td>';
-            html += '<div style="display:flex; gap:6px; align-items:stretch; justify-content:center;">';
+            html += '<div class="kalorien-day-actions" style="display:flex; gap:6px; align-items:stretch; justify-content:center;">';
 
             html += '<form method="post" style="margin:0;">'
                  +  '<input type="hidden" name="current_date" value="' + escHtml(datum) + '">'

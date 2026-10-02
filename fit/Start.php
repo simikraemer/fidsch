@@ -674,7 +674,9 @@ require_once __DIR__ . '/../navbar.php';
       <?= $isAllYears ? 'Alle' : htmlspecialchars((string)$jahr, ENT_QUOTES, 'UTF-8') ?>
     </span>
     <?php if (!$isSportMode): ?>
-      <span class="dashboard-title-soft">| <?= htmlspecialchars($gewichtsDiffText, ENT_QUOTES, 'UTF-8') ?></span>
+      <span class="dashboard-title-soft">
+        <span class="dashboard-title-sep">| </span><?= htmlspecialchars($gewichtsDiffText, ENT_QUOTES, 'UTF-8') ?>
+      </span>
     <?php endif; ?>
   </h1>
 
