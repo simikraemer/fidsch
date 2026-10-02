@@ -407,7 +407,7 @@ require_once __DIR__ . '/../head.php';
 require_once __DIR__ . '/../navbar.php';
 ?>
 
-<main class="phan-page">
+<main id="filesPage" class="phan-page tools-page files-page">
     <div class="phan-head">
         <h1 class="phan-title">Files</h1>
     </div>
@@ -419,10 +419,10 @@ require_once __DIR__ . '/../navbar.php';
     <?php endif; ?>
 
     <div class="form-block">
-        <section class="phan-card">
+        <section class="phan-card files-upload-card">
             <h2 class="phan-card-title">Dateien hochladen</h2>
 
-            <form method="post" enctype="multipart/form-data" class="form-block">
+            <form method="post" enctype="multipart/form-data" class="form-block files-upload-form">
                 <input type="hidden" name="csrf" value="<?= file_share_h($csrf) ?>">
                 <input type="hidden" name="action" value="upload">
 
@@ -436,14 +436,14 @@ require_once __DIR__ . '/../navbar.php';
                     >
                 </label>
 
-                <div class="phan-actions phan-actions--top">
+                <div class="phan-actions phan-actions--top files-upload-actions">
                     <button type="submit">Hochladen</button>
                 </div>
             </form>
         </section>
 
-        <section class="phan-table-wrap">
-            <table class="phan-table">
+        <section class="phan-table-wrap files-list-wrap">
+            <table class="phan-table files-table">
                 <thead>
                     <tr>
                         <th>Datei</th>
@@ -454,17 +454,17 @@ require_once __DIR__ . '/../navbar.php';
                 </thead>
                 <tbody>
                     <?php if (!$files): ?>
-                        <tr>
+                        <tr class="files-empty-row">
                             <td colspan="4" class="phan-empty-table">Noch keine Dateien vorhanden.</td>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($files as $file): ?>
-                            <tr>
-                                <td><strong><?= file_share_h($file['name']) ?></strong></td>
-                                <td><?= file_share_h(file_share_format_bytes((int)$file['size'])) ?></td>
-                                <td><?= date('d.m.Y H:i', (int)$file['mtime']) ?></td>
-                                <td>
-                                    <div class="phan-actions phan-actions--top">
+                            <tr class="files-row">
+                                <td class="files-name"><strong><?= file_share_h($file['name']) ?></strong></td>
+                                <td class="files-size" data-label="Größe"><?= file_share_h(file_share_format_bytes((int)$file['size'])) ?></td>
+                                <td class="files-date" data-label="Hochgeladen"><?= date('d.m.Y H:i', (int)$file['mtime']) ?></td>
+                                <td class="files-actions-cell">
+                                    <div class="phan-actions phan-actions--top files-row-actions">
                                         <form method="get" action="<?= FILE_SHARE_URL ?>" target="_blank">
                                             <input type="hidden" name="open" value="<?= file_share_h($file['name']) ?>">
                                             <button type="submit" class="btn-secondary">Öffnen</button>

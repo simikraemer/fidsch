@@ -155,11 +155,6 @@ require_once __DIR__ . '/../navbar.php';
     font-weight:800;
   }
 
-  @media (max-width:520px){
-    .timer-input-grid{
-      grid-template-columns:1fr;
-    }
-
     .timer-display{
       font-size:2.5rem;
     }
@@ -179,7 +174,7 @@ require_once __DIR__ . '/../navbar.php';
   }
 </style>
 
-<div class="container">
+<div id="timerPage" class="container tools-page timer-page">
   <div class="timer-wrap">
 
     <div id="timerDisplay" class="timer-display" aria-live="polite">
@@ -188,7 +183,7 @@ require_once __DIR__ . '/../navbar.php';
     </div>
 
     <div class="timer-input-grid">
-      <div>
+      <div class="timer-input-group">
         <label class="timer-label" for="hoursInput">Stunden</label>
         <input
           id="hoursInput"
@@ -200,7 +195,7 @@ require_once __DIR__ . '/../navbar.php';
         >
       </div>
 
-      <div>
+      <div class="timer-input-group">
         <label class="timer-label" for="minutesInput">Minuten</label>
         <input
           id="minutesInput"

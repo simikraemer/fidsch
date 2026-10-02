@@ -13,100 +13,100 @@ $linux_escaped  = $_POST['linux_escaped']  ?? '';
 $bash_single    = $_POST['bash_single']    ?? '';
 $url_encoded    = $_POST['url_encoded']    ?? '';
 ?>
-<div class="container">
-    <h2 class="ueberschrift">Path-Konverter</h2>
+<div id="pathPage" class="container tools-page path-page">
+    <h2 class="ueberschrift tools-page-title path-title">Path-Konverter</h2>
     <form method="post" action="">
-        <table style="width:100%; border-collapse:collapse;">
-            <tr>
-                <td style="vertical-align:middle; width:50%;">
+        <table class="tools-fields-table path-table" style="width:100%; border-collapse:collapse;">
+            <tr class="tools-field-row">
+                <td class="tools-field-label" style="vertical-align:middle; width:50%;">
                     <label for="win_standard"><strong>Windows-Standard</strong></label>
                     <span id="warn_win_standard" style="display:none; color: var(--warning); font-weight: bold; margin-left:8px;">⚠️</span>
                 </td>
-                <td>
+                <td class="tools-field-control">
                     <input type="text" id="win_standard" name="win_standard"
                            placeholder="C:\Users\Tupac\file.sh"
                            value="<?php echo htmlspecialchars($win_standard); ?>">
                 </td>
             </tr>
 
-            <tr>
-                <td style="vertical-align:middle;">
+            <tr class="tools-field-row">
+                <td class="tools-field-label" style="vertical-align:middle;">
                     <label for="win_escaped"><strong>Windows (doppelte Backslashes)</strong></label>
                     <span id="warn_win_escaped" style="display:none; color: var(--warning); font-weight: bold; margin-left:8px;">⚠️</span>
                 </td>
-                <td>
+                <td class="tools-field-control">
                     <input type="text" id="win_escaped" name="win_escaped"
                            placeholder="C:\\Users\\Tupac\\file.sh"
                            value="<?php echo htmlspecialchars($win_escaped); ?>">
                 </td>
             </tr>
 
-            <tr>
-                <td style="vertical-align:middle;">
+            <tr class="tools-field-row">
+                <td class="tools-field-label" style="vertical-align:middle;">
                     <label for="win_quoted"><strong>Windows mit Anführungszeichen</strong></label>
                     <span id="warn_win_quoted" style="display:none; color: var(--warning); font-weight: bold; margin-left:8px;">⚠️</span>
                 </td>
-                <td>
+                <td class="tools-field-control">
                     <input type="text" id="win_quoted" name="win_quoted"
                            placeholder="&quot;C:\Users\Tupac\file.sh&quot;"
                            value="<?php echo htmlspecialchars($win_quoted); ?>">
                 </td>
             </tr>
 
-            <tr>
-                <td style="vertical-align:middle;">
+            <tr class="tools-field-row">
+                <td class="tools-field-label" style="vertical-align:middle;">
                     <label for="linux_standard"><strong>Linux-Standard</strong></label>
                     <span id="warn_linux_standard" style="display:none; color: var(--warning); font-weight: bold; margin-left:8px;">⚠️</span>
                 </td>
-                <td>
+                <td class="tools-field-control">
                     <input type="text" id="linux_standard" name="linux_standard"
                            placeholder="/Users/Tupac/file.sh"
                            value="<?php echo htmlspecialchars($linux_standard); ?>">
                 </td>
             </tr>
 
-            <tr>
-                <td style="vertical-align:middle;">
+            <tr class="tools-field-row">
+                <td class="tools-field-label" style="vertical-align:middle;">
                     <label for="linux_quoted"><strong>Linux mit Anführungszeichen</strong></label>
                     <span id="warn_linux_quoted" style="display:none; color: var(--warning); font-weight: bold; margin-left:8px;">⚠️</span>
                 </td>
-                <td>
+                <td class="tools-field-control">
                     <input type="text" id="linux_quoted" name="linux_quoted"
                            placeholder="&quot;/Users/Tupac/file.sh&quot;"
                            value="<?php echo htmlspecialchars($linux_quoted); ?>">
                 </td>
             </tr>
 
-            <tr>
-                <td style="vertical-align:middle;">
+            <tr class="tools-field-row">
+                <td class="tools-field-label" style="vertical-align:middle;">
                     <label for="linux_escaped"><strong>Linux mit escaped Spaces</strong></label>
                     <span id="warn_linux_escaped" style="display:none; color: var(--warning); font-weight: bold; margin-left:8px;">⚠️</span>
                 </td>
-                <td>
+                <td class="tools-field-control">
                     <input type="text" id="linux_escaped" name="linux_escaped"
                            placeholder="/Users/Tupac/file.sh"
                            value="<?php echo htmlspecialchars($linux_escaped); ?>">
                 </td>
             </tr>
 
-            <tr>
-                <td style="vertical-align:middle;">
+            <tr class="tools-field-row">
+                <td class="tools-field-label" style="vertical-align:middle;">
                     <label for="bash_single"><strong>Bash (einfach quotiert)</strong></label>
                     <span id="warn_bash_single" style="display:none; color: var(--warning); font-weight: bold; margin-left:8px;">⚠️</span>
                 </td>
-                <td>
+                <td class="tools-field-control">
                     <input type="text" id="bash_single" name="bash_single"
                            placeholder="'/Users/Tupac/file.sh'"
                            value="<?php echo htmlspecialchars($bash_single); ?>">
                 </td>
             </tr>
 
-            <tr>
-                <td style="vertical-align:middle;">
+            <tr class="tools-field-row">
+                <td class="tools-field-label" style="vertical-align:middle;">
                     <label for="url_encoded"><strong>URL-encoded</strong></label>
                     <span id="warn_url_encoded" style="display:none; color: var(--warning); font-weight: bold; margin-left:8px;">⚠️</span>
                 </td>
-                <td>
+                <td class="tools-field-control">
                     <input type="text" id="url_encoded" name="url_encoded"
                            placeholder="/Users/Tupac/file.sh"
                            value="<?php echo htmlspecialchars($url_encoded); ?>">

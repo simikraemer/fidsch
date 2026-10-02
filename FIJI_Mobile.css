@@ -7285,3 +7285,930 @@
         grid-template-columns: 1fr;
     }
 }
+
+
+
+/* ==========================================================
+   /tools – Smartphone/Fairphone v2
+   Explizit an Seiten-IDs/Klassen gebunden.
+   ========================================================== */
+@media (max-width: 650px) {
+    /* ---------- gemeinsame Tool-Basis ---------- */
+    #bytesPage,
+    #ipsPage,
+    #macPage,
+    #pathPage,
+    #pdfMergePage,
+    #timerPage,
+    #unixTimePage {
+        width: calc(100% - 20px);
+        max-width: none;
+        margin: 4px auto 48px;
+        padding: 14px;
+        box-sizing: border-box;
+        border-radius: 14px;
+    }
+
+    #ipsPage .tools-page-title,
+    #macPage .tools-page-title,
+    #pathPage .tools-page-title,
+    #unixTimePage .tools-page-title {
+        margin: 0 0 10px;
+        font-size: 1.30rem;
+        line-height: 1.10;
+        text-align: center;
+    }
+
+    #ipsPage input,
+    #macPage input,
+    #pathPage input,
+    #unixTimePage input {
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+        margin: 0;
+        border-radius: 9px;
+    }
+
+    /* ---------- BYTES ---------- */
+    #bytesPage .bytes-table {
+        display: block;
+        width: 100% !important;
+        border: 0 !important;
+    }
+
+    #bytesPage .bytes-table-head {
+        display: none;
+    }
+
+    #bytesPage .bytes-table tbody {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        width: 100%;
+    }
+
+    #bytesPage .bytes-row {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 5px 6px;
+        width: 100%;
+        padding: 9px;
+        box-sizing: border-box;
+        border: 1px solid rgba(0,0,0,.08);
+        border-radius: 11px;
+        background: var(--bg-light);
+    }
+
+    #bytesPage .bytes-row > td {
+        min-width: 0;
+        padding: 0;
+        border: 0;
+    }
+
+    #bytesPage .bytes-scale {
+        grid-column: 1 / -1;
+        padding-bottom: 2px !important;
+        font-size: .80rem;
+        line-height: 1.05;
+    }
+
+    #bytesPage .bytes-value {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+
+    #bytesPage .bytes-value::before {
+        content: attr(data-label);
+        margin-bottom: 3px;
+        font-size: .56rem;
+        line-height: 1;
+        font-weight: 700;
+        opacity: .58;
+        text-align: center;
+        white-space: nowrap;
+    }
+
+    #bytesPage .bytes-value input {
+        width: 100%;
+        min-width: 0;
+        height: 35px;
+        box-sizing: border-box;
+        margin: 0;
+        padding: 5px 6px;
+        border-radius: 8px;
+        font-size: .70rem;
+    }
+
+    /* ---------- Feld-Konverter: IP / MAC / PATH / UNIXTIME ---------- */
+    #ipsPage .tools-fields-table,
+    #macPage .tools-fields-table,
+    #pathPage .tools-fields-table,
+    #unixTimePage .tools-fields-table,
+    #ipsPage .tools-fields-table tbody,
+    #macPage .tools-fields-table tbody,
+    #pathPage .tools-fields-table tbody,
+    #unixTimePage .tools-fields-table tbody {
+        display: block;
+        width: 100% !important;
+    }
+
+    #ipsPage .tools-field-row,
+    #macPage .tools-field-row,
+    #pathPage .tools-field-row,
+    #unixTimePage .tools-field-row {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 3px;
+        width: 100%;
+        padding: 7px 0;
+        border-bottom: 1px solid rgba(0,0,0,.065);
+    }
+
+    #ipsPage .tools-field-row:last-child,
+    #macPage .tools-field-row:last-child,
+    #pathPage .tools-field-row:last-child,
+    #unixTimePage .tools-field-row:last-child {
+        border-bottom: 0;
+    }
+
+    #ipsPage .tools-field-row--info {
+        padding: 6px 8px;
+        margin-top: 4px;
+        box-sizing: border-box;
+        background: var(--bg-light);
+        border-bottom-color: rgba(0,0,0,.045);
+    }
+
+    #ipsPage .tools-field-row--info:first-of-type {
+        margin-top: 10px;
+        border-radius: 10px 10px 0 0;
+    }
+
+    #ipsPage .tools-field-row--info:last-child {
+        border-radius: 0 0 10px 10px;
+    }
+
+    #unixTimePage .tools-field-row--info {
+        margin-top: 2px;
+    }
+
+    #ipsPage .tools-field-label,
+    #macPage .tools-field-label,
+    #pathPage .tools-field-label,
+    #unixTimePage .tools-field-label,
+    #ipsPage .tools-field-control,
+    #macPage .tools-field-control,
+    #pathPage .tools-field-control,
+    #unixTimePage .tools-field-control {
+        width: auto !important;
+        min-width: 0;
+        padding: 0;
+        border: 0;
+    }
+
+    #ipsPage .tools-field-label,
+    #macPage .tools-field-label,
+    #pathPage .tools-field-label,
+    #unixTimePage .tools-field-label {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 2px 4px;
+    }
+
+    #ipsPage .tools-field-label label,
+    #macPage .tools-field-label label,
+    #pathPage .tools-field-label label,
+    #unixTimePage .tools-field-label label {
+        font-size: .72rem;
+        line-height: 1.08;
+    }
+
+    #ipsPage .tools-field-label span[id^="warn_"],
+    #macPage .tools-field-label span[id^="warn_"],
+    #pathPage .tools-field-label span[id^="warn_"] {
+        margin-left: 2px !important;
+        font-size: .61rem;
+        line-height: 1;
+    }
+
+    #ipsPage input,
+    #macPage input,
+    #pathPage input,
+    #unixTimePage input {
+        height: 37px;
+        padding: 6px 8px;
+        font-size: .80rem;
+    }
+
+    #ipsPage input[readonly],
+    #unixTimePage input[readonly] {
+        background: #f6f6f6;
+    }
+
+    #ipsPage #ip_binary {
+        font-size: .66rem;
+        letter-spacing: -.02em;
+    }
+
+    /* ---------- FILES ---------- */
+    #filesPage.files-page {
+        width: calc(100% - 20px);
+        max-width: none;
+        margin: 4px auto 48px;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    #filesPage .phan-head {
+        justify-content: center;
+        margin-bottom: 10px;
+    }
+
+    #filesPage .phan-title {
+        margin: 0;
+        font-size: 1.38rem;
+        line-height: 1.12;
+        text-align: center;
+    }
+
+    #filesPage > .form-block {
+        gap: 11px;
+    }
+
+    #filesPage .phan-msg {
+        margin-bottom: 9px;
+        padding: 8px 9px;
+        border-left-width: 4px;
+        border-radius: 10px;
+        font-size: .76rem;
+        line-height: 1.2;
+    }
+
+    #filesPage .files-upload-card {
+        padding: 14px;
+        border-radius: 14px;
+    }
+
+    #filesPage .phan-card-title {
+        margin: 0 0 9px;
+        font-size: 1.02rem;
+        line-height: 1.1;
+        text-align: center;
+    }
+
+    #filesPage .files-upload-form {
+        gap: 9px;
+    }
+
+    #filesPage .files-upload-form label {
+        font-size: .74rem;
+        line-height: 1.1;
+    }
+
+    #filesPage input[type="file"] {
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+        margin: 5px 0 0;
+        padding: 7px;
+        border-radius: 9px;
+        font-size: .72rem;
+    }
+
+    #filesPage .files-upload-actions {
+        display: block;
+        width: 100%;
+    }
+
+    #filesPage .files-upload-actions button {
+        width: 100%;
+        min-height: 38px;
+        padding: 7px 9px;
+        border-radius: 9px;
+        font-size: .80rem;
+    }
+
+    #filesPage .files-list-wrap {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        box-sizing: border-box;
+        overflow: hidden;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+    }
+
+    #filesPage .files-table {
+        display: block;
+        width: 100%;
+        min-width: 0 !important;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    #filesPage .files-table thead {
+        display: none;
+    }
+
+    #filesPage .files-table tbody {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    #filesPage .files-row {
+        display: grid;
+        grid-template-columns: minmax(0,1fr) auto;
+        gap: 5px 10px;
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        padding: 10px;
+        box-sizing: border-box;
+        border: 1px solid rgba(0,0,0,.08);
+        border-radius: 11px;
+        background: #fff;
+        box-shadow: var(--shadow);
+    }
+
+    #filesPage .files-row > td {
+        min-width: 0;
+        padding: 0;
+        border: 0;
+    }
+
+    #filesPage .files-name {
+        grid-column: 1 / -1;
+        font-size: .80rem;
+        line-height: 1.15;
+        overflow-wrap: anywhere;
+    }
+
+    #filesPage .files-size,
+    #filesPage .files-date {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        font-size: .67rem;
+        line-height: 1.12;
+        opacity: .76;
+    }
+
+    #filesPage .files-size::before,
+    #filesPage .files-date::before {
+        content: attr(data-label);
+        font-size: .55rem;
+        font-weight: 700;
+        opacity: .65;
+    }
+
+    #filesPage .files-date {
+        text-align: right;
+    }
+
+    #filesPage .files-actions-cell {
+        grid-column: 1 / -1;
+        padding-top: 3px !important;
+    }
+
+    #filesPage .files-row-actions {
+        display: grid;
+        grid-template-columns: repeat(3,minmax(0,1fr));
+        gap: 5px;
+        width: 100%;
+        margin: 0;
+    }
+
+    #filesPage .files-row-actions form {
+        min-width: 0;
+        margin: 0;
+    }
+
+    #filesPage .files-row-actions button {
+        width: 100%;
+        min-width: 0;
+        min-height: 33px;
+        padding: 5px 4px;
+        border-radius: 8px;
+        font-size: .66rem;
+        line-height: 1.05;
+    }
+
+    #filesPage .files-empty-row {
+        display: block;
+        width: 100%;
+        padding: 0;
+        border: 0;
+        background: transparent;
+    }
+
+    #filesPage .files-empty-row td {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+        padding: 15px 9px !important;
+        border-radius: 11px;
+        background: #fff;
+        font-size: .78rem;
+        text-align: center;
+    }
+
+    /* ---------- LOGIN LOGS ---------- */
+    #llPage.dashboard-page {
+        width: auto;
+        max-width: none;
+        margin: 4px auto 48px;
+        padding: 0 10px;
+        box-sizing: border-box;
+    }
+
+    #llPage .lt-topbar {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        margin-bottom: 10px;
+    }
+
+    #llPage .dashboard-title {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: baseline;
+        width: 100%;
+        margin: 0;
+        column-gap: 8px;
+        row-gap: 2px;
+        font-size: 1.38rem;
+        line-height: 1.12;
+        text-align: center;
+    }
+
+    #llPage .dashboard-title-main {
+        flex: 0 0 100%;
+        min-width: 0;
+    }
+
+    #llPage .dashboard-title-soft {
+        flex: 0 0 auto;
+        min-width: 0;
+        font-size: .68rem;
+        line-height: 1.1;
+        text-align: center;
+        opacity: .76;
+    }
+
+    #llPage .ll-title-sep {
+        display: none;
+    }
+
+    #llPage #llForm {
+        display: grid;
+        grid-template-columns: minmax(0,1.35fr) minmax(82px,.65fr);
+        gap: 7px;
+        width: 100%;
+    }
+
+    #llPage #llForm .lt-yearwrap {
+        min-width: 0;
+        width: auto;
+    }
+
+    #llPage #llForm .lt-yearwrap:nth-child(3) {
+        grid-column: 1 / -1;
+    }
+
+    #llPage #llForm .lt-label {
+        margin-bottom: 3px;
+        font-size: .68rem;
+        line-height: 1.05;
+    }
+
+    #llPage #llForm .kategorie-select {
+        width: 100%;
+        min-width: 0;
+        height: 36px;
+        box-sizing: border-box;
+        margin: 0;
+        padding: 5px 7px;
+        border-radius: 9px;
+        font-size: .74rem;
+    }
+
+    #llPage .ll-table {
+        display: block;
+        width: 100%;
+        margin: 0;
+        overflow: visible;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+    }
+
+    #llPage .ll-table thead {
+        display: none;
+    }
+
+    #llPage .ll-table tbody {
+        display: block;
+        width: 100%;
+    }
+
+    #llPage .ll-log-row {
+        display: grid;
+        grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+        gap: 5px 8px;
+        width: 100%;
+        margin-bottom: 8px;
+        padding: 10px;
+        box-sizing: border-box;
+        border: 1px solid rgba(0,0,0,.075);
+        border-radius: 11px;
+        background: #fff;
+        box-shadow: var(--shadow);
+    }
+
+    #llPage .ll-log-row--fail {
+        border-left: 4px solid #c0392b;
+        padding-left: 7px;
+        background: #fff8f7;
+    }
+
+    #llPage .ll-log-row > td {
+        min-width: 0;
+        padding: 0;
+        border: 0;
+        background: transparent;
+    }
+
+    #llPage .ll-log-time {
+        font-size: .66rem;
+        line-height: 1.15;
+        opacity: .72;
+    }
+
+    #llPage .ll-log-user {
+        font-size: .77rem;
+        line-height: 1.15;
+        font-weight: 750;
+        text-align: right;
+        overflow-wrap: anywhere;
+    }
+
+    #llPage .ll-log-ip {
+        grid-column: 1 / -1;
+        display: flex;
+        align-items: baseline;
+        gap: 5px;
+        font-size: .75rem;
+        line-height: 1.12;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+        overflow-wrap: anywhere;
+    }
+
+    #llPage .ll-log-ip::before {
+        content: "IP";
+        flex: 0 0 auto;
+        font-family: var(--font);
+        font-size: .55rem;
+        font-weight: 700;
+        opacity: .55;
+    }
+
+    #llPage .ll-log-ua {
+        grid-column: 1 / -1;
+        padding-top: 3px !important;
+        border-top: 1px solid rgba(0,0,0,.055) !important;
+        font-size: .64rem;
+        line-height: 1.28;
+        opacity: .82;
+        overflow-wrap: anywhere;
+    }
+
+    #llPage .ll-details-row {
+        display: block;
+        width: calc(100% - 12px);
+        margin: -4px auto 8px;
+        padding: 7px 8px;
+        box-sizing: border-box;
+        border: 1px solid rgba(0,0,0,.06);
+        border-top: 0;
+        border-radius: 0 0 10px 10px;
+        background: #f7f7f7;
+    }
+
+    #llPage .ll-details-cell {
+        display: block;
+        width: 100%;
+        padding: 0 !important;
+        border: 0;
+        font-size: .64rem;
+        line-height: 1.3;
+        overflow-wrap: anywhere;
+    }
+
+    #llPage .ll-empty-row {
+        display: block;
+        width: 100%;
+        padding: 12px 10px;
+        box-sizing: border-box;
+        border-radius: 11px;
+        background: #fff;
+        box-shadow: var(--shadow);
+    }
+
+    #llPage .ll-empty-cell {
+        display: block;
+        width: 100%;
+        padding: 0 !important;
+        border: 0;
+        font-size: .78rem;
+        text-align: center;
+        opacity: .72;
+    }
+
+    /* ---------- PDF MERGE ---------- */
+    #pdfMergePage .pdfmerge-wrap {
+        gap: 9px;
+    }
+
+    #pdfMergePage .pdfmerge-panel {
+        padding: 10px;
+        border-width: 1px;
+        border-radius: 12px;
+    }
+
+    #pdfMergePage .pdfmerge-dropzone {
+        min-height: 108px;
+        gap: 6px;
+        padding: 12px;
+        border-radius: 10px;
+    }
+
+    #pdfMergePage .pdfmerge-dropicon {
+        font-size: 1.5rem;
+    }
+
+    #pdfMergePage .pdfmerge-title {
+        font-size: .92rem;
+        line-height: 1.08;
+    }
+
+    #pdfMergePage .pdfmerge-sub {
+        font-size: .69rem;
+        line-height: 1.24;
+    }
+
+    #pdfMergePage .pdfmerge-summary {
+        grid-template-columns: repeat(4,minmax(0,1fr)) !important;
+        gap: 5px !important;
+    }
+
+    #pdfMergePage .pdfmerge-stat {
+        min-width: 0;
+        padding: 7px 4px;
+        border-width: 1px;
+        border-radius: 9px;
+        text-align: center;
+    }
+
+    #pdfMergePage .pdfmerge-statlabel {
+        margin-bottom: 2px;
+        font-size: .54rem;
+        line-height: 1.05;
+        overflow-wrap: anywhere;
+    }
+
+    #pdfMergePage .pdfmerge-statvalue {
+        font-size: 1rem;
+        line-height: 1;
+    }
+
+    #pdfMergePage .pdfmerge-list {
+        gap: 7px;
+    }
+
+    #pdfMergePage .pdfmerge-item {
+        grid-template-columns: minmax(0,1fr) auto !important;
+        gap: 6px 8px !important;
+        padding: 9px !important;
+        border-width: 1px;
+        border-radius: 10px;
+        cursor: default;
+    }
+
+    #pdfMergePage .pdfmerge-handle {
+        display: none;
+    }
+
+    #pdfMergePage .pdfmerge-main {
+        align-self: center;
+    }
+
+    #pdfMergePage .pdfmerge-filename {
+        font-size: .78rem;
+        line-height: 1.12;
+    }
+
+    #pdfMergePage .pdfmerge-meta {
+        margin-top: 2px;
+        font-size: .63rem;
+        line-height: 1.20;
+    }
+
+    #pdfMergePage .pdfmerge-right {
+        grid-column: 2 !important;
+        display: grid;
+        grid-template-columns: repeat(2,30px);
+        gap: 4px;
+        padding: 0 !important;
+        justify-content: end !important;
+    }
+
+    #pdfMergePage .pdfmerge-badge {
+        grid-column: 1 / -1;
+        min-width: 0;
+        height: 24px;
+        padding: 0 5px;
+        font-size: .65rem;
+    }
+
+    #pdfMergePage .pdfmerge-iconbtn {
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        font-size: .84rem;
+    }
+
+    #pdfMergePage .pdfmerge-iconbtn[data-action="remove"] {
+        grid-column: 1 / -1;
+        width: 64px;
+        justify-self: end;
+    }
+
+    #pdfMergePage .pdfmerge-actions {
+        display: grid;
+        grid-template-columns: repeat(2,minmax(0,1fr));
+        gap: 6px;
+    }
+
+    #pdfMergePage .pdfmerge-actions .pdfmerge-mainbtn {
+        grid-column: 1 / -1;
+        width: 100%;
+        min-height: 38px;
+        padding: 7px 8px;
+        font-size: .78rem;
+    }
+
+    #pdfMergePage .pdfmerge-actions .pdfmerge-secondarybtn {
+        width: 100%;
+        min-width: 0;
+        min-height: 36px;
+        padding: 6px 5px;
+        font-size: .69rem;
+        line-height: 1.08;
+    }
+
+    #pdfMergePage .pdfmerge-status {
+        min-height: 0;
+        padding: 8px 9px;
+        border-width: 1px;
+        border-radius: 10px;
+        font-size: .72rem;
+        line-height: 1.2;
+    }
+
+    #pdfMergePage .pdfmerge-note {
+        font-size: .72rem;
+        line-height: 1.25;
+    }
+
+    /* ---------- TIMER ---------- */
+    #timerPage .timer-wrap {
+        gap: 10px;
+    }
+
+    #timerPage .timer-display {
+        padding: 14px 38px;
+        border-width: 1px;
+        border-radius: 12px;
+        font-size: clamp(2rem, 10.5vw, 2.7rem);
+        line-height: 1.02;
+    }
+
+    #timerPage .timer-icon {
+        left: 10px;
+        width: 22px;
+        height: 22px;
+        font-size: .90rem;
+    }
+
+    #timerPage .timer-time {
+        min-width: 8ch;
+        letter-spacing: 0;
+    }
+
+    #timerPage .timer-input-grid {
+        grid-template-columns: repeat(2,minmax(0,1fr));
+        gap: 8px;
+    }
+
+    #timerPage .timer-input-group {
+        min-width: 0;
+    }
+
+    #timerPage .timer-label {
+        margin-bottom: 3px;
+        font-size: .72rem;
+        line-height: 1.05;
+    }
+
+    #timerPage .timer-input-grid input {
+        width: 100%;
+        min-width: 0;
+        height: 38px;
+        box-sizing: border-box;
+        margin: 0;
+        padding: 5px 7px;
+        border-radius: 9px;
+        font-size: .84rem;
+    }
+
+    #timerPage .timer-actions {
+        display: grid;
+        grid-template-columns: 2fr 1fr 1fr;
+        gap: 6px;
+        flex-wrap: nowrap;
+    }
+
+    #timerPage .timer-actions .timer-mainbtn,
+    #timerPage .timer-actions .timer-lapbtn,
+    #timerPage .timer-actions .timer-resetbtn {
+        width: 100%;
+        min-width: 0;
+        min-height: 38px;
+        padding: 6px 5px;
+        font-size: .74rem;
+        line-height: 1.05;
+    }
+
+    #timerPage .timer-laps {
+        border-width: 1px;
+        border-radius: 10px;
+    }
+
+    #timerPage .timer-lap {
+        gap: 8px;
+        padding: 8px 10px;
+    }
+
+    #timerPage .timer-lap-name,
+    #timerPage .timer-lap-time {
+        font-size: .76rem;
+    }
+}
+
+@media (max-width: 370px) {
+    #bytesPage .bytes-row {
+        gap: 5px 4px;
+        padding: 8px 7px;
+    }
+
+    #bytesPage .bytes-value input {
+        padding-left: 4px;
+        padding-right: 4px;
+        font-size: .64rem;
+    }
+
+    #filesPage .files-row-actions {
+        grid-template-columns: 1fr;
+    }
+
+    #llPage #llForm {
+        grid-template-columns: 1fr;
+    }
+
+    #llPage #llForm .lt-yearwrap:nth-child(3) {
+        grid-column: auto;
+    }
+
+    #pdfMergePage .pdfmerge-summary {
+        grid-template-columns: repeat(2,minmax(0,1fr)) !important;
+    }
+
+    #timerPage .timer-actions {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    #timerPage .timer-mainbtn {
+        grid-column: 1 / -1;
+    }
+}

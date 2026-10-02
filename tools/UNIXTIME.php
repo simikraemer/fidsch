@@ -4,31 +4,31 @@ require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../head.php';
 require_once __DIR__ . '/../navbar.php';
 ?>
-<div class="container">
-    <h2 class="ueberschrift">Unixtime-Konverter</h2>
+<div id="unixTimePage" class="container tools-page unixtime-page">
+    <h2 class="ueberschrift tools-page-title unixtime-title">Unixtime-Konverter</h2>
 
-    <table style="width:100%; border-collapse:collapse;">
-        <tr>
-            <td style="vertical-align:middle; width:50%;">
+    <table class="tools-fields-table unixtime-table" style="width:100%; border-collapse:collapse;">
+        <tr class="tools-field-row">
+            <td class="tools-field-label" style="vertical-align:middle; width:50%;">
                 <label for="unix_ts"><strong>Unixzeit (Sekunden)</strong></label>
             </td>
-            <td>
+            <td class="tools-field-control">
                 <input type="number" step="1" id="unix_ts" placeholder="1727097600">
             </td>
         </tr>
-        <tr>
-            <td style="vertical-align:middle;">
+        <tr class="tools-field-row">
+            <td class="tools-field-label" style="vertical-align:middle;">
                 <label for="dt_local"><strong>Datum &amp; Zeit (HTML)</strong></label>
             </td>
-            <td>
+            <td class="tools-field-control">
                 <input type="datetime-local" id="dt_local">
             </td>
         </tr>
-        <tr>
-            <td style="vertical-align:middle;">
+        <tr class="tools-field-row tools-field-row--info">
+            <td class="tools-field-label" style="vertical-align:middle;">
                 <label for="dt_german"><strong>Datum &amp; Zeit (String)</strong></label>
             </td>
-            <td>
+            <td class="tools-field-control">
                 <input type="text" id="dt_german" readonly placeholder="31.12.2025 23:59">
             </td>
         </tr>

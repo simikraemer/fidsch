@@ -275,31 +275,10 @@ require_once __DIR__ . '/../navbar.php';
     opacity:.8;
     line-height:1.45;
   }
-
-  @media (max-width: 700px){
-    .pdfmerge-summary{
-      grid-template-columns: 1fr 1fr;
-    }
-
-    .pdfmerge-item{
-      grid-template-columns: 28px minmax(0,1fr);
-    }
-
-    .pdfmerge-right{
-      grid-column: 1 / -1;
-      justify-content:flex-end;
-      padding-top:2px;
-    }
-  }
-
-  @media (max-width: 520px){
-    .pdfmerge-summary{
-      grid-template-columns: 1fr;
-    }
   }
 </style>
 
-<div class="container">
+<div id="pdfMergePage" class="container tools-page pdfmerge-page">
   <div class="pdfmerge-wrap">
     <div class="pdfmerge-panel">
       <label id="dropzone" class="pdfmerge-dropzone" for="pdfInput">
@@ -354,6 +333,7 @@ require_once __DIR__ . '/../navbar.php';
 <script>
 (() => {
   const { PDFDocument } = PDFLib;
+  const PHONE_UI = !!(window.matchMedia && window.matchMedia('(max-width: 650px)').matches);
 
   const $ = (id) => document.getElementById(id);
 
@@ -430,7 +410,7 @@ require_once __DIR__ . '/../navbar.php';
     fileList.innerHTML = docs.map((doc, index) => {
       const needsBlankAfter = index < docs.length - 1 && (doc.pageCount % 2 === 1);
       return `
-        <div class="pdfmerge-item" draggable="true" data-id="${escapeHtml(doc.id)}">
+        <div class="pdfmerge-item" draggable="${PHONE_UI ? 'false' : 'true'}" data-id="${escapeHtml(doc.id)}">
           <div class="pdfmerge-handle" title="Ziehen zum Sortieren">⋮⋮</div>
 
           <div class="pdfmerge-main">
@@ -629,6 +609,7 @@ require_once __DIR__ . '/../navbar.php';
   });
 
   fileList.addEventListener("dragstart", (e) => {
+    if (PHONE_UI) return;
     const item = e.target.closest(".pdfmerge-item");
     if (!item || busy) return;
     dragId = item.dataset.id;
@@ -643,6 +624,7 @@ require_once __DIR__ . '/../navbar.php';
   });
 
   fileList.addEventListener("dragover", (e) => {
+    if (PHONE_UI) return;
     const overItem = e.target.closest(".pdfmerge-item");
     if (!overItem || !dragId || busy) return;
     e.preventDefault();
@@ -650,6 +632,7 @@ require_once __DIR__ . '/../navbar.php';
   });
 
   fileList.addEventListener("drop", (e) => {
+    if (PHONE_UI) return;
     const overItem = e.target.closest(".pdfmerge-item");
     if (!overItem || !dragId || busy) return;
     e.preventDefault();

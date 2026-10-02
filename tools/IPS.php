@@ -5,100 +5,100 @@ require_once __DIR__ . '/../head.php';
 require_once __DIR__ . '/../navbar.php';
 ?>
 
-<div class="container">
-    <h2 class="ueberschrift">IPv4 Netz-Konverter</h2>
+<div id="ipsPage" class="container tools-page ips-page">
+    <h2 class="ueberschrift tools-page-title ips-title">IPv4 Netz-Konverter</h2>
 
-    <table style="width:100%; border-collapse:collapse;">
+    <table class="tools-fields-table ips-table" style="width:100%; border-collapse:collapse;">
         <tbody>
-            <tr>
-                <td style="width:40%; vertical-align:middle;">
+            <tr class="tools-field-row">
+                <td class="tools-field-label" style="width:40%; vertical-align:middle;">
                     <label for="cidr"><strong>CIDR (IP/Präfix)</strong></label>
                     <span id="warn_cidr" style="display:none; color:var(--warning); font-weight:bold; margin-left:8px;">⚠️</span>
                 </td>
                 <td><input type="text" id="cidr" placeholder="137.226.141.245/23"></td>
             </tr>
 
-            <tr>
-                <td style="vertical-align:middle;">
+            <tr class="tools-field-row">
+                <td class="tools-field-label" style="vertical-align:middle;">
                     <label for="ip"><strong>IP-Adresse</strong></label>
                     <span id="warn_ip" style="display:none; color:var(--warning); font-weight:bold; margin-left:8px;">⚠️</span>
                 </td>
                 <td><input type="text" id="ip" placeholder="137.226.141.245"></td>
             </tr>
 
-            <tr>
-                <td style="vertical-align:middle;">
+            <tr class="tools-field-row">
+                <td class="tools-field-label" style="vertical-align:middle;">
                     <label for="prefix"><strong>Präfix (/0-/32)</strong></label>
                     <span id="warn_prefix" style="display:none; color:var(--warning); font-weight:bold; margin-left:8px;">⚠️</span>
                 </td>
                 <td><input type="number" id="prefix" min="0" max="32" placeholder="23"></td>
             </tr>
 
-            <tr>
-                <td style="vertical-align:middle;">
+            <tr class="tools-field-row tools-field-row--info">
+                <td class="tools-field-label" style="vertical-align:middle;">
                     <label><strong>DNS-Name (Reverse Lookup)</strong></label>
                 </td>
                 <td><input type="text" id="ptr_name" readonly placeholder="host.example.org"></td>
             </tr>
 
-            <tr>
-                <td style="vertical-align:middle;">
+            <tr class="tools-field-row">
+                <td class="tools-field-label" style="vertical-align:middle;">
                     <label for="mask"><strong>Subnetzmaske</strong></label>
                     <span id="warn_mask" style="display:none; color:var(--warning); font-weight:bold; margin-left:8px;">⚠️</span>
                 </td>
                 <td><input type="text" id="mask" placeholder="255.255.254.0"></td>
             </tr>
 
-            <tr>
-                <td style="vertical-align:middle;">
+            <tr class="tools-field-row">
+                <td class="tools-field-label" style="vertical-align:middle;">
                     <label for="wildcard"><strong>Wildcard-Maske</strong></label>
                     <span id="warn_wildcard" style="display:none; color:var(--warning); font-weight:bold; margin-left:8px;">⚠️</span>
                 </td>
                 <td><input type="text" id="wildcard" placeholder="0.0.1.255"></td>
             </tr>
 
-            <tr>
-                <td style="vertical-align:middle;">
+            <tr class="tools-field-row">
+                <td class="tools-field-label" style="vertical-align:middle;">
                     <label for="network"><strong>Netzwerkadresse</strong></label>
                     <span id="warn_network" style="display:none; color:var(--warning); font-weight:bold; margin-left:8px;">⚠️</span>
                 </td>
                 <td><input type="text" id="network" placeholder="137.226.140.0"></td>
             </tr>
 
-            <tr>
-                <td style="vertical-align:middle;">
+            <tr class="tools-field-row">
+                <td class="tools-field-label" style="vertical-align:middle;">
                     <label for="broadcast"><strong>Broadcastadresse</strong></label>
                     <span id="warn_broadcast" style="display:none; color:var(--warning); font-weight:bold; margin-left:8px;">⚠️</span>
                 </td>
                 <td><input type="text" id="broadcast" placeholder="137.226.141.255"></td>
             </tr>
 
-            <tr>
-                <td style="vertical-align:middle;">
+            <tr class="tools-field-row">
+                <td class="tools-field-label" style="vertical-align:middle;">
                     <label for="first_host"><strong>Erste Host-IP</strong></label>
                     <span id="warn_first_host" style="display:none; color:var(--warning); font-weight:bold; margin-left:8px;">⚠️</span>
                 </td>
                 <td><input type="text" id="first_host" placeholder="137.226.140.1"></td>
             </tr>
 
-            <tr>
-                <td style="vertical-align:middle;">
+            <tr class="tools-field-row">
+                <td class="tools-field-label" style="vertical-align:middle;">
                     <label for="last_host"><strong>Letzte Host-IP</strong></label>
                     <span id="warn_last_host" style="display:none; color:var(--warning); font-weight:bold; margin-left:8px;">⚠️</span>
                 </td>
                 <td><input type="text" id="last_host" placeholder="137.226.141.254"></td>
             </tr>
 
-            <tr>
-                <td style="vertical-align:middle;">
+            <tr class="tools-field-row">
+                <td class="tools-field-label" style="vertical-align:middle;">
                     <label for="range_start"><strong>Range Start</strong></label>
                     <span id="warn_range_start" style="display:none; color:var(--warning); font-weight:bold; margin-left:8px;">⚠️</span>
                 </td>
                 <td><input type="text" id="range_start" placeholder="137.226.140.0"></td>
             </tr>
 
-            <tr>
-                <td style="vertical-align:middle;">
+            <tr class="tools-field-row">
+                <td class="tools-field-label" style="vertical-align:middle;">
                     <label for="range_end"><strong>Range Ende</strong></label>
                     <span id="warn_range_end" style="display:none; color:var(--warning); font-weight:bold; margin-left:8px;">⚠️</span>
                 </td>
@@ -106,36 +106,36 @@ require_once __DIR__ . '/../navbar.php';
             </tr>
 
             <!-- Readonly / Infos -->
-            <tr>
-                <td style="vertical-align:middle;">
+            <tr class="tools-field-row tools-field-row--info">
+                <td class="tools-field-label" style="vertical-align:middle;">
                     <label><strong>Gesamt IPs</strong></label>
                 </td>
                 <td><input type="text" id="total_ips" readonly placeholder="512"></td>
             </tr>
 
-            <tr>
-                <td style="vertical-align:middle;">
+            <tr class="tools-field-row tools-field-row--info">
+                <td class="tools-field-label" style="vertical-align:middle;">
                     <label><strong>Nutzbare Hosts</strong></label>
                 </td>
                 <td><input type="text" id="usable_hosts" readonly placeholder="510"></td>
             </tr>
 
-            <tr>
-                <td style="vertical-align:middle;">
+            <tr class="tools-field-row tools-field-row--info">
+                <td class="tools-field-label" style="vertical-align:middle;">
                     <label><strong>Reverse DNS (PTR-Zone)</strong></label>
                 </td>
                 <td><input type="text" id="ptr_zone" readonly placeholder="141.226.137.in-addr.arpa."></td>
             </tr>
 
-            <tr>
-                <td style="vertical-align:middle;">
+            <tr class="tools-field-row tools-field-row--info">
+                <td class="tools-field-label" style="vertical-align:middle;">
                     <label><strong>Klasse / Bereich</strong></label>
                 </td>
                 <td><input type="text" id="ip_class" readonly placeholder="Class B, öffentlich"></td>
             </tr>
 
-            <tr>
-                <td style="vertical-align:middle;">
+            <tr class="tools-field-row tools-field-row--info">
+                <td class="tools-field-label" style="vertical-align:middle;">
                     <label><strong>Binär (IP)</strong></label>
                 </td>
                 <td><input type="text" id="ip_binary" readonly placeholder="10001001.11100010.10001101.11110101"></td>

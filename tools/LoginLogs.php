@@ -162,7 +162,7 @@ require_once __DIR__ . '/../navbar.php';
         <h1 class="ueberschrift dashboard-title">
             <span class="dashboard-title-main">Login-Logs</span>
             <span class="dashboard-title-soft">
-                | <span id="llHdrFailMonth">0</span> Fehlanmeldungen im letzten Monat
+                <span class="ll-title-sep">| </span><span id="llHdrFailMonth">0</span> Fehlanmeldungen im letzten Monat
             </span>
         </h1>
 
@@ -199,7 +199,7 @@ require_once __DIR__ . '/../navbar.php';
         </form>
     </div>
 
-    <table class="food-table">
+    <table class="food-table ll-table">
         <thead>
             <tr>
                 <th>Zeit</th>
@@ -287,7 +287,9 @@ require_once __DIR__ . '/../navbar.php';
 
         if (!rows || !rows.length) {
             const tr = document.createElement('tr');
+            tr.className = 'll-empty-row';
             const td = document.createElement('td');
+            td.className = 'll-empty-cell';
             td.colSpan = 4;
             td.textContent = 'Keine Einträge.';
             tr.appendChild(td);
@@ -297,22 +299,28 @@ require_once __DIR__ . '/../navbar.php';
 
         for (const r of rows) {
             const tr = document.createElement('tr');
+            tr.className = 'll-log-row';
 
-            // Fail optisch leicht markieren (ohne neue CSS-Klassen)
             if (String(r.success) === '0') {
-                tr.style.background = 'rgba(255, 0, 0, 0.06)';
+                tr.classList.add('ll-log-row--fail');
+            } else {
+                tr.classList.add('ll-log-row--success');
             }
 
             const tdTime = document.createElement('td');
+            tdTime.className = 'll-log-time';
             tdTime.textContent = fmtDe(r.event_time);
 
             const tdUser = document.createElement('td');
+            tdUser.className = 'll-log-user';
             tdUser.textContent = String(r.username ?? '');
 
             const tdIp = document.createElement('td');
+            tdIp.className = 'll-log-ip';
             tdIp.textContent = String(r.client_ip_text ?? '');
 
             const tdUa = document.createElement('td');
+            tdUa.className = 'll-log-ua';
 
             // User-Agent mit Zeilenumbruch
             const uaDiv = document.createElement('div');
@@ -349,9 +357,11 @@ require_once __DIR__ . '/../navbar.php';
                 }
 
                 const dtr = document.createElement('tr');
+                dtr.className = 'll-details-row';
                 dtr.dataset.detailsFor = String(r.id);
 
                 const dtd = document.createElement('td');
+                dtd.className = 'll-details-cell';
                 dtd.colSpan = 4;
                 dtd.style.paddingTop = '6px';
                 dtd.style.paddingBottom = '10px';

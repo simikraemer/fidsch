@@ -4,10 +4,10 @@ require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../head.php';
 require_once __DIR__ . '/../navbar.php';
 ?>
-<div class="container">
-    <table style="width:100%; border-collapse:collapse;">
-        <thead>
-        <tr>
+<div id="bytesPage" class="container tools-page bytes-page">
+    <table class="tools-converter-table bytes-table" style="width:100%; border-collapse:collapse;">
+        <thead class="bytes-table-head">
+        <tr class="bytes-row">
             <th style="text-align:left; padding:8px 0;"></th>
             <th style="text-align:left; padding:8px 0;"><strong>SI-Byte</strong></th>
             <th style="text-align:left; padding:8px 0;"><strong>Binär-Byte</strong></th>
@@ -15,35 +15,35 @@ require_once __DIR__ . '/../navbar.php';
         </tr>
         </thead>
         <tbody>
-        <tr>
-            <td style="vertical-align:middle;"><strong>Tera</strong></td>
-            <td><input type="number" step="any" id="tera_TB"  placeholder="z.B. 1.5 (TB)"></td>
-            <td><input type="number" step="any" id="tera_TiB" placeholder="z.B. 1.36 (TiB)"></td>
-            <td><input type="number" step="any" id="tera_Tb"  placeholder="z.B. 12 (Tb)"></td>
+        <tr class="bytes-row">
+            <td class="bytes-scale"><strong>Tera</strong></td>
+            <td class="bytes-value" data-label="SI-Byte"><input type="number" step="any" id="tera_TB"  placeholder="z.B. 1.5 (TB)"></td>
+            <td class="bytes-value" data-label="Binär-Byte"><input type="number" step="any" id="tera_TiB" placeholder="z.B. 1.36 (TiB)"></td>
+            <td class="bytes-value" data-label="Bit"><input type="number" step="any" id="tera_Tb"  placeholder="z.B. 12 (Tb)"></td>
         </tr>
-        <tr>
-            <td style="vertical-align:middle;"><strong>Giga</strong></td>
-            <td><input type="number" step="any" id="giga_GB"  placeholder="z.B. 1 (GB)"></td>
-            <td><input type="number" step="any" id="giga_GiB" placeholder="z.B. 0.93 (GiB)"></td>
-            <td><input type="number" step="any" id="giga_Gb"  placeholder="z.B. 8 (Gb)"></td>
+        <tr class="bytes-row">
+            <td class="bytes-scale"><strong>Giga</strong></td>
+            <td class="bytes-value" data-label="SI-Byte"><input type="number" step="any" id="giga_GB"  placeholder="z.B. 1 (GB)"></td>
+            <td class="bytes-value" data-label="Binär-Byte"><input type="number" step="any" id="giga_GiB" placeholder="z.B. 0.93 (GiB)"></td>
+            <td class="bytes-value" data-label="Bit"><input type="number" step="any" id="giga_Gb"  placeholder="z.B. 8 (Gb)"></td>
         </tr>
-        <tr>
-            <td style="vertical-align:middle;"><strong>Mega</strong></td>
-            <td><input type="number" step="any" id="mega_MB"  placeholder="z.B. 500 (MB)"></td>
-            <td><input type="number" step="any" id="mega_MiB" placeholder="z.B. 476.84 (MiB)"></td>
-            <td><input type="number" step="any" id="mega_Mb"  placeholder="z.B. 4000 (Mb)"></td>
+        <tr class="bytes-row">
+            <td class="bytes-scale"><strong>Mega</strong></td>
+            <td class="bytes-value" data-label="SI-Byte"><input type="number" step="any" id="mega_MB"  placeholder="z.B. 500 (MB)"></td>
+            <td class="bytes-value" data-label="Binär-Byte"><input type="number" step="any" id="mega_MiB" placeholder="z.B. 476.84 (MiB)"></td>
+            <td class="bytes-value" data-label="Bit"><input type="number" step="any" id="mega_Mb"  placeholder="z.B. 4000 (Mb)"></td>
         </tr>
-        <tr>
-            <td style="vertical-align:middle;"><strong>Kilo</strong></td>
-            <td><input type="number" step="any" id="kilo_KB"  placeholder="z.B. 1000 (KB)"></td>
-            <td><input type="number" step="any" id="kilo_KiB" placeholder="z.B. 976.5625 (KiB)"></td>
-            <td><input type="number" step="any" id="kilo_Kb"  placeholder="z.B. 8000 (Kb)"></td>
+        <tr class="bytes-row">
+            <td class="bytes-scale"><strong>Kilo</strong></td>
+            <td class="bytes-value" data-label="SI-Byte"><input type="number" step="any" id="kilo_KB"  placeholder="z.B. 1000 (KB)"></td>
+            <td class="bytes-value" data-label="Binär-Byte"><input type="number" step="any" id="kilo_KiB" placeholder="z.B. 976.5625 (KiB)"></td>
+            <td class="bytes-value" data-label="Bit"><input type="number" step="any" id="kilo_Kb"  placeholder="z.B. 8000 (Kb)"></td>
         </tr>
-        <tr>
-            <td style="vertical-align:middle;"><strong>Basis</strong></td>
-            <td><input type="number" step="any" id="base_B"   placeholder="z.B. 1 (B)"></td>
-            <td><input type="number" step="any" id="base_Bi"  placeholder="= 1 (B)"></td>
-            <td><input type="number" step="any" id="base_b"   placeholder="z.B. 8 (b)"></td>
+        <tr class="bytes-row">
+            <td class="bytes-scale"><strong>Basis</strong></td>
+            <td class="bytes-value" data-label="SI-Byte"><input type="number" step="any" id="base_B"   placeholder="z.B. 1 (B)"></td>
+            <td class="bytes-value" data-label="Binär-Byte"><input type="number" step="any" id="base_Bi"  placeholder="= 1 (B)"></td>
+            <td class="bytes-value" data-label="Bit"><input type="number" step="any" id="base_b"   placeholder="z.B. 8 (b)"></td>
         </tr>
         </tbody>
     </table>
