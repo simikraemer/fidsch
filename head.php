@@ -74,30 +74,46 @@ if (!isset($page_title) || $page_title === '') {
         });
     </script>
 
-    <!-- Preload der in der Navbar verwendeten Bilder -->
-    <link rel="preload" href="/img/odal.png" as="image" fetchpriority="high">
-    <link rel="preload" href="/img/tool.png" as="image" fetchpriority="high">
-    <link rel="preload" href="/img/mac.png" as="image" fetchpriority="high">
-    <link rel="preload" href="/img/path.png" as="image" fetchpriority="high">
-    <link rel="preload" href="/img/diet.png" as="image" fetchpriority="high">
-    <link rel="preload" href="/img/biz.png" as="image" fetchpriority="high">
-    <link rel="preload" href="/img/uni.png" as="image" fetchpriority="high">
-    <link rel="preload" href="/img/todo.png" as="image" fetchpriority="high">
-    <link rel="preload" href="/img/settings.png" as="image" fetchpriority="high">
+    <!-- Preload aller aktuell in navbar.php verwendeten Icons -->
+    <link rel="preload" href="/img/odal.png" as="image">
+    <link rel="preload" href="/img/diet.png" as="image">
     <link rel="preload" href="/img/graph.png" as="image">
+    <link rel="preload" href="/img/burger.png" as="image">
+    <link rel="preload" href="/img/hantel.png" as="image">
     <link rel="preload" href="/img/table.png" as="image">
+    <link rel="preload" href="/img/waage.png" as="image">
+    <link rel="preload" href="/img/db.png" as="image">
+    <link rel="preload" href="/img/pizza.png" as="image">
+    <link rel="preload" href="/img/biz.png" as="image">
     <link rel="preload" href="/img/upload.png" as="image">
-    <link rel="preload" href="/img/audiobook.png" as="image">
+    <link rel="preload" href="/img/bank.png" as="image">
+    <link rel="preload" href="/img/plan.png" as="image">
+    <link rel="preload" href="/img/uni.png" as="image">
+    <link rel="preload" href="/img/kartei.png" as="image">
+    <link rel="preload" href="/img/anki.png" as="image">
+    <link rel="preload" href="/img/glocke.png" as="image">
+    <link rel="preload" href="/img/todo.png" as="image">
+    <link rel="preload" href="/img/spotify.png" as="image">
+    <link rel="preload" href="/img/phan.png" as="image">
+    <link rel="preload" href="/img/blog.png" as="image">
+    <link rel="preload" href="/img/char.png" as="image">
+    <link rel="preload" href="/img/region.png" as="image">
+    <link rel="preload" href="/img/relation.png" as="image">
+    <link rel="preload" href="/img/factions.png" as="image">
     <link rel="preload" href="/img/vinyl.png" as="image">
+    <link rel="preload" href="/img/settings.png" as="image">
+    <link rel="preload" href="/img/log.png" as="image">
+    <link rel="preload" href="/img/merge.png" as="image">
+    <link rel="preload" href="/img/timer.png" as="image">
+    <link rel="preload" href="/img/mac.png" as="image">
+    <link rel="preload" href="/img/path.png" as="image">
+    <link rel="preload" href="/img/bit.png" as="image">
+    <link rel="preload" href="/img/hourglass.png" as="image">
+    <link rel="preload" href="/img/network.png" as="image">
+    <link rel="preload" href="/img/link.png" as="image">
+    <link rel="preload" href="/img/audiobook.png" as="image">
     <link rel="preload" href="/img/image.png" as="image">
     <link rel="preload" href="/img/tresor.png" as="image">
     <link rel="preload" href="/img/dots.png" as="image">
-    <link rel="preload" href="/img/burger.png" as="image">
-    <link rel="preload" href="/img/waage.png" as="image">
-    <link rel="preload" href="/img/cardio.png" as="image">
-    <link rel="preload" href="/img/pizza.png" as="image">
-    <link rel="preload" href="/img/phan.png" as="image" fetchpriority="high">
-    <link rel="preload" href="/img/char.png" as="image">
-    <link rel="preload" href="/img/region.png" as="image">
 </head>
 <body>
