@@ -985,7 +985,7 @@ if (($_GET['spotify'] ?? '') === 'ok') {
 }
 ?>
 
-<div class="spotify-token-page">
+<div id="spotifyTokenPage" class="spotify-token-page">
     <div class="container spotify-token-panel">
         <?php if ($initialNotice !== ''): ?>
             <div id="initialNotice" class="spotify-token-notice">
