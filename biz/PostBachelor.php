@@ -471,24 +471,7 @@ require_once __DIR__ . '/../navbar.php';
     }
 }
 
-@media (max-width: 640px) {
-    .postbachelor-page {
-        padding-left: 10px;
-        padding-right: 10px;
-    }
-
-    .pb-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .pb-table-wrap {
-        overflow-x: auto;
-    }
-
-    .pb-table {
-        min-width: 680px;
-    }
-}
+/* Smartphone-Regeln liegen zentral in FIJI_Mobile.css. */
 </style>
 
 <div class="lt-page postbachelor-page" id="postBachelorPage">

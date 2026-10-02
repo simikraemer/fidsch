@@ -4517,3 +4517,797 @@
         margin-top: 9px !important;
     }
 }
+
+
+/* ==========================================================
+   biz/Insert.php – Smartphone/Fairphone
+   ========================================================== */
+@media (max-width: 650px) {
+    #transferInsertPage.transfer-insert-page {
+        width: calc(100% - 20px);
+        max-width: none;
+        margin: 4px auto 48px;
+        padding: 14px;
+        box-sizing: border-box;
+        border-radius: 14px;
+    }
+
+    #transferInsertPage .transfer-insert-title {
+        margin: 0 0 12px;
+        font-size: 1.38rem;
+        line-height: 1.12;
+        text-align: center;
+    }
+
+    #transferInsertPage .transfer-import-message {
+        margin: 8px 0 10px;
+        font-size: 0.84rem;
+        line-height: 1.25;
+    }
+
+    #transferInsertPage .transfer-import-errors {
+        width: 100%;
+        max-width: none !important;
+        margin: 10px 0 !important;
+        padding: 10px !important;
+        box-sizing: border-box;
+        border-radius: 12px !important;
+        font-size: 0.78rem;
+    }
+
+    #transferInsertPage .transfer-import-errors summary {
+        line-height: 1.2;
+    }
+
+    #transferInsertPage .transfer-import-errors ul {
+        margin-top: 8px !important;
+        padding-left: 18px !important;
+    }
+
+    #transferInsertPage .transfer-import-errors li {
+        margin-bottom: 5px !important;
+        overflow-wrap: anywhere;
+    }
+
+    #transferInsertPage .transfer-import-form {
+        gap: 10px;
+    }
+
+    #transferInsertPage .transfer-import-form label {
+        margin-bottom: 1px;
+        font-size: 0.82rem;
+    }
+
+    #transferInsertPage #csv-upload {
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+        padding: 8px;
+        border-radius: 10px;
+        font-size: 0.80rem;
+    }
+
+    #transferInsertPage .transfer-import-form p {
+        margin: 0;
+        font-size: 0.74rem !important;
+        line-height: 1.2;
+    }
+
+    #transferInsertPage .transfer-import-form button[type="submit"] {
+        width: 100%;
+        min-height: 40px;
+        margin-top: 2px;
+        padding: 8px 10px;
+        border-radius: 10px;
+        font-size: 0.90rem;
+    }
+}
+
+
+/* ==========================================================
+   biz/Data.php – Smartphone/Fairphone
+   ========================================================== */
+@media (max-width: 650px) {
+    #transferDataPage.transfer-data-page {
+        width: calc(100% - 20px);
+        max-width: none !important;
+        margin: 4px auto 48px;
+        padding: 14px;
+        box-sizing: border-box;
+        border-radius: 14px;
+    }
+
+    #transferDataPage .transfer-data-title {
+        margin: 0 0 10px;
+        font-size: 1.38rem;
+        line-height: 1.12;
+        text-align: center;
+    }
+
+    /* Filter: Monat/Jahr nebeneinander, Kategorie darunter vollbreit. */
+    #transferDataPage .transfer-filter-form {
+        margin-bottom: 12px !important;
+    }
+
+    #transferDataPage .transfer-filter-form > .input-row {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px !important;
+    }
+
+    #transferDataPage .transfer-filter-form .input-group-dropdown {
+        min-width: 0;
+        width: auto;
+    }
+
+    #transferDataPage .transfer-filter-form .input-group-dropdown:nth-child(3) {
+        grid-column: 1 / -1;
+    }
+
+    #transferDataPage .transfer-filter-form label {
+        margin-bottom: 3px;
+        font-size: 0.72rem;
+        line-height: 1.05;
+    }
+
+    #transferDataPage .transfer-filter-form select {
+        width: 100%;
+        min-width: 0;
+        height: 38px;
+        margin: 0;
+        padding: 6px 7px;
+        box-sizing: border-box;
+        border-radius: 10px;
+        font-size: 0.80rem;
+    }
+
+    /* Transaktionen als kompakte Karten statt breiter Tabelle. */
+    #transferDataPage .transfer-table {
+        display: block;
+        width: 100%;
+        margin-top: 6px;
+        background: transparent;
+        box-shadow: none;
+        border-radius: 0;
+        overflow: visible;
+    }
+
+    #transferDataPage .transfer-table thead {
+        display: none;
+    }
+
+    #transferDataPage .transfer-table tbody {
+        display: block;
+        width: 100%;
+    }
+
+    #transferDataPage .transfer-table tr {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 6px 10px;
+        width: 100%;
+        margin-bottom: 8px;
+        padding: 10px;
+        box-sizing: border-box;
+        background: #fff;
+        border: 1px solid #ececec;
+        border-radius: 12px;
+        cursor: pointer;
+        touch-action: manipulation;
+    }
+
+    #transferDataPage .transfer-table td {
+        min-width: 0;
+        padding: 0;
+        border: 0;
+        box-sizing: border-box;
+    }
+
+    #transferDataPage .transfer-table td:nth-child(1) {
+        grid-column: 1;
+        grid-row: 1;
+        font-size: 0.70rem;
+        line-height: 1.1;
+        opacity: 0.65;
+    }
+
+    #transferDataPage .transfer-table td:nth-child(2) {
+        grid-column: 1;
+        grid-row: 2;
+        max-width: none !important;
+        font-size: 0.90rem;
+        line-height: 1.18;
+        font-weight: 600;
+        overflow-wrap: anywhere;
+    }
+
+    #transferDataPage .transfer-table td:nth-child(3) {
+        grid-column: 2;
+        grid-row: 1 / span 2;
+        align-self: center;
+        font-size: 0.88rem;
+        font-weight: 700;
+        white-space: nowrap !important;
+        text-align: right;
+    }
+
+    #transferDataPage .transfer-table td:nth-child(4) {
+        grid-column: 1 / -1;
+        grid-row: 3;
+        width: auto !important;
+        padding-top: 3px;
+    }
+
+    #transferDataPage .transfer-table .kategorie-select {
+        width: 100% !important;
+        min-width: 0;
+        height: 36px;
+        margin: 0;
+        padding: 5px 7px;
+        box-sizing: border-box;
+        border-radius: 9px;
+        font-size: 0.78rem;
+    }
+
+    /* Transfer-Modal: kompakt, viewport-sicher, lange Felder vollbreit. */
+    #modal .transfer-modal-content {
+        width: calc(100vw - 20px);
+        max-width: 560px;
+        max-height: calc(100dvh - 20px);
+        margin: 10px auto;
+        padding: 14px;
+        overflow-y: auto;
+        box-sizing: border-box;
+        border-radius: 14px;
+    }
+
+    #modal .transfer-modal-content > h2 {
+        margin: 0 34px 8px 0;
+        font-size: 1.16rem;
+        line-height: 1.1;
+    }
+
+    #modal #modal-form {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+    }
+
+    #modal .transfer-modal-row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 7px;
+        margin: 0;
+    }
+
+    #modal .transfer-modal-value-row {
+        grid-template-columns: 0.9fr 0.7fr 1.4fr;
+    }
+
+    #modal .input-group {
+        min-width: 0;
+        margin: 0;
+    }
+
+    #modal label {
+        margin-bottom: 1px;
+        font-size: 0.68rem;
+        line-height: 1.05;
+    }
+
+    #modal input,
+    #modal select,
+    #modal textarea {
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+        margin: 1px 0;
+        padding: 5px 7px;
+        border-radius: 8px;
+        font-size: 0.76rem;
+    }
+
+    #modal input,
+    #modal select {
+        height: 34px;
+    }
+
+    #modal textarea {
+        min-height: 44px;
+        resize: none;
+        line-height: 1.18;
+    }
+
+    #modal #modal-verwendungszweck {
+        min-height: 54px;
+    }
+
+    #modal .transfer-modal-actions {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px !important;
+        width: 100%;
+        margin-top: 1px;
+    }
+
+    #modal .transfer-modal-actions button {
+        width: 100%;
+        min-width: 0;
+        min-height: 35px;
+        padding: 5px 6px;
+        border-radius: 8px;
+        font-size: 0.68rem;
+        line-height: 1.08;
+        white-space: normal;
+    }
+}
+
+/* Sehr schmale Geräte: dreispaltige Wertzeile im Modal auf 2+1 umbrechen. */
+@media (max-width: 380px) {
+    #modal .transfer-modal-value-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    #modal .transfer-modal-value-row .input-group:last-child {
+        grid-column: 1 / -1;
+    }
+
+    #modal .transfer-modal-actions {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+
+/* ==========================================================
+   biz/Konten.php – Smartphone/Fairphone
+   ========================================================== */
+@media (max-width: 650px) {
+    #kontenPage.konten-page {
+        width: calc(100% - 20px);
+        margin: 4px auto 48px;
+        gap: 12px;
+    }
+
+    #kontenPage .container {
+        padding: 14px;
+        border-radius: 14px;
+    }
+
+    #kontenPage .konten-entry-title,
+    #kontenPage .konten-list-title {
+        margin: 0 0 10px;
+        font-size: 1.32rem;
+        line-height: 1.1;
+        text-align: center;
+    }
+
+    #kontenPage .kalorien-output {
+        margin: 0 0 8px;
+        padding: 7px 9px;
+        font-size: 0.78rem;
+        line-height: 1.2;
+    }
+
+    #kontenPage details {
+        margin: 0 0 8px;
+        padding: 9px 10px;
+        border-radius: 10px;
+        font-size: 0.76rem;
+    }
+
+    #kontenPage details summary {
+        line-height: 1.15;
+    }
+
+    #kontenPage details ul {
+        margin: 7px 0 0;
+        padding-left: 18px;
+    }
+
+    #kontenPage .form-separator {
+        margin: 6px 0;
+    }
+
+    /* Konto + Kontostand nebeneinander; Notiz und Speichern vollbreit. */
+    #kontenPage .konten-entry-form {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px 9px;
+    }
+
+    #kontenPage .konten-entry-form > .input-group {
+        min-width: 0;
+    }
+
+    #kontenPage .konten-entry-form > .input-group:nth-child(3) {
+        grid-column: 1 / -1;
+    }
+
+    #kontenPage .konten-entry-form label {
+        margin-bottom: 2px;
+        font-size: 0.72rem;
+        line-height: 1.05;
+    }
+
+    #kontenPage .konten-entry-form input,
+    #kontenPage .konten-entry-form textarea {
+        width: 100%;
+        min-width: 0;
+        margin: 0;
+        padding: 6px 8px;
+        box-sizing: border-box;
+        border-radius: 9px;
+        font-size: 0.84rem;
+    }
+
+    #kontenPage .konten-entry-form input {
+        height: 36px;
+    }
+
+    #kontenPage .konten-entry-form textarea {
+        min-height: 54px;
+        height: 54px;
+        resize: none;
+        line-height: 1.2;
+    }
+
+    #kontenPage .konten-entry-form > button[type="submit"] {
+        grid-column: 1 / -1;
+        width: 100%;
+        min-height: 38px;
+        padding: 7px 10px;
+        border-radius: 10px;
+        font-size: 0.86rem;
+    }
+
+    /* Aktuelle Kontenstände als Karten statt breiter Tabelle. */
+    #kontenPage .konten-table {
+        display: block;
+        width: 100%;
+        margin-top: 4px;
+        background: transparent;
+        box-shadow: none;
+        border-radius: 0;
+        overflow: visible;
+    }
+
+    #kontenPage .konten-table thead {
+        display: none;
+    }
+
+    #kontenPage .konten-table tbody {
+        display: block;
+        width: 100%;
+    }
+
+    #kontenPage .konten-table tr {
+        display: grid;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    #kontenPage .konten-data-row {
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 4px 10px;
+        margin-bottom: 8px;
+        padding: 10px;
+        background: #fff;
+        border: 1px solid #ececec;
+        border-radius: 11px;
+    }
+
+    #kontenPage .konten-data-row td {
+        min-width: 0;
+        padding: 0;
+        border: 0;
+    }
+
+    #kontenPage .konten-data-row td:nth-child(1) {
+        grid-column: 1;
+        grid-row: 1;
+        font-size: 0.90rem;
+        font-weight: 700;
+        overflow-wrap: anywhere;
+    }
+
+    #kontenPage .konten-data-row td:nth-child(2) {
+        grid-column: 2;
+        grid-row: 1;
+        white-space: nowrap;
+        font-size: 0.90rem;
+        font-weight: 800;
+        text-align: right;
+    }
+
+    #kontenPage .konten-data-row td:nth-child(3) {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        font-size: 0.68rem;
+        line-height: 1.1;
+        opacity: 0.62;
+    }
+
+    #kontenPage .konten-data-row td:nth-child(4) {
+        grid-column: 1 / -1;
+        grid-row: 3;
+        padding-top: 3px;
+    }
+
+    #kontenPage .prefill-konto {
+        width: 100%;
+        min-height: 34px;
+        padding: 5px 8px;
+        border-radius: 8px;
+        font-size: 0.76rem;
+    }
+
+    #kontenPage .konten-empty-row {
+        padding: 12px 10px;
+        background: #fff;
+        border-radius: 11px;
+        font-size: 0.80rem;
+        text-align: center;
+    }
+
+    #kontenPage .konten-empty-row td {
+        padding: 0;
+        border: 0;
+    }
+}
+
+
+/* ==========================================================
+   biz/PostBachelor.php – Smartphone/Fairphone
+   ========================================================== */
+@media (max-width: 650px) {
+    #postBachelorPage.postbachelor-page {
+        width: auto;
+        max-width: none;
+        margin: 4px auto 48px;
+        padding: 0 10px;
+    }
+
+    #postBachelorPage .pb-topbar {
+        margin-bottom: 10px;
+    }
+
+    #postBachelorPage .pb-topbar .ueberschrift {
+        width: 100%;
+        margin: 0;
+        font-size: 1.38rem;
+        line-height: 1.12;
+        text-align: center;
+    }
+
+    /* 1. Reihe TV-L vollbreit, 2. Reihe Teilzeit + Miete,
+       3. Reihe Pendeln vollbreit. */
+    #postBachelorPage .pb-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 9px;
+        margin-bottom: 12px;
+    }
+
+    #postBachelorPage .pb-card {
+        min-width: 0;
+        padding: 12px;
+        border-radius: 14px;
+    }
+
+    #postBachelorPage .pb-card:nth-child(1),
+    #postBachelorPage .pb-card:nth-child(4) {
+        grid-column: 1 / -1;
+    }
+
+    #postBachelorPage .pb-card h2 {
+        margin: 0 0 8px;
+        font-size: 0.88rem;
+        line-height: 1.1;
+    }
+
+    #postBachelorPage .pb-card label {
+        margin-bottom: 3px;
+        font-size: 0.70rem;
+        line-height: 1.05;
+    }
+
+    #postBachelorPage .pb-card input,
+    #postBachelorPage .pb-card select {
+        width: 100%;
+        min-width: 0;
+        height: 36px;
+        margin: 0;
+        padding: 5px 7px;
+        box-sizing: border-box;
+        border-radius: 9px;
+        font-size: 0.78rem;
+    }
+
+    #postBachelorPage #salaryPreset {
+        font-size: 0.76rem;
+    }
+
+    #postBachelorPage .pb-card-head {
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+
+    #postBachelorPage .pb-card-head h2 {
+        margin: 0;
+    }
+
+    #postBachelorPage .pb-park-check {
+        gap: 5px;
+        font-size: 0.68rem !important;
+        white-space: nowrap;
+    }
+
+    #postBachelorPage .pb-park-check input {
+        width: 16px;
+        height: 16px;
+    }
+
+    #postBachelorPage .pb-inline-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    #postBachelorPage .pb-tax-error {
+        margin-bottom: 10px;
+        padding: 8px 9px;
+        border-left-width: 4px;
+        font-size: 0.76rem;
+        line-height: 1.2;
+    }
+
+    #postBachelorPage .pb-table-section {
+        margin-bottom: 12px;
+    }
+
+    #postBachelorPage .pb-table-section h2 {
+        margin: 0 0 7px;
+        font-size: 0.96rem;
+        line-height: 1.12;
+    }
+
+    /* Monatsrechnung ohne horizontalen Scroll:
+       Bezeichnung links, Betrag rechts, Grundlage darunter. */
+    #postBachelorPage .pb-table-wrap {
+        overflow: hidden;
+        border-radius: 14px;
+    }
+
+    #postBachelorPage .pb-table {
+        display: block;
+        width: 100%;
+        min-width: 0;
+    }
+
+    #postBachelorPage .pb-table thead {
+        display: none;
+    }
+
+    #postBachelorPage .pb-table tbody {
+        display: block;
+        width: 100%;
+    }
+
+    #postBachelorPage .pb-table tr {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 2px 9px;
+        width: 100%;
+        padding: 8px 10px;
+        box-sizing: border-box;
+        border-bottom: 1px solid rgba(0, 0, 0, .07);
+    }
+
+    #postBachelorPage .pb-table tr:last-child {
+        border-bottom: 0;
+    }
+
+    #postBachelorPage .pb-table td {
+        min-width: 0;
+        padding: 0;
+        border: 0;
+    }
+
+    #postBachelorPage .pb-table td:nth-child(1) {
+        grid-column: 1;
+        grid-row: 1;
+        font-size: 0.77rem;
+        line-height: 1.14;
+        overflow-wrap: anywhere;
+    }
+
+    #postBachelorPage .pb-table .pb-sign {
+        display: none;
+    }
+
+    #postBachelorPage .pb-table .pb-money {
+        grid-column: 2;
+        grid-row: 1;
+        align-self: baseline;
+        font-size: 0.77rem;
+        line-height: 1.14;
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    #postBachelorPage .pb-table td:nth-child(4) {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        font-size: 0.62rem;
+        line-height: 1.12;
+        color: rgba(34, 34, 34, .58);
+        overflow-wrap: anywhere;
+    }
+
+    #postBachelorPage .pb-table .pb-subrow td:first-child {
+        padding-left: 8px;
+        color: rgba(34, 34, 34, .72);
+    }
+
+    #postBachelorPage .pb-table .pb-net-row {
+        border-top: 2px solid rgba(0, 0, 0, .12);
+    }
+
+    #postBachelorPage .pb-table .pb-result-row {
+        border-top: 2px solid rgba(0, 0, 0, .16);
+        background: var(--bg-light);
+    }
+
+    #postBachelorPage .pb-table .pb-result-row td:nth-child(1),
+    #postBachelorPage .pb-table .pb-result-value {
+        font-size: 0.92rem;
+    }
+
+    /* Info-Details kompakt, aber ohne Informationsverlust. */
+    #postBachelorPage .pb-details {
+        margin-top: 12px;
+        border-radius: 14px;
+    }
+
+    #postBachelorPage .pb-details > summary {
+        padding: 10px 12px;
+        font-size: 0.82rem;
+    }
+
+    #postBachelorPage .pb-info-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+        padding: 10px;
+    }
+
+    #postBachelorPage .pb-info-block h3 {
+        margin-bottom: 6px;
+        font-size: 0.84rem;
+        line-height: 1.15;
+    }
+
+    #postBachelorPage .pb-info-table {
+        font-size: 0.72rem;
+    }
+
+    #postBachelorPage .pb-info-table th,
+    #postBachelorPage .pb-info-table td {
+        padding: 6px 7px;
+        line-height: 1.2;
+    }
+
+    #postBachelorPage .pb-info-table td:first-child {
+        width: 46px;
+    }
+}
+
+@media (max-width: 370px) {
+    #postBachelorPage .pb-grid {
+        grid-template-columns: 1fr;
+    }
+
+    #postBachelorPage .pb-card:nth-child(1),
+    #postBachelorPage .pb-card:nth-child(4) {
+        grid-column: auto;
+    }
+}

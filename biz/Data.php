@@ -79,10 +79,10 @@ $page_title = 'Transfers';
 require_once __DIR__ . '/../head.php';    // <!DOCTYPE html> … <body>
 require_once __DIR__ . '/../navbar.php';  // Navbar
 ?>
-<main class="container" style="max-width: 1000px;">
-    <h1 class="ueberschrift">Transaktionen</h1>
+<main id="transferDataPage" class="container transfer-data-page" style="max-width: 1000px;">
+    <h1 class="ueberschrift transfer-data-title">Transaktionen</h1>
 
-    <form method="get" class="zeitbereich-form" style="margin-bottom: 2rem;">
+    <form method="get" class="zeitbereich-form transfer-filter-form" style="margin-bottom: 2rem;">
         <div class="input-row" style="flex-wrap: wrap; gap: 1rem;">
             <div class="input-group-dropdown">
                 <label for="monat">Monat</label>
@@ -123,7 +123,7 @@ require_once __DIR__ . '/../navbar.php';  // Navbar
         </div>
     </form>
 
-    <table class="food-table">
+    <table class="food-table transfer-table">
         <thead>
             <tr>
                 <th>Datum</th>
@@ -158,13 +158,13 @@ require_once __DIR__ . '/../navbar.php';  // Navbar
 
 <!-- Modal -->
 <div id="modal" class="modal" style="display: none;">
-    <div class="modal-content">
+    <div class="modal-content transfer-modal-content">
         <span class="close-button" onclick="closeModal()">&times;</span>
         <h2>Eintrag bearbeiten</h2>
         <form id="modal-form">
             <input type="hidden" name="id" id="modal-id">
 
-            <div class="input-row">
+            <div class="input-row transfer-modal-row">
                 <div class="input-group">
                     <label>Buchungstag</label>
                     <input type="text" id="modal-buchungstag" readonly>
@@ -175,7 +175,7 @@ require_once __DIR__ . '/../navbar.php';  // Navbar
                 </div>
             </div>
 
-            <div class="input-row">
+            <div class="input-row transfer-modal-row">
                 <div class="input-group">
                     <label>Auftragskonto</label>
                     <input type="text" id="modal-auftragskonto" readonly>
@@ -186,7 +186,7 @@ require_once __DIR__ . '/../navbar.php';  // Navbar
                 </div>
             </div>
 
-            <div class="input-row">
+            <div class="input-row transfer-modal-row">
                 <div class="input-group">
                     <label>IBAN</label>
                     <input type="text" id="modal-iban" readonly>
@@ -197,7 +197,7 @@ require_once __DIR__ . '/../navbar.php';  // Navbar
                 </div>
             </div>
 
-            <div class="input-row">
+            <div class="input-row transfer-modal-row transfer-modal-text-row">
                 <div class="input-group">
                     <label>Buchungstext</label>
                     <textarea id="modal-buchungstext" rows="2" readonly></textarea>
@@ -208,7 +208,7 @@ require_once __DIR__ . '/../navbar.php';  // Navbar
                 </div>
             </div>
 
-            <div class="input-row">
+            <div class="input-row transfer-modal-row transfer-modal-value-row">
                 <div class="input-group">
                     <label>Betrag</label>
                     <input type="text" id="modal-betrag" readonly>
@@ -234,7 +234,7 @@ require_once __DIR__ . '/../navbar.php';  // Navbar
             </div>
 
             <div class="input-group">
-                <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                <div class="transfer-modal-actions" style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
                     <input type="file" id="modal-document" accept="application/pdf,image/*" style="display: none;">
                     <button type="button" id="modal-document-button">Dokument hochladen</button>
                     <button type="button" id="modal-document-view" style="display: none;">Zur Rechnung</button>

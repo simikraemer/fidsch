@@ -159,9 +159,9 @@ require_once __DIR__ . '/../head.php';
 require_once __DIR__ . '/../navbar.php';
 ?>
 
-    <div class="container-duo">
-    <div class="container">
-        <h1 class="ueberschrift">Konten aktualisieren</h1>
+    <div id="kontenPage" class="container-duo konten-page">
+    <div class="container konten-entry-card">
+        <h1 class="ueberschrift konten-entry-title">Konten aktualisieren</h1>
 
         <?php if ($message !== ''): ?>
             <p class="kalorien-output"><?= esc($message) ?></p>
@@ -180,7 +180,7 @@ require_once __DIR__ . '/../navbar.php';
             <div class="form-separator"></div>
         <?php endif; ?>
 
-        <form class="form-block" method="post">
+        <form class="form-block konten-entry-form" method="post">
             <div class="input-group">
                 <label for="konto">Konto:</label>
                 <input
@@ -226,9 +226,9 @@ require_once __DIR__ . '/../navbar.php';
         </form>
     </div>
 
-    <div class="container">
-        <h1 class="ueberschrift">Aktuelle Einträge</h1>
-        <table class="food-table">
+    <div class="container konten-list-card">
+        <h1 class="ueberschrift konten-list-title">Aktuelle Einträge</h1>
+        <table class="food-table konten-table">
             <thead>
                 <tr>
                     <th>Konto</th>
@@ -244,7 +244,7 @@ require_once __DIR__ . '/../navbar.php';
                     </tr>
                 <?php else: ?>
                     <?php foreach ($latestKontostaende as $row): ?>
-                        <tr>
+                        <tr class="konten-data-row">
                             <td><?= esc((string)$row['konto']) ?></td>
                             <td><?= esc(euro((float)$row['betrag'])) ?></td>
                             <td><?= esc(formatDateTime((string)$row['eingetragen_am'])) ?></td>
