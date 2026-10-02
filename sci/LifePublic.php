@@ -142,28 +142,31 @@ function lifePublicRenderLogin(?string $error = null, bool $blocked = false): vo
 
     header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
     header('Pragma: no-cache');
+    $fullCssVersion = is_file(__DIR__ . '/../FIJI_FullHD.css') ? (string)filemtime(__DIR__ . '/../FIJI_FullHD.css') : '';
+    $mobileCssVersion = is_file(__DIR__ . '/../FIJI_Mobile.css') ? (string)filemtime(__DIR__ . '/../FIJI_Mobile.css') : '';
     ?>
 <!DOCTYPE html>
 <html lang="de">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>Studienplan</title>
-    <link rel="stylesheet" href="../FIJI.css">
+    <link rel="stylesheet" href="../FIJI_FullHD.css<?= $fullCssVersion !== '' ? '?v=' . LifeTimelinePage::esc($fullCssVersion) : '' ?>">
+    <link rel="stylesheet" href="../FIJI_Mobile.css<?= $mobileCssVersion !== '' ? '?v=' . LifeTimelinePage::esc($mobileCssVersion) : '' ?>">
 </head>
-<body style="margin-top:0;">
-    <div class="content-wrap" style="padding-top:48px; padding-bottom:48px;">
-        <div class="container" style="max-width:460px;">
-            <h1 class="ueberschrift" style="margin-top:0;">Studienplan</h1>
+<body class="life-public-login-page" style="margin-top:0;">
+    <div class="content-wrap life-public-login-wrap">
+        <div class="container life-public-login-card">
+            <h1 class="ueberschrift life-public-login-title">Studienplan</h1>
 
             <?php if ($error !== null && $error !== ''): ?>
-                <div style="margin-bottom:16px; padding:12px 14px; border-radius:var(--border-radius); background:#ffe8e8; color:#a40000; box-shadow:var(--shadow); font-weight:700;">
+                <div class="life-public-login-error">
                     <?= LifeTimelinePage::esc($error) ?>
                 </div>
             <?php endif; ?>
 
             <?php if (!$blocked): ?>
-                <form method="post" action="<?= LifeTimelinePage::esc($self) ?>" class="form-block">
+                <form method="post" action="<?= LifeTimelinePage::esc($self) ?>" class="form-block life-public-login-form">
                     <div>
                         <label for="life_public_password" class="lt-label">Passwort</label>
                         <input
@@ -172,7 +175,6 @@ function lifePublicRenderLogin(?string $error = null, bool $blocked = false): vo
                             name="life_public_password"
                             autocomplete="current-password"
                             required
-                            autofocus
                         >
                     </div>
 
@@ -270,6 +272,7 @@ $view = LifeTimelinePage::buildViewData($conn);
 
 LifeTimelinePage::renderStandaloneDocument($view, [
     'title' => 'Studienplan',
+    'body_class' => 'life-public-view',
     'body_style' => 'margin-top:0;',
     'extra_css' => '
         .lt-page { margin-top: 18px; }

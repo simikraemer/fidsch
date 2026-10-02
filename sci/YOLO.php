@@ -1180,7 +1180,7 @@ require_once __DIR__ . '/../navbar.php';
     <div class="lt-topbar yolo-topbar">
         <h1 class="ueberschrift dashboard-title">
             <span class="dashboard-title-main">YOLO-Auswertung</span>
-            <span class="dashboard-title-soft">| <span id="yoloSelectedCount">0</span> Runs im Vergleich</span>
+            <span class="dashboard-title-soft"><span class="yolo-title-sep">| </span><span id="yoloSelectedCount">0</span> Runs im Vergleich</span>
         </h1>
     </div>
 

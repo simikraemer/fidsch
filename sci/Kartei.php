@@ -1089,7 +1089,7 @@ require_once __DIR__ . '/../navbar.php';
 
 ?>
 
-<div class="sci-review-shell">
+<div id="karteiPage" class="sci-review-shell">
 
     <section class="sci-deckbar" aria-label="Karteikarten-Auswahl und Lernstatistik">
 

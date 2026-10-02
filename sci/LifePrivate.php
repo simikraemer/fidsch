@@ -723,6 +723,10 @@ final class LifePrivateEditor
 
     const modal = document.getElementById('lifeEditModal');
     const modalTitle = document.getElementById('lifeEditModalTitle');
+    const PHONE_UI = !!(
+        window.matchMedia
+        && window.matchMedia('(max-width: 650px)').matches
+    );
     if (!modal || !modalTitle) return;
 
     const forms = Object.fromEntries(
@@ -858,10 +862,12 @@ final class LifePrivateEditor
         modal.hidden = false;
         document.body.classList.add('life-edit-modal-open');
 
-        requestAnimationFrame(() => {
-            const autofocus = form.querySelector('input:not([type="hidden"]):not(:disabled), select:not(:disabled)');
-            autofocus?.focus();
-        });
+        if (!PHONE_UI) {
+            requestAnimationFrame(() => {
+                const autofocus = form.querySelector('input:not([type="hidden"]):not(:disabled), select:not(:disabled)');
+                autofocus?.focus();
+            });
+        }
     }
 
     function closeModal() {

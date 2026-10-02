@@ -1505,187 +1505,6 @@
     }
 }
 
-/* =========================================================
- * SCI / Life: iPhone-Timeline
- *
- * head.php besitzt bewusst kein viewport-meta. Mobile Safari
- * arbeitet deshalb mit einem Layout-Viewport um ~980 CSS-px.
- * Dieser Block ist deshalb iOS-spezifisch und verwendet 1100px
- * statt eines klassischen 760px-Breakpoints.
- * Desktop / Full-HD bleibt vollständig unverändert.
- * ========================================================= */
-@supports (-webkit-touch-callout: none) {
-    @media (max-width: 1100px) {
-        /* Topbar & Controls umbrechen statt zu quetschen */
-        .life-page .lt-topbar {
-            display: flex;
-            flex-direction: column;
-            align-items: stretch;
-            gap: 14px;
-        }
-
-        .life-page .ueberschrift.dashboard-title {
-            text-align: left;
-            margin-bottom: 4px;
-        }
-
-        .life-page .life-edit-inline-actions {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: flex-start;
-            gap: 8px;
-            width: 100%;
-            min-width: 0;
-            order: 2;
-        }
-
-        .life-page .life-edit-inline-actions .life-edit-new {
-            flex: 1 1 auto;
-            padding: 10px 14px;
-            font-size: 0.95rem;
-        }
-
-        .life-page .life-controls {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: flex-end;
-            gap: 10px;
-            width: 100%;
-            order: 3;
-        }
-
-        .life-page .life-sidewrap,
-        .life-page .life-sidewrap--year-range,
-        .life-page .life-modewrap {
-            flex: 1 1 calc(50% - 10px);
-            min-width: 140px;
-            width: auto;
-        }
-
-        .life-page .kategorie-select {
-            height: 44px;
-            font-size: 1rem;
-        }
-
-        /* Timeline-Scrolling & Board */
-        .life-page .life-wrap {
-            padding-left: 0;
-            padding-right: 0;
-            overflow: visible;
-        }
-
-        .life-page .life-axis-scroll,
-        .life-page .life-body-scroll {
-            overflow-x: auto;
-            overflow-y: visible;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        /* Board-Breite: Fixe Spalte (330px) + dynamische Track-Breite */
-        .life-page .life-board {
-            width: max-content;
-            min-width: calc(330px + var(--life-mobile-track-width, 1000px));
-        }
-
-        .life-page .life-axis-row,
-        .life-page .life-row {
-            grid-template-columns: 330px minmax(var(--life-mobile-track-width, 1000px), 1fr);
-            align-items: stretch;
-            width: 100%;
-        }
-
-        /* Obere Achsenzeile (Jahre / Monate) vergrößern */
-        .life-page .life-ordinate-spacer,
-        .life-page .life-months {
-            min-height: 52px;
-        }
-
-        .life-page .life-month-cell {
-            font-size: 1.35rem;
-            font-weight: 850;
-            padding-bottom: 8px;
-        }
-
-        /* Zeilenhöhe vergrößern für Lesbarkeit & Touch-Ziele */
-        .life-page .life-row--group {
-            min-height: 48px;
-        }
-
-        .life-page .life-row--entry {
-            min-height: 52px;
-        }
-
-        .life-page .life-ordinate-spacer,
-        .life-page .life-label {
-            width: 330px;
-            min-width: 330px;
-            max-width: 330px;
-            flex: none;
-            box-sizing: border-box;
-            padding: 0 12px;
-            padding-left: calc(12px + (var(--life-depth, 0) * 16px)) !important;
-            background: #fff;
-            position: sticky;
-            left: 0;
-            z-index: 10;
-        }
-
-        /* Größere, deutliche Schrift für Fach- und Gruppennamen */
-        .life-page .life-label-text {
-            font-size: 1.22rem;
-            font-weight: 600;
-            line-height: 1.2;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .life-page .life-label--group .life-label-text {
-            font-size: 1.28rem;
-            font-weight: 850;
-        }
-
-        /* Klapp-Pfeil passend zur Schrift skalieren */
-        .life-page .life-group-toggle {
-            width: 28px;
-            height: 28px;
-            min-width: 28px;
-            margin-right: 10px;
-        }
-
-        .life-page .life-group-toggle-icon {
-            border-top: 6px solid transparent;
-            border-bottom: 6px solid transparent;
-            border-left: 8px solid currentColor;
-        }
-
-        .life-page .life-months,
-        .life-page .life-track {
-            min-width: var(--life-mobile-track-width, 1000px);
-            width: 100%;
-            flex: none;
-        }
-
-        .life-page .life-bar {
-            height: 18px;
-            border-radius: 4px;
-            z-index: 4;
-        }
-
-        .life-page .life-event {
-            width: 14px;
-            height: 14px;
-            z-index: 5;
-        }
-
-        .life-page .life-event::before,
-        .life-page .life-event::after {
-            width: 16px;
-            height: 3px;
-        }
-    }
-}
-
 @media (max-width: 1150px) {
     .gym-plan-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -5309,5 +5128,1567 @@
     #postBachelorPage .pb-card:nth-child(1),
     #postBachelorPage .pb-card:nth-child(4) {
         grid-column: auto;
+    }
+}
+
+
+/* ==========================================================
+   sci/YOLO.php – Smartphone/Fairphone
+   ========================================================== */
+@media (max-width: 650px) {
+    #yoloPage.yolo-page {
+        width: auto;
+        max-width: none;
+        margin: 4px auto 48px;
+        padding: 0 10px;
+    }
+
+    #yoloPage .yolo-topbar {
+        display: block;
+        margin-bottom: 9px;
+    }
+
+    /* Titel wie Lerntime/Fit/Biz */
+    #yoloPage .dashboard-title {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        justify-content: center;
+        column-gap: 10px;
+        row-gap: 2px;
+        width: 100%;
+        margin: 0;
+        font-size: 1.38rem;
+        line-height: 1.12;
+    }
+
+    #yoloPage .dashboard-title-main {
+        flex: 0 0 100%;
+        min-width: 0;
+        white-space: normal;
+        text-align: center;
+    }
+
+    #yoloPage .dashboard-title-soft {
+        flex: 0 0 auto;
+        min-width: 0;
+        font-size: 0.72rem;
+        white-space: nowrap;
+        opacity: 0.78;
+        text-align: center;
+    }
+
+    #yoloPage .yolo-title-sep {
+        display: none;
+    }
+
+    /* Tabs bleiben erreichbar, aber deutlich kompakter. */
+    #yoloPage .yolo-tabs {
+        top: 64px;
+        gap: 5px;
+        margin: 0 0 10px;
+        padding: 5px;
+        border-radius: 14px;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    #yoloPage .yolo-tabs::-webkit-scrollbar {
+        display: none;
+    }
+
+    #yoloPage .yolo-tab {
+        flex: 0 0 auto;
+        min-width: 92px;
+        padding: 8px 9px;
+        border-radius: 10px;
+        font-size: 0.74rem;
+        line-height: 1.05;
+    }
+
+    #yoloPage .yolo-section {
+        margin-bottom: 10px;
+        padding: 12px;
+        border-radius: 14px;
+    }
+
+    #yoloPage .yolo-section-head,
+    #yoloPage .yolo-section-head--metrics,
+    #yoloPage .yolo-glossary-head {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        align-items: stretch;
+        gap: 8px;
+        margin-bottom: 10px;
+    }
+
+    #yoloPage .yolo-section-head h2 {
+        font-size: 1rem;
+        line-height: 1.15;
+    }
+
+    #yoloPage .yolo-section-head p {
+        margin-top: 3px;
+        font-size: 0.76rem;
+        line-height: 1.32;
+    }
+
+    #yoloPage .yolo-notice {
+        margin-bottom: 10px;
+        padding: 9px 10px;
+        border-radius: 12px;
+        font-size: 0.78rem;
+        line-height: 1.25;
+    }
+
+    /* Run-Auswahl */
+    #yoloPage .yolo-selector-tools {
+        width: min(170px, 100%);
+    }
+
+    #yoloPage .yolo-selector-tools .kategorie-select {
+        width: 100%;
+        min-width: 0;
+        height: 36px;
+        margin: 0;
+        font-size: 0.78rem;
+    }
+
+    #yoloPage .yolo-run-list,
+    #yoloPage .yolo-summary-grid,
+    #yoloPage .yolo-chart-grid,
+    #yoloPage .yolo-glossary-list {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    #yoloPage .yolo-run-option {
+        gap: 9px;
+        padding: 9px 10px;
+        border-radius: 11px;
+    }
+
+    #yoloPage .yolo-run-option input[type="checkbox"] {
+        width: 20px;
+        height: 20px;
+    }
+
+    #yoloPage .yolo-run-option-body {
+        gap: 5px;
+    }
+
+    #yoloPage .yolo-run-option-title {
+        font-size: 0.84rem;
+        line-height: 1.18;
+    }
+
+    #yoloPage .yolo-mini-badge {
+        min-height: 18px;
+        padding: 2px 6px;
+        font-size: 0.62rem;
+    }
+
+    #yoloPage .yolo-selection-message {
+        margin-top: 6px;
+        font-size: 0.72rem;
+    }
+
+    /* Übersichtskarten */
+    #yoloPage .yolo-summary-card {
+        padding: 11px;
+        border-left-width: 4px;
+        border-radius: 12px;
+    }
+
+    #yoloPage .yolo-summary-card-head {
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+
+    #yoloPage .yolo-summary-run {
+        font-size: 0.92rem;
+    }
+
+    #yoloPage .yolo-summary-sub {
+        margin-top: 2px;
+        font-size: 0.70rem;
+    }
+
+    #yoloPage .yolo-summary-dl {
+        gap: 4px;
+        margin-bottom: 9px;
+    }
+
+    #yoloPage .yolo-summary-dl > div {
+        grid-template-columns: minmax(90px, 0.8fr) minmax(0, 1.2fr);
+        gap: 7px;
+    }
+
+    #yoloPage .yolo-summary-dl dt {
+        font-size: 0.68rem;
+    }
+
+    #yoloPage .yolo-summary-dl dd {
+        font-size: 0.72rem;
+    }
+
+    #yoloPage .yolo-final-title {
+        margin: 9px 0 6px;
+        padding-top: 8px;
+        font-size: 0.69rem;
+    }
+
+    /* KPI wieder zweispaltig – 1 Spalte verschwendet auf Phone viel Platz. */
+    #yoloPage .yolo-kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+    }
+
+    #yoloPage .yolo-kpi {
+        padding: 6px 7px;
+    }
+
+    #yoloPage .yolo-kpi-label {
+        font-size: 0.62rem;
+    }
+
+    #yoloPage .yolo-kpi strong {
+        font-size: 0.84rem;
+    }
+
+    #yoloPage .yolo-final-report-row {
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 5px 7px;
+        padding: 7px 8px;
+        font-size: 0.70rem;
+    }
+
+    #yoloPage .yolo-final-report-row > span:nth-child(2) {
+        grid-column: 1 / -1;
+        grid-row: 2;
+    }
+
+    #yoloPage .yolo-final-report-state {
+        padding: 3px 6px;
+        font-size: 0.64rem;
+    }
+
+    #yoloPage .yolo-final-report-note,
+    #yoloPage .yolo-final-no-metrics {
+        font-size: 0.70rem;
+        line-height: 1.3;
+    }
+
+    /* Konfigurationsvergleich: echter Vergleich braucht mehrere Run-Spalten.
+       Daher bewusst horizontal scrollbar, aber schmaler als Desktop. */
+    #yoloPage .yolo-meta-table-wrap {
+        width: 100%;
+        max-width: 100%;
+        border-radius: 11px;
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    #yoloPage .yolo-meta-table {
+        min-width: 620px;
+        font-size: 0.70rem;
+    }
+
+    #yoloPage .yolo-meta-table th,
+    #yoloPage .yolo-meta-table td {
+        padding: 7px 8px;
+    }
+
+    #yoloPage .yolo-meta-table tbody th {
+        width: 155px;
+        min-width: 155px;
+    }
+
+    #yoloPage .yolo-help-btn {
+        width: 24px;
+        height: 24px;
+        min-width: 24px;
+        font-size: 0.72rem;
+    }
+
+    /* Metrik-Picker und Graphen */
+    #yoloPage .yolo-metric-picker {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+        width: 100%;
+        max-width: none;
+    }
+
+    #yoloPage .yolo-metric-chip-wrap {
+        grid-template-columns: minmax(0, 1fr) 30px;
+        min-height: 34px;
+        border-radius: 9px;
+    }
+
+    #yoloPage .yolo-metric-chip {
+        gap: 5px;
+        padding: 6px 7px;
+        font-size: 0.66rem;
+    }
+
+    #yoloPage .yolo-metric-chip input {
+        width: 15px;
+        height: 15px;
+    }
+
+    #yoloPage .yolo-metric-chip-wrap > .yolo-help-btn--chip {
+        width: 30px;
+        min-width: 30px;
+        min-height: 32px;
+    }
+
+    #yoloPage .yolo-chart-card {
+        padding: 9px 8px 8px;
+        border-radius: 11px;
+    }
+
+    #yoloPage .yolo-chart-card-head {
+        gap: 7px;
+        margin-bottom: 6px;
+    }
+
+    #yoloPage .yolo-chart-card h3 {
+        font-size: 0.78rem;
+    }
+
+    #yoloPage .yolo-chart-canvas {
+        height: 270px;
+        padding: 4px;
+        border-radius: 9px;
+    }
+
+    /* Bilder: Runs auf Phone untereinander statt mehrspaltig mit
+       horizontalem Scroll. */
+    #yoloPage .yolo-image-comparison {
+        gap: 10px;
+    }
+
+    #yoloPage .yolo-image-row {
+        padding: 9px;
+        border-radius: 11px;
+    }
+
+    #yoloPage .yolo-image-row-head {
+        gap: 7px;
+        margin-bottom: 7px;
+    }
+
+    #yoloPage .yolo-image-row-head h3 {
+        font-size: 0.84rem;
+        overflow-wrap: anywhere;
+    }
+
+    #yoloPage .yolo-image-row-head > span {
+        font-size: 0.66rem;
+    }
+
+    #yoloPage .yolo-image-run-grid {
+        grid-template-columns: 1fr !important;
+        min-width: 0 !important;
+        gap: 8px;
+        overflow-x: visible;
+        padding-bottom: 0;
+    }
+
+    #yoloPage .yolo-image-card {
+        border-radius: 10px;
+    }
+
+    #yoloPage .yolo-image-card-head {
+        min-height: 32px;
+        padding: 6px 8px;
+        font-size: 0.70rem;
+    }
+
+    #yoloPage .yolo-image-missing {
+        min-height: 110px;
+        padding: 12px;
+        font-size: 0.72rem;
+    }
+
+    /* Begriffe */
+    #yoloPage .yolo-glossary-search-wrap {
+        width: 100%;
+        max-width: none;
+    }
+
+    #yoloPage .yolo-glossary-search-wrap label {
+        margin-bottom: 3px;
+        font-size: 0.70rem;
+    }
+
+    #yoloPage .yolo-glossary-search {
+        width: 100%;
+        height: 38px;
+        margin: 0;
+        font-size: 0.80rem;
+    }
+
+    #yoloPage .yolo-glossary-meta {
+        margin: -2px 0 8px;
+        font-size: 0.70rem;
+    }
+
+    #yoloPage .yolo-glossary-card {
+        padding: 11px;
+        border-left-width: 3px;
+        border-radius: 11px;
+    }
+
+    #yoloPage .yolo-glossary-card-head {
+        flex-direction: column;
+        gap: 5px;
+        margin-bottom: 6px;
+    }
+
+    #yoloPage .yolo-glossary-card h3 {
+        font-size: 0.88rem;
+    }
+
+    #yoloPage .yolo-glossary-category,
+    #yoloPage .yolo-glossary-raw {
+        font-size: 0.62rem;
+    }
+
+    #yoloPage .yolo-glossary-raw {
+        max-width: 100%;
+    }
+
+    #yoloPage .yolo-glossary-card p {
+        margin-top: 6px;
+        font-size: 0.74rem;
+        line-height: 1.38;
+    }
+
+    /* Hilfe-Modal */
+    #yoloHelpModal .yolo-help-modal-content {
+        width: calc(100vw - 20px);
+        max-width: none;
+        max-height: calc(100dvh - 20px);
+        margin: 10px auto;
+        padding: 18px 14px 15px;
+        box-sizing: border-box;
+        border-top-width: 5px;
+        border-radius: 14px;
+    }
+
+    #yoloHelpModal .yolo-help-category {
+        margin-right: 32px;
+        font-size: 0.68rem;
+    }
+
+    #yoloHelpModal .yolo-help-title {
+        margin: 0 32px 9px 0;
+        font-size: 1.08rem;
+    }
+
+    #yoloHelpModal .yolo-help-raw {
+        margin-bottom: 9px;
+        font-size: 0.68rem;
+    }
+
+    #yoloHelpModal .yolo-help-body {
+        gap: 8px;
+    }
+
+    #yoloHelpModal .yolo-help-body p {
+        font-size: 0.78rem;
+        line-height: 1.42;
+    }
+}
+
+
+/* ==========================================================
+   sci/Kartei.php – Smartphone/Fairphone
+   ========================================================== */
+@media (max-width: 650px) {
+    #karteiPage.sci-review-shell {
+        width: calc(100% - 20px);
+        margin: 4px auto 48px;
+    }
+
+    /* Obere Lernleiste deutlich verdichten. */
+    #karteiPage .sci-deckbar {
+        margin-bottom: 10px;
+        border-top-width: 3px;
+        border-radius: 14px;
+    }
+
+    #karteiPage .sci-deckbar-main {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+        padding: 10px 12px;
+    }
+
+    #karteiPage .sci-deckbar-label {
+        margin-bottom: 4px;
+        font-size: 0.63rem;
+        letter-spacing: 0.045em;
+    }
+
+    #karteiPage .sci-deckbar-select {
+        height: 38px;
+        padding: 6px 34px 6px 9px;
+        font-size: 0.82rem;
+        border-radius: 9px;
+    }
+
+    /* Lernstand immer in einer Reihe. */
+    #karteiPage .sci-deckbar-kpis {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 5px;
+    }
+
+    #karteiPage .sci-deckbar-kpi {
+        min-height: 39px;
+        padding: 4px 3px;
+        border-radius: 8px;
+    }
+
+    #karteiPage .sci-deckbar-kpi strong {
+        font-size: 0.94rem;
+    }
+
+    #karteiPage .sci-deckbar-kpi span {
+        margin-top: 1px;
+        font-size: 0.60rem;
+    }
+
+    /* Themen horizontal scrollbar statt mehrzeiligem Platzverbrauch. */
+    #karteiPage .sci-deckbar-topicrow {
+        padding: 9px 12px 10px;
+    }
+
+    #karteiPage .sci-deckbar-topicrow .sci-deckbar-label {
+        margin-bottom: 6px;
+    }
+
+    #karteiPage .sci-deckbar-topiclist {
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 6px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding: 8px 9px 5px 1px;
+        scrollbar-width: none;
+        overscroll-behavior-x: contain;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    #karteiPage .sci-deckbar-topiclist::-webkit-scrollbar {
+        display: none;
+    }
+
+    #karteiPage .sci-deckbar-topic {
+        flex: 0 0 auto;
+        min-height: 34px;
+        padding: 6px 9px;
+        border-radius: 8px;
+        font-size: 0.72rem;
+    }
+
+    #karteiPage .sci-deckbar-topic-count {
+        top: -6px;
+        right: -6px;
+        min-width: 17px;
+        height: 17px;
+        padding: 0 4px;
+        border-width: 1.5px;
+        font-size: 0.60rem;
+    }
+
+    /* Gesamtverlauf ebenfalls kompakt in einer Zeile. */
+    #karteiPage .sci-deckbar-history {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 4px;
+        min-height: 0;
+        padding: 7px 12px 8px;
+    }
+
+    #karteiPage .sci-deckbar-history-head {
+        gap: 6px;
+        flex-wrap: nowrap;
+    }
+
+    #karteiPage .sci-deckbar-history-hint {
+        font-size: 0.62rem;
+    }
+
+    #karteiPage .sci-deckbar-history-list {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 4px;
+        width: 100%;
+    }
+
+    #karteiPage .sci-deckbar-history-stat {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1px;
+        min-width: 0;
+        padding: 3px 2px;
+        border-left: 0 !important;
+        border-radius: 7px;
+        background: rgba(255,255,255,.66);
+    }
+
+    #karteiPage .sci-deckbar-history-stat:first-child {
+        padding-left: 2px;
+    }
+
+    #karteiPage .sci-deckbar-history-stat span {
+        max-width: 100%;
+        font-size: 0.56rem;
+        line-height: 1.05;
+        text-align: center;
+        white-space: normal;
+    }
+
+    #karteiPage .sci-deckbar-history-stat strong {
+        font-size: 0.80rem;
+        line-height: 1.05;
+    }
+
+    /* Lernkarte */
+    #karteiPage .sci-review-stage {
+        min-height: 0;
+    }
+
+    #karteiPage .sci-review-card {
+        border-radius: 14px;
+    }
+
+    #karteiPage .sci-review-card-head {
+        min-height: 0;
+        padding: 9px 11px;
+        gap: 8px;
+    }
+
+    #karteiPage .sci-review-meta {
+        font-size: 0.76rem;
+        line-height: 1.15;
+    }
+
+    #karteiPage .sci-review-learning-meta {
+        margin-top: 2px;
+        font-size: 0.62rem;
+        line-height: 1.18;
+    }
+
+    #karteiPage .sci-review-delete {
+        min-height: 34px;
+        padding: 5px 8px;
+        border-radius: 8px;
+        font-size: 0.70rem;
+    }
+
+    #karteiPage .sci-review-question {
+        padding: 18px 14px 12px;
+        font-size: 1.12rem;
+        line-height: 1.34;
+    }
+
+    #karteiPage .sci-review-question p {
+        margin: 0.35em 0;
+    }
+
+    #karteiPage .sci-review-image-wrap {
+        padding: 4px 10px 12px;
+    }
+
+    #karteiPage .sci-review-image {
+        max-height: 42dvh;
+        border-radius: 9px;
+    }
+
+    /* Auswahlkarten */
+    #karteiPage .sci-review-choice-grid {
+        grid-template-columns: 1fr;
+        gap: 7px;
+        padding: 8px 10px 0;
+    }
+
+    #karteiPage .sci-review-choice {
+        min-height: 58px;
+        gap: 10px;
+        padding: 9px 10px;
+        border-radius: 10px;
+    }
+
+    #karteiPage .sci-review-choice-key {
+        width: 34px;
+        height: 34px;
+        flex-basis: 34px;
+        font-size: 0.82rem;
+    }
+
+    #karteiPage .sci-review-choice-content {
+        font-size: 0.82rem;
+        line-height: 1.30;
+    }
+
+    #karteiPage .sci-review-actions {
+        padding: 12px 10px 14px;
+    }
+
+    #karteiPage .sci-review-primary {
+        width: 100%;
+        min-width: 0;
+        min-height: 42px;
+        padding: 8px 12px;
+        font-size: 0.92rem;
+        border-radius: 10px;
+    }
+
+    /* Antwort */
+    #karteiPage .sci-review-answer {
+        margin: 0 10px 10px;
+        padding: 15px 4px 5px;
+    }
+
+    #karteiPage .sci-review-answer-label {
+        margin-bottom: 8px;
+        font-size: 0.68rem;
+    }
+
+    #karteiPage .sci-review-answer-body {
+        font-size: 0.92rem;
+        line-height: 1.48;
+    }
+
+    #karteiPage .sci-review-answer-body p {
+        margin: 0.48em 0;
+    }
+
+    /* Bewertung bewusst 2x2 statt alter einspaltiger Phone-Darstellung. */
+    #karteiPage .sci-review-rating {
+        padding: 10px 10px 14px;
+    }
+
+    #karteiPage .sci-review-rating-title {
+        margin-bottom: 8px;
+        font-size: 0.82rem;
+    }
+
+    #karteiPage .sci-review-rating-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 7px;
+    }
+
+    #karteiPage .sci-rating {
+        min-height: 58px;
+        padding: 8px 7px;
+        border-radius: 9px;
+    }
+
+    #karteiPage .sci-rating span {
+        font-size: 0.78rem;
+        line-height: 1.1;
+    }
+
+    #karteiPage .sci-rating small {
+        font-size: 0.62rem;
+        line-height: 1.1;
+    }
+
+    #karteiPage .sci-review-shortcuts {
+        display: none;
+    }
+
+    #karteiPage .sci-review-status {
+        margin: 0 10px 12px;
+        padding: 8px 9px;
+        border-radius: 8px;
+        font-size: 0.76rem;
+        line-height: 1.2;
+    }
+
+    #karteiPage .sci-review-empty {
+        padding: 40px 14px;
+        border-radius: 14px;
+    }
+
+    #karteiPage .sci-review-empty-title {
+        margin-bottom: 7px;
+        font-size: 1.15rem;
+    }
+
+    #karteiPage .sci-review-empty #emptyNextDue {
+        font-size: 0.80rem;
+        line-height: 1.3;
+    }
+}
+
+@media (max-width: 370px) {
+    #yoloPage .yolo-metric-picker {
+        grid-template-columns: 1fr;
+    }
+
+    #karteiPage .sci-deckbar-history-list {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* ==========================================================
+   SCI / Life + LifePrivate + LifePublic – Smartphone/Fairphone
+   Phone-v2:
+   - keine Desktop-Tabelle mit linker 150px-Spalte mehr
+   - komplette Zeitachse passt in die Displaybreite
+   - Beschriftung steht oberhalb der jeweiligen Timeline-Zeile
+   - kein horizontaler Timeline-Scroll nötig
+   ========================================================== */
+@media (max-width: 650px) {
+    /* ---------- gemeinsamer Seitenkopf ---------- */
+
+    .life-page {
+        width: auto !important;
+        max-width: none !important;
+        margin: 10px auto 48px !important;
+        padding: 0 10px !important;
+        box-sizing: border-box;
+    }
+
+    .life-page .lt-topbar {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 8px !important;
+        width: 100%;
+    }
+
+    .life-page .ueberschrift.dashboard-title {
+        order: 1;
+        display: flex !important;
+        flex-wrap: wrap !important;
+        justify-content: center !important;
+        align-items: baseline !important;
+        width: 100% !important;
+        margin: 0 !important;
+        column-gap: 9px !important;
+        row-gap: 2px !important;
+        font-size: 1.30rem !important;
+        line-height: 1.10 !important;
+        text-align: center !important;
+    }
+
+    .life-page .dashboard-title-main {
+        flex: 0 0 100%;
+        min-width: 0;
+        text-align: center;
+        white-space: normal;
+    }
+
+    .life-page .dashboard-title-soft {
+        flex: 0 0 auto;
+        min-width: 0;
+        font-size: 0.72rem;
+        white-space: nowrap;
+        opacity: 0.78;
+        text-align: center;
+    }
+
+    .life-page .life-title-sep {
+        display: none;
+    }
+
+    /* Filter direkt unter dem Titel */
+    .life-page .life-controls {
+        order: 2;
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        align-items: end !important;
+        gap: 7px !important;
+        width: 100% !important;
+        margin: 0 !important;
+    }
+
+    .life-page[data-life-mode="gesamt"] .life-controls,
+    .life-page[data-life-mode="cp_jahr"] .life-controls,
+    .life-page[data-life-mode="cp_semester"] .life-controls {
+        grid-template-columns: minmax(0, 180px) !important;
+        justify-content: center;
+    }
+
+    .life-page[data-life-mode="jahr_auswahl"] .life-modewrap {
+        grid-column: 1 / -1;
+    }
+
+    .life-page .life-sidewrap,
+    .life-page .life-sidewrap--year-range,
+    .life-page .life-modewrap {
+        width: auto !important;
+        min-width: 0 !important;
+        flex: none !important;
+    }
+
+    .life-page .lt-label {
+        margin-bottom: 3px;
+        font-size: 0.70rem;
+        line-height: 1.05;
+    }
+
+    .life-page .kategorie-select {
+        width: 100% !important;
+        min-width: 0 !important;
+        height: 36px !important;
+        margin: 0 !important;
+        padding: 5px 7px !important;
+        box-sizing: border-box;
+        border-radius: 9px;
+        font-size: 0.78rem !important;
+    }
+
+    /* Private Neu-Leiste: eine flache horizontale Toolbar statt 2x2-Block */
+    .life-page.life-private-editable .life-edit-inline-actions {
+        order: 3;
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        gap: 5px !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        margin: 0 !important;
+        padding: 1px 0 2px;
+        overflow: hidden;
+        scrollbar-width: none;
+    }
+
+    .life-page.life-private-editable .life-edit-inline-actions::-webkit-scrollbar {
+        display: none;
+    }
+
+    .life-page.life-private-editable .life-edit-inline-actions .life-edit-new {
+        flex: 1 1 0;
+        min-width: 0;
+        min-height: 32px;
+        padding: 5px 3px !important;
+        border-radius: 8px;
+        font-size: 0.62rem !important;
+        white-space: nowrap;
+        box-shadow: none;
+    }
+
+    /* ---------- komplett neues Timeline-Layout ---------- */
+
+    .life-page--timeline .life-wrap {
+        width: 100vw !important;
+        max-width: none !important;
+        height: auto !important;
+        margin-top: 9px !important;
+        margin-right: calc(50% - 50vw) !important;
+        margin-bottom: 0 !important;
+        margin-left: calc(50% - 50vw) !important;
+        padding: 0 !important;
+        overflow: visible !important;
+        border-radius: 0;
+        background: #fff;
+    }
+
+    .life-page--timeline .life-sticky-shell {
+        display: flex !important;
+        flex-direction: column !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        box-sizing: border-box;
+    }
+
+    .life-page--timeline .life-axis-scroll,
+    .life-page--timeline .life-body-scroll,
+    .life-page--timeline .life-board {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        box-sizing: border-box;
+    }
+
+    .life-page--timeline .life-axis-sticky {
+        order: 0;
+        position: sticky !important;
+        top: 54px !important;
+        z-index: 500;
+        width: 100%;
+        margin: 0 !important;
+        border-radius: 0;
+        background: #fff;
+        box-shadow: 0 4px 7px rgba(0, 0, 0, 0.10);
+    }
+
+    .life-page--timeline .life-body-scroll {
+        order: 1;
+    }
+
+    .life-page--timeline .life-axis-scroll,
+    .life-page--timeline .life-body-scroll {
+        overflow: visible !important;
+    }
+
+    /* Keine linke Ordinate mehr:
+       die gesamte Displaybreite gehört der Zeitachse. */
+    .life-page--timeline .life-axis-row {
+        display: block !important;
+        width: 100% !important;
+        margin: 0 !important;
+        background: #fff;
+    }
+
+    .life-page--timeline .life-ordinate-spacer {
+        display: none !important;
+    }
+
+    .life-page--timeline .life-months {
+        display: grid !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        min-height: 34px !important;
+        border-bottom: 2px solid rgba(0, 0, 0, 0.14);
+        background: #fff;
+    }
+
+    .life-page--timeline .life-month-cell {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 0;
+        padding: 4px 1px 5px !important;
+        border-left: 1px solid rgba(0, 0, 0, 0.09);
+        font-size: 0.58rem !important;
+        line-height: 1 !important;
+        font-weight: 850 !important;
+        white-space: nowrap;
+        overflow: hidden;
+    }
+
+    .life-page--timeline .life-month-cell:first-child {
+        border-left: 0;
+    }
+
+    .life-page--timeline .life-rows {
+        position: relative;
+        isolation: isolate;
+        display: block !important;
+        width: 100%;
+    }
+
+    /* In den Mehrjahres-Modi: Jahresgrenzen als EINE durchgehende Ebene
+       über den kompletten Timeline-Body statt pro Zeile neu anzusetzen. */
+    .life-page--timeline[data-life-mode="gesamt"] .life-rows::before,
+    .life-page--timeline[data-life-mode="jahr_auswahl"] .life-rows::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        pointer-events: none;
+        background-image:
+            linear-gradient(
+                to right,
+                transparent calc(100% - 1px),
+                rgba(80, 80, 80, 0.18) calc(100% - 1px)
+            );
+        background-size: calc(100% / var(--life-axis-count)) 100%;
+        background-repeat: repeat-x;
+    }
+
+    .life-page--timeline[style*="--life-today-left"] .life-rows::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: var(--life-today-left);
+        width: 2px;
+        transform: translateX(-1px);
+        background: #dc2626;
+        z-index: 2;
+        pointer-events: none;
+    }
+
+    /* Jede Zeile wird auf Phone:
+       1. Beschriftung über volle Breite
+       2. Timeline direkt darunter über volle Breite */
+    .life-page--timeline .life-row {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        grid-template-rows: auto auto !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.065);
+        background: #fff;
+    }
+
+    .life-page--timeline .life-row.life-row-hidden {
+        display: none !important;
+    }
+
+    .life-page--timeline .life-row--entry {
+        min-height: 54px !important;
+        padding: 0 !important;
+    }
+
+    .life-page--timeline .life-row--group {
+        min-height: 32px !important;
+        background: rgba(0, 0, 0, 0.035);
+    }
+
+    .life-page--timeline .life-label {
+        position: relative !important;
+        grid-column: 1 !important;
+        grid-row: 1 !important;
+        display: flex !important;
+        align-items: center !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        min-height: 25px !important;
+        box-sizing: border-box;
+        padding: 5px 8px !important;
+        padding-left: calc(8px + (var(--life-depth, 0) * 9px)) !important;
+        border-right: 0 !important;
+        background: transparent;
+        z-index: 10;
+    }
+
+    .life-page--timeline .life-label--group {
+        min-height: 32px !important;
+        background: rgba(245, 245, 245, 0.84) !important;
+        z-index: 10;
+    }
+
+    .life-page--timeline .life-label-text {
+        display: block;
+        min-width: 0;
+        max-width: 100%;
+        font-size: 0.76rem !important;
+        line-height: 1.13 !important;
+        font-weight: 620;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+
+    .life-page--timeline .life-label--group .life-label-text {
+        font-size: 0.78rem !important;
+        font-weight: 850 !important;
+    }
+
+    .life-page--timeline .life-group-toggle {
+        width: 22px !important;
+        height: 22px !important;
+        min-width: 22px !important;
+        flex: 0 0 22px !important;
+        margin-right: 5px !important;
+        box-shadow: none;
+    }
+
+    .life-page--timeline .life-group-toggle-icon {
+        border-top-width: 4px !important;
+        border-bottom-width: 4px !important;
+        border-left-width: 6px !important;
+    }
+
+    /* Gruppen brauchen auf Phone keinen leeren Timeline-Streifen */
+    .life-page--timeline .life-row--group .life-track {
+        display: none !important;
+    }
+
+    .life-page--timeline .life-track {
+        position: relative !important;
+        grid-column: 1 !important;
+        grid-row: 2 !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        min-height: 27px !important;
+        height: 27px !important;
+        background: transparent;
+        overflow: visible;
+        z-index: 3;
+    }
+
+    .life-page--timeline .life-grid {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+    }
+
+    .life-page--timeline .life-grid-cell {
+        border-left: 1px solid rgba(0, 0, 0, 0.085);
+    }
+
+    .life-page--timeline .life-grid-cell:first-child {
+        border-left: 0;
+    }
+
+
+    .life-page--timeline[data-life-mode="gesamt"] .life-grid-cell,
+    .life-page--timeline[data-life-mode="jahr_auswahl"] .life-grid-cell {
+        border-left-color: transparent !important;
+    }
+
+    .life-page--timeline .life-bar {
+        top: 50%;
+        height: 12px !important;
+        min-width: 3px;
+        border-radius: 4px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, .20);
+        z-index: 20;
+    }
+
+    .life-page--timeline .life-event {
+        top: 50%;
+        width: 7px !important;
+        height: 7px !important;
+        z-index: 21;
+        box-shadow: 0 0 0 1.5px #fff, 0 1px 3px rgba(0,0,0,.22);
+    }
+
+    .life-page--timeline .life-event::before,
+    .life-page--timeline .life-event::after {
+        display: none !important;
+    }
+
+    .life-page--timeline .life-current-day-line {
+        display: none !important;
+    }
+
+    .life-page--timeline .life-empty {
+        padding: 18px 10px;
+        font-size: 0.80rem;
+    }
+
+    /* Info auf Phone als Bottom-Sheet */
+    body .life-info-popover {
+        left: 10px !important;
+        right: 10px !important;
+        top: auto !important;
+        bottom: calc(10px + env(safe-area-inset-bottom)) !important;
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        padding: 12px 13px;
+        border-radius: 14px;
+    }
+
+    body .life-info-popover-title {
+        font-size: 0.88rem;
+        line-height: 1.2;
+    }
+
+    body .life-info-popover-line {
+        font-size: 0.76rem;
+        line-height: 1.3;
+    }
+
+    /* ---------- Private Editor ---------- */
+
+    #lifeEditModal.life-edit-modal {
+        padding: 8px !important;
+        align-items: center !important;
+    }
+
+    #lifeEditModal .life-edit-dialog {
+        width: calc(100vw - 16px) !important;
+        max-width: 560px !important;
+        max-height: calc(100dvh - 16px) !important;
+        border-top-width: 5px;
+        border-radius: 14px !important;
+    }
+
+    #lifeEditModal .life-edit-dialog-head {
+        gap: 8px;
+        padding: 10px 12px !important;
+    }
+
+    #lifeEditModal .life-edit-dialog-head h2 {
+        font-size: 1.06rem;
+        line-height: 1.1;
+    }
+
+    #lifeEditModal .life-edit-modal-close {
+        width: 34px;
+        height: 34px;
+        font-size: 26px;
+    }
+
+    #lifeEditModal .life-edit-dialog-body {
+        padding: 11px 12px 12px !important;
+    }
+
+    #lifeEditModal .life-edit-form {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 8px !important;
+        align-items: end;
+    }
+
+    #lifeEditModal .life-edit-field {
+        min-width: 0;
+    }
+
+    #lifeEditModal .life-edit-field--wide {
+        grid-column: 1 / -1 !important;
+    }
+
+    #lifeEditModal .life-edit-field label {
+        margin-bottom: 2px;
+        font-size: 0.68rem;
+        line-height: 1.05;
+    }
+
+    #lifeEditModal .life-edit-field input,
+    #lifeEditModal .life-edit-field select,
+    #lifeEditModal .life-edit-field textarea {
+        width: 100%;
+        min-width: 0;
+        margin: 0 !important;
+        padding: 5px 7px;
+        box-sizing: border-box;
+        border-radius: 8px;
+        font-size: 0.76rem;
+    }
+
+    #lifeEditModal .life-edit-field input,
+    #lifeEditModal .life-edit-field select {
+        height: 34px;
+    }
+
+    #lifeEditModal .life-edit-field textarea {
+        min-height: 54px;
+        resize: none !important;
+        line-height: 1.2;
+    }
+
+    #lifeEditModal .life-edit-field input[type="color"] {
+        min-height: 34px;
+        height: 34px;
+        padding: 3px;
+    }
+
+    #lifeEditModal .life-edit-field small {
+        margin-top: 2px;
+        font-size: 0.60rem;
+        line-height: 1.12;
+    }
+
+    #lifeEditModal .life-edit-actions {
+        position: sticky;
+        bottom: -12px;
+        z-index: 2;
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 7px !important;
+        margin-top: 2px !important;
+        padding: 9px 0 12px !important;
+        background: #fff;
+    }
+
+    #lifeEditModal .life-edit-actions button {
+        width: 100%;
+        min-width: 0;
+        min-height: 36px;
+        padding: 6px 7px;
+        border-radius: 8px;
+        font-size: 0.72rem;
+        line-height: 1.08;
+    }
+
+    body .life-edit-toast {
+        top: 60px !important;
+        width: calc(100vw - 20px);
+        min-width: 0 !important;
+        max-width: none !important;
+        padding: 9px 11px;
+        border-radius: 11px;
+        font-size: 0.76rem;
+        line-height: 1.2;
+    }
+
+    /* ---------- CP-Modi ---------- */
+
+    .life-page--cp .ernährungsdiablock {
+        margin-top: 9px;
+    }
+
+    .life-page--cp .dashboard-pies,
+    .life-page--cp .dashboard-pies.dashboard-pies--single {
+        grid-template-columns: 1fr !important;
+        gap: 10px;
+    }
+
+    .life-page--cp .dashboard-pie-card {
+        padding: 11px 10px 9px;
+        border-radius: 14px;
+    }
+
+    .life-page--cp .dashboard-pie-kpi {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: baseline;
+        gap: 8px;
+        margin-bottom: 7px;
+    }
+
+    .life-page--cp .dashboard-pie-kpi-label {
+        min-width: 0;
+        font-size: 0.86rem;
+        text-align: left;
+    }
+
+    .life-page--cp .dashboard-pie-kpi-value {
+        font-size: 0.72rem;
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    .life-page--cp .dashboard-pie-wrap {
+        width: 100% !important;
+        height: 270px !important;
+        max-height: none !important;
+        aspect-ratio: auto !important;
+    }
+
+    /* ---------- Public Standalone ---------- */
+
+    body.life-public-view .life-page {
+        margin-top: 10px !important;
+        margin-bottom: 28px !important;
+    }
+
+    body.life-public-view .life-page--timeline .life-axis-sticky {
+        top: 0 !important;
+    }
+
+    /* ---------- Public Login ---------- */
+
+    body.life-public-login-page {
+        min-height: 100dvh;
+        margin: 0 !important;
+    }
+
+    .life-public-login-wrap {
+        display: grid;
+        place-items: center;
+        min-height: 100dvh;
+        padding: 16px 10px !important;
+        box-sizing: border-box;
+    }
+
+    .life-public-login-card {
+        width: min(100%, 430px);
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 16px 14px !important;
+        box-sizing: border-box;
+        border-radius: 14px;
+    }
+
+    .life-public-login-title {
+        margin: 0 0 12px !important;
+        font-size: 1.38rem;
+        line-height: 1.12;
+        text-align: center;
+    }
+
+    .life-public-login-error {
+        margin-bottom: 10px;
+        padding: 9px 10px;
+        border-radius: 10px;
+        background: #ffe8e8;
+        color: #a40000;
+        box-shadow: var(--shadow);
+        font-size: 0.78rem;
+        line-height: 1.22;
+        font-weight: 700;
+    }
+
+    .life-public-login-form {
+        gap: 9px;
+    }
+
+    .life-public-login-form .lt-label {
+        margin-bottom: 3px;
+        font-size: 0.74rem;
+    }
+
+    .life-public-login-form input {
+        width: 100%;
+        min-width: 0;
+        height: 40px;
+        margin: 0;
+        padding: 6px 8px;
+        box-sizing: border-box;
+        border-radius: 10px;
+        font-size: 0.90rem;
+    }
+
+    .life-public-login-form button[type="submit"] {
+        width: 100%;
+        min-height: 40px;
+        padding: 7px 10px;
+        border-radius: 10px;
+        font-size: 0.88rem;
+    }
+}
+
+@media (max-width: 370px) {
+    .life-page--timeline .life-month-cell {
+        font-size: 0.53rem !important;
+    }
+
+    #lifeEditModal .life-edit-form {
+        grid-template-columns: 1fr !important;
+    }
+
+    #lifeEditModal .life-edit-field--wide {
+        grid-column: auto !important;
+    }
+}
+
+
+@media (max-width: 650px) {
+    .life-page--timeline .life-sticky-shell,
+    .life-page--timeline .life-axis-scroll,
+    .life-page--timeline .life-body-scroll,
+    .life-page--timeline .life-board,
+    .life-page--timeline .life-axis-row,
+    .life-page--timeline .life-months,
+    .life-page--timeline .life-rows {
+        border-radius: 0 !important;
+    }
+}
+
+
+@media (max-width: 650px) {
+    .life-page--timeline {
+        margin-bottom: 0 !important;
+        padding-bottom: 0 !important;
+    }
+
+    .life-page--timeline .life-wrap,
+    .life-page--timeline .life-sticky-shell,
+    .life-page--timeline .life-body-scroll,
+    .life-page--timeline .life-rows {
+        margin-bottom: 0 !important;
+        padding-bottom: 0 !important;
+    }
+
+    body.life-public-view .life-page--timeline {
+        margin-bottom: 0 !important;
+    }
+}
+
+
+@media (max-width: 650px) {
+    .life-page--timeline .life-label-text,
+    .life-page--timeline .life-group-toggle {
+        position: relative;
+        z-index: 11;
     }
 }

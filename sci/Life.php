@@ -83,19 +83,27 @@ final class LifeTimelinePage
     {
         $title = (string)($options['title'] ?? 'Studienplan');
         $bodyStyle = (string)($options['body_style'] ?? '');
+        $bodyClass = trim((string)($options['body_class'] ?? ''));
         $extraCss = (string)($options['extra_css'] ?? '');
+
+        $fullCssPath = dirname(__DIR__) . '/FIJI_FullHD.css';
+        $mobileCssPath = dirname(__DIR__) . '/FIJI_Mobile.css';
+        $fullCssVersion = is_file($fullCssPath) ? (string)filemtime($fullCssPath) : '';
+        $mobileCssVersion = is_file($mobileCssPath) ? (string)filemtime($mobileCssPath) : '';
         ?>
 <!DOCTYPE html>
 <html lang="de">
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title><?= self::esc($title) ?></title>
-    <link rel="stylesheet" href="../FIJI.css">
+    <link rel="stylesheet" href="../FIJI_FullHD.css<?= $fullCssVersion !== '' ? '?v=' . self::esc($fullCssVersion) : '' ?>">
+    <link rel="stylesheet" href="../FIJI_Mobile.css<?= $mobileCssVersion !== '' ? '?v=' . self::esc($mobileCssVersion) : '' ?>">
     <?php if ($extraCss !== ''): ?>
         <style><?= $extraCss ?></style>
     <?php endif; ?>
 </head>
-<body<?= $bodyStyle !== '' ? ' style="' . self::esc($bodyStyle) . '"' : '' ?>>
+<body<?= $bodyClass !== '' ? ' class="' . self::esc($bodyClass) . '"' : '' ?><?= $bodyStyle !== '' ? ' style="' . self::esc($bodyStyle) . '"' : '' ?>>
 <?php self::renderApp($view); ?>
 </body>
 </html>
@@ -593,7 +601,7 @@ final class LifeTimelinePage
     pointer-events: none;
 }
 </style>
-<div class="lt-page dashboard-page life-page life-page--timeline<?= $editable ? ' life-private-editable' : '' ?>" style="--life-mobile-track-width: <?= (int)$mobileTrackWidth ?>px;">
+<div class="lt-page dashboard-page life-page life-page--timeline<?= $editable ? ' life-private-editable' : '' ?>" data-life-mode="<?= self::esc($mode) ?>" style="--life-mobile-track-width: <?= (int)$mobileTrackWidth ?>px; --life-axis-count: <?= max(1, count($axisSegments)) ?>;<?= $todayLeft !== null ? ' --life-today-left: ' . number_format((float)$todayLeft, 6, '.', '') . '%;' : '' ?>">
     <div class="lt-topbar">
         <h1 class="ueberschrift dashboard-title">
             <span class="dashboard-title-main">Studienplan <?= self::esc($titleSuffix) ?></span>
@@ -1303,11 +1311,11 @@ final class LifeTimelinePage
         $labelsJson = json_encode($cpChart['labels'], JSON_UNESCAPED_UNICODE);
         $valuesJson = json_encode($cpChart['values'], JSON_UNESCAPED_UNICODE);
         ?>
-<div class="lt-page dashboard-page life-page life-page--cp<?= $editable ? ' life-private-editable' : '' ?>">
+<div class="lt-page dashboard-page life-page life-page--cp<?= $editable ? ' life-private-editable' : '' ?>" data-life-mode="<?= self::esc($mode) ?>">
     <div class="lt-topbar">
         <h1 class="ueberschrift dashboard-title">
             <span class="dashboard-title-main">Studienplan <?= self::esc($titleSuffix) ?></span>
-            <span class="dashboard-title-soft">| <?= self::fmtCp((float)$cpChart['total']) ?> CP</span>
+            <span class="dashboard-title-soft"><span class="life-title-sep">| </span><?= self::fmtCp((float)$cpChart['total']) ?> CP</span>
         </h1>
 
         <?php if ($editable): ?>
@@ -1376,6 +1384,10 @@ final class LifeTimelinePage
     const labels = <?= $labelsJson ?>;
     const values = <?= $valuesJson ?>;
     const isSemesterMode = <?= $mode === 'cp_semester' ? 'true' : 'false' ?>;
+    const isPhoneChart = !!(
+        window.matchMedia
+        && window.matchMedia('(max-width: 650px)').matches
+    );
 
     const canvas = document.getElementById('lifeCpChart');
     if (!canvas || typeof Chart === 'undefined') {
@@ -1407,7 +1419,7 @@ final class LifeTimelinePage
                     tension: 0.25,
                     borderWidth: 3,
                     borderColor: '#111',
-                    pointRadius: 4,
+                    pointRadius: isPhoneChart ? 3 : 4,
                     pointStyle: 'circle',
                     pointBorderColor: 'rgba(0,0,0,0.45)',
                     pointBorderWidth: 2,
@@ -1440,8 +1452,8 @@ final class LifeTimelinePage
                         offset: true
                     },
                     ticks: {
-                        autoSkip: isSemesterMode ? false : (labels.length > 18),
-                        maxTicksLimit: isSemesterMode ? undefined : 18,
+                        autoSkip: isPhoneChart ? true : (isSemesterMode ? false : (labels.length > 18)),
+                        maxTicksLimit: isPhoneChart ? 8 : (isSemesterMode ? undefined : 18),
                         maxRotation: 0,
                         minRotation: 0,
                         padding: 8,
