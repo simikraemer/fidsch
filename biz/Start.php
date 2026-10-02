@@ -1392,6 +1392,7 @@ const fmtEuroAxis = (v) => new Intl.NumberFormat('de-DE', {
 }).format(Number(v || 0));
 const NOW = new Date();
 const PRIMARY = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#1e88e5';
+const IS_MOBILE_FINANCE = window.matchMedia('(max-width: 650px)').matches;
 
 function buildCatMonthlyBarsFromCumulative(catDaily, year) {
   const y = Number(year);
@@ -1711,13 +1712,25 @@ const midPeriodLabelsPlugin = {
         ? xOpts.midMonthLabelYear
         : Number(chartYear);
       const compactW = xOpts.midMonthLabelCompactWidth ?? 420;
-      const step = (typeof scale.width === 'number' && scale.width < compactW) ? 2 : 1;
+      const isMobileDashboard = window.matchMedia('(max-width: 650px)').matches;
+      const step = isMobileDashboard
+        ? 1
+        : ((typeof scale.width === 'number' && scale.width < compactW) ? 2 : 1);
 
       for (let m = 0; m < 12; m++) {
         if (step === 2 && (m % 2 === 1)) continue;
+
         const midMs = monthMidMsUTC(year, m);
         const x = scale.getPixelForValue(midMs);
-        ctx.fillText(fmtMonthDE(midMs), x, labelY);
+        const monthLabel = fmtMonthDE(midMs);
+
+        ctx.fillText(
+          isMobileDashboard
+            ? monthLabel.charAt(0).toUpperCase()
+            : monthLabel,
+          x,
+          labelY
+        );
       }
     }
 
@@ -1800,10 +1813,12 @@ function buildSaldoDatasets() {
         label: isTotal ? 'Gesamt (Monatsbeginn)' : 'Kontostand (Monatsbeginn)',
         data: monthlyData,
         showLine: false,
-        pointRadius: 8,
+        pointRadius: IS_MOBILE_FINANCE ? 0 : 8,
+        pointHoverRadius: IS_MOBILE_FINANCE ? 0 : 8,
+        pointHitRadius: IS_MOBILE_FINANCE ? 0 : 6,
         pointBackgroundColor: '#ff6b00',
         pointBorderColor: '#000',
-        pointBorderWidth: 2
+        pointBorderWidth: IS_MOBILE_FINANCE ? 0 : 2
       },
       {
         label: isTotal ? 'Verlauf Gesamt' : 'Verlauf Kontostand',
@@ -2358,8 +2373,9 @@ async function uploadCsvFile(file) {
 /* =========================================================
  * YEAR SERIES (Detail-Chart unten)
  * ========================================================= */
+const IS_MOBILE_DASHBOARD = window.matchMedia('(max-width: 650px)').matches;
 const TOP_N_INCOME  = 5;
-const TOP_N_EXPENSE = 50;
+const TOP_N_EXPENSE = IS_MOBILE_DASHBOARD ? Number.MAX_SAFE_INTEGER : 50;
 const YEAR_LIMIT    = 10;
 
 async function fetchYearSeries(kind, catLabel) {
@@ -2539,7 +2555,20 @@ function makeExpenseOverview() {
   let minY = Math.pow(10, Math.floor(Math.log10(minVal)));
   if (!isFinite(minY) || minY <= 0) minY = 0.01;
 
-  ui[key].chart = new Chart($(ui[key].canvasId).getContext('2d'), {
+  const mobileExpense = IS_MOBILE_DASHBOARD;
+  const expenseCanvas = $(ui[key].canvasId);
+
+  // Auf dem Handy bekommt jede Kategorie eine eigene horizontale Zeile.
+  // Dadurch wird nichts mehr in "Rest" versteckt; die Karte wächst einfach
+  // nach unten mit und die Seite bleibt normal scrollbar.
+  if (mobileExpense && expenseCanvas?.parentElement) {
+    const rowHeight = 31;
+    const chartPadding = 86;
+    expenseCanvas.parentElement.style.height =
+      `${Math.max(320, top.labels.length * rowHeight + chartPadding)}px`;
+  }
+
+  ui[key].chart = new Chart(expenseCanvas.getContext('2d'), {
     type: 'bar',
     data: {
       labels: top.labels,
@@ -2573,39 +2602,71 @@ function makeExpenseOverview() {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      indexAxis: mobileExpense ? 'y' : 'x',
       onHover: (evt, elements, chart) => {
         chart.canvas.style.cursor = isClickableBar(chart, elements) ? 'pointer' : 'default';
       },
-      layout: { padding: { bottom: 8 } },
-      scales: {
-        x: {
-          ticks: {
-            autoSkip: false,
-            maxRotation: 0,
-            minRotation: 0,
-            padding: 6,
-            callback: function(value, index) {
-              const label = this.getLabelForValue(value);
-              return staggeredTick(label, index, 14);
+      layout: {
+        padding: mobileExpense
+          ? { top: 4, right: 4, bottom: 8, left: 2 }
+          : { bottom: 8 }
+      },
+      scales: mobileExpense
+        ? {
+            x: {
+              type: 'logarithmic',
+              min: minY,
+              ticks: {
+                callback: (v) => {
+                  const value = Number(v);
+                  if (!Number.isFinite(value) || value < 10) return '';
+
+                  const exponent = Math.log10(value);
+                  const isPowerOfTen = Math.abs(exponent - Math.round(exponent)) < 1e-10;
+
+                  return isPowerOfTen ? fmtEuroAxis(value) : '';
+                }
+              }
+            },
+            y: {
+              ticks: {
+                autoSkip: false,
+                padding: 4,
+                callback: function(value) {
+                  return truncateLabel(this.getLabelForValue(value), 18);
+                }
+              }
             }
           }
-        },
-        y: {
-          type: 'logarithmic',
-          min: minY,
-          ticks: {
-            callback: (v) => fmtEuroAxis(v),
-            maxTicksLimit: 5
-          }
-        }
-      },
+        : {
+            x: {
+              ticks: {
+                autoSkip: false,
+                maxRotation: 0,
+                minRotation: 0,
+                padding: 6,
+                callback: function(value, index) {
+                  const label = this.getLabelForValue(value);
+                  return staggeredTick(label, index, 14);
+                }
+              }
+            },
+            y: {
+              type: 'logarithmic',
+              min: minY,
+              ticks: {
+                callback: (v) => fmtEuroAxis(v),
+                maxTicksLimit: 5
+              }
+            }
+          },
       plugins: {
         legend: { display: false },
         tooltip: {
           callbacks: {
             title: (items) => items?.[0]?.label ?? '',
             label: (ctx) => {
-              const val = Number(ctx.parsed.y);
+              const val = Number(mobileExpense ? ctx.parsed.x : ctx.parsed.y);
               const idx = ctx.dataIndex;
               const valClosed = Number(top.valuesClosed?.[idx] ?? val);
 

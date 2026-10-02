@@ -2612,3 +2612,227 @@
     }
 }
 
+/* ==========================================================
+   biz/Start.php – Finanzdashboard auf Smartphone/Fairphone
+   Desktop bleibt unverändert.
+   ========================================================== */
+
+@media (max-width: 650px) {
+    #statsPage.lt-page {
+        width: auto;
+        max-width: none;
+        margin: 16px auto 56px;
+        padding: 0 10px;
+    }
+
+    #statsPage .lt-topbar {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        align-items: stretch;
+        gap: 11px;
+    }
+
+    #statsPage .dashboard-title {
+        margin: 0;
+        gap: 6px;
+        font-size: 1.55rem;
+        line-height: 1.12;
+    }
+
+    #statsPage .dashboard-title-main {
+        min-width: 0;
+    }
+
+    #statsPage .dashboard-title-soft {
+        font-size: 0.72em;
+        white-space: nowrap;
+    }
+
+    #statsPage .dashboard-filterform {
+        order: 2;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+        gap: 8px;
+        align-items: end;
+    }
+
+    #statsPage .lt-yearwrap {
+        width: auto;
+        min-width: 0;
+    }
+
+    #statsPage .lt-label {
+        margin-bottom: 4px;
+        font-size: 0.76rem;
+    }
+
+    #statsPage .kategorie-select {
+        width: 100%;
+        min-width: 0;
+    }
+
+    /* Konten-/Saldo-Kacheln bleiben in einer Zeile.
+       Falls später mehr Konten hinzukommen, kann horizontal gescrollt werden,
+       statt dass das Dashboard nach unten explodiert. */
+    #statsPage .dashboard-sober-counters {
+        order: 3;
+        display: flex;
+        flex-wrap: nowrap;
+        justify-content: stretch;
+        width: 100%;
+        min-width: 0;
+        gap: 6px;
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    #statsPage .dashboard-sober-counters::-webkit-scrollbar {
+        display: none;
+    }
+
+    #statsPage .dashboard-sober-counter,
+    #statsPage button.dashboard-upload-trigger {
+        flex: 1 0 104px;
+        min-width: 104px;
+        padding: 5px 5px;
+        border-width: 1.5px;
+        border-radius: 12px;
+    }
+
+    #statsPage .dashboard-sober-label {
+        overflow: hidden;
+        font-size: 0.66rem;
+        line-height: 1.1;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    #statsPage .dashboard-sober-value {
+        margin-top: 2px;
+        font-size: 0.88rem;
+        line-height: 1.05;
+    }
+
+    /* Oberer Kontostand-Chart */
+    #statsPage .lt-chart-wrap {
+        width: 100%;
+        height: 270px;
+        margin: 12px 0;
+        padding: 10px 8px 8px;
+        border-radius: 14px;
+        box-sizing: border-box;
+    }
+
+    #statsPage .lt-chart-wrap canvas {
+        display: block;
+        width: 100% !important;
+        height: 100% !important;
+    }
+
+    /* Einnahmen/Ausgaben untereinander. */
+    #statsPage .dashboard-pies,
+    #statsPage .dashboard-pies.dashboard-pies--asym {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    #statsPage .dashboard-pie-card {
+        min-width: 0;
+        padding: 11px 10px 9px;
+        border-radius: 14px;
+    }
+
+    /* Dashboard-Kopf jeder Karte: Titel links, Wert rechts. */
+    #statsPage .dashboard-pie-kpi {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: baseline;
+        gap: 7px;
+        margin-bottom: 7px;
+    }
+
+    #statsPage .dashboard-pie-kpi-label {
+        min-width: 0;
+        font-size: 0.86rem;
+        line-height: 1.15;
+        text-align: left;
+    }
+
+    #statsPage .dashboard-pie-kpi-valuewrap {
+        min-width: 0;
+        margin-left: 0;
+        align-items: flex-end;
+        text-align: right;
+    }
+
+    #statsPage .dashboard-pie-kpi-value {
+        font-size: 0.78rem;
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    #statsPage .dashboard-pie-kpi-sub {
+        margin-top: 2px;
+        font-size: 0.62rem;
+    }
+
+    #statsPage button.chart-back {
+        width: 20px;
+        height: 20px;
+        margin-right: 1px;
+        transform: none;
+        font-size: 1.35rem;
+    }
+
+    /* Chartflächen: auf Phone deutlich lesbarer als quadratische Desktop-Pies. */
+    #statsPage .dashboard-pie-wrap {
+        width: 100%;
+        height: 295px;
+        max-height: none;
+        aspect-ratio: auto;
+    }
+
+    #statsPage .dashboard-pie-wrap > canvas {
+        display: block;
+        width: 100% !important;
+        height: 100% !important;
+    }
+
+    /* KPI-Breakdown bei Tap/Fokus vollständig innerhalb des Viewports. */
+    #statsPage .dashboard-kpi-breakdown-tooltip {
+        right: 0;
+        width: min(240px, calc(100vw - 42px));
+        max-width: calc(100vw - 42px);
+    }
+
+    #statsPage .dashboard-kpi-breakdown-title {
+        white-space: normal;
+    }
+
+    /* Kontostand-Modal */
+    #statsPage #kontoUpdateModal .modal-content {
+        width: min(92vw, 440px);
+        max-width: none;
+        margin: 8vh auto 0;
+        padding: 18px 16px;
+        box-sizing: border-box;
+    }
+
+    #statsPage #kontoUpdateModal .modal-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    #statsPage #kontoUpdateModal .modal-actions > * {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .csv-upload-toast {
+        top: 112px;
+    }
+}
