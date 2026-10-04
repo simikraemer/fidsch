@@ -179,6 +179,29 @@ $page_title = 'Kalorien Daten';
 require_once __DIR__ . '/../head.php';
 require_once __DIR__ . '/../navbar.php';
 ?>
+<style>
+#foodDataPage .food-sort-filter {
+  width: 240px;
+  max-width: 42vw;
+  min-width: 190px;
+  margin: 0;
+  padding: 10px 12px;
+}
+
+@media (min-width: 701px) {
+  #foodDataPage .food-data-toolbar-left {
+    flex-wrap: nowrap;
+  }
+}
+
+@media (max-width: 700px) {
+  #foodDataPage .food-sort-filter {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+  }
+}
+</style>
 <div id="foodDataPage" class="content-wrap food-data-page">
   <div class="toolbar">
     <div class="toolbar-left food-data-toolbar-left">
@@ -190,6 +213,14 @@ require_once __DIR__ . '/../navbar.php';
             <?= htmlspecialchars($kategorieOption, ENT_QUOTES, 'UTF-8') ?>
           </option>
         <?php endforeach; ?>
+      </select>
+      <select id="sortFilter" class="kategorie-select food-sort-filter" aria-label="Sortierung auswählen">
+        <option value="recent">Zuletzt verwendet</option>
+        <option value="alphabetical">Alphabetisch</option>
+        <option value="frequent">Häufig verwendet</option>
+        <option value="kcal_asc">Kalorien aufsteigend</option>
+        <option value="kcal_desc">Kalorien absteigend</option>
+        <option value="protein_desc">Eiweiß absteigend</option>
       </select>
     </div>
     <div class="toolbar-right">
@@ -283,6 +314,7 @@ require_once __DIR__ . '/../navbar.php';
   const statusMsg      = document.getElementById('statusMsg');
   const searchInput    = document.getElementById('searchInput');
   const categoryFilter = document.getElementById('categoryFilter');
+  const sortFilter     = document.getElementById('sortFilter');
 
   const modal       = document.getElementById('editModal');
   const modalClose  = document.getElementById('modalClose');
@@ -376,9 +408,23 @@ require_once __DIR__ . '/../navbar.php';
     statsBadge.textContent = `${FILTERED.length} / ${ALL.length} Gruppen`;
   }
 
+  const compareName = (a, b) =>
+    (a.beschreibung || '').localeCompare(b.beschreibung || '', 'de', { sensitivity: 'base', numeric: true })
+    || Number(a.kalorien || 0) - Number(b.kalorien || 0);
+
+  const SORTERS = {
+    recent: (a, b) => (b.last_used || '').localeCompare(a.last_used || '') || compareName(a, b),
+    alphabetical: compareName,
+    frequent: (a, b) => Number(b.anzahl || 0) - Number(a.anzahl || 0) || compareName(a, b),
+    kcal_asc: (a, b) => Number(a.kalorien || 0) - Number(b.kalorien || 0) || compareName(a, b),
+    kcal_desc: (a, b) => Number(b.kalorien || 0) - Number(a.kalorien || 0) || compareName(a, b),
+    protein_desc: (a, b) => Number(b.eiweiss || 0) - Number(a.eiweiss || 0) || compareName(a, b),
+  };
+
   function applyFilter() {
     const q = searchInput.value.trim().toLowerCase();
     const selectedCategory = categoryFilter ? categoryFilter.value : '';
+    const selectedSort = sortFilter ? sortFilter.value : 'recent';
 
     FILTERED = ALL.filter(item => {
       const matchesSearch = !q || (item.beschreibung || '').toLowerCase().includes(q);
@@ -386,13 +432,7 @@ require_once __DIR__ . '/../navbar.php';
       return matchesSearch && matchesCategory;
     });
 
-    FILTERED.sort((a, b) => {
-      const categoryCompare = (a.kategorie || '').localeCompare(b.kategorie || '', 'de', { sensitivity: 'base' });
-      if (categoryCompare !== 0) return categoryCompare;
-      const descriptionCompare = (a.beschreibung || '').localeCompare(b.beschreibung || '', 'de', { sensitivity: 'base' });
-      if (descriptionCompare !== 0) return descriptionCompare;
-      return Number(a.kalorien || 0) - Number(b.kalorien || 0);
-    });
+    FILTERED.sort(SORTERS[selectedSort] || SORTERS.recent);
 
     renderReset();
     renderNext();
@@ -494,6 +534,7 @@ require_once __DIR__ . '/../navbar.php';
   loadMoreBtn.addEventListener('click', renderNext);
   searchInput.addEventListener('input', applyFilter);
   if (categoryFilter) categoryFilter.addEventListener('change', applyFilter);
+  if (sortFilter) sortFilter.addEventListener('change', applyFilter);
   modalClose.addEventListener('click', closeModal);
   cancelBtn.addEventListener('click', closeModal);
   window.addEventListener('keydown', (e) => {

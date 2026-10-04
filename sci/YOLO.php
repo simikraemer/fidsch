@@ -779,7 +779,7 @@ function yolo_discover_runs(string $root): array
     // Neue zentrale Struktur: YOLO/v7_3_003/detail, Run-Manifest eine Ebene höher.
     foreach ($top as $name) {
         if ($name === '.' || $name === '..' || $name === 'runs_semantic') continue;
-        if (!preg_match('/^v\d+(?:_\d+)+$/i', $name)) continue;
+        if (!preg_match('/^v\d+(?:_[A-Za-z0-9]+)+$/i', $name)) continue;
 
         $runRoot = $root . '/' . $name;
         if (!is_dir($runRoot)) continue;
