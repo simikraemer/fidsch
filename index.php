@@ -1,5 +1,21 @@
 <?php
 // index.php
+
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
+
+// Expliziter Login über den Navbar-Button.
+// Muss vor jeglicher HTML-Ausgabe verarbeitet werden, damit 401,
+// WWW-Authenticate, 429 und Redirect-Header sicher gesetzt werden können.
+if (isset($_GET['login']) && $_GET['login'] === '1') {
+    require_once __DIR__ . '/auth.php';
+
+    $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+    header('Location: ' . ($uri ?: '/'), true, 303);
+    exit;
+}
+
 $path = trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/');
 
 // --- Routing-Tabellen ---

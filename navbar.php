@@ -14,34 +14,76 @@ if (!$isAuthed) {
     $cfg = is_readable($config_path) ? json_decode(file_get_contents($config_path), true) : [];
     $webpw = $cfg['webpw'] ?? [];
     $allowed_ips = $webpw['allowed_ips'] ?? [];
+    $allowed_subnets = $webpw['allowed_subnet'] ?? [];
+
+    if (!is_array($allowed_ips)) {
+        $allowed_ips = [];
+    }
+
+    if (is_string($allowed_subnets) && $allowed_subnets !== '') {
+        $allowed_subnets = [$allowed_subnets];
+    } elseif (!is_array($allowed_subnets)) {
+        $allowed_subnets = [];
+    }
 
     $client_ip = $_SERVER['REMOTE_ADDR'] ?? '';
 
     $ip_in_subnet = static function (string $ip, string $cidr): bool {
-        [$subnet_ip, $mask_bits] = explode('/', $cidr);
+        if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            return false;
+        }
+
+        if (strpos($cidr, '/') === false) {
+            return false;
+        }
+
+        [$subnet_ip, $mask_bits_raw] = explode('/', $cidr, 2);
+
+        if (!filter_var($subnet_ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            return false;
+        }
+
+        if ($mask_bits_raw === '' || !ctype_digit($mask_bits_raw)) {
+            return false;
+        }
+
+        $mask_bits = (int)$mask_bits_raw;
+
+        if ($mask_bits < 0 || $mask_bits > 32) {
+            return false;
+        }
+
         $ip_dec = ip2long($ip);
         $subnet_dec = ip2long($subnet_ip);
-        $mask = -1 << (32 - (int)$mask_bits);
-        return ($ip_dec & $mask) === ($subnet_dec & $mask);
+
+        if ($ip_dec === false || $subnet_dec === false) {
+            return false;
+        }
+
+        if ($mask_bits === 0) {
+            return true;
+        }
+
+        $mask = -1 << (32 - $mask_bits);
+        return (($ip_dec & $mask) === ($subnet_dec & $mask));
     };
 
-    if (in_array($client_ip, $allowed_ips, true) || $ip_in_subnet($client_ip, '10.2.10.0/24')) {
+    $isAllowedIp = in_array($client_ip, $allowed_ips, true);
+    $isAllowedSubnet = false;
+
+    foreach ($allowed_subnets as $subnet) {
+        if (is_string($subnet) && $subnet !== '' && $ip_in_subnet($client_ip, $subnet)) {
+            $isAllowedSubnet = true;
+            break;
+        }
+    }
+
+    if ($isAllowedIp || $isAllowedSubnet) {
         $isAuthed = true;
         $authMode = 'ip';
         $_SESSION['is_authed'] = true;
         $_SESSION['auth_mode'] = 'ip';
     }
-}
-
-// ===== Basic-Auth nur beim Klick auf die "dots" =====
-if (isset($_GET['login']) && $_GET['login'] === '1') {
-    require_once __DIR__ . '/auth.php'; // triggert 401-Challenge (setzt Session)
-    $_SESSION['is_authed'] = true;
-    $_SESSION['auth_mode'] = 'pw';
-    // sauberer Redirect (303 nach POST/GET)
-    $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-    header('Location: ' . $uri, true, 303);
-    exit;
 }
 
 $spotifyTokenNeedsAttention = false;
@@ -437,7 +479,7 @@ if ($isAuthed && $rwthJobsCounterEnabled) {
 
                     <li>
                         <a
-                            href="https://hub.fidsch.de/navidrome/"
+                            href="https://navidrome.fidsch.de/"
                             target="_blank"
                             rel="noopener"
                         >
