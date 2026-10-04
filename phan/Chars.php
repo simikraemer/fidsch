@@ -1578,25 +1578,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->close();
 
             /*
-             * Das zuletzt hochgeladene Bild ist automatisch
-             * das aktive Bild des Charakters.
+             * Ein Upload ändert das Profilbild bewusst nicht mehr.
+             * Das gewünschte Profilbild wird separat über
+             * set_active_image gesetzt.
              */
-            phan_exec(
-                $phanconn,
-                '
-                UPDATE chars
-                SET
-                    active_image_id = ?,
-                    image_path = ?,
-                    face_x = NULL,
-                    face_y = NULL,
-                    face_w = NULL,
-                    face_h = NULL
-                WHERE id = ?
-                ',
-                [$newImageId, $newImage, $id]
-            )->close();
-
             $imageChanged = true;
         }
 
@@ -1768,7 +1753,8 @@ if (!in_array($listDir, ['asc', 'desc'], true)) {
 }
 
 $charImages = [];
-$activeImage = null;
+$profileImage = null;
+$displayImage = null;
 $charFactionIds = [];
 
 if ($detailId > 0 || $isNew) {
@@ -1859,39 +1845,42 @@ if ($detailId > 0 || $isNew) {
             [(int)$char['id']]
         );
 
-        $activeImageId =
+        $profileImageId =
             (int)($char['active_image_id'] ?? 0);
 
         foreach ($charImages as $image) {
-            if ((int)$image['id'] === $activeImageId) {
-                $activeImage = $image;
+            if ((int)$image['id'] === $profileImageId) {
+                $profileImage = $image;
                 break;
             }
         }
 
+        $requestedDisplayImageId = max(
+            0,
+            (int)($_GET['selected_image'] ?? 0)
+        );
+
+        if ($requestedDisplayImageId > 0) {
+            foreach ($charImages as $image) {
+                if ((int)$image['id'] === $requestedDisplayImageId) {
+                    $displayImage = $image;
+                    break;
+                }
+            }
+        }
+
         /*
-         * Sicherheitsnetz für migrierte/alte Datensätze:
-         * Falls Bilder existieren, aber kein Aktivbild gesetzt ist,
-         * wird das zuletzt einsortierte Bild aktiv.
+         * Die Detailansicht startet mit dem Profilbild. Existiert noch
+         * keines, wird nur für die Anzeige das zuletzt einsortierte Bild
+         * verwendet. Das Profilbild wird ausschließlich über den dafür
+         * vorgesehenen Button gesetzt.
          */
-        if (!$activeImage && $charImages) {
-            $activeImage = $charImages[
+        $displayImage ??= $profileImage;
+
+        if (!$displayImage && $charImages) {
+            $displayImage = $charImages[
                 count($charImages) - 1
             ];
-
-            $char['active_image_id'] =
-                (int)$activeImage['id'];
-
-            phan_exec(
-                $phanconn,
-                'UPDATE chars
-                 SET active_image_id = ?
-                 WHERE id = ?',
-                [
-                    (int)$activeImage['id'],
-                    (int)$char['id'],
-                ]
-            )->close();
         }
     }
 
@@ -3218,36 +3207,42 @@ require_once __DIR__ . '/../navbar.php';
             <input
                 type="hidden"
                 name="image_id"
-                id="activeImageId"
-                value="<?= (int)($activeImage['id'] ?? 0) ?>"
+                id="displayImageId"
+                value="<?= (int)($displayImage['id'] ?? 0) ?>"
+            >
+
+            <input
+                type="hidden"
+                id="profileImageId"
+                value="<?= (int)($char['active_image_id'] ?? 0) ?>"
             >
 
             <input
                 type="hidden"
                 name="face_x"
                 id="faceX"
-                value="<?= phan_h($activeImage['face_x'] ?? '') ?>"
+                value="<?= phan_h($displayImage['face_x'] ?? '') ?>"
             >
 
             <input
                 type="hidden"
                 name="face_y"
                 id="faceY"
-                value="<?= phan_h($activeImage['face_y'] ?? '') ?>"
+                value="<?= phan_h($displayImage['face_y'] ?? '') ?>"
             >
 
             <input
                 type="hidden"
                 name="face_w"
                 id="faceW"
-                value="<?= phan_h($activeImage['face_w'] ?? '') ?>"
+                value="<?= phan_h($displayImage['face_w'] ?? '') ?>"
             >
 
             <input
                 type="hidden"
                 name="face_h"
                 id="faceH"
-                value="<?= phan_h($activeImage['face_h'] ?? '') ?>"
+                value="<?= phan_h($displayImage['face_h'] ?? '') ?>"
             >
 
             <input
@@ -3262,35 +3257,18 @@ require_once __DIR__ . '/../navbar.php';
 
             <div class="phan-card phan-image-card chars-image-card">
 
-                <div class="phan-image-card-head">
-
-                    <div>
-                        <strong>Bilder</strong>
-
-                        <span class="phan-image-count">
-                            <?= count($charImages) ?>
-                        </span>
-                    </div>
-
-                    <button
-                        type="button"
-                        id="addImageButton"
-                    >
-                        + Bild
-                    </button>
-
-                </div>
-
-
-                <?php if ($activeImage): ?>
+                <?php if ($displayImage): ?>
 
                     <div
                         class="phan-cropbox phan-image-dropzone"
                         id="cropBox"
+                        role="button"
+                        tabindex="0"
+                        aria-label="Bild in Galerie öffnen"
                     >
 
                         <img
-                            src="/phan/chars?image_id=<?= (int)$activeImage['id'] ?>"
+                            src="/phan/chars?image_id=<?= (int)$displayImage['id'] ?>"
                             alt="<?= phan_h($char['call_name']) ?>"
                             id="cropImage"
                             draggable="false"
@@ -3307,8 +3285,6 @@ require_once __DIR__ . '/../navbar.php';
 
                     </div>
 
-                    
-
 
                     <div class="phan-image-actions">
 
@@ -3316,33 +3292,35 @@ require_once __DIR__ . '/../navbar.php';
                             type="button"
                             id="cropModeButton"
                         >
-                            Gesicht setzen
+                            Gesicht ausschneiden
                         </button>
 
                         <button
                             type="button"
-                            class="phan-danger"
-                            id="removeImageButton"
-                            data-image-id="<?= (int)$activeImage['id'] ?>"
+                            id="setProfileImageButton"
+                            aria-pressed="<?= (int)($char['active_image_id'] ?? 0) === (int)$displayImage['id'] ? 'true' : 'false' ?>"
                         >
-                            Bild entfernen
+                            Profilbild
                         </button>
 
-                        <?php if (count($charImages) > 2): ?>
+                        <button
+                            type="button"
+                            id="addImageButton"
+                        >
+                            Hochladen
+                        </button>
 
-                            <button
-                                type="button"
-                                id="charGalleryButton"
-                            >
-                                Galerie
-                            </button>
-
-                        <?php endif; ?>
+                        <button
+                            type="button"
+                            id="imageTitleButton"
+                        >
+                            Editieren
+                        </button>
 
                     </div>
 
 
-                    <?php if (count($charImages) > 1): ?>
+                    <?php if (count($charImages) > 0): ?>
 
                         <div
                             class="phan-image-gallery"
@@ -3353,16 +3331,33 @@ require_once __DIR__ . '/../navbar.php';
 
                                 <?php
                                 $imageId = (int)$image['id'];
-                                $isActiveImage =
-                                    $activeImage
+                                $isDisplayedImage =
+                                    $displayImage
                                     && $imageId
-                                        === (int)$activeImage['id'];
+                                        === (int)$displayImage['id'];
+                                $originalFilename =
+                                    $image['original_filename']
+                                    ?? basename(
+                                        (string)$image['image_path']
+                                    );
                                 ?>
 
                                 <button
                                     type="button"
-                                    class="phan-image-gallery-item <?= $isActiveImage ? 'active' : '' ?>"
+                                    class="phan-image-gallery-item <?= $isDisplayedImage ? 'active' : '' ?>"
                                     data-image-id="<?= $imageId ?>"
+                                    data-image-src="/phan/chars?image_id=<?= $imageId ?>"
+                                    data-image-title="<?= phan_h($image['title'] ?? '') ?>"
+                                    data-image-display-title="<?= phan_h(
+                                        phan_image_display_title($image)
+                                    ) ?>"
+                                    data-original-filename="<?= phan_h(
+                                        $originalFilename
+                                    ) ?>"
+                                    data-face-x="<?= phan_h($image['face_x'] ?? '') ?>"
+                                    data-face-y="<?= phan_h($image['face_y'] ?? '') ?>"
+                                    data-face-w="<?= phan_h($image['face_w'] ?? '') ?>"
+                                    data-face-h="<?= phan_h($image['face_h'] ?? '') ?>"
                                     title="<?= phan_h(
                                         phan_image_display_title($image)
                                     ) ?>"
@@ -3386,43 +3381,6 @@ require_once __DIR__ . '/../navbar.php';
                         </div>
 
                     <?php endif; ?>
-
-
-                    <div class="phan-image-meta">
-
-                        <label>
-                            Bildtitel
-
-                            <input
-                                type="text"
-                                id="imageTitle"
-                                class="phan-image-title-input"
-                                maxlength="120"
-                                value="<?= phan_h(
-                                    $activeImage['title'] ?? ''
-                                ) ?>"
-                                placeholder="<?= phan_h(
-                                    $activeImage['original_filename']
-                                    ?? basename(
-                                        (string)$activeImage['image_path']
-                                    )
-                                ) ?>"
-                            >
-                        </label>
-
-                        <div class="phan-image-filename">
-                            Datei:
-                            <strong>
-                                <?= phan_h(
-                                    $activeImage['original_filename']
-                                    ?? basename(
-                                        (string)$activeImage['image_path']
-                                    )
-                                ) ?>
-                            </strong>
-                        </div>
-
-                    </div>
 
                 <?php else: ?>
 
@@ -3764,7 +3722,7 @@ require_once __DIR__ . '/../navbar.php';
         </form>
 
 
-        <?php if (count($charImages) > 2): ?>
+        <?php if (count($charImages) > 0): ?>
 
             <div
                 class="phan-gallery-modal chars-gallery-modal"
@@ -3833,6 +3791,66 @@ require_once __DIR__ . '/../navbar.php';
                         <?php endforeach; ?>
 
                     </aside>
+                </div>
+            </div>
+
+
+            <div
+                class="phan-image-title-modal"
+                id="imageTitleModal"
+                hidden
+            >
+                <div
+                    class="phan-image-title-modal-backdrop"
+                    data-close-image-title
+                ></div>
+
+                <div
+                    class="phan-image-title-modal-dialog"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="imageTitleModalHeading"
+                >
+                    <button
+                        type="button"
+                        class="phan-image-title-modal-close"
+                        data-close-image-title
+                        aria-label="Dialog schließen"
+                    >
+                        ×
+                    </button>
+
+                    <h2 id="imageTitleModalHeading">
+                        Bildtitel
+                    </h2>
+
+                    <label>
+                        Anzeigename
+
+                        <input
+                            type="text"
+                            id="imageTitleModalInput"
+                            maxlength="120"
+                            autocomplete="off"
+                        >
+                    </label>
+
+                    <div class="phan-image-title-modal-actions">
+                        <button
+                            type="button"
+                            id="imageTitleSaveButton"
+                        >
+                            Speichern
+                        </button>
+
+                        <button
+                            type="button"
+                            class="phan-danger"
+                            id="removeImageButton"
+                        >
+                            Bild entfernen
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -4153,22 +4171,20 @@ require_once __DIR__ . '/../navbar.php';
     const emptyPicker =
         document.getElementById('emptyImagePicker');
 
-    const removeImageButton =
-        document.getElementById('removeImageButton');
-
     const deleteCharButton =
         document.getElementById('deleteCharButton');
 
-    const activeImageId =
-        document.getElementById('activeImageId');
+    const displayImageId =
+        document.getElementById('displayImageId');
 
-    const imageTitle =
-        document.getElementById('imageTitle');
+    const profileImageId =
+        document.getElementById('profileImageId');
 
-    const charGalleryButton =
-        document.getElementById(
-            'charGalleryButton'
-        );
+    const imageTitleButton =
+        document.getElementById('imageTitleButton');
+
+    const setProfileImageButton =
+        document.getElementById('setProfileImageButton');
 
     const charGalleryModal =
         document.getElementById(
@@ -4186,6 +4202,18 @@ require_once __DIR__ . '/../navbar.php';
                 '.phan-gallery-modal-thumb'
             )
         );
+
+    const imageTitleModal =
+        document.getElementById('imageTitleModal');
+
+    const imageTitleModalInput =
+        document.getElementById('imageTitleModalInput');
+
+    const imageTitleSaveButton =
+        document.getElementById('imageTitleSaveButton');
+
+    const removeImageButton =
+        document.getElementById('removeImageButton');
 
     const factionInputs =
         document.getElementById(
@@ -4235,7 +4263,6 @@ require_once __DIR__ . '/../navbar.php';
         );
 
     let saveTimer = null;
-    let imageSaveTimer = null;
     let saveChain = Promise.resolve();
     let statusTimer = null;
 
@@ -4874,7 +4901,7 @@ require_once __DIR__ . '/../navbar.php';
 
     form
         .querySelectorAll(
-            'input:not([type="hidden"]):not([type="file"]):not(.phan-image-title-input):not(#charFactionSearch), textarea'
+            'input:not([type="hidden"]):not([type="file"]):not(#charFactionSearch), textarea'
         )
         .forEach(field => {
             field.addEventListener(
@@ -5023,8 +5050,122 @@ require_once __DIR__ . '/../navbar.php';
 
     function currentImageId() {
         return Number(
-            activeImageId?.value
+            displayImageId?.value
             || 0
+        );
+    }
+
+
+    function currentImageButton() {
+        const imageId = currentImageId();
+
+        return Array.from(
+            document.querySelectorAll(
+                '.phan-image-gallery-item'
+            )
+        ).find(
+            button =>
+                Number(
+                    button.dataset.imageId
+                    || 0
+                ) === imageId
+        ) || null;
+    }
+
+
+    function syncProfileButtonState() {
+        if (!setProfileImageButton) {
+            return;
+        }
+
+        const isProfile =
+            currentImageId() > 0
+            && currentImageId()
+                === Number(
+                    profileImageId?.value
+                    || 0
+                );
+
+        setProfileImageButton.setAttribute(
+            'aria-pressed',
+            isProfile ? 'true' : 'false'
+        );
+
+        setProfileImageButton.classList.toggle(
+            'is-profile-image',
+            isProfile
+        );
+
+        setProfileImageButton.disabled = isProfile;
+    }
+
+
+    function selectDisplayedImage(button) {
+        if (!button || !displayImageId) {
+            return;
+        }
+
+        const imageId = Number(
+            button.dataset.imageId
+            || 0
+        );
+
+        if (imageId <= 0) {
+            return;
+        }
+
+        displayImageId.value =
+            String(imageId);
+
+        if (cropImg) {
+            cropImg.src =
+                button.dataset.imageSrc
+                || `/phan/chars?image_id=${imageId}`;
+        }
+
+        const cropValues = [
+            button.dataset.faceX || '',
+            button.dataset.faceY || '',
+            button.dataset.faceW || '',
+            button.dataset.faceH || ''
+        ];
+
+        cropInputs.forEach(
+            (input, index) => {
+                if (input) {
+                    input.value =
+                        cropValues[index];
+                }
+            }
+        );
+
+        document
+            .querySelectorAll(
+                '.phan-image-gallery-item'
+            )
+            .forEach(item => {
+                item.classList.toggle(
+                    'active',
+                    item === button
+                );
+            });
+
+        setCropMode(false);
+        syncProfileButtonState();
+
+        const currentUrl =
+            new URL(window.location.href);
+
+        currentUrl.searchParams.set(
+            'selected_image',
+            String(imageId)
+        );
+
+        history.replaceState(
+            null,
+            '',
+            currentUrl.pathname
+                + currentUrl.search
         );
     }
 
@@ -5045,6 +5186,8 @@ require_once __DIR__ . '/../navbar.php';
         let lastId =
             Number(charId.value || 0);
 
+        let lastImageId = 0;
+
         try {
             for (const file of files) {
                 const payload =
@@ -5055,6 +5198,12 @@ require_once __DIR__ . '/../navbar.php';
 
                 lastId =
                     Number(payload?.id ?? lastId);
+
+                lastImageId =
+                    Number(
+                        payload?.image_id
+                        ?? lastImageId
+                    );
             }
 
             if (lastId > 0) {
@@ -5071,6 +5220,13 @@ require_once __DIR__ . '/../navbar.php';
                     'id',
                     String(lastId)
                 );
+
+                if (lastImageId > 0) {
+                    currentUrl.searchParams.set(
+                        'selected_image',
+                        String(lastImageId)
+                    );
+                }
 
                 location.replace(
                     currentUrl.pathname
@@ -5111,35 +5267,50 @@ require_once __DIR__ . '/../navbar.php';
         .forEach(button => {
             button.addEventListener(
                 'click',
-                async () => {
-                    const imageId =
+                () => {
+                    if (
                         Number(
                             button.dataset.imageId
                             || 0
-                        );
-
-                    if (
-                        imageId <= 0
-                        || imageId === currentImageId()
+                        ) === currentImageId()
                     ) {
                         return;
                     }
 
-                    try {
-                        await queueRequest(
-                            'set_active_image',
-                            null,
-                            {
-                                image_id: imageId,
-                            }
-                        );
-
-                        location.reload();
-
-                    } catch (_) {}
+                    selectDisplayedImage(button);
                 }
             );
         });
+
+
+    setProfileImageButton?.addEventListener(
+        'click',
+        async () => {
+            const imageId = currentImageId();
+
+            if (imageId <= 0) {
+                return;
+            }
+
+            try {
+                await queueRequest(
+                    'set_active_image',
+                    null,
+                    {
+                        image_id: imageId,
+                    }
+                );
+
+                if (profileImageId) {
+                    profileImageId.value =
+                        String(imageId);
+                }
+
+                syncProfileButtonState();
+
+            } catch (_) {}
+        }
+    );
 
 
     document
@@ -5229,7 +5400,19 @@ require_once __DIR__ . '/../navbar.php';
                     }
                 );
 
-                location.reload();
+                const currentUrl =
+                    new URL(
+                        window.location.href
+                    );
+
+                currentUrl.searchParams.delete(
+                    'selected_image'
+                );
+
+                location.replace(
+                    currentUrl.pathname
+                    + currentUrl.search
+                );
 
             } catch (_) {}
         }
@@ -5358,12 +5541,6 @@ require_once __DIR__ . '/../navbar.php';
     }
 
 
-    charGalleryButton?.addEventListener(
-        'click',
-        openCharGallery
-    );
-
-
     charGalleryThumbs.forEach(
         button => {
             button.addEventListener(
@@ -5399,9 +5576,20 @@ require_once __DIR__ . '/../navbar.php';
     document.addEventListener(
         'keydown',
         event => {
+            if (event.key !== 'Escape') {
+                return;
+            }
+
             if (
-                event.key === 'Escape'
-                && charGalleryModal
+                imageTitleModal
+                && !imageTitleModal.hidden
+            ) {
+                closeImageTitleModal();
+                return;
+            }
+
+            if (
+                charGalleryModal
                 && !charGalleryModal.hidden
             ) {
                 closeCharGallery();
@@ -5410,37 +5598,182 @@ require_once __DIR__ . '/../navbar.php';
     );
 
 
-    /* Bildtitel separat autosaven */
+    /* =====================================================
+     * Bildtitel bearbeiten / Bild entfernen
+     * ===================================================== */
 
-    imageTitle?.addEventListener(
-        'input',
-        () => {
-            window.clearTimeout(
-                imageSaveTimer
+    function openImageTitleModal() {
+        if (
+            !imageTitleModal
+            || !imageTitleModalInput
+        ) {
+            return;
+        }
+
+        const button = currentImageButton();
+
+        if (!button) {
+            return;
+        }
+
+        imageTitleModalInput.value =
+            button.dataset.imageTitle
+            || '';
+
+        imageTitleModal.hidden = false;
+        document.body.classList.add(
+            'phan-image-title-modal-open'
+        );
+
+        window.setTimeout(
+            () => {
+                imageTitleModalInput.focus();
+                imageTitleModalInput.select();
+            },
+            0
+        );
+    }
+
+
+    function closeImageTitleModal() {
+        if (!imageTitleModal) {
+            return;
+        }
+
+        imageTitleModal.hidden = true;
+        document.body.classList.remove(
+            'phan-image-title-modal-open'
+        );
+    }
+
+
+    function updateImageTitles(
+        imageId,
+        rawTitle
+    ) {
+        const stripButton =
+            Array.from(
+                document.querySelectorAll(
+                    '.phan-image-gallery-item'
+                )
+            ).find(
+                button =>
+                    Number(
+                        button.dataset.imageId
+                        || 0
+                    ) === imageId
             );
 
-            imageSaveTimer =
-                window.setTimeout(
-                    () => {
-                        const imageId =
-                            currentImageId();
+        const originalFilename =
+            stripButton?.dataset.originalFilename
+            || '';
 
-                        if (imageId <= 0) {
-                            return;
-                        }
+        const displayTitle =
+            rawTitle.trim()
+            || originalFilename
+            || 'Bild';
 
-                        queueRequest(
-                            'save_image',
-                            null,
-                            {
-                                image_id: imageId,
-                                image_title:
-                                    imageTitle.value,
-                            }
-                        ).catch(() => {});
-                    },
-                    450
+        if (stripButton) {
+            stripButton.dataset.imageTitle =
+                rawTitle.trim();
+            stripButton.dataset.imageDisplayTitle =
+                displayTitle;
+            stripButton.title = displayTitle;
+
+            stripButton.querySelector('span')
+                ?.replaceChildren(
+                    document.createTextNode(
+                        displayTitle
+                    )
                 );
+        }
+
+        const galleryButton =
+            charGalleryThumbs.find(
+                button =>
+                    Number(
+                        button.dataset.galleryImageId
+                        || 0
+                    ) === imageId
+            );
+
+        if (galleryButton) {
+            galleryButton.dataset.galleryImageTitle =
+                displayTitle;
+
+            galleryButton.querySelector('span')
+                ?.replaceChildren(
+                    document.createTextNode(
+                        displayTitle
+                    )
+                );
+        }
+    }
+
+
+    imageTitleButton?.addEventListener(
+        'click',
+        openImageTitleModal
+    );
+
+
+    imageTitleSaveButton?.addEventListener(
+        'click',
+        async () => {
+            const imageId = currentImageId();
+
+            if (
+                imageId <= 0
+                || !imageTitleModalInput
+            ) {
+                return;
+            }
+
+            try {
+                await queueRequest(
+                    'save_image',
+                    null,
+                    {
+                        image_id: imageId,
+                        image_title:
+                            imageTitleModalInput.value,
+                    }
+                );
+
+                updateImageTitles(
+                    imageId,
+                    imageTitleModalInput.value
+                );
+
+                closeImageTitleModal();
+
+            } catch (_) {}
+        }
+    );
+
+
+    imageTitleModal
+        ?.querySelectorAll(
+            '[data-close-image-title]'
+        )
+        .forEach(element => {
+            element.addEventListener(
+                'click',
+                closeImageTitleModal
+            );
+        });
+
+
+    imageTitleModalInput?.addEventListener(
+        'keydown',
+        event => {
+            if (
+                event.key === 'Enter'
+                && !event.shiftKey
+            ) {
+                event.preventDefault();
+                imageTitleSaveButton?.click();
+            }
         }
     );
 
@@ -5511,6 +5844,79 @@ require_once __DIR__ . '/../navbar.php';
     let cropStart = null;
 
 
+    cropBox?.addEventListener(
+        'click',
+        () => {
+            if (!cropMode) {
+                openCharGallery();
+            }
+        }
+    );
+
+
+    cropBox?.addEventListener(
+        'keydown',
+        event => {
+            if (
+                !cropMode
+                && (
+                    event.key === 'Enter'
+                    || event.key === ' '
+                )
+            ) {
+                event.preventDefault();
+                openCharGallery();
+            }
+        }
+    );
+
+
+    function syncCurrentCropDataset() {
+        const button = currentImageButton();
+
+        if (!button) {
+            return;
+        }
+
+        button.dataset.faceX =
+            cropInputs[0]?.value || '';
+        button.dataset.faceY =
+            cropInputs[1]?.value || '';
+        button.dataset.faceW =
+            cropInputs[2]?.value || '';
+        button.dataset.faceH =
+            cropInputs[3]?.value || '';
+
+        const cacheBust =
+            `v=${Date.now()}`;
+
+        const stripImage =
+            button.querySelector('img');
+
+        if (stripImage) {
+            stripImage.src =
+                `/phan/chars?thumb_image=${currentImageId()}&${cacheBust}`;
+        }
+
+        const galleryButton =
+            charGalleryThumbs.find(
+                item =>
+                    Number(
+                        item.dataset.galleryImageId
+                        || 0
+                    ) === currentImageId()
+            );
+
+        const galleryImage =
+            galleryButton?.querySelector('img');
+
+        if (galleryImage) {
+            galleryImage.src =
+                `/phan/chars?thumb_image=${currentImageId()}&${cacheBust}`;
+        }
+    }
+
+
     function hasSavedCrop() {
         const values =
             cropInputs.map(
@@ -5572,7 +5978,7 @@ require_once __DIR__ . '/../navbar.php';
             cropModeButton.textContent =
                 cropMode
                     ? 'Ausschnitt abbrechen'
-                    : 'Gesicht setzen';
+                    : 'Gesicht ausschneiden';
         }
 
         if (cropMode) {
@@ -5741,13 +6147,15 @@ require_once __DIR__ . '/../navbar.php';
                     {
                         image_id: imageId,
                         image_title:
-                            imageTitle?.value
+                            currentImageButton()
+                                ?.dataset.imageTitle
                             || '',
                     }
                 )
-                    .then(
-                        () => setCropMode(false)
-                    )
+                    .then(() => {
+                        syncCurrentCropDataset();
+                        setCropMode(false);
+                    })
                     .catch(() => {});
             }
         );
@@ -5761,6 +6169,8 @@ require_once __DIR__ . '/../navbar.php';
             }
         );
     }
+
+    syncProfileButtonState();
 
 })();
 </script>

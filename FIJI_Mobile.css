@@ -9783,7 +9783,7 @@
 
     #charsPage .phan-image-actions {
         display: grid !important;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 5px;
         width: 100%;
         margin-top: 8px;
@@ -9834,14 +9834,19 @@
     }
 
     #charsPage .phan-image-gallery-item span {
-        display: block;
+        display: -webkit-box;
         width: 100%;
+        min-height: calc(2 * .54rem * 1.05);
+        max-height: calc(2 * .54rem * 1.05);
         margin-top: 3px;
         overflow: hidden;
         font-size: .54rem;
         line-height: 1.05;
-        white-space: nowrap;
-        text-overflow: ellipsis;
+        overflow-wrap: anywhere;
+        white-space: normal;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
     }
 
     #charsPage .phan-image-meta {
@@ -10127,13 +10132,56 @@
     }
 
     .chars-gallery-modal .phan-gallery-modal-thumb span {
+        display: -webkit-box;
         width: 100%;
+        min-height: calc(2 * .50rem * 1.05);
+        max-height: calc(2 * .50rem * 1.05);
         overflow: hidden;
         font-size: .50rem;
         line-height: 1.05;
         text-align: center;
-        white-space: nowrap;
-        text-overflow: ellipsis;
+        overflow-wrap: anywhere;
+        white-space: normal;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+    }
+
+
+    .phan-image-title-modal {
+        padding: 10px;
+    }
+
+    .phan-image-title-modal-dialog {
+        width: min(420px, calc(100vw - 20px));
+        padding: 18px 14px 14px;
+        border-radius: 14px;
+    }
+
+    .phan-image-title-modal-dialog h2 {
+        margin-bottom: 13px;
+        font-size: 1.05rem;
+    }
+
+    .phan-image-title-modal-dialog label {
+        font-size: .76rem;
+    }
+
+    .phan-image-title-modal-dialog input {
+        height: 38px;
+        padding: 7px 9px;
+        font-size: .82rem;
+    }
+
+    .phan-image-title-modal-actions {
+        gap: 7px;
+        margin-top: 13px;
+    }
+
+    .phan-image-title-modal-actions button {
+        min-height: 38px;
+        padding: 7px 8px;
+        font-size: .72rem;
     }
 }
 
@@ -10191,9 +10239,6 @@
         grid-template-columns: 1fr 1fr;
     }
 
-    #charsPage .phan-image-actions #charGalleryButton {
-        grid-column: 1 / -1;
-    }
 }
 
 
