@@ -150,7 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($action === 'update_sort') {
         $id = (int)($_POST['id'] ?? 0);
         $sort = (string)($_POST['sort_key'] ?? '');
-        if ($id <= 0 || $sort === '' || !preg_match('/^-?**\d**+(?:**\.\d**+)?$/', $sort)) {
+        if ($id <= 0 || $sort === '' || !preg_match('/^-?\d+(?:\.\d+)?$/', $sort)) {
             json_out(['ok' => false, 'error' => 'Ungültige Sortierung.'], 400);
         }
         $stmt = $sciconn->prepare("UPDATE lerntime SET sort_key = ? WHERE id = ?");
