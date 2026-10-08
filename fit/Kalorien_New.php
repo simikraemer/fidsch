@@ -187,8 +187,26 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'tag') {
     }
     $stmt->close();
 
-    // Netto-Kalorien wie in Start.php: Zufuhr - Verbrauch
-    $nettoSumme = $bruttoSumme - $trainingSumme;
+    // Neue Gym-Sessions: nur abgeschlossene Trainings, am Startdatum verbuchen.
+    // Identische Berechnungsgrundlage wie in Start.php (gespeicherte Satz-kcal).
+    $gymSumme = 0;
+    $stmt = $fitconn->prepare("
+        SELECT COALESCE(SUM(COALESCE(gss.calories, 0)), 0) AS gym_summe
+        FROM gym_sessions gs
+        JOIN gym_session_sets gss ON gss.session_id = gs.id
+        WHERE gs.finished_at IS NOT NULL
+          AND DATE(gs.started_at) = ?
+    ");
+    $stmt->bind_param('s', $datum);
+    $stmt->execute();
+    $stmt->bind_result($gymSummeDb);
+    if ($stmt->fetch()) {
+        $gymSumme = (int)$gymSummeDb;
+    }
+    $stmt->close();
+
+    // Netto = Kalorienzufuhr - altes Training - neues Gym.
+    $nettoSumme = $bruttoSumme - $trainingSumme - $gymSumme;
 
     // Vorheriger Tag mit Einträgen
     $prev = null;
@@ -235,6 +253,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'tag') {
         'entries'         => $eintraegeTag,
         'brutto_summe'    => $bruttoSumme,
         'training_summe'  => $trainingSumme,
+        'gym_summe'       => $gymSumme,
         'netto_summe'     => $nettoSumme,
         'prev'            => $prev,
         'next'            => $next,
