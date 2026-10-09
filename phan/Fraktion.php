@@ -973,6 +973,128 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 
         /* -------------------------------------------------
+         * Fraktionsspezifisches Charakterbild speichern.
+         * Unabhängig vom globalen aktiven Bild und von
+         * char_factions (Chars.php erstellt diese neu).
+         * ------------------------------------------------- */
+        if ($action === 'set_faction_image') {
+            $charId = max(0, (int)($_POST['char_id'] ?? 0));
+            $imageId = max(0, (int)($_POST['image_id'] ?? 0));
+
+            if ($id <= 0 || $charId <= 0 || $imageId <= 0) {
+                throw new RuntimeException('Ungültige Bildauswahl.');
+            }
+            if (!pf_one($phanconn,
+                'SELECT char_id FROM char_factions WHERE faction_id = ? AND char_id = ?',
+                [$id, $charId])) {
+                throw new RuntimeException('Der Charakter gehört nicht zu dieser Fraktion.');
+            }
+            if (!pf_one($phanconn,
+                'SELECT id FROM char_images WHERE id = ? AND char_id = ?',
+                [$imageId, $charId])) {
+                throw new RuntimeException('Das Bild gehört nicht zu diesem Charakter.');
+            }
+
+            pf_exec($phanconn,
+                'INSERT INTO faction_char_images (faction_id, char_id, image_id)
+                 VALUES (?, ?, ?)
+                 ON DUPLICATE KEY UPDATE image_id = VALUES(image_id)',
+                [$id, $charId, $imageId])->close();
+
+            pf_json(['ok' => true, 'image_id' => $imageId]);
+        }
+
+
+        /* -------------------------------------------------
+         * Gruppen und Reihenfolge verwalten
+         * ------------------------------------------------- */
+        if (in_array($action, ['group_add', 'group_rename', 'group_delete', 'group_layout'], true)) {
+            if ($id <= 0 || !pf_one($phanconn, 'SELECT id FROM factions WHERE id = ?', [$id])) {
+                throw new RuntimeException('Fraktion nicht gefunden.');
+            }
+
+            $groupId = max(0, (int)($_POST['group_id'] ?? 0));
+            $title = trim((string)($_POST['group_title'] ?? ''));
+            $phanconn->begin_transaction();
+            try {
+                if ($action === 'group_add') {
+                    if ($title === '' || (function_exists('mb_strlen') ? mb_strlen($title, 'UTF-8') : strlen($title)) > 255) {
+                        throw new RuntimeException('Gruppenname muss 1 bis 255 Zeichen enthalten.');
+                    }
+                    $max = pf_one($phanconn,
+                        'SELECT COALESCE(MAX(sort_order), -1) + 1 AS pos FROM faction_groups WHERE faction_id = ?', [$id]);
+                    pf_exec($phanconn,
+                        'INSERT INTO faction_groups (faction_id, title, sort_order) VALUES (?, ?, ?)',
+                        [$id, $title, (int)$max['pos']])->close();
+                } elseif ($action === 'group_rename') {
+                    if ($title === '' || (function_exists('mb_strlen') ? mb_strlen($title, 'UTF-8') : strlen($title)) > 255) {
+                        throw new RuntimeException('Gruppenname muss 1 bis 255 Zeichen enthalten.');
+                    }
+                    $stmt = pf_exec($phanconn,
+                        'UPDATE faction_groups SET title = ? WHERE id = ? AND faction_id = ?',
+                        [$title, $groupId, $id]);
+                    if ($stmt->affected_rows === 0 && !pf_one($phanconn,
+                        'SELECT id FROM faction_groups WHERE id = ? AND faction_id = ?', [$groupId, $id])) {
+                        throw new RuntimeException('Gruppe nicht gefunden.');
+                    }
+                    $stmt->close();
+                } elseif ($action === 'group_delete') {
+                    $stmt = pf_exec($phanconn,
+                        'DELETE FROM faction_groups WHERE id = ? AND faction_id = ?', [$groupId, $id]);
+                    if ($stmt->affected_rows !== 1) {
+                        throw new RuntimeException('Gruppe nicht gefunden.');
+                    }
+                    $stmt->close();
+                } else {
+                    $layout = json_decode((string)($_POST['layout'] ?? ''), true, 512, JSON_THROW_ON_ERROR);
+                    if (!is_array($layout) || !isset($layout['groups'], $layout['chars']) ||
+                        !is_array($layout['groups']) || !is_array($layout['chars'])) {
+                        throw new RuntimeException('Ungültige Sortierdaten.');
+                    }
+                    $groups = pf_all($phanconn,
+                        'SELECT id FROM faction_groups WHERE faction_id = ? FOR UPDATE', [$id]);
+                    $chars = pf_all($phanconn,
+                        'SELECT char_id FROM char_factions WHERE faction_id = ? FOR UPDATE', [$id]);
+                    $validGroups = array_map(fn($r) => (int)$r['id'], $groups);
+                    $validChars = array_map(fn($r) => (int)$r['char_id'], $chars);
+                    $givenGroups = array_map('intval', $layout['groups']);
+                    $givenChars = array_map(fn($r) => (int)($r['id'] ?? 0), $layout['chars']);
+                    sort($validGroups); sort($givenGroups);
+                    sort($validChars); sort($givenChars);
+                    if ($validGroups !== $givenGroups || $validChars !== $givenChars) {
+                        throw new RuntimeException('Die Sortierung ist veraltet. Seite neu laden.');
+                    }
+                    foreach ($layout['groups'] as $index => $gid) {
+                        pf_exec($phanconn,
+                            'UPDATE faction_groups SET sort_order = ? WHERE id = ? AND faction_id = ?',
+                            [(int)$index, (int)$gid, $id])->close();
+                    }
+                    $groupSet = array_fill_keys($validGroups, true);
+                    $positions = [];
+                    foreach ($layout['chars'] as $entry) {
+                        $gid = ($entry['group'] ?? null);
+                        $gid = ($gid === null || $gid === '') ? null : (int)$gid;
+                        if ($gid !== null && !isset($groupSet[$gid])) {
+                            throw new RuntimeException('Ungültige Gruppenzuordnung.');
+                        }
+                        $key = $gid === null ? 'undefined' : (string)$gid;
+                        $position = $positions[$key] ?? 0;
+                        $positions[$key] = $position + 1;
+                        pf_exec($phanconn,
+                            'UPDATE char_factions SET group_id = ?, sort_order = ? WHERE faction_id = ? AND char_id = ?',
+                            [$gid, $position, $id, (int)$entry['id']])->close();
+                    }
+                }
+                $phanconn->commit();
+            } catch (Throwable $e) {
+                $phanconn->rollback();
+                throw $e;
+            }
+            pf_json(['ok' => true]);
+        }
+
+
+        /* -------------------------------------------------
          * Thumbnail-Ausschnitt speichern
          * ------------------------------------------------- */
 
@@ -1553,6 +1675,40 @@ if ($id > 0) {
     ];
 }
 
+$factionGroups = [];
+$factionCharacters = [];
+$factionCharacterImages = [];
+if ($faction && (int)$faction['id'] > 0) {
+    $factionGroups = pf_all($phanconn,
+        'SELECT id, title, sort_order FROM faction_groups WHERE faction_id = ? ORDER BY sort_order, id',
+        [(int)$faction['id']]);
+    $factionCharacters = pf_all($phanconn,
+        'SELECT
+            cf.char_id,
+            cf.group_id,
+            cf.sort_order,
+            c.call_name AS char_label,
+            c.active_image_id,
+            fci.image_id AS faction_image_id
+         FROM char_factions cf
+         INNER JOIN chars c ON c.id = cf.char_id
+         LEFT JOIN faction_char_images fci
+            ON fci.faction_id = cf.faction_id
+           AND fci.char_id = cf.char_id
+         WHERE cf.faction_id = ?
+         ORDER BY cf.sort_order, c.call_name, cf.char_id',
+        [(int)$faction['id']]);
+    // Alle Bilder der zugehörigen Charaktere inkl. Galerie-Sortierung.
+    $factionCharacterImages = pf_all($phanconn,
+        'SELECT ci.id, ci.char_id, ci.title
+         FROM char_images ci
+         INNER JOIN char_factions cf
+            ON cf.char_id = ci.char_id
+           AND cf.faction_id = ?
+         ORDER BY ci.char_id, ci.sort_order, ci.id',
+        [(int)$faction['id']]);
+}
+
 if (isset($_GET['saved'])) {
     $flash = 'Gespeichert.';
 }
@@ -1719,30 +1875,6 @@ require_once __DIR__ . '/../navbar.php';
                     >
 
                     <input
-                        type="hidden"
-                        id="factionThumbX"
-                        value="<?= pf_h($faction['thumb_x'] ?? '') ?>"
-                    >
-
-                    <input
-                        type="hidden"
-                        id="factionThumbY"
-                        value="<?= pf_h($faction['thumb_y'] ?? '') ?>"
-                    >
-
-                    <input
-                        type="hidden"
-                        id="factionThumbW"
-                        value="<?= pf_h($faction['thumb_w'] ?? '') ?>"
-                    >
-
-                    <input
-                        type="hidden"
-                        id="factionThumbH"
-                        value="<?= pf_h($faction['thumb_h'] ?? '') ?>"
-                    >
-
-                    <input
                         type="file"
                         name="image"
                         id="factionImageInput"
@@ -1751,107 +1883,99 @@ require_once __DIR__ . '/../navbar.php';
                     >
 
 
-                    <div class="phan-form-grid faction-form-grid">
-                        <label class="phan-wide">
-                            Name
-
+                    <div class="faction-editor-toolbar" aria-label="Fraktion bearbeiten">
+                        <label class="faction-title-field" for="factionTitle">
+                            <span>Name</span>
                             <input
                                 type="text"
                                 name="title"
                                 id="factionTitle"
                                 maxlength="255"
-                                value="<?= pf_h(
-                                    $faction['title']
-                                ) ?>"
-                                placeholder="Name der Fraktion"
+                                value="<?= pf_h($faction['title']) ?>"
+                                placeholder="Fraktionsname"
+                                required
                             >
                         </label>
-                    </div>
 
-
-                    <div
-                        class="phan-image-card faction-image-card"
-                    >
-                        <div class="phan-image-card-head">
-                            <div>
-                                <strong>Bild</strong>
-                            </div>
-
-                            <button
-                                type="button"
-                                id="factionImageButton"
-                            >
-                                <?= !empty($faction['image_path'])
-                                    ? 'Bild ersetzen'
-                                    : '+ Bild'
-                                ?>
-                            </button>
-                        </div>
-
-                        <?php if (!empty($faction['image_path'])): ?>
-
-                            <div
-                                class="phan-cropbox phan-image-dropzone"
-                                id="factionCropBox"
-                            >
+                        <div class="faction-image-preview phan-image-dropzone"
+                             id="factionImagePreview" title="Fraktionsbild">
+                            <?php if (!empty($faction['image_path'])): ?>
                                 <img
-                                    src="/phan/factions?image=<?= (int)$faction['id'] ?>"
-                                    alt="<?= pf_h($faction['title']) ?>"
-                                    id="factionCropImage"
+                                    id="factionPreviewImage"
+                                    src="/phan/factions?thumb=<?= (int)$faction['id'] ?>"
+                                    alt="Bild der Fraktion <?= pf_h($faction['title']) ?>"
                                     draggable="false"
                                 >
-
-                                <div
-                                    class="phan-crop-overlay"
-                                    id="factionCropOverlay"
-                                    hidden
-                                ></div>
-
-                                <div class="phan-image-drop-hint">
-                                    Bild hier ablegen zum Ersetzen
-                                </div>
-                            </div>
-
-                            <div class="phan-image-actions faction-image-actions">
-                                <button
-                                    type="button"
-                                    id="factionCropButton"
-                                >
-                                    Thumbnail-Ausschnitt setzen
+                            <?php else: ?>
+                                <button type="button" class="faction-image-placeholder"
+                                        id="factionEmptyImagePicker"
+                                        title="Bild hinzufügen" aria-label="Bild hinzufügen">
+                                    +
                                 </button>
+                            <?php endif; ?>
+                            <span class="faction-image-drop-hint">Bild ablegen</span>
+                        </div>
 
-                                <button
-                                    type="button"
-                                    class="phan-danger"
-                                    id="removeFactionImageButton"
-                                >
-                                    Bild entfernen
-                                </button>
-                            </div>
-
-                        <?php else: ?>
-
-                            <button
-                                type="button"
-                                class="
-                                    phan-image
-                                    phan-noimg
-                                    phan-image-empty
-                                    phan-image-dropzone
-                                "
-                                id="factionEmptyImagePicker"
-                                style="aspect-ratio:1 / 1;"
-                            >
-                                Noch kein Bild
-
-                                <span class="phan-image-empty-sub">
-                                    Klicken oder Bild hierher ziehen
-                                </span>
+                        <div class="faction-toolbar-buttons">
+                            <button type="button" id="factionImageButton"
+                                    title="Fraktionsbild wählen oder ersetzen">
+                                <span class="faction-label-long"><?= !empty($faction['image_path']) ? 'Bild ersetzen' : 'Bild wählen' ?></span>
+                                <span class="faction-label-short"><?= !empty($faction['image_path']) ? 'Ersetzen' : 'Wählen' ?></span>
                             </button>
-
-                        <?php endif; ?>
+                            <button type="button" class="phan-danger"
+                                    id="removeFactionImageButton"
+                                    title="Fraktionsbild entfernen"
+                                    <?= empty($faction['image_path']) ? 'disabled' : '' ?>>
+                                <span class="faction-label-long">Bild entfernen</span>
+                                <span class="faction-label-short">Entfernen</span>
+                            </button>
+                        </div>
                     </div>
 
+
+                    <?php if ((int)$faction['id'] > 0): ?>
+                        <section class="faction-groups-panel" id="factionGroupsPanel"
+                            data-faction-id="<?= (int)$faction['id'] ?>"
+                            data-csrf="<?= pf_h($csrf) ?>">
+                            <div class="faction-groups-top">
+                                <div>
+                                    <h2>Gruppen und Charaktere</h2>
+                                    <p>Am Griff links ziehen, um Gruppen und Charaktere zu verschieben.</p>
+                                </div>
+                                <button type="button" id="factionAddGroup">+ Gruppe</button>
+                            </div>
+                            <div id="factionGroupList" class="faction-group-list">
+                                <?php foreach ($factionGroups as $group): ?>
+                                    <section class="faction-group"
+                                        data-group-id="<?= (int)$group['id'] ?>">
+                                        <div class="faction-group-header">
+                                            <button type="button" class="faction-grip faction-group-grip" title="Gruppe ziehen" aria-label="Gruppe ziehen">&#9776;</button>
+                                            <strong class="faction-group-title"><?= pf_h($group['title']) ?></strong>
+                                            <span class="faction-group-count" aria-label="Anzahl Charaktere">0</span>
+                                            <div class="faction-group-controls">
+                                                <button type="button" data-group-view title="Charakterbilder der Gruppe anschauen">Anschauen</button>
+                                                <button type="button" data-group-rename title="Umbenennen">Bearbeiten</button>
+                                                <button type="button" data-group-delete class="phan-danger" title="Gruppe löschen">Löschen</button>
+                                            </div>
+                                        </div>
+                                        <div class="faction-char-list" data-char-group="<?= (int)$group['id'] ?>"></div>
+                                    </section>
+                                <?php endforeach; ?>
+                            </div>
+                            <section class="faction-group faction-undefined">
+                                <div class="faction-group-header">
+                                    <strong>Undefiniert</strong>
+                                    <span class="faction-group-count" aria-label="Anzahl Charaktere">0</span>
+                                    <span class="faction-undefined-hint">Ohne Gruppenzuordnung</span>
+                                    <div class="faction-group-controls">
+                                        <button type="button" data-group-view title="Nicht zugeordnete Charakterbilder anschauen">Anschauen</button>
+                                    </div>
+                                </div>
+                                <div class="faction-char-list" data-char-group=""></div>
+                            </section>
+                            <div class="faction-groups-status" id="factionGroupsStatus" role="status"></div>
+                        </section>
+                    <?php endif; ?>
 
                     <div class="phan-bottom-actions faction-bottom-actions">
                         <div class="phan-bottom-actions-left">
@@ -1897,8 +2021,500 @@ require_once __DIR__ . '/../navbar.php';
 
     </div>
 
+    <?php if ($faction && (int)$faction['id'] > 0): ?>
+        <div class="faction-gallery-modal" id="factionGroupGallery"
+             role="dialog" aria-modal="true" aria-labelledby="factionGalleryTitle"
+             aria-hidden="true" hidden>
+            <div class="faction-gallery-dialog">
+                <header class="faction-gallery-header">
+                    <div class="faction-gallery-heading">
+                        <h2 id="factionGalleryTitle">Gruppe anschauen</h2>
+                        <span id="factionGalleryCount"></span>
+                    </div>
+                    <button type="button" class="faction-gallery-close" id="factionGalleryClose"
+                            aria-label="Galerie schließen" title="Schließen">&times;</button>
+                </header>
+                <div class="faction-gallery-grid" id="factionGalleryGrid"></div>
+            </div>
+        </div>
+    <?php endif; ?>
 </div>
 
+
+
+<script>
+(() => {
+    'use strict';
+
+    const panel = document.getElementById('factionGroupsPanel');
+    if (!panel) return;
+
+    const groups = document.getElementById('factionGroupList');
+    const status = document.getElementById('factionGroupsStatus');
+    const chars = <?= json_encode($factionCharacters, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_INVALID_UTF8_SUBSTITUTE) ?>;
+    const imageRows = <?= json_encode($factionCharacterImages, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_INVALID_UTF8_SUBSTITUTE) ?>;
+    const imagesByChar = new Map();
+    const imageTitles = new Map();
+    for (const image of imageRows) {
+        const key = Number(image.char_id);
+        const imageId = Number(image.id);
+        if (!imagesByChar.has(key)) imagesByChar.set(key, []);
+        imagesByChar.get(key).push(imageId);
+        imageTitles.set(imageId, String(image.title ?? '').trim());
+    }
+    const lists = () => [...panel.querySelectorAll('.faction-char-list')];
+
+    let savedLayout = '';
+    let saving = false;
+    let pointerDrag = null;
+
+    function show(message, isError = false) {
+        status.textContent = message;
+        status.classList.toggle('is-error', isError);
+    }
+
+    function updateCounts() {
+        for (const group of panel.querySelectorAll('.faction-group')) {
+            const count = group.querySelectorAll('.faction-char-list > .faction-char').length;
+            const badge = group.querySelector('.faction-group-count');
+            if (badge) badge.textContent = String(count);
+        }
+    }
+
+    function layout() {
+        return {
+            groups: [...groups.children].map(group => Number(group.dataset.groupId)),
+            chars: lists().flatMap(list => [...list.children].map(char => ({
+                id: Number(char.dataset.charId),
+                group: list.dataset.charGroup === '' ? null : Number(list.dataset.charGroup)
+            })))
+        };
+    }
+
+    async function post(action, values = {}) {
+        const body = new FormData();
+        body.set('csrf', panel.dataset.csrf);
+        body.set('id', panel.dataset.factionId);
+        body.set('action', action);
+        body.set('ajax', '1');
+        for (const [key, value] of Object.entries(values)) body.set(key, value);
+        const response = await fetch('/phan/factions', {
+            method: 'POST',
+            body,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin'
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok || !data?.ok) {
+            throw new Error(data?.message || 'Speichern fehlgeschlagen.');
+        }
+        return data;
+    }
+
+    // Serialisiert Änderungen. Eine weitere Sortierung während eines Requests geht nicht verloren.
+    async function persist() {
+        if (saving) return;
+        saving = true;
+        try {
+            while (true) {
+                const current = JSON.stringify(layout());
+                if (current === savedLayout) break;
+                show('Speichere …');
+                await post('group_layout', { layout: current });
+                savedLayout = current;
+            }
+            show('Gespeichert.');
+        } catch (error) {
+            show(error.message, true);
+            // Nach einem Serverfehler nicht mit potenziell veralteten Daten fortfahren.
+            panel.classList.add('faction-layout-error');
+        } finally {
+            saving = false;
+        }
+    }
+
+    // Ein Charakter ist nur über den Griff ganz links ziehbar.
+    // Die Fraktionsauswahl ist unabhängig von chars.active_image_id.
+    function renderFactionImage(char, imageId) {
+        const charId = Number(char.dataset.charId);
+        const choices = imagesByChar.get(charId) || [];
+        const index = choices.indexOf(Number(imageId));
+        const selected = index >= 0 ? choices[index] : 0;
+        char.dataset.imageId = selected ? String(selected) : '';
+        const avatar = char.querySelector('.faction-char-avatar');
+        avatar.replaceChildren();
+
+        if (selected) {
+            const image = document.createElement('img');
+            image.src = '/phan/chars?thumb_image=' + selected;
+            image.alt = '';
+            image.loading = 'lazy';
+            image.decoding = 'async';
+            image.draggable = false;
+            image.addEventListener('error', () => {
+                avatar.replaceChildren();
+                avatar.textContent = '◯';
+            }, { once: true });
+            avatar.append(image);
+        } else {
+            avatar.textContent = '◯';
+        }
+        const left = char.querySelector('[data-image-direction="-1"]');
+        const right = char.querySelector('[data-image-direction="1"]');
+        if (left) left.disabled = char.dataset.imageSaving === '1' || index <= 0;
+        if (right) right.disabled = char.dataset.imageSaving === '1' || index < 0 || index >= choices.length - 1;
+    }
+
+    for (const item of chars) {
+        const char = document.createElement('div');
+        char.className = 'faction-char';
+        char.dataset.charId = String(item.char_id);
+        char.dataset.imageSaving = '0';
+
+        const grip = document.createElement('button');
+        grip.type = 'button';
+        grip.className = 'faction-grip faction-char-grip';
+        grip.textContent = '☰';
+        grip.title = 'Charakter ziehen';
+        grip.setAttribute('aria-label', 'Charakter ziehen: ' + item.char_label);
+
+        const avatar = document.createElement('span');
+        avatar.className = 'faction-char-avatar';
+
+        const name = document.createElement('span');
+        name.className = 'faction-char-name';
+        name.textContent = item.char_label || 'Unbenannter Charakter';
+
+        const controls = document.createElement('span');
+        controls.className = 'faction-char-image-nav';
+        for (const direction of [-1, 1]) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.dataset.imageDirection = String(direction);
+            button.textContent = direction === -1 ? '‹' : '›';
+            button.title = direction === -1 ? 'Vorheriges Charakterbild' : 'Nächstes Charakterbild';
+            button.setAttribute('aria-label', button.title + ': ' + name.textContent);
+            controls.append(button);
+        }
+
+        char.append(grip, avatar, name, controls);
+        (lists().find(list => list.dataset.charGroup ===
+            (item.group_id === null ? '' : String(item.group_id))) || lists().at(-1)).append(char);
+
+        const choices = imagesByChar.get(Number(item.char_id)) || [];
+        const preferred = Number(item.faction_image_id);
+        const globalProfile = Number(item.active_image_id);
+        const initial = choices.includes(preferred) ? preferred
+            : choices.includes(globalProfile) ? globalProfile
+            : choices[0] || 0;
+        renderFactionImage(char, initial);
+    }
+
+    // Jede Änderung wird sofort gespeichert. Während des Requests sind
+    // die Bildwechsel-Buttons gesperrt, um Schreib-Rennen zu vermeiden.
+    panel.addEventListener('click', async event => {
+        const button = event.target.closest('[data-image-direction]');
+        if (!button || button.disabled) return;
+        const char = button.closest('.faction-char');
+        if (!char || char.dataset.imageSaving === '1') return;
+        const charId = Number(char.dataset.charId);
+        const choices = imagesByChar.get(charId) || [];
+        const previous = Number(char.dataset.imageId);
+        const next = choices[choices.indexOf(previous) + Number(button.dataset.imageDirection)];
+        if (!next) return;
+
+        char.dataset.imageSaving = '1';
+        renderFactionImage(char, next);
+        try {
+            await post('set_faction_image', { char_id: String(charId), image_id: String(next) });
+            show('Charakterbild gespeichert.');
+        } catch (error) {
+            renderFactionImage(char, previous);
+            show(error.message, true);
+        } finally {
+            char.dataset.imageSaving = '0';
+            renderFactionImage(char, Number(char.dataset.imageId));
+        }
+    });
+
+    updateCounts();
+    savedLayout = JSON.stringify(layout());
+
+    document.getElementById('factionAddGroup').addEventListener('click', async () => {
+        const name = prompt('Name der neuen Gruppe:');
+        if (!name?.trim()) return;
+        try {
+            await post('group_add', { group_title: name.trim() });
+            location.reload();
+        } catch (error) {
+            show(error.message, true);
+        }
+    });
+
+    const modal = document.getElementById('factionGroupGallery');
+    const modalTitle = document.getElementById('factionGalleryTitle');
+    const modalCount = document.getElementById('factionGalleryCount');
+    const modalGrid = document.getElementById('factionGalleryGrid');
+    const closeGalleryButton = document.getElementById('factionGalleryClose');
+    let galleryPreviousFocus = null;
+
+    // Bildbreite ergibt sich aus ihrer Originalproportion und der
+    // tatsächlich verfügbaren Galeriehöhe. Kein Shrinking im Flex-Layout.
+    function fitGalleryImageWidths() {
+        if (!modal || modal.hidden) return;
+        for (const card of modalGrid.querySelectorAll('.faction-gallery-card')) {
+            const image = card.querySelector('img');
+            const imageBox = card.querySelector('.faction-gallery-card-image');
+            if (!image?.naturalWidth || !image?.naturalHeight || !imageBox) continue;
+            const height = imageBox.clientHeight;
+            if (height <= 0) continue;
+            card.style.width = Math.ceil(height * image.naturalWidth / image.naturalHeight) + 'px';
+        }
+    }
+    modalGrid?.addEventListener('load', event => {
+        if (event.target instanceof HTMLImageElement) fitGalleryImageWidths();
+    }, true);
+    window.addEventListener('resize', fitGalleryImageWidths);
+    if (typeof ResizeObserver !== 'undefined' && modalGrid) {
+        new ResizeObserver(fitGalleryImageWidths).observe(modalGrid);
+    }
+
+    function closeGallery() {
+        if (!modal || modal.hidden) return;
+        modal.hidden = true;
+        modal.setAttribute('aria-hidden', 'true');
+        modalGrid.replaceChildren();
+        document.body.classList.remove('faction-gallery-open');
+        galleryPreviousFocus?.focus();
+        galleryPreviousFocus = null;
+    }
+
+    function viewGroup(group) {
+        if (!modal) return;
+        const groupName = group.querySelector('.faction-group-title')?.textContent?.trim()
+            || 'Undefiniert';
+        const members = [...group.querySelectorAll('.faction-char-list > .faction-char')];
+        galleryPreviousFocus = document.activeElement;
+        modalTitle.textContent = groupName;
+        modalCount.textContent = members.length + (members.length === 1 ? ' Charakter' : ' Charaktere');
+        modalGrid.replaceChildren();
+
+        if (!members.length) {
+            const empty = document.createElement('p');
+            empty.className = 'faction-gallery-empty';
+            empty.textContent = 'In dieser Gruppe befinden sich keine Charaktere.';
+            modalGrid.append(empty);
+        }
+
+        for (const member of members) {
+            const card = document.createElement('figure');
+            card.className = 'faction-gallery-card';
+            const photo = document.createElement('div');
+            photo.className = 'faction-gallery-card-image';
+            const displayName = member.querySelector('.faction-char-name')?.textContent?.trim()
+                || 'Unbenannter Charakter';
+            const missingPhoto = () => {
+                photo.replaceChildren();
+                const fallback = document.createElement('span');
+                fallback.className = 'faction-gallery-fallback';
+                fallback.textContent = 'Kein Profilbild vorhanden';
+                photo.append(fallback);
+            };
+            const chosenImageId = Number(member.dataset.imageId);
+            if (chosenImageId > 0) {
+                const image = document.createElement('img');
+                image.src = '/phan/chars?image_id=' + chosenImageId;
+                image.alt = 'Profilbild von ' + displayName;
+                image.loading = 'lazy';
+                image.decoding = 'async';
+                image.draggable = false;
+                image.addEventListener('error', missingPhoto, { once: true });
+                photo.append(image);
+            } else {
+                missingPhoto();
+            }
+            const caption = document.createElement('figcaption');
+            caption.className = 'faction-gallery-caption';
+            const nameLine = document.createElement('span');
+            nameLine.className = 'faction-gallery-char-name';
+            nameLine.textContent = displayName;
+            nameLine.title = displayName;
+            const titleLine = document.createElement('span');
+            titleLine.className = 'faction-gallery-image-title';
+            const imageTitle = imageTitles.get(chosenImageId) || '';
+            titleLine.textContent = imageTitle || 'Ohne Bildtitel';
+            titleLine.title = titleLine.textContent;
+            caption.append(nameLine, titleLine);
+            card.append(photo, caption);
+            modalGrid.append(card);
+        }
+        modal.hidden = false;
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('faction-gallery-open');
+        closeGalleryButton.focus();
+        modalGrid.scrollLeft = 0;
+        requestAnimationFrame(fitGalleryImageWidths);
+    }
+
+    // Fotoalbum: per gehaltener Maustaste oder Touch horizontal verschieben.
+    let galleryPan = null;
+    modalGrid?.addEventListener('pointerdown', event => {
+        if (event.button !== 0 || !modalGrid.scrollWidth) return;
+        galleryPan = {
+            id: event.pointerId,
+            x: event.clientX,
+            scrollLeft: modalGrid.scrollLeft
+        };
+        modalGrid.setPointerCapture(event.pointerId);
+        modalGrid.classList.add('is-panning');
+        event.preventDefault();
+    });
+    modalGrid?.addEventListener('pointermove', event => {
+        if (!galleryPan || galleryPan.id !== event.pointerId) return;
+        modalGrid.scrollLeft = galleryPan.scrollLeft + galleryPan.x - event.clientX;
+        event.preventDefault();
+    });
+    function stopGalleryPan(event) {
+        if (!galleryPan || galleryPan.id !== event.pointerId) return;
+        galleryPan = null;
+        modalGrid.classList.remove('is-panning');
+        if (modalGrid.hasPointerCapture(event.pointerId)) {
+            modalGrid.releasePointerCapture(event.pointerId);
+        }
+    }
+    modalGrid?.addEventListener('pointerup', stopGalleryPan);
+    modalGrid?.addEventListener('pointercancel', stopGalleryPan);
+    modalGrid?.addEventListener('lostpointercapture', () => {
+        galleryPan = null;
+        modalGrid.classList.remove('is-panning');
+    });
+    // Klassische Mausräder können ebenfalls horizontal navigieren.
+    modalGrid?.addEventListener('wheel', event => {
+        if (modalGrid.scrollWidth <= modalGrid.clientWidth || event.ctrlKey) return;
+        if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
+            modalGrid.scrollLeft += event.deltaY;
+            event.preventDefault();
+        }
+    }, { passive: false });
+
+    closeGalleryButton?.addEventListener('click', closeGallery);
+    modal?.addEventListener('click', event => {
+        if (event.target === modal) closeGallery();
+    });
+    document.addEventListener('keydown', event => {
+        if (!modal || modal.hidden) return;
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            closeGallery();
+        } else if (event.key === 'Tab') {
+            // Der Schließen-Button ist das einzige fokussierbare Element im Modal.
+            event.preventDefault();
+            closeGalleryButton.focus();
+        }
+    });
+
+    panel.addEventListener('click', event => {
+        const button = event.target.closest('[data-group-view]');
+        if (!button) return;
+        const group = button.closest('.faction-group');
+        if (group) viewGroup(group);
+    });
+
+    groups.addEventListener('click', async event => {
+        const button = event.target.closest('[data-group-rename], [data-group-delete]');
+        if (!button) return;
+        const group = button.closest('[data-group-id]');
+        if (!group) return;
+        try {
+            if (button.hasAttribute('data-group-rename')) {
+                const name = prompt('Gruppenname:', group.querySelector('.faction-group-title').textContent);
+                if (!name?.trim()) return;
+                await post('group_rename', { group_id: group.dataset.groupId, group_title: name.trim() });
+            } else {
+                if (!confirm('Gruppe löschen? Charaktere wechseln nach „Undefiniert“.')) return;
+                await post('group_delete', { group_id: group.dataset.groupId });
+            }
+            location.reload();
+        } catch (error) {
+            show(error.message, true);
+        }
+    });
+
+    // Pointer Events statt nativem HTML-DnD: funktioniert auch auf Touchscreens.
+    panel.addEventListener('pointerdown', event => {
+        if (event.button !== 0 || panel.classList.contains('faction-layout-error')) return;
+        const grip = event.target.closest('.faction-group-grip, .faction-char-grip');
+        if (!grip) return;
+        const char = grip.closest('.faction-char');
+        const group = grip.closest('#factionGroupList > .faction-group');
+        const element = char || group;
+        if (!element) return;
+        pointerDrag = {
+            element,
+            kind: char ? 'char' : 'group',
+            pointerId: event.pointerId,
+            initialX: event.clientX,
+            initialY: event.clientY,
+            initialLayout: JSON.stringify(layout()),
+            active: false
+        };
+        event.preventDefault();
+    });
+
+    function pointerMove(event) {
+        const drag = pointerDrag;
+        if (!drag || event.pointerId !== drag.pointerId) return;
+        if (!drag.active) {
+            const distance = Math.hypot(event.clientX - drag.initialX, event.clientY - drag.initialY);
+            if (distance < 5) return;
+            drag.active = true;
+            drag.element.classList.add('is-dragging');
+            document.body.classList.add('faction-pointer-sorting');
+        }
+        event.preventDefault();
+
+        const target = document.elementFromPoint(event.clientX, event.clientY);
+        if (!target || !panel.contains(target)) return;
+
+        if (drag.kind === 'group') {
+            const over = target.closest('#factionGroupList > .faction-group');
+            if (!over || over === drag.element) return;
+            const midpoint = over.getBoundingClientRect();
+            groups.insertBefore(drag.element,
+                event.clientY < midpoint.top + midpoint.height / 2 ? over : over.nextSibling);
+            return;
+        }
+
+        const region = target.closest('.faction-group');
+        const list = target.closest('.faction-char-list') || region?.querySelector('.faction-char-list');
+        if (!list) return;
+        const over = target.closest('.faction-char');
+        if (over && over !== drag.element && over.parentElement === list) {
+            const rect = over.getBoundingClientRect();
+            list.insertBefore(drag.element,
+                event.clientY < rect.top + rect.height / 2 ? over : over.nextSibling);
+        } else if (!over) {
+            // Sortiert auch innerhalb leerer Gruppen sowie über den Gruppenheader.
+            list.append(drag.element);
+        }
+        updateCounts();
+    }
+
+    function pointerEnd(event) {
+        const drag = pointerDrag;
+        if (!drag || event.pointerId !== drag.pointerId) return;
+        pointerDrag = null;
+        drag.element.classList.remove('is-dragging');
+        document.body.classList.remove('faction-pointer-sorting');
+        updateCounts();
+        if (drag.active && JSON.stringify(layout()) !== drag.initialLayout) void persist();
+    }
+
+    document.addEventListener('pointermove', pointerMove, { passive: false });
+    document.addEventListener('pointerup', pointerEnd);
+    document.addEventListener('pointercancel', pointerEnd);
+})();
+</script>
 
 <script>
 (() => {
@@ -1963,47 +2579,9 @@ require_once __DIR__ . '/../navbar.php';
             'removeFactionImageButton'
         );
 
-    const cropBox =
-        document.getElementById(
-            'factionCropBox'
-        );
-
-    const cropImage =
-        document.getElementById(
-            'factionCropImage'
-        );
-
-    const cropOverlay =
-        document.getElementById(
-            'factionCropOverlay'
-        );
-
-    const cropButton =
-        document.getElementById(
-            'factionCropButton'
-        );
-
-    const cropInputs = [
-        document.getElementById(
-            'factionThumbX'
-        ),
-        document.getElementById(
-            'factionThumbY'
-        ),
-        document.getElementById(
-            'factionThumbW'
-        ),
-        document.getElementById(
-            'factionThumbH'
-        ),
-    ];
-
     let saveTimer = null;
     let saveChain = Promise.resolve();
     let statusTimer = null;
-
-    let cropMode = false;
-    let cropStart = null;
 
 
     function setStatus(
@@ -2472,368 +3050,6 @@ require_once __DIR__ . '/../navbar.php';
                 } catch (_) {}
             }
         );
-
-
-    /* =====================================================
-     * 1:1 Thumbnail-Ausschnitt
-     * ===================================================== */
-
-    function hasSavedCrop() {
-        const values =
-            cropInputs.map(
-                input =>
-                    parseFloat(
-                        input?.value
-                        ?? ''
-                    )
-            );
-
-        return (
-            values.every(
-                Number.isFinite
-            )
-            && values[2] > 0
-            && values[3] > 0
-        );
-    }
-
-
-    function showSavedCrop() {
-        if (
-            !cropOverlay
-            || !cropMode
-            || !hasSavedCrop()
-        ) {
-            if (cropOverlay) {
-                cropOverlay.hidden =
-                    true;
-            }
-
-            return;
-        }
-
-        const [
-            x,
-            y,
-            w,
-            h,
-        ] =
-            cropInputs.map(
-                input =>
-                    parseFloat(
-                        input.value
-                    )
-            );
-
-        cropOverlay.hidden =
-            false;
-
-        cropOverlay.style.left =
-            (x * 100)
-            + '%';
-
-        cropOverlay.style.top =
-            (y * 100)
-            + '%';
-
-        cropOverlay.style.width =
-            (w * 100)
-            + '%';
-
-        cropOverlay.style.height =
-            (h * 100)
-            + '%';
-    }
-
-
-    function setCropMode(
-        enabled
-    ) {
-        cropMode =
-            Boolean(
-                enabled
-            );
-
-        cropStart =
-            null;
-
-        cropBox?.classList.toggle(
-            'is-crop-mode',
-            cropMode
-        );
-
-        if (cropButton) {
-            cropButton.textContent =
-                cropMode
-                    ? 'Ausschnitt abbrechen'
-                    : 'Thumbnail-Ausschnitt setzen';
-        }
-
-        if (cropMode) {
-            showSavedCrop();
-
-        } else if (cropOverlay) {
-            cropOverlay.hidden =
-                true;
-        }
-    }
-
-
-    function cropPoint(
-        event
-    ) {
-        const rect =
-            cropImage
-                .getBoundingClientRect();
-
-        return {
-            x:
-                Math.max(
-                    0,
-                    Math.min(
-                        rect.width,
-                        event.clientX
-                            - rect.left
-                    )
-                ),
-
-            y:
-                Math.max(
-                    0,
-                    Math.min(
-                        rect.height,
-                        event.clientY
-                            - rect.top
-                    )
-                ),
-
-            rect,
-        };
-    }
-
-
-    function drawSquare(
-        start,
-        current
-    ) {
-        const dx =
-            current.x
-            - start.x;
-
-        const dy =
-            current.y
-            - start.y;
-
-        const side =
-            Math.min(
-                Math.abs(dx),
-                Math.abs(dy)
-            );
-
-        const left =
-            dx >= 0
-                ? start.x
-                : start.x
-                    - side;
-
-        const top =
-            dy >= 0
-                ? start.y
-                : start.y
-                    - side;
-
-        return {
-            left,
-            top,
-            side,
-        };
-    }
-
-
-    if (
-        cropButton
-        && cropBox
-        && cropImage
-        && cropOverlay
-    ) {
-        cropButton.addEventListener(
-            'click',
-            () => {
-                setCropMode(
-                    !cropMode
-                );
-            }
-        );
-
-
-        cropBox.addEventListener(
-            'pointerdown',
-            event => {
-                if (!cropMode) {
-                    return;
-                }
-
-                if (
-                    event.button !== undefined
-                    && event.button !== 0
-                ) {
-                    return;
-                }
-
-                event.preventDefault();
-
-                cropStart =
-                    cropPoint(
-                        event
-                    );
-
-                cropOverlay.hidden =
-                    false;
-
-                try {
-                    cropBox.setPointerCapture(
-                        event.pointerId
-                    );
-                } catch (_) {}
-            }
-        );
-
-
-        cropBox.addEventListener(
-            'pointermove',
-            event => {
-                if (
-                    !cropMode
-                    || !cropStart
-                ) {
-                    return;
-                }
-
-                const current =
-                    cropPoint(
-                        event
-                    );
-
-                const crop =
-                    drawSquare(
-                        cropStart,
-                        current
-                    );
-
-                cropOverlay.style.left =
-                    crop.left
-                    + 'px';
-
-                cropOverlay.style.top =
-                    crop.top
-                    + 'px';
-
-                cropOverlay.style.width =
-                    crop.side
-                    + 'px';
-
-                cropOverlay.style.height =
-                    crop.side
-                    + 'px';
-            }
-        );
-
-
-        cropBox.addEventListener(
-            'pointerup',
-            event => {
-                if (
-                    !cropMode
-                    || !cropStart
-                ) {
-                    return;
-                }
-
-                const current =
-                    cropPoint(
-                        event
-                    );
-
-                const crop =
-                    drawSquare(
-                        cropStart,
-                        current
-                    );
-
-                cropStart =
-                    null;
-
-                if (
-                    crop.side < 10
-                ) {
-                    showSavedCrop();
-                    return;
-                }
-
-                cropInputs[0].value =
-                    (
-                        crop.left
-                        / current.rect.width
-                    ).toFixed(6);
-
-                cropInputs[1].value =
-                    (
-                        crop.top
-                        / current.rect.height
-                    ).toFixed(6);
-
-                cropInputs[2].value =
-                    (
-                        crop.side
-                        / current.rect.width
-                    ).toFixed(6);
-
-                cropInputs[3].value =
-                    (
-                        crop.side
-                        / current.rect.height
-                    ).toFixed(6);
-
-                queueRequest(
-                    'save_crop',
-                    null,
-                    {
-                        thumb_x:
-                            cropInputs[0].value,
-
-                        thumb_y:
-                            cropInputs[1].value,
-
-                        thumb_w:
-                            cropInputs[2].value,
-
-                        thumb_h:
-                            cropInputs[3].value,
-                    }
-                )
-                    .then(
-                        () =>
-                            setCropMode(
-                                false
-                            )
-                    )
-                    .catch(
-                        () => {}
-                    );
-            }
-        );
-
-
-        cropBox.addEventListener(
-            'pointercancel',
-            () => {
-                cropStart =
-                    null;
-
-                showSavedCrop();
-            }
-        );
-    }
 
 
     /* =====================================================

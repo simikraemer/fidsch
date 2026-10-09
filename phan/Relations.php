@@ -767,7 +767,8 @@ require_once __DIR__ . '/../navbar.php';
                     id="relationsSvg"
                     viewBox="0 0 4000 3000"
                     preserveAspectRatio="none"
-                >                    <g id="relationsEdges"></g>
+                >
+                    <g id="relationsEdges"></g>
                 </svg>
 
 
@@ -3286,6 +3287,253 @@ require_once __DIR__ . '/../navbar.php';
     }
 
 
+    /*
+     * Bestrafung, wenn eine Beziehungslinie durch einen dritten
+     * Charakter verläuft. Das beeinflusst bereits die Reihenfolge
+     * der radial angeordneten Teiläste.
+     */
+    function radialLineOcclusionPenalty(
+        positions,
+        relations,
+        clearance = 205
+    ) {
+        const nodes = [...positions.entries()];
+        const seen = new Set();
+        let penalty = 0;
+
+        relations.forEach(relation => {
+            const low = Math.min(relation.from, relation.to);
+            const high = Math.max(relation.from, relation.to);
+            const key = `${low}:${high}`;
+
+            if (seen.has(key)) {
+                return;
+            }
+            seen.add(key);
+
+            const a = positions.get(relation.from);
+            const b = positions.get(relation.to);
+
+            if (!a || !b) {
+                return;
+            }
+
+            const ex = b.x - a.x;
+            const ey = b.y - a.y;
+            const lenSq = ex * ex + ey * ey;
+
+            if (lenSq < 10000) {
+                return;
+            }
+
+            nodes.forEach(([id, point]) => {
+                if (id === relation.from || id === relation.to) {
+                    return;
+                }
+
+                const t = (
+                    (point.x - a.x) * ex
+                    + (point.y - a.y) * ey
+                ) / lenSq;
+
+                if (t <= 0.08 || t >= 0.92) {
+                    return;
+                }
+
+                const distance = Math.hypot(
+                    point.x - a.x - t * ex,
+                    point.y - a.y - t * ey
+                );
+
+                if (distance < clearance) {
+                    const overlap = clearance - distance;
+                    penalty += overlap * overlap;
+                }
+            });
+        });
+
+        return penalty;
+    }
+
+
+    /*
+     * Das starre Radiallayout lässt eine bestehende Zwischen-Node
+     * manchmal exakt auf einer langen Kante liegen. Daher werden
+     * die Node-Positionen nach der Branch-Optimierung vorsichtig
+     * senkrecht zu solchen Kanten verschoben.
+     *
+     * Die Ausgangspositionen bleiben als schwache Anker erhalten,
+     * der gewählte Wurzel-Charakter bleibt fest, und die einzelnen
+     * Verbindungen bleiben gerade SVG-Linien.
+     */
+    function separateRadialEdgeOcclusions(
+        initialPositions,
+        relations,
+        root
+    ) {
+        if (
+            initialPositions.size < 3
+            || relations.length < 2
+            || radialLineOcclusionPenalty(initialPositions, relations) < 1
+        ) {
+            return initialPositions;
+        }
+
+        const positions = new Map(
+            [...initialPositions.entries()].map(([id, p]) => [
+                id,
+                {x: p.x, y: p.y},
+            ])
+        );
+
+        const nodes = [...positions.entries()];
+        const seen = new Set();
+        const edges = relations.filter(relation => {
+            const low = Math.min(relation.from, relation.to);
+            const high = Math.max(relation.from, relation.to);
+            const key = `${low}:${high}`;
+            if (seen.has(key)) {
+                return false;
+            }
+            seen.add(key);
+            return true;
+        });
+
+        const clearance = 205;
+        const nodeClearance = 168;
+
+        for (let iteration = 0; iteration < 100; iteration++) {
+            let moved = 0;
+
+            edges.forEach(relation => {
+                const a = positions.get(relation.from);
+                const b = positions.get(relation.to);
+                if (!a || !b) {
+                    return;
+                }
+
+                const ex = b.x - a.x;
+                const ey = b.y - a.y;
+                const lenSq = ex * ex + ey * ey;
+                if (lenSq < 10000) {
+                    return;
+                }
+                const length = Math.sqrt(lenSq);
+
+                nodes.forEach(([id, point]) => {
+                    if (id === relation.from || id === relation.to) {
+                        return;
+                    }
+
+                    const t = (
+                        (point.x - a.x) * ex
+                        + (point.y - a.y) * ey
+                    ) / lenSq;
+                    if (t <= 0.08 || t >= 0.92) {
+                        return;
+                    }
+
+                    let nx = point.x - (a.x + t * ex);
+                    let ny = point.y - (a.y + t * ey);
+                    const distance = Math.hypot(nx, ny);
+                    if (distance >= clearance) {
+                        return;
+                    }
+
+                    if (distance < 0.5 || id === root) {
+                        // Bei fixierter Wurzel eine konstante Seite
+                        // benutzen; sonst würden sich die Endpunkte
+                        // bei jeder Iteration gegenseitig zurückziehen.
+                        const side = deterministicUnit(
+                            id,
+                            relation.from * 31 + relation.to
+                        ) < 0.5 ? -1 : 1;
+                        nx = -ey / length * side;
+                        ny = ex / length * side;
+                    } else {
+                        nx /= distance;
+                        ny /= distance;
+                    }
+
+                    const shift = Math.min(
+                        16,
+                        (clearance - distance) * 0.19
+                    );
+
+                    if (id !== root) {
+                        point.x += nx * shift;
+                        point.y += ny * shift;
+                        moved = Math.max(moved, shift);
+                    }
+
+                    // Liegt die festgehaltene Wurzel im Segment,
+                    // müssen die beiden Endpunkte stärker ausweichen.
+                    const endpointShare = id === root ? 1.8 : 0.27;
+                    moved = Math.max(moved, shift * endpointShare);
+
+                    if (relation.from !== root) {
+                        a.x -= nx * shift * endpointShare * (1 - t);
+                        a.y -= ny * shift * endpointShare * (1 - t);
+                    }
+                    if (relation.to !== root) {
+                        b.x -= nx * shift * endpointShare * t;
+                        b.y -= ny * shift * endpointShare * t;
+                    }
+                });
+            });
+
+            // Abstände zwischen den runden Charakterbildern.
+            for (let i = 0; i < nodes.length - 1; i++) {
+                const [idA, a] = nodes[i];
+                for (let j = i + 1; j < nodes.length; j++) {
+                    const [idB, b] = nodes[j];
+                    let dx = b.x - a.x;
+                    let dy = b.y - a.y;
+                    let distance = Math.hypot(dx, dy);
+                    if (distance >= nodeClearance) {
+                        continue;
+                    }
+                    if (distance < 0.5) {
+                        const angle = deterministicUnit(idA + idB, 71)
+                            * Math.PI * 2;
+                        dx = Math.cos(angle);
+                        dy = Math.sin(angle);
+                        distance = 1;
+                    }
+                    const shift = Math.min(12, (nodeClearance - distance) * 0.28);
+                    const nx = dx / distance;
+                    const ny = dy / distance;
+                    if (idA !== root) {
+                        a.x -= nx * shift;
+                        a.y -= ny * shift;
+                    }
+                    if (idB !== root) {
+                        b.x += nx * shift;
+                        b.y += ny * shift;
+                    }
+                    moved = Math.max(moved, shift);
+                }
+            }
+
+            // Sanfte Rückführung zur ursprünglichen Radialstruktur.
+            nodes.forEach(([id, point]) => {
+                if (id === root) {
+                    return;
+                }
+                const origin = initialPositions.get(id);
+                point.x += (origin.x - point.x) * 0.012;
+                point.y += (origin.y - point.y) * 0.012;
+            });
+
+            if (moved < 0.05) {
+                break;
+            }
+        }
+
+        return positions;
+    }
+
+
     function radialLayoutScore(
         positions,
         relations
@@ -3379,9 +3627,14 @@ require_once __DIR__ . '/../navbar.php';
             }
         }
 
+        const occlusionPenalty = radialLineOcclusionPenalty(
+            positions,
+            relations
+        );
+
         return (
-            crossings
-                * 1000000000
+            crossings * 1000000000
+            + occlusionPenalty * 100
             + lengthScore
         );
     }
@@ -3648,11 +3901,17 @@ require_once __DIR__ . '/../navbar.php';
                 root
             );
 
-        return optimizeBranchOrder(
+        const radialPositions = optimizeBranchOrder(
             tree,
             root,
             component.length,
             componentRelations
+        );
+
+        return separateRadialEdgeOcclusions(
+            radialPositions,
+            componentRelations,
+            root
         );
     }
 
@@ -4175,6 +4434,429 @@ require_once __DIR__ . '/../navbar.php';
     }
 
 
+    /* =====================================================
+     * Globale Ansicht: Zusammenhängende Seitenäste und lokale
+     * Communities als Einheiten in weniger belegte Räume legen.
+     *
+     * Einzelfedern und lokale Node-Abstoßung reichen nicht aus:
+     * Bei größeren Graphen können Gruppen trotz freiem Außenraum
+     * mitten in einem dichten Cluster landen.
+     *
+     * Kandidaten werden allein aus der Topologie berechnet:
+     * ein oder zwei Schnittkanten sowie schwach verbundene
+     * Communities. Keine Namen/IDs und keine Relationstyp-Sonderfälle.
+     * ===================================================== */
+
+    function findGlobalSparseBranches(points, relations) {
+        const ids = new Set(points.map(point => point.char.id));
+        const adjacency = new Map([...ids].map(id => [id, []]));
+        const edges = [];
+        const seen = new Set();
+
+        relations.forEach(relation => {
+            if (!ids.has(relation.from) || !ids.has(relation.to)) return;
+            const a = Math.min(relation.from, relation.to);
+            const b = Math.max(relation.from, relation.to);
+            const key = `${a}:${b}`;
+            if (seen.has(key)) return;
+            seen.add(key);
+            const index = edges.length;
+            edges.push({a, b, relation, index});
+            adjacency.get(a).push({to: b, index});
+            adjacency.get(b).push({to: a, index});
+        });
+
+        const maxSize = Math.min(18, Math.max(5, Math.ceil(points.length * 0.18)));
+        const candidates = new Map();
+        const components = [];
+        const visited = new Set();
+
+        function walk(start, ignoredA = -1, ignoredB = -1, cap = Infinity) {
+            const result = new Set([start]);
+            const queue = [start];
+            for (let i = 0; i < queue.length; i++) {
+                for (const edge of adjacency.get(queue[i]) || []) {
+                    if (edge.index === ignoredA || edge.index === ignoredB
+                        || result.has(edge.to)) continue;
+                    result.add(edge.to);
+                    if (result.size > cap) return result;
+                    queue.push(edge.to);
+                }
+            }
+            return result;
+        }
+
+        // Nur echte ursprüngliche Zusammenhangskomponenten betrachten:
+        // eine abgetrennte Gruppe soll nicht an einen fremden Ast
+        // einer anderen Komponente angehängt werden.
+        for (const id of ids) {
+            if (visited.has(id)) continue;
+            const component = walk(id);
+            for (const member of component) visited.add(member);
+            if (component.size > 1) components.push(component);
+        }
+
+        function addCandidate(members, component, origin) {
+            if (members.size < 2 || members.size > maxSize) return;
+            if (component.size - members.size < Math.max(6, members.size * 1.6)) return;
+            if ([...members].some(id => !component.has(id))) return;
+
+            const first = members.values().next().value;
+            const connected = new Set([first]);
+            const queue = [first];
+            for (let i = 0; i < queue.length; i++) {
+                for (const edge of adjacency.get(queue[i]) || []) {
+                    if (!members.has(edge.to) || connected.has(edge.to)) continue;
+                    connected.add(edge.to);
+                    queue.push(edge.to);
+                }
+            }
+            if (connected.size !== members.size) return;
+
+            let inside = 0;
+            const boundary = [];
+            for (const edge of edges) {
+                const inA = members.has(edge.a);
+                const inB = members.has(edge.b);
+                if (inA && inB) inside++;
+                else if (inA !== inB) boundary.push(edge);
+            }
+            if (boundary.length < 1 || boundary.length > 3) return;
+            if (inside < members.size - 1 || inside < boundary.length * 0.75) return;
+
+            const key = [...members].sort((a, b) => a - b).join(':');
+            const previous = candidates.get(key);
+            if (!previous || previous.origin > origin) {
+                candidates.set(key, {
+                    ids: new Set(members), boundary, inside,
+                    origin,
+                });
+            }
+        }
+
+        // Ein- und Zwei-Kanten-Schnitte: kleine peripher angeschlossene
+        // Teilgraphen, die von einer normalen Brückensuche übersehen werden.
+        for (const component of components) {
+            if (component.size < 8) continue;
+            const componentEdges = edges.filter(edge =>
+                component.has(edge.a) && component.has(edge.b)
+            );
+
+            for (let i = 0; i < componentEdges.length; i++) {
+                const edgeA = componentEdges[i];
+                const sideA = walk(edgeA.a, edgeA.index, -1, maxSize + 1);
+                if (sideA.size <= maxSize && !sideA.has(edgeA.b)) {
+                    addCandidate(sideA, component, 1);
+                }
+                const sideB = walk(edgeA.b, edgeA.index, -1, maxSize + 1);
+                if (sideB.size <= maxSize && !sideB.has(edgeA.a)) {
+                    addCandidate(sideB, component, 1);
+                }
+
+                // Zwei Kanten nur für überschaubare Komponenten prüfen.
+                // Für sehr große Graphen übernehmen die Communities.
+                if (componentEdges.length > 260) continue;
+                for (let j = i + 1; j < componentEdges.length; j++) {
+                    const edgeB = componentEdges[j];
+                    const smallA = walk(edgeA.a, edgeA.index, edgeB.index, maxSize + 1);
+                    if (smallA.size <= maxSize && !smallA.has(edgeA.b)) {
+                        addCandidate(smallA, component, 2);
+                    }
+                    const smallB = walk(edgeA.b, edgeA.index, edgeB.index, maxSize + 1);
+                    if (smallB.size <= maxSize && !smallB.has(edgeA.a)) {
+                        addCandidate(smallB, component, 2);
+                    }
+                }
+            }
+        }
+
+        // Zusätzlich modularitätsorientierte Gruppierung: So sind auch
+        // kleine Communities mit drei Anschlüssen Kandidaten, wenn
+        // ihr interner Zusammenhalt deutlich stärker ist.
+        const labels = new Map([...ids].map(id => [id, id]));
+        const degrees = new Map([...ids].map(id => [id, adjacency.get(id).length]));
+        const order = [...ids].sort((a, b) => a - b);
+        const totalDegree = Math.max(1, edges.length * 2);
+        for (let pass = 0; pass < 14; pass++) {
+            let changed = false;
+            const totals = new Map();
+            for (const id of order) {
+                const label = labels.get(id);
+                totals.set(label, (totals.get(label) || 0) + degrees.get(id));
+            }
+            for (const id of order) {
+                const current = labels.get(id);
+                const degree = degrees.get(id);
+                totals.set(current, totals.get(current) - degree);
+                const votes = new Map();
+                for (const edge of adjacency.get(id)) {
+                    const label = labels.get(edge.to);
+                    votes.set(label, (votes.get(label) || 0) + 1);
+                }
+                votes.set(current, votes.get(current) || 0);
+                let winner = current;
+                let best = -Infinity;
+                for (const [label, count] of votes) {
+                    const score = count - degree * (totals.get(label) || 0) / totalDegree;
+                    if (score > best + 1e-9 || (Math.abs(score - best) < 1e-9 && label === current)) {
+                        best = score;
+                        winner = label;
+                    }
+                }
+                labels.set(id, winner);
+                totals.set(winner, (totals.get(winner) || 0) + degree);
+                if (winner !== current) changed = true;
+            }
+            if (!changed) break;
+        }
+        const communities = new Map();
+        for (const id of order) {
+            const label = labels.get(id);
+            if (!communities.has(label)) communities.set(label, new Set());
+            communities.get(label).add(id);
+        }
+        for (const community of communities.values()) {
+            const component = components.find(c => c.has(community.values().next().value));
+            if (component) addCandidate(community, component, 3);
+        }
+
+        // Lokale, dichte Teilgruppen mit bis zu drei Anschlüssen.
+        // Von Knoten mit wenigen Nachbarn aus wird so lange erweitert,
+        // wie zusätzliche interne Kanten die Schnittkante verkleinern.
+        // Damit werden auch Dreiecke/Zyklen mit 3 Kernanbindungen erfasst,
+        // die keine 1- oder 2-Kanten-Schnittgruppen sind.
+        for (const seed of order) {
+            if (degrees.get(seed) < 2 || degrees.get(seed) > 5) continue;
+            const component = components.find(c => c.has(seed));
+            if (!component || component.size < 8) continue;
+            const group = new Set([seed]);
+            while (group.size < maxSize) {
+                const frontier = new Set();
+                for (const id of group) {
+                    for (const edge of adjacency.get(id)) {
+                        if (!group.has(edge.to)) frontier.add(edge.to);
+                    }
+                }
+                let best = null;
+                let bestDelta = Infinity;
+                for (const id of frontier) {
+                    let inside = 0;
+                    for (const edge of adjacency.get(id)) {
+                        if (group.has(edge.to)) inside++;
+                    }
+                    const delta = degrees.get(id) - 2 * inside;
+                    if (delta < bestDelta || (delta === bestDelta && id < best)) {
+                        best = id;
+                        bestDelta = delta;
+                    }
+                }
+                if (best === null || (group.size >= 3 && bestDelta > 0)) break;
+                group.add(best);
+                addCandidate(group, component, 3);
+            }
+        }
+
+        // Schwach angebundene, intern zusammenhängende Gruppen zuerst.
+        const result = [...candidates.values()].sort((a, b) =>
+            a.boundary.length - b.boundary.length
+            || b.ids.size - a.ids.size
+            || a.origin - b.origin
+        );
+        const claimed = new Set();
+        return result.filter(candidate => {
+            if ([...candidate.ids].some(id => claimed.has(id))) return false;
+            for (const id of candidate.ids) claimed.add(id);
+            return true;
+        });
+    }
+
+    function spreadGlobalSparseBranches(points, relations) {
+        const groups = findGlobalSparseBranches(points, relations);
+        if (!groups.length) return;
+
+        const state = new Map(points.map(point => [point.char.id, point]));
+        const edges = [];
+        const seen = new Set();
+        relations.forEach(relation => {
+            const a = Math.min(relation.from, relation.to);
+            const b = Math.max(relation.from, relation.to);
+            const key = `${a}:${b}`;
+            if (!state.has(a) || !state.has(b) || seen.has(key)) return;
+            seen.add(key);
+            edges.push({a, b, relation});
+        });
+
+        function segmentDistance(point, from, to) {
+            const dx = to.x - from.x;
+            const dy = to.y - from.y;
+            const len2 = dx * dx + dy * dy;
+            const t = len2 < 1e-6 ? 0 : Math.max(0, Math.min(1,
+                ((point.x - from.x) * dx + (point.y - from.y) * dy) / len2
+            ));
+            return Math.hypot(point.x - from.x - t * dx,
+                              point.y - from.y - t * dy);
+        }
+
+        for (const group of groups) {
+            const moving = [...group.ids].map(id => state.get(id));
+            const fixed = points.filter(point => !group.ids.has(point.char.id));
+            const fixedEdges = edges.filter(edge =>
+                !group.ids.has(edge.a) && !group.ids.has(edge.b)
+            );
+            const movingEdges = edges.filter(edge =>
+                group.ids.has(edge.a) || group.ids.has(edge.b)
+            );
+            const boundary = movingEdges.filter(edge =>
+                group.ids.has(edge.a) !== group.ids.has(edge.b)
+            );
+            if (!boundary.length) continue;
+
+            const center = {
+                x: moving.reduce((sum, p) => sum + p.x, 0) / moving.length,
+                y: moving.reduce((sum, p) => sum + p.y, 0) / moving.length,
+            };
+            const anchored = boundary.map(edge =>
+                state.get(group.ids.has(edge.a) ? edge.b : edge.a)
+            );
+            const anchorCenter = {
+                x: anchored.reduce((sum, p) => sum + p.x, 0) / anchored.length,
+                y: anchored.reduce((sum, p) => sum + p.y, 0) / anchored.length,
+            };
+            const averageLength = boundary.reduce((sum, edge) =>
+                sum + globalRelationLength(edge.relation), 0
+            ) / boundary.length;
+            const currentAngle = Math.atan2(center.y - anchorCenter.y,
+                                             center.x - anchorCenter.x);
+            const internalRadius = Math.max(30, ...moving.map(point =>
+                Math.hypot(point.x - center.x, point.y - center.y)
+            ));
+            const orbit = averageLength + Math.min(170, internalRadius * 0.42);
+
+            function score(proposed, movementPenalty, quick = false) {
+                const position = id => proposed.get(id) || state.get(id);
+                let cost = 0;
+                for (const edge of boundary) {
+                    const a = position(edge.a);
+                    const b = position(edge.b);
+                    const length = Math.hypot(a.x - b.x, a.y - b.y);
+                    const target = globalRelationLength(edge.relation);
+                    cost += 0.55 * (length - target) ** 2;
+                }
+
+                for (const member of moving) {
+                    const positionMember = position(member.char.id);
+                    for (const other of fixed) {
+                        const dx = positionMember.x - other.x;
+                        const dy = positionMember.y - other.y;
+                        const distance = Math.hypot(dx, dy);
+                        const related = boundary.some(edge =>
+                            edge.a === member.char.id && edge.b === other.char.id
+                            || edge.b === member.char.id && edge.a === other.char.id
+                        );
+                        const clearance = related ? 165 : 300;
+                        if (distance < clearance) {
+                            cost += 3.1 * (clearance - distance) ** 2;
+                        }
+                        // Zusätzlich die Dichte der UMGEBUNG beurteilen,
+                        // nicht nur unmittelbare Kollisionen.
+                        if (!related && distance < 540) {
+                            cost += 0.14 * (540 - distance) ** 2;
+                        }
+                    }
+                    if (!quick) {
+                        for (const edge of fixedEdges) {
+                            const distance = segmentDistance(positionMember,
+                                state.get(edge.a), state.get(edge.b));
+                            if (distance < 145) {
+                                cost += 2.5 * (145 - distance) ** 2;
+                            }
+                        }
+                    }
+                    if (movementPenalty) {
+                        cost += 0.033 * ((positionMember.x - member.x) ** 2
+                                         + (positionMember.y - member.y) ** 2);
+                    }
+                }
+
+                if (!quick) for (const edge of movingEdges) {
+                    const a = position(edge.a);
+                    const b = position(edge.b);
+                    for (const other of fixed) {
+                        if (other.char.id === edge.a || other.char.id === edge.b) continue;
+                        const distance = segmentDistance(other, a, b);
+                        if (distance < 140) cost += 2.5 * (140 - distance) ** 2;
+                    }
+                    for (const fixedEdge of fixedEdges) {
+                        if (edge.a === fixedEdge.a || edge.a === fixedEdge.b
+                            || edge.b === fixedEdge.a || edge.b === fixedEdge.b) continue;
+                        if (radialEdgesCross(a, b, state.get(fixedEdge.a),
+                                              state.get(fixedEdge.b))) {
+                            cost += 110000;
+                        }
+                    }
+                }
+                return cost;
+            }
+
+            const initialScore = score(new Map(), false);
+            let bestScore = initialScore;
+            let best = null;
+            const proposals = [];
+            const bestPerSector = new Map();
+
+            // Zweistufige Suche: erst billige Dichte-/Längenwertung,
+            // anschließend teure Kantenkreuzungen nur für die besten
+            // Kandidaten und mindestens einen Kandidaten pro Sektor.
+            // So bleibt das Layout auch bei vielen Charakteren flüssig.
+            for (const radiusFactor of [0.9, 1.12, 1.35, 1.6, 1.9]) {
+                for (let step = 0; step < 32; step++) {
+                    const angle = 2 * Math.PI * step / 32;
+                    const newCenterX = anchorCenter.x + Math.cos(angle) * orbit * radiusFactor;
+                    const newCenterY = anchorCenter.y + Math.sin(angle) * orbit * radiusFactor;
+                    for (const rotation of [0, angle - currentAngle]) {
+                        const c = Math.cos(rotation);
+                        const s = Math.sin(rotation);
+                        const proposed = new Map();
+                        for (const member of moving) {
+                            const dx = member.x - center.x;
+                            const dy = member.y - center.y;
+                            proposed.set(member.char.id, {
+                                x: newCenterX + dx * c - dy * s,
+                                y: newCenterY + dx * s + dy * c,
+                            });
+                        }
+                        const light = score(proposed, true, true);
+                        const candidate = {proposed, light};
+                        proposals.push(candidate);
+                        const sector = Math.floor(step / 4);
+                        const previous = bestPerSector.get(sector);
+                        if (!previous || light < previous.light) {
+                            bestPerSector.set(sector, candidate);
+                        }
+                    }
+                }
+            }
+
+            proposals.sort((a, b) => a.light - b.light);
+            const finalists = new Set(proposals.slice(0, 15));
+            for (const candidate of bestPerSector.values()) finalists.add(candidate);
+            for (const candidate of finalists) {
+                const candidateScore = score(candidate.proposed, true);
+                if (candidateScore < bestScore - 3000) {
+                    bestScore = candidateScore;
+                    best = candidate.proposed;
+                }
+            }
+            if (best) {
+                for (const member of moving) {
+                    const p = best.get(member.char.id);
+                    member.x = p.x;
+                    member.y = p.y;
+                }
+            }
+        }
+    }
+
     function layoutGraphForceGlobal() {
         const chars =
             visibleChars();
@@ -4368,6 +5050,40 @@ require_once __DIR__ . '/../navbar.php';
 
         const damping =
             0.82;
+
+        /*
+         * Node-zu-Kante-Abstoßung: Eine lange Beziehungslinie darf
+         * nicht über das Bild eines dritten Charakters laufen.
+         * Damit werden insbesondere fast deckungsgleiche Linien
+         * mit gemeinsamem Ausgangspunkt auseinandergezogen.
+         *
+         * Abstände beziehen sich auf Weltkoordinaten. Die bestehende
+         * Node-zu-Node-Kollision und die Federlängen bleiben erhalten.
+         */
+        const edgeNodeClearance = 160;
+        const edgeNodeStrength = 0.055;
+        const edgeNodeMinProjection = 0.08;
+
+        /*
+         * Mehrere Relationstypen zwischen demselben Paar erzeugen
+         * geometrisch dieselbe Kante und sollen die Abstoßung
+         * nicht mehrfach verstärken.
+         */
+        const uniqueEdgeRelations = [];
+        const seenEdgePairs = new Set();
+
+        relations.forEach(relation => {
+            const low = Math.min(relation.from, relation.to);
+            const high = Math.max(relation.from, relation.to);
+            const key = `${low}:${high}`;
+
+            if (seenEdgePairs.has(key)) {
+                return;
+            }
+
+            seenEdgePairs.add(key);
+            uniqueEdgeRelations.push(relation);
+        });
 
 
         /*
@@ -4760,6 +5476,113 @@ require_once __DIR__ . '/../navbar.php';
 
 
             /*
+             * Kantenvermeidung: Prüfe für jede sichtbare Relation,
+             * ob ein dritter Charakter nah an deren Liniensegment
+             * liegt. Der Charakter wird senkrecht zur Linie bewegt;
+             * beide Endpunkte geben leicht nach. So bleibt die
+             * eigentliche Beziehungsgeometrie weitgehend erhalten.
+             *
+             * Die Projektion auf das Segment verhindert, dass die
+             * unendlich verlängerte Linie andere Nodes verdrängt.
+             * Der Bereich direkt an den Endpunkten bleibt der
+             * normalen Node-Kollision vorbehalten.
+             */
+            uniqueEdgeRelations.forEach(relation => {
+                const start = state.get(relation.from);
+                const end = state.get(relation.to);
+
+                if (!start || !end) {
+                    return;
+                }
+
+                const ex = end.x - start.x;
+                const ey = end.y - start.y;
+                const lenSquared = ex * ex + ey * ey;
+
+                if (lenSquared < 10000) {
+                    return;
+                }
+
+                const len = Math.sqrt(lenSquared);
+
+                points.forEach(point => {
+                    const id = point.char.id;
+
+                    if (id === relation.from || id === relation.to) {
+                        return;
+                    }
+
+                    const projection = (
+                        (point.x - start.x) * ex
+                        + (point.y - start.y) * ey
+                    ) / lenSquared;
+
+                    if (
+                        projection <= edgeNodeMinProjection
+                        || projection >= 1 - edgeNodeMinProjection
+                    ) {
+                        return;
+                    }
+
+                    const px = start.x + projection * ex;
+                    const py = start.y + projection * ey;
+                    let nx = point.x - px;
+                    let ny = point.y - py;
+                    const distance = Math.hypot(nx, ny);
+
+                    if (distance >= edgeNodeClearance) {
+                        return;
+                    }
+
+                    if (distance < 0.5) {
+                        // Deterministische Ausweichrichtung, falls
+                        // ein Node exakt auf dem Segment liegt.
+                        const side = deterministicUnit(
+                            id,
+                            relation.from * 31 + relation.to
+                        ) < 0.5 ? -1 : 1;
+
+                        nx = -ey / len * side;
+                        ny = ex / len * side;
+                    } else {
+                        nx /= distance;
+                        ny /= distance;
+                    }
+
+                    const pressure = Math.min(
+                        24,
+                        (edgeNodeClearance - distance)
+                        * edgeNodeStrength
+                    );
+
+                    fx.set(id, fx.get(id) + nx * pressure);
+                    fy.set(id, fy.get(id) + ny * pressure);
+
+                    // Leichter Gegenschub auf die Endpunkte.
+                    const startShare = 0.35 * (1 - projection);
+                    const endShare = 0.35 * projection;
+
+                    fx.set(
+                        relation.from,
+                        fx.get(relation.from) - nx * pressure * startShare
+                    );
+                    fy.set(
+                        relation.from,
+                        fy.get(relation.from) - ny * pressure * startShare
+                    );
+                    fx.set(
+                        relation.to,
+                        fx.get(relation.to) - nx * pressure * endShare
+                    );
+                    fy.set(
+                        relation.to,
+                        fy.get(relation.to) - ny * pressure * endShare
+                    );
+                });
+            });
+
+
+            /*
              * Schwache Regionsanziehung.
              * Sie gruppiert nur grob; Relationen dürfen die
              * Charaktere weiterhin deutlich aus dem Cluster
@@ -5000,6 +5823,14 @@ require_once __DIR__ . '/../navbar.php';
                 }
             }
         }
+
+
+        /*
+         * Kleine, über genau eine Brücke angebundene Gruppen
+         * am Rand des Netzes in tatsächlich freie Sektoren legen.
+         * Die Hauptberechnung und die inneren Abstände bleiben erhalten.
+         */
+        spreadGlobalSparseBranches(points, relations);
 
 
         /*

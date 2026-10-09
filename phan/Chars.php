@@ -281,24 +281,70 @@ function phan_sync_char_factions(
         $rawFactionIds
     );
 
-    phan_exec(
-        $db,
-        'DELETE FROM char_factions
-         WHERE char_id = ?',
-        [$charId]
-    )->close();
+    /*
+     * Bereits vorhandene Fraktionszuordnungen keinesfalls neu anlegen:
+     * In char_factions stehen auch group_id und sort_order, die beim
+     * bisherigen DELETE + INSERT bei JEDEM Speichern verloren gingen.
+     *
+     * Nur echte Mitgliedschaftsänderungen synchronisieren. Der Aufrufer
+     * speichert den Charakter und diese Zuordnungen in einer Transaktion.
+     */
+    $existingFactionIds = array_map(
+        static fn(array $row): int => (int)$row['faction_id'],
+        phan_all(
+            $db,
+            'SELECT faction_id
+             FROM char_factions
+             WHERE char_id = ?
+             FOR UPDATE',
+            [$charId]
+        )
+    );
 
-    foreach ($factionIds as $factionId) {
+    $removedFactionIds = array_diff(
+        $existingFactionIds,
+        $factionIds
+    );
+
+    $addedFactionIds = array_diff(
+        $factionIds,
+        $existingFactionIds
+    );
+
+    foreach ($removedFactionIds as $factionId) {
+        phan_exec(
+            $db,
+            'DELETE FROM char_factions
+             WHERE char_id = ?
+               AND faction_id = ?',
+            [$charId, (int)$factionId]
+        )->close();
+    }
+
+    foreach ($addedFactionIds as $factionId) {
+        /* Neue Mitglieder am Ende von „Undefiniert“ einreihen. */
+        $lastSort = phan_one(
+            $db,
+            'SELECT MAX(sort_order) AS last_sort
+             FROM char_factions
+             WHERE faction_id = ?
+               AND group_id IS NULL',
+            [(int)$factionId]
+        );
+
+        $nextSort = $lastSort['last_sort'] === null
+            ? 0
+            : (int)$lastSort['last_sort'] + 1;
+
         phan_exec(
             $db,
             'INSERT INTO char_factions (
                 char_id,
-                faction_id
-             ) VALUES (?, ?)',
-            [
-                $charId,
-                $factionId,
-            ]
+                faction_id,
+                group_id,
+                sort_order
+             ) VALUES (?, ?, NULL, ?)',
+            [$charId, (int)$factionId, $nextSort]
         )->close();
     }
 

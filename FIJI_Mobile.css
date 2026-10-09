@@ -10456,104 +10456,6 @@
 
 
     /* ------------------------------------------------------
-       Bild
-       ------------------------------------------------------ */
-    #factionsPage .faction-image-card {
-        width: 100%;
-        min-width: 0;
-        margin-top: 10px !important;
-        padding: 10px;
-        box-sizing: border-box;
-        border-radius: 12px;
-    }
-
-    #factionsPage .faction-image-card .phan-image-card-head {
-        gap: 8px;
-        margin-bottom: 8px;
-    }
-
-    #factionsPage .faction-image-card .phan-image-card-head strong {
-        font-size: .90rem;
-    }
-
-    #factionsPage #factionImageButton {
-        min-height: 32px;
-        padding: 4px 8px;
-        border-radius: 8px;
-        font-size: .66rem;
-    }
-
-    /* Bild bewusst nicht über die komplette Phonebreite aufblasen. */
-    #factionsPage #factionCropBox,
-    #factionsPage #factionEmptyImagePicker {
-        width: min(70vw, 265px) !important;
-        max-width: 100%;
-        margin: 0 auto;
-        box-sizing: border-box;
-        border-radius: 11px;
-    }
-
-    #factionsPage #factionCropBox {
-        touch-action: none;
-    }
-
-    #factionsPage #factionCropImage {
-        display: block;
-        width: 100%;
-        height: auto;
-        max-height: 52dvh;
-        object-fit: contain;
-        border-radius: inherit;
-    }
-
-    #factionsPage .phan-image-drop-hint {
-        display: none;
-    }
-
-    #factionsPage #factionEmptyImagePicker {
-        min-height: 180px;
-        padding: 14px;
-        font-size: .82rem;
-        line-height: 1.14;
-    }
-
-    #factionsPage #factionEmptyImagePicker .phan-image-empty-sub {
-        margin-top: 4px;
-        font-size: .62rem;
-        line-height: 1.18;
-    }
-
-    #factionsPage .faction-image-actions {
-        display: grid !important;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 6px;
-        width: 100%;
-        margin-top: 8px;
-    }
-
-    #factionsPage .faction-image-actions button {
-        width: 100%;
-        min-width: 0;
-        min-height: 35px;
-        padding: 5px 6px;
-        border-radius: 8px;
-        font-size: .64rem;
-        line-height: 1.08;
-        white-space: normal;
-    }
-
-    /* Crop-Modus deutlicher, ohne Desktoplayout zu verändern. */
-    #factionsPage #factionCropBox.is-crop-mode {
-        outline: 2px solid var(--primary);
-        outline-offset: 2px;
-    }
-
-    #factionsPage #factionCropOverlay {
-        box-sizing: border-box;
-    }
-
-
-    /* ------------------------------------------------------
        Bottom / Autosave
        ------------------------------------------------------ */
     #factionsPage .faction-bottom-actions {
@@ -13069,4 +12971,84 @@
     .relations-manager-list {
         flex-basis: min(27dvh, 200px);
     }
+}
+
+/* Fraktionseditor: Kopfzeile bleibt auch auf Smartphones einzeilig. */
+@media (max-width: 950px) {
+    #factionsPage .faction-editor-toolbar {
+        grid-template-columns: minmax(80px, 1fr) 54px auto;
+        gap: 8px;
+        padding: 9px;
+    }
+    #factionsPage .faction-image-preview { width: 54px; height: 54px; }
+    #factionsPage .faction-toolbar-buttons { gap: 5px; }
+    #factionsPage .faction-toolbar-buttons button { height: 38px; padding: 0 7px; font-size: .73rem; }
+    #factionsPage .faction-label-long { display: none; }
+    #factionsPage .faction-label-short { display: inline; }
+}
+@media (max-width: 700px) {
+    #factionsPage .faction-editor-toolbar {
+        grid-template-columns: minmax(70px, 1fr) 44px auto;
+        gap: 5px;
+        padding: 7px;
+    }
+    #factionsPage .faction-title-field { gap: 5px; font-size: .68rem; }
+    #factionsPage #factionTitle { height: 34px; padding: 5px 6px; font-size: .79rem; }
+    #factionsPage .faction-image-preview { width: 44px; height: 44px; border-radius: 8px; }
+    #factionsPage .faction-toolbar-buttons { gap: 4px; }
+    #factionsPage .faction-toolbar-buttons button { height: 34px; padding: 0 6px; font-size: .65rem; }
+    #factionsPage .faction-groups-top { align-items: flex-start; flex-direction: column; }
+    #factionsPage .faction-groups-top > button { width: 100%; }
+    #factionsPage .faction-group { padding: 8px; }
+    #factionsPage .faction-group-header { gap: 6px; }
+    #factionsPage .faction-group-controls { margin-left: auto; }
+    #factionsPage .faction-group-controls button { padding: 5px 7px; font-size: .69rem; }
+    #factionsPage .faction-undefined-hint { display: none; }
+    #factionsPage .faction-char { flex-wrap: nowrap; }
+}
+@media (max-width: 370px) {
+    #factionsPage .faction-editor-toolbar { grid-template-columns: minmax(62px, 1fr) 38px auto; gap: 4px; padding: 5px; }
+    #factionsPage .faction-image-preview { width: 38px; height: 38px; }
+    #factionsPage .faction-toolbar-buttons button { padding: 0 4px; font-size: .60rem; }
+}
+
+/* ==========================================================
+   PHAN / Fraktionen – Galerie und Profilbilder mobil
+   ========================================================== */
+@media (max-width: 700px) {
+    #factionsPage .faction-char-avatar {
+        width: 36px;
+        height: 36px;
+        flex-basis: 36px;
+    }
+    #factionsPage .faction-group-header { flex-wrap: wrap; }
+    #factionsPage .faction-group-controls { gap: 4px; margin-left: auto; }
+    .faction-gallery-modal { padding: 0; }
+    .faction-gallery-dialog { border-radius: 0; }
+    .faction-gallery-header { padding: 10px 12px; }
+    .faction-gallery-grid {
+        display: flex;
+        flex-flow: row nowrap;
+        gap: 3px;
+        padding: 3px 3px 5px;
+        overflow-x: auto;
+        overflow-y: hidden;
+    }
+    .faction-gallery-card { height: 100%; flex: 0 0 auto; }
+    .faction-gallery-card-image { min-height: 0; height: 0; }
+    .faction-gallery-card-image img { width: auto; height: 100%; max-width: none; }
+    .faction-gallery-caption { padding: 3px 4px; }
+    .faction-gallery-char-name { font-size: .97rem; }
+    .faction-gallery-image-title { font-size: .75rem; }
+    #factionsPage .faction-char-image-nav { gap: 3px; }
+    #factionsPage .faction-char-image-nav button {
+        width: 27px;
+        min-width: 27px;
+        height: 32px;
+        font-size: 1.25rem;
+    }
+}
+@media (max-width: 410px) {
+    #factionsPage .faction-group-header { flex-wrap: wrap; }
+    #factionsPage .faction-group-controls { margin-left: auto; }
 }

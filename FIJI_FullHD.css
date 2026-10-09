@@ -13148,3 +13148,453 @@ body.gym-modal-open {
     max-height: none;
     aspect-ratio: auto;
 }
+
+/* ==========================================================
+   PHAN / Fraktionen – kompakter Editor und Griff-Sortierung
+   ========================================================== */
+#factionsPage .faction-editor-toolbar {
+    display: grid;
+    grid-template-columns: minmax(130px, 1fr) 68px auto;
+    align-items: end;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid rgba(0, 0, 0, .09);
+    border-radius: 12px;
+    background: #fafafa;
+    box-sizing: border-box;
+}
+#factionsPage .faction-title-field {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 7px;
+    min-width: 0;
+    font-size: .84rem;
+    font-weight: 750;
+    color: #555;
+}
+#factionsPage #factionTitle {
+    display: block;
+    height: 42px;
+    min-width: 0;
+    width: 100%;
+    margin: 0;
+    background: white;
+    font-size: 1rem;
+    box-sizing: border-box;
+}
+#factionsPage .faction-image-preview {
+    width: 68px;
+    height: 68px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    flex: none;
+    border: 1px solid rgba(0, 0, 0, .12);
+    border-radius: 11px;
+    background: #ececec;
+    box-sizing: border-box;
+}
+#factionsPage .faction-image-preview img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+#factionsPage .faction-image-placeholder {
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    background: transparent;
+    color: #777;
+    font-size: 1.6rem;
+    box-shadow: none;
+    border: 0;
+}
+#factionsPage .faction-image-placeholder:hover {
+    color: var(--primary);
+    background: #f4efe9;
+}
+#factionsPage .faction-image-drop-hint {
+    display: none;
+    position: absolute;
+    inset: 0;
+    place-items: center;
+    text-align: center;
+    background: rgba(255, 255, 255, .92);
+    color: var(--primary-dark);
+    font-size: .69rem;
+    font-weight: 800;
+    pointer-events: none;
+}
+#factionsPage .faction-image-preview.is-dragover .faction-image-drop-hint {
+    display: grid;
+}
+#factionsPage .faction-toolbar-buttons {
+    display: flex;
+    align-items: end;
+    gap: 8px;
+    white-space: nowrap;
+}
+#factionsPage .faction-toolbar-buttons button {
+    height: 42px;
+    margin: 0;
+    padding: 0 11px;
+    font-size: .83rem;
+    box-shadow: none;
+}
+#factionsPage .faction-toolbar-buttons .phan-danger {
+    background: #fff;
+    color: #b42318;
+    border: 1px solid #e2b9b5;
+}
+#factionsPage .faction-toolbar-buttons .phan-danger:hover:not(:disabled) {
+    background: #fff0ed;
+}
+#factionsPage .faction-toolbar-buttons button:disabled {
+    opacity: .4;
+    cursor: not-allowed;
+}
+#factionsPage .faction-label-short { display: none; }
+
+#factionsPage .faction-groups-panel {
+    margin-top: 22px;
+    border-top: 1px solid #e3e3e3;
+    padding-top: 20px;
+}
+#factionsPage .faction-groups-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+#factionsPage .faction-groups-top h2 { margin: 0 0 5px; font-size: 1.2rem; }
+#factionsPage .faction-groups-top p { margin: 0; color: #666; font-size: .85rem; }
+#factionsPage .faction-group-list { display: grid; gap: 12px; }
+#factionsPage .faction-group {
+    min-width: 0;
+    padding: 12px;
+    border: 1px solid #dedede;
+    border-radius: 11px;
+    background: #f8f8f8;
+}
+#factionsPage .faction-group-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 36px;
+}
+#factionsPage .faction-group-title { min-width: 0; overflow-wrap: anywhere; }
+#factionsPage .faction-group-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 24px;
+    padding: 0 6px;
+    border-radius: 99px;
+    background: #e8e8e8;
+    color: #666;
+    font-weight: 800;
+    font-size: .78rem;
+    box-sizing: border-box;
+}
+#factionsPage .faction-group-controls { margin-left: auto; display: flex; gap: 6px; }
+#factionsPage .faction-group-controls button { padding: 6px 10px; font-size: .8rem; box-shadow: none; }
+#factionsPage .faction-grip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 34px;
+    width: 34px;
+    height: 36px;
+    min-height: 36px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    background: transparent;
+    box-shadow: none;
+    color: #888;
+    font-size: 1.2rem;
+    line-height: 1;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+#factionsPage .faction-grip:hover,
+#factionsPage .faction-grip:focus-visible {
+    background: #e8e8e8;
+    color: #555;
+}
+#factionsPage .faction-grip:active { cursor: grabbing; }
+#factionsPage .faction-char-list {
+    display: grid;
+    gap: 6px;
+    min-height: 40px;
+    margin-top: 10px;
+    padding: 7px;
+    border: 1px dashed #cecece;
+    border-radius: 8px;
+    background: #fff;
+}
+#factionsPage .faction-char {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+    padding: 5px 9px 5px 4px;
+    border: 1px solid #e8e8e8;
+    border-radius: 7px;
+    background: #f7f7f7;
+    cursor: default;
+}
+#factionsPage .faction-char-name {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-weight: 600;
+}
+
+/* Nur die äußerste Griff-Fläche verschiebt Charaktere.
+   Die beiden Bildwechselbuttons rechts ändern das Fraktionsbild. */
+#factionsPage .faction-char-image-nav {
+    margin-left: auto;
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+#factionsPage .faction-char-image-nav button {
+    width: 30px;
+    height: 34px;
+    min-width: 30px;
+    padding: 0;
+    margin: 0;
+    border: 1px solid #dedede;
+    border-radius: 7px;
+    box-shadow: none;
+    color: #444;
+    background: #fff;
+    font-size: 1.45rem;
+    font-weight: 500;
+    line-height: 1;
+    cursor: pointer;
+}
+#factionsPage .faction-char-image-nav button:hover:not(:disabled) {
+    background: #ebeef1;
+}
+#factionsPage .faction-char-image-nav button:disabled {
+    opacity: .3;
+    cursor: default;
+}
+
+#factionsPage .faction-undefined { margin-top: 12px; background: #f0f0f0; }
+#factionsPage .faction-undefined-hint { font-size: .8rem; color: #777; }
+#factionsPage .is-dragging { opacity: .46; outline: 2px dashed var(--primary); }
+body.faction-pointer-sorting { user-select: none; -webkit-user-select: none; }
+#factionsPage .faction-groups-status { min-height: 20px; margin-top: 8px; font-size: .8rem; color: #666; }
+#factionsPage .faction-groups-status.is-error { color: #b42318; }
+
+/* ==========================================================
+   PHAN / Fraktionen – Profilbilder und Vollbild-Gruppengalerie
+   ========================================================== */
+/* Nur Fraktion.php: Portraits in Charakterlisten und Vollbild-Gruppengalerie. */
+#factionsPage .faction-char-avatar {
+    width: 42px;
+    height: 42px;
+    flex: 0 0 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background: #e9e9e9;
+    color: #777;
+    border-radius: 8px;
+    border: 1px solid #dedede;
+    box-sizing: border-box;
+    font-size: 1.25rem;
+}
+#factionsPage .faction-char-avatar img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+#factionsPage .faction-group-controls { flex-wrap: nowrap; }
+#factionsPage .faction-group-controls [data-group-view] {
+    background: #fff;
+    color: var(--primary-dark, #4d4d4d);
+    border: 1px solid #d8d8d8;
+}
+#factionsPage .faction-group-controls [data-group-view]:hover {
+    background: #f0f0f0;
+}
+.faction-gallery-modal[hidden] { display: none !important; }
+.faction-gallery-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 12000;
+    display: grid;
+    place-items: center;
+    padding: 12px;
+    box-sizing: border-box;
+    background: rgba(0, 0, 0, .82);
+}
+.faction-gallery-dialog {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: #15171b;
+    color: #fff;
+    border-radius: 12px;
+    box-shadow: 0 12px 50px rgba(0, 0, 0, .4);
+}
+.faction-gallery-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 20px;
+    flex: 0 0 auto;
+    border-bottom: 1px solid rgba(255, 255, 255, .18);
+}
+.faction-gallery-heading { min-width: 0; }
+.faction-gallery-heading h2 {
+    margin: 0;
+    color: #fff;
+    font-size: clamp(1.05rem, 2.5vw, 1.4rem);
+    overflow-wrap: anywhere;
+}
+.faction-gallery-heading span { color: #bbb; font-size: .85rem; }
+.faction-gallery-close {
+    flex: 0 0 42px;
+    height: 42px;
+    width: 42px;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    background: #30343b;
+    color: #fff;
+    font-size: 1.9rem;
+    border: 1px solid rgba(255,255,255,.14);
+    box-shadow: none;
+    border-radius: 8px;
+}
+.faction-gallery-close:hover { background: #434a55; }
+/* Galerie als horizontales Fotoalbum: volle Höhe, keine Umbrüche oder Verkleinerung. */
+.faction-gallery-grid {
+    flex: 1 1 0;
+    min-height: 0;
+    min-width: 0;
+    width: 100%;
+    display: flex;
+    flex-flow: row nowrap;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 4px;
+    padding: 4px 6px 6px;
+    box-sizing: border-box;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+    scrollbar-color: #696d73 #15171b;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+.faction-gallery-grid.is-panning { cursor: grabbing; }
+.faction-gallery-grid img { pointer-events: none; -webkit-user-drag: none; }
+.faction-gallery-card {
+    height: 100%;
+    width: 220px; /* Wird nach Bild-Load proportional zur Galeriehöhe gesetzt. */
+    min-width: 0;
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    background: transparent;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    overflow: visible;
+}
+.faction-gallery-card-image {
+    flex: 1 1 0;
+    min-height: 0;
+    width: 100%;
+    height: 0;
+    display: flex;
+    align-items: stretch;
+    background: #101114;
+    overflow: hidden;
+}
+.faction-gallery-card-image img {
+    display: block;
+    width: auto;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    object-fit: contain;
+}
+.faction-gallery-card-image .faction-gallery-fallback {
+    min-width: 180px;
+    width: 220px;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    padding: 12px;
+    box-sizing: border-box;
+    color: #a8abb1;
+    text-align: center;
+}
+.faction-gallery-caption {
+    flex: 0 0 54px;
+    height: 54px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 4px 6px;
+    box-sizing: border-box;
+    text-align: center;
+    overflow: hidden;
+    color: #eee;
+}
+.faction-gallery-char-name,
+.faction-gallery-image-title {
+    display: block;
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.faction-gallery-char-name {
+    font-size: 1.05rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+.faction-gallery-image-title {
+    color: #b7bac2;
+    font-size: .8rem;
+    font-weight: 400;
+    line-height: 1.2;
+}
+.faction-gallery-empty {
+    align-self: center;
+    color: #ccc;
+    padding: 30px;
+    text-align: center;
+}
+body.faction-gallery-open { overflow: hidden; }
