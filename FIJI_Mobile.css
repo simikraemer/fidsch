@@ -13052,3 +13052,45 @@
     #factionsPage .faction-group-header { flex-wrap: wrap; }
     #factionsPage .faction-group-controls { margin-left: auto; }
 }
+
+/* Kalorien: Lebensmittel über bis zu vier Wochen verteilen. */
+#kalorienPage .kalorien-day-actions {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+#kalorienPage .kalorien-day-actions.is-stretched { grid-template-columns: minmax(0, 1fr); }
+#kalorienPage .kalorien-day-actions form,
+#kalorienPage .kalorien-day-actions button { width: 100%; min-width: 0; }
+#kalorienPage .kalorien-stretch-button { height: 100%; }
+.kalorien-stretch-share { white-space: nowrap; opacity: .65; font-size: .85em; }
+#stretch-modal .kalorien-stretch-content {
+    width: min(560px, calc(100vw - 24px));
+    max-width: 560px;
+    box-sizing: border-box;
+    max-height: calc(100dvh - 32px);
+    overflow-y: auto;
+}
+#stretch-modal .close-button { width: auto; min-width: 0; background: none; border: 0; padding: 0 4px; }
+#stretch-modal h2 { margin: 0 0 20px; }
+#stretch-modal .kalorien-stretch-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+#stretch-modal .kalorien-stretch-week label { display: flex; flex-direction: column; align-items: center; gap: 5px; margin: 0; min-width: 0; cursor: pointer; font-size: .85rem; }
+#stretch-modal .kalorien-stretch-week input[type="checkbox"] { appearance: auto; width: 20px; height: 20px; margin: 0 0 3px; padding: 0; accent-color: #435e93; }
+#stretch-modal hr { border: 0; border-top: 1px solid #ccc; margin: 16px 0; }
+#stretch-add-week { width: 100%; margin-top: 18px; }
+#stretch-add-week[hidden] { display: none !important; }
+#stretch-modal .modal-actions { margin-top: 18px; }
+
+@media (max-width: 768px) {
+    #stretch-modal .kalorien-stretch-content { padding: 20px 10px; }
+    #stretch-modal .kalorien-stretch-week label { font-size: .72rem; gap: 4px; }
+    #kalorienPage .kalorien-day-actions button { font-size: .62rem; padding: 4px 2px; }
+}
+
+/* Text innerhalb der Kalorien-Aktionsbuttons zentrieren. */
+#kalorienPage .kalorien-day-actions button {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}

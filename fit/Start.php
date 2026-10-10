@@ -25,7 +25,7 @@ $isSportMode = ($modus === 'sport');
 $verfuegbareJahre = [];
 $yearsSql = "
     SELECT DISTINCT y FROM (
-        SELECT YEAR(tstamp) AS y FROM kalorien
+        SELECT YEAR(tstamp) AS y FROM kalorien_tageswerte
         UNION
         SELECT YEAR(tstamp) AS y FROM training
         UNION
@@ -162,7 +162,7 @@ function computeExponentialTrendSeries(array $values, int $precision = 1): array
 // 4) Brutto-Kalorien (nur Zufuhr)
 $stmt = $fitconn->prepare("
     SELECT DATE(tstamp) AS tag, SUM(kalorien) AS kalorien
-    FROM kalorien
+    FROM kalorien_tageswerte
     WHERE tstamp >= ? AND tstamp < ?
     GROUP BY DATE(tstamp)
 ");
@@ -172,7 +172,7 @@ $result = $stmt->get_result();
 
 $bruttoTage = [];
 while ($row = $result->fetch_assoc()) {
-    $bruttoTage[$row['tag']] = (int)$row['kalorien'];
+    $bruttoTage[$row['tag']] = (float)$row['kalorien'];
 }
 $stmt->close();
 
@@ -188,7 +188,7 @@ $stmt = $fitconn->prepare("
         SUM(`fett`)          AS fett,
         SUM(`kohlenhydrate`) AS kh,
         SUM(`alkohol`)       AS alk
-    FROM kalorien
+    FROM kalorien_tageswerte
     WHERE tstamp >= ? AND tstamp < ?
     GROUP BY DATE(tstamp)
 ");
@@ -215,7 +215,7 @@ $stmt->close();
 // Zusätzlich werden die kcal abgeschlossener neuer Gym-Sessions abgezogen.
 $stmt = $fitconn->prepare("
     SELECT DATE(tstamp) AS tag, SUM(kalorien) AS gesamt
-    FROM kalorien
+    FROM kalorien_tageswerte
     WHERE tstamp >= ? AND tstamp < ?
     GROUP BY DATE(tstamp)
 
@@ -249,7 +249,7 @@ $result = $stmt->get_result();
 $nettoTage = [];
 while ($row = $result->fetch_assoc()) {
     $tag      = $row['tag'];
-    $kalorien = (int)$row['gesamt'];
+    $kalorien = (float)$row['gesamt'];
     if (!isset($nettoTage[$tag])) {
         $nettoTage[$tag] = 0;
     }

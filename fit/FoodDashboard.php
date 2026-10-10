@@ -19,7 +19,7 @@ date_default_timezone_set('Europe/Berlin');
 $verfuegbareJahre = [];
 $yearResult = $fitconn->query("
     SELECT DISTINCT YEAR(tstamp) AS jahr
-    FROM kalorien
+    FROM kalorien_tageswerte
     WHERE tstamp IS NOT NULL
     ORDER BY jahr DESC
 ");
@@ -277,7 +277,7 @@ $categorySql = "
         SUM(`kohlenhydrate`) AS carbs,
         SUM(fett) AS fat,
         SUM(alkohol) AS alcohol
-    FROM kalorien
+    FROM kalorien_tageswerte
     WHERE tstamp >= ? AND tstamp < ?
     GROUP BY COALESCE(NULLIF(TRIM(kategorie), ''), 'Ohne Kategorie')
     ORDER BY name ASC
@@ -293,7 +293,7 @@ $foodSql = "
         SUM(`kohlenhydrate`) AS carbs,
         SUM(fett) AS fat,
         SUM(alkohol) AS alcohol
-    FROM kalorien
+    FROM kalorien_tageswerte
     WHERE tstamp >= ? AND tstamp < ?
     GROUP BY
         COALESCE(NULLIF(TRIM(beschreibung), ''), 'Ohne Beschreibung'),
@@ -316,7 +316,7 @@ $foodFrequencySql = "
         SUM(`kohlenhydrate`) AS carbs,
         SUM(fett) AS fat,
         SUM(alkohol) AS alcohol
-    FROM kalorien
+    FROM kalorien_tageswerte
     WHERE tstamp >= ? AND tstamp < ?
     GROUP BY
         COALESCE(NULLIF(TRIM(beschreibung), ''), 'Ohne Beschreibung'),
@@ -370,7 +370,7 @@ if ($zeitraum === '1m') {
 
     $boundsResult = $fitconn->query("
         SELECT MIN(tstamp) AS min_ts, MAX(tstamp) AS max_ts
-        FROM kalorien
+        FROM kalorien_tageswerte
         WHERE tstamp IS NOT NULL
     ");
 

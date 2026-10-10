@@ -7,6 +7,10 @@ require_once __DIR__ . '/../auth.php';
 // DB (für POST & Queries)
 require_once __DIR__ . '/../db.php';
 $fitconn->set_charset('utf8mb4');
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
 
 // ---------------------- POST-VERARBEITUNG (kein Output davor!) ----------------------
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -17,11 +21,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $redirectUrl .= '?date=' . urlencode($currentDateParam);
     }
 
+    if (isset($_POST['stretch_entry'])) {
+        if (!hash_equals($_SESSION['csrf_token'], (string)($_POST['csrf'] ?? ''))) {
+            http_response_code(400);
+            exit('Ungültige Anfrage.');
+        }
+        $id = (int)$_POST['stretch_entry'];
+        $tage = $_POST['stretch_days'] ?? [];
+        if (!is_array($tage) || count($tage) > 28) {
+            http_response_code(400);
+            exit('Ungültige Tagesauswahl.');
+        }
+        try {
+            if (!$fitconn->begin_transaction()) throw new RuntimeException('Transaktion fehlgeschlagen.');
+            $stmt = $fitconn->prepare('SELECT DATE(tstamp) AS ursprung FROM kalorien WHERE id = ? FOR UPDATE');
+            $stmt->bind_param('i', $id);
+            if (!$stmt->execute()) throw new RuntimeException('Speichern fehlgeschlagen.');
+            $original = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+            if (!$original) throw new InvalidArgumentException('Eintrag nicht mehr vorhanden.');
+            $start = new DateTimeImmutable($original['ursprung']);
+            $ende = $start->modify('+27 days')->format('Y-m-d');
+            $auswahl = [$original['ursprung'] => true];
+            foreach ($tage as $tag) {
+                if (!is_string($tag)) throw new InvalidArgumentException('Ungültiges Datum.');
+                $d = DateTimeImmutable::createFromFormat('!Y-m-d', $tag);
+                if (!$d || $d->format('Y-m-d') !== $tag || $tag < $original['ursprung'] || $tag > $ende) {
+                    throw new InvalidArgumentException('Datum außerhalb der vier Wochen.');
+                }
+                $auswahl[$tag] = true;
+            }
+            $stmt = $fitconn->prepare('DELETE FROM kalorien_strecken_tage WHERE kalorien_id = ?');
+            $stmt->bind_param('i', $id);
+            if (!$stmt->execute()) throw new RuntimeException('Speichern fehlgeschlagen.');
+            $stmt->close();
+            // Nur Ursprung ausgewählt: wieder ein normaler, ungestreckter Eintrag.
+            if (count($auswahl) > 1) {
+                $stmt = $fitconn->prepare('INSERT INTO kalorien_strecken_tage (kalorien_id, tag) VALUES (?, ?)');
+                $stmt->bind_param('is', $id, $tag);
+                foreach (array_keys($auswahl) as $tag) if (!$stmt->execute()) throw new RuntimeException('Speichern fehlgeschlagen.');
+                $stmt->close();
+            }
+            if (!$fitconn->commit()) throw new RuntimeException('Speichern fehlgeschlagen.');
+        } catch (Throwable $e) {
+            $fitconn->rollback();
+            http_response_code($e instanceof InvalidArgumentException ? 400 : 500);
+            exit($e instanceof InvalidArgumentException ? $e->getMessage() : 'Speichern fehlgeschlagen. Bitte erneut versuchen.');
+        }
+        header('Location: ' . $redirectUrl, true, 303);
+        exit;
+    }
+
     if (isset($_POST['move_to_previous_day'])) {
         // Timestamp eines bestehenden Eintrags auf Vortag 23:59 setzen
         $id = (int)$_POST['move_to_previous_day'];
 
-        $stmt = $fitconn->prepare("SELECT tstamp FROM kalorien WHERE id = ?");
+        $stmt = $fitconn->prepare("SELECT tstamp FROM kalorien WHERE id = ? AND NOT EXISTS (SELECT 1 FROM kalorien_strecken_tage s WHERE s.kalorien_id = kalorien.id)");
         $stmt->bind_param('i', $id);
         $stmt->execute();
         $stmt->bind_result($tstamp_alt);
@@ -33,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $dt->modify('-1 day')->setTime(23, 59);
             $newTstamp = $dt->format('Y-m-d H:i:s');
 
-            $stmt = $fitconn->prepare("UPDATE kalorien SET tstamp = ? WHERE id = ?");
+            $stmt = $fitconn->prepare("UPDATE kalorien SET tstamp = ? WHERE id = ? AND NOT EXISTS (SELECT 1 FROM kalorien_strecken_tage s WHERE s.kalorien_id = kalorien.id)");
             $stmt->bind_param('si', $newTstamp, $id);
             $stmt->execute();
             $stmt->close();
@@ -49,7 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Timestamp eines bestehenden Eintrags auf Folgetag 00:01 setzen
         $id = (int)$_POST['move_to_next_day'];
 
-        $stmt = $fitconn->prepare("SELECT tstamp FROM kalorien WHERE id = ?");
+        $stmt = $fitconn->prepare("SELECT tstamp FROM kalorien WHERE id = ? AND NOT EXISTS (SELECT 1 FROM kalorien_strecken_tage s WHERE s.kalorien_id = kalorien.id)");
         $stmt->bind_param('i', $id);
         $stmt->execute();
         $stmt->bind_result($tstamp_alt);
@@ -61,7 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $dt->modify('+1 day')->setTime(0, 1);
             $newTstamp = $dt->format('Y-m-d H:i:s');
 
-            $stmt = $fitconn->prepare("UPDATE kalorien SET tstamp = ? WHERE id = ?");
+            $stmt = $fitconn->prepare("UPDATE kalorien SET tstamp = ? WHERE id = ? AND NOT EXISTS (SELECT 1 FROM kalorien_strecken_tage s WHERE s.kalorien_id = kalorien.id)");
             $stmt->bind_param('si', $newTstamp, $id);
             $stmt->execute();
             $stmt->close();
@@ -76,7 +131,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['delete_entry'])) {
         $id = (int)$_POST['delete_entry'];
 
-        $stmt = $fitconn->prepare("DELETE FROM kalorien WHERE id = ?");
+        $stmt = $fitconn->prepare("DELETE FROM kalorien WHERE id = ? AND NOT EXISTS (SELECT 1 FROM kalorien_strecken_tage s WHERE s.kalorien_id = kalorien.id)");
         $stmt->bind_param('i', $id);
         $stmt->execute();
         $stmt->close();
@@ -155,8 +210,8 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'tag') {
 
     // Einträge an diesem Tag
     $stmt = $fitconn->prepare("
-        SELECT id, beschreibung, kalorien, tstamp
-        FROM kalorien
+        SELECT id, beschreibung, kalorien, tstamp, ursprung_tag, strecken_anzahl
+        FROM kalorien_tageswerte
         WHERE DATE(tstamp) = ?
         ORDER BY tstamp ASC
     ");
@@ -166,10 +221,23 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'tag') {
     $eintraegeTag = $result->fetch_all(MYSQLI_ASSOC);
     $stmt->close();
 
+    // Alle ausgewählten Tage für die Bearbeitung von jedem Tagesanteil aus.
+    $ids = array_map('intval', array_column($eintraegeTag, 'id'));
+    $verteilungen = [];
+    if ($ids) {
+        $res = $fitconn->query('SELECT kalorien_id, tag FROM kalorien_strecken_tage WHERE kalorien_id IN (' . implode(',', $ids) . ') ORDER BY tag');
+        while ($row = $res->fetch_assoc()) $verteilungen[(int)$row['kalorien_id']][] = $row['tag'];
+        $res->free();
+    }
+    foreach ($eintraegeTag as &$eintrag) {
+        $eintrag['stretch_days'] = $verteilungen[(int)$eintrag['id']] ?? [$eintrag['ursprung_tag']];
+    }
+    unset($eintrag);
+
     // Brutto-Kalorien dieses Tages
     $bruttoSumme = 0;
     foreach ($eintraegeTag as $e) {
-        $bruttoSumme += (int)($e['kalorien'] ?? 0);
+        $bruttoSumme += (float)($e['kalorien'] ?? 0);
     }
 
     // Trainingsverbrauch dieses Tages
@@ -212,7 +280,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'tag') {
     $prev = null;
     $stmt = $fitconn->prepare("
         SELECT DATE(tstamp) AS tag
-        FROM kalorien
+        FROM kalorien_tageswerte
         WHERE DATE(tstamp) < ?
         ORDER BY tstamp DESC
         LIMIT 1
@@ -229,7 +297,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'tag') {
     $next = null;
     $stmt = $fitconn->prepare("
         SELECT DATE(tstamp) AS tag
-        FROM kalorien
+        FROM kalorien_tageswerte
         WHERE DATE(tstamp) > ?
         ORDER BY tstamp ASC
         LIMIT 1
@@ -313,6 +381,49 @@ $page_title = 'Kalorien eintragen';
 require_once __DIR__ . '/../head.php';
 require_once __DIR__ . '/../navbar.php';
 ?>
+<style id="kalorien-action-sizing">
+/* Vier Aktionen: genug Platz für Beschriftung und Innenabstand. */
+#kalorienPage .kalorien-day-entry .kalorien-day-actions.has-four-actions {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(max-content, 1fr)) !important;
+    min-width: 340px !important;
+    gap: 6px !important;
+}
+#kalorienPage .kalorien-day-entry .kalorien-day-actions.has-four-actions > form {
+    display: flex;
+    margin: 0;
+    min-width: max-content !important;
+}
+#kalorienPage .kalorien-day-entry .kalorien-day-actions.has-four-actions button {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: max-content !important;
+    font-size: 11px !important;
+    line-height: 1.2 !important;
+    padding: 9px 10px !important;
+    white-space: nowrap !important;
+    text-align: center;
+}
+@media (max-width: 768px) {
+    #kalorienPage .kalorien-day-entry .kalorien-day-actions.has-four-actions {
+        min-width: 0 !important;
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        gap: 5px !important;
+    }
+    #kalorienPage .kalorien-day-entry .kalorien-day-actions.has-four-actions > form,
+    #kalorienPage .kalorien-day-entry .kalorien-day-actions.has-four-actions button {
+        min-width: 0 !important;
+    }
+    #kalorienPage .kalorien-day-entry .kalorien-day-actions.has-four-actions button {
+        font-size: 10px !important;
+        padding: 4px 5px !important;
+        white-space: normal !important;
+    }
+}
+</style>
 <div id="kalorienPage" class="container-duo kalorien-page">
     <div class="container kalorien-entry-card">
         <h1 class="ueberschrift kalorien-entry-title">Kalorienzufuhr eintragen</h1>
@@ -403,6 +514,24 @@ require_once __DIR__ . '/../navbar.php';
             </tbody>
         </table>
     </div>    
+</div>
+
+<div id="stretch-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="stretch-title">
+    <div class="modal-content kalorien-stretch-content">
+        <button type="button" id="stretch-close" class="close-button" aria-label="Schließen">&times;</button>
+        <h2 id="stretch-title">Strecken</h2>
+        <form method="post" action="/fit/kalorien" id="stretch-form">
+            <input type="hidden" name="csrf" value="<?= htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>">
+            <input type="hidden" name="stretch_entry" id="stretch-entry-id">
+            <input type="hidden" name="current_date" id="stretch-current-date">
+            <div id="stretch-weeks"></div>
+            <button type="button" id="stretch-add-week">Weitere Woche</button>
+            <div class="modal-actions">
+                <button type="button" id="stretch-cancel" class="btn-secondary">Abbrechen</button>
+                <button type="submit">Speichern</button>
+            </div>
+        </form>
+    </div>
 </div>
 
 <div id="nutrition-modal" class="modal hidden">
@@ -768,9 +897,97 @@ require_once __DIR__ . '/../navbar.php';
         tageUeberschrift.textContent = text;
     }
 
+    function formatKcal(value, decimals = 2) {
+        return Number(value).toLocaleString('de-DE', { maximumFractionDigits: decimals });
+    }
+    let stretchEntries = new Map();
+    const stretchModal = document.getElementById('stretch-modal');
+    const stretchWeeks = document.getElementById('stretch-weeks');
+    const stretchMore = document.getElementById('stretch-add-week');
+    let stretchOrigin = '';
+    let stretchSelected = new Set();
+    let visibleWeeks = 1;
+    let stretchTrigger = null;
+    function stretchDate(offset) {
+        const [y, m, d] = stretchOrigin.split('-').map(Number);
+        const date = new Date(Date.UTC(y, m - 1, d + offset));
+        return [date.toISOString().slice(0, 10), date];
+    }
+    function renderStretchWeeks() {
+        stretchWeeks.replaceChildren();
+        for (let week = 0; week < visibleWeeks; week++) {
+            if (week > 0) stretchWeeks.appendChild(document.createElement('hr'));
+            const row = document.createElement('div');
+            row.className = 'kalorien-stretch-week';
+            for (let day = 0; day < 7; day++) {
+                const offset = week * 7 + day;
+                const [value, date] = stretchDate(offset);
+                const label = document.createElement('label');
+                const input = document.createElement('input');
+                input.type = 'checkbox';
+                input.name = 'stretch_days[]';
+                input.value = value;
+                input.checked = offset === 0 || stretchSelected.has(value);
+                input.disabled = offset === 0;
+                input.addEventListener('change', () => {
+                    if (input.checked) stretchSelected.add(value);
+                    else stretchSelected.delete(value);
+                });
+                const weekday = document.createElement('span');
+                weekday.textContent = date.toLocaleDateString('de-DE', { weekday: 'short', timeZone: 'UTC' });
+                const datum = document.createElement('span');
+                datum.textContent = date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', timeZone: 'UTC' });
+                label.append(input, weekday, datum);
+                row.appendChild(label);
+            }
+            stretchWeeks.appendChild(row);
+        }
+        stretchMore.hidden = visibleWeeks >= 4;
+    }
+    function closeStretchModal() {
+        stretchModal.classList.add('hidden');
+        if (stretchTrigger) stretchTrigger.focus();
+    }
+    tageTbody.addEventListener('click', event => {
+        const button = event.target.closest('.kalorien-stretch-button');
+        if (!button) return;
+        const entry = stretchEntries.get(Number(button.dataset.entryId));
+        if (!entry) return;
+        stretchTrigger = button;
+        stretchOrigin = entry.ursprung_tag;
+        stretchSelected = new Set(entry.stretch_days || [stretchOrigin]);
+        visibleWeeks = 1;
+        for (let offset = 0; offset < 28; offset++) {
+            if (stretchSelected.has(stretchDate(offset)[0])) visibleWeeks = Math.max(visibleWeeks, Math.floor(offset / 7) + 1);
+        }
+        document.getElementById('stretch-entry-id').value = entry.id;
+        document.getElementById('stretch-current-date').value = aktuellesDatum;
+        renderStretchWeeks();
+        stretchModal.classList.remove('hidden');
+        document.getElementById('stretch-close').focus();
+    });
+    stretchMore.addEventListener('click', () => {
+        visibleWeeks = Math.min(4, visibleWeeks + 1);
+        renderStretchWeeks();
+    });
+    document.getElementById('stretch-close').addEventListener('click', closeStretchModal);
+    document.getElementById('stretch-cancel').addEventListener('click', closeStretchModal);
+    stretchModal.addEventListener('click', event => { if (event.target === stretchModal) closeStretchModal(); });
+    document.addEventListener('keydown', event => {
+        if (stretchModal.classList.contains('hidden')) return;
+        if (event.key === 'Escape') { event.preventDefault(); closeStretchModal(); }
+        if (event.key === 'Tab') {
+            const focusable = Array.from(stretchModal.querySelectorAll('button, input')).filter(el => !el.disabled && el.getClientRects().length);
+            const first = focusable[0], last = focusable[focusable.length - 1];
+            if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+            else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+        }
+    });
+
     function renderTagData(data) {
         const datum        = data.date;
         const eintraegeTag = data.entries || [];
+        stretchEntries = new Map(eintraegeTag.map(e => [Number(e.id), e]));
 
         let fallbackBruttoSumme = 0;
         eintraegeTag.forEach(e => { fallbackBruttoSumme += Number(e.kalorien) || 0; });
@@ -785,8 +1002,8 @@ require_once __DIR__ . '/../navbar.php';
         html += '<tr class="kalorien-day-summary" style="border-bottom: 3px solid black; font-weight: bold;">';
         html += '<td></td>';
         html += '<td style="white-space:nowrap;">SUMME</td>';
-        html += '<td style="white-space:nowrap;">' + bruttoSumme + ' kcal</td>';
-        html += '<td style="white-space:nowrap; text-align:center;">' + nettoSumme + ' kcal</td>';
+        html += '<td style="white-space:nowrap;">' + formatKcal(bruttoSumme, 0) + ' kcal</td>';
+        html += '<td style="white-space:nowrap; text-align:center;">' + formatKcal(nettoSumme) + ' kcal</td>';
         html += '</tr>';
 
         eintraegeTag.forEach(e => {
@@ -796,11 +1013,12 @@ require_once __DIR__ . '/../navbar.php';
 
             html += '<tr class="kalorien-day-entry">';
             html += '<td>' + escHtml(zeit) + '</td>';
-            html += '<td>' + escHtml(e.beschreibung || '') + '</td>';
-            html += '<td>' + kcal + ' kcal</td>';
+            html += '<td>' + escHtml(e.beschreibung || '') + (Number(e.strecken_anzahl) > 1 ? ' <span class="kalorien-stretch-share">(1/' + Number(e.strecken_anzahl) + ')</span>' : '') + '</td>';
+            html += '<td>' + formatKcal(kcal, 0) + ' kcal</td>';
             html += '<td>';
-            html += '<div class="kalorien-day-actions" style="display:flex; gap:6px; align-items:stretch; justify-content:center;">';
+            html += '<div class="kalorien-day-actions' + (Number(e.strecken_anzahl) > 1 ? ' is-stretched' : ' has-four-actions') + '" style="display:flex; gap:6px; align-items:stretch; justify-content:center;">';
 
+            if (Number(e.strecken_anzahl) <= 1) {
             html += '<form method="post" style="margin:0;">'
                  +  '<input type="hidden" name="current_date" value="' + escHtml(datum) + '">'
                  +  '<input type="hidden" name="move_to_previous_day" value="' + id + '">'
@@ -813,12 +1031,16 @@ require_once __DIR__ . '/../navbar.php';
                  +  '<button type="submit" style="height:100%;">Auf Folgetag</button>'
                  +  '</form>';
 
+            }
+            html += '<button type="button" class="kalorien-stretch-button" data-entry-id="' + id + '">Strecken</button>';
+            if (Number(e.strecken_anzahl) <= 1) {
             html += '<form method="post" style="margin:0;">'
                  +  '<input type="hidden" name="current_date" value="' + escHtml(datum) + '">'
                  +  '<input type="hidden" name="delete_entry" value="' + id + '">'
                  +  '<button type="submit" onclick="return confirm(\'Eintrag wirklich löschen?\');" style="height:100%;">Löschen</button>'
                  +  '</form>';
 
+            }
             html += '</div>';
             html += '</td>';
             html += '</tr>';

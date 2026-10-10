@@ -28,6 +28,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($action === 'list') {
+        // Gesamtmengen aus den Originaleinträgen: Tagesanteile sind keine neuen Lebensmittel.
+        // Änderungen hier verteilen sich automatisch über kalorien_tageswerte.
         // Gruppierte Liste laden
         $sql = "
             SELECT 
