@@ -1468,7 +1468,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             trim((string)($_POST['age_text'] ?? '')),
             '', // Legacy-Feld; wird nachher aus char_factions synchronisiert.
             trim((string)($_POST['height_cm'] ?? '')),
-            trim((string)($_POST['weight_kg'] ?? '')),
             trim((string)($_POST['personality'] ?? '')),
             trim((string)($_POST['notes'] ?? '')),
             trim((string)($_POST['prompt'] ?? '')),
@@ -1508,7 +1507,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         age_text = ?,
                         faction = ?,
                         height_cm = NULLIF(?, \'\'),
-                        weight_kg = NULLIF(?, \'\'),
                         personality = ?,
                         notes = ?,
                         prompt = ?
@@ -1543,7 +1541,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         NULLIF(?, 0),
                         ?, ?,
                         NULLIF(?, \'\'),
-                        NULLIF(?, \'\'),
+                        NULL,
                         ?, ?, ?
                     )
                     ',
@@ -2313,6 +2311,29 @@ require_once __DIR__ . '/../head.php';
 require_once __DIR__ . '/../navbar.php';
 ?>
 
+<style>
+#charsPage .chars-form-grid.chars-edit-layout {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+}
+#charsPage .chars-edit-layout > label,
+#charsPage .chars-edit-layout > #charFactionField {
+    grid-column: auto;
+    min-width: 0;
+}
+#charsPage .chars-edit-layout > .chars-edit-call-name {
+    grid-column: 1 / -1;
+}
+#charsPage .chars-edit-layout input,
+#charsPage .chars-edit-layout select,
+#charsPage .chars-edit-layout textarea {
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+}
+</style>
+
 <div
     id="charsPage"
     class="phan-page chars-page <?= (!$detailId && !$isNew) ? 'chars-page--list' : 'chars-page--detail' ?>"
@@ -2847,15 +2868,6 @@ require_once __DIR__ . '/../navbar.php';
                             </a>
                         </th>
 
-                        <th class="phan-sortable">
-                            <a href="<?= phan_h(phan_sort_url('weight')) ?>">
-                                Gewicht
-                                <span class="phan-sort-indicator">
-                                    <?= phan_h(phan_sort_symbol('weight')) ?>
-                                </span>
-                            </a>
-                        </th>
-
                     </tr>
                 </thead>
 
@@ -2865,7 +2877,7 @@ require_once __DIR__ . '/../navbar.php';
 
                     <tr>
                         <td
-                            colspan="9"
+                            colspan="8"
                             class="phan-empty-table"
                         >
                             Noch keine Charaktere in dieser Auswahl.
@@ -3036,28 +3048,6 @@ require_once __DIR__ . '/../navbar.php';
                                             ','
                                         )
                                         . ' cm'
-                                    )
-                                    : '—'
-                            ?>
-                        </td>
-
-                        <td>
-                            <?= $c['weight_kg'] !== null
-                                && $c['weight_kg'] !== ''
-                                    ? phan_h(
-                                        rtrim(
-                                            rtrim(
-                                                number_format(
-                                                    (float)$c['weight_kg'],
-                                                    1,
-                                                    ',',
-                                                    ''
-                                                ),
-                                                '0'
-                                            ),
-                                            ','
-                                        )
-                                        . ' kg'
                                     )
                                     : '—'
                             ?>
@@ -3454,9 +3444,9 @@ require_once __DIR__ . '/../navbar.php';
 
             <div class="phan-card chars-data-card">
 
-                <div class="phan-form-grid chars-form-grid">
+                <div class="phan-form-grid chars-form-grid chars-edit-layout">
 
-                    <label>
+                    <label class="chars-edit-call-name">
                         Rufname
 
                         <input
@@ -3464,16 +3454,6 @@ require_once __DIR__ . '/../navbar.php';
                             value="<?= phan_h($char['call_name']) ?>"
                         >
                     </label>
-
-                    <label>
-                        Art / Spezies
-
-                        <input
-                            name="species"
-                            value="<?= phan_h($char['species']) ?>"
-                        >
-                    </label>
-
 
                     <label>
                         Vorname
@@ -3484,7 +3464,6 @@ require_once __DIR__ . '/../navbar.php';
                         >
                     </label>
 
-
                     <label>
                         Nachname
 
@@ -3493,7 +3472,6 @@ require_once __DIR__ . '/../navbar.php';
                             value="<?= phan_h($char['last_name']) ?>"
                         >
                     </label>
-
 
                     <label>
                         Region
@@ -3521,7 +3499,6 @@ require_once __DIR__ . '/../navbar.php';
 
                         </select>
                     </label>
-
 
                     <label>
                         Geschlecht
@@ -3562,10 +3539,7 @@ require_once __DIR__ . '/../navbar.php';
                         </select>
                     </label>
 
-                    
-
-
-                    <div id="charFactionField" class="chars-field-wide">
+                    <div id="charFactionField" class="chars-edit-field">
                         <span>Fraktion</span>
 
                         <div
@@ -3616,8 +3590,7 @@ require_once __DIR__ . '/../navbar.php';
                         </div>
                     </div>
 
-
-                    <label class="chars-field-wide">
+                    <label>
                         Notizen
 
                         <textarea
@@ -3626,22 +3599,7 @@ require_once __DIR__ . '/../navbar.php';
                         ><?= phan_h($char['notes']) ?></textarea>
                     </label>
 
-
-                    <!-- versteckt lassen, damit alte Werte nicht
-                         bei jedem Autosave versehentlich geleert werden -->
-                    <input
-                        type="hidden"
-                        name="accent"
-                        value="<?= phan_h($char['accent']) ?>"
-                    >
-
-                    <input
-                        type="hidden"
-                        name="personality"
-                        value="<?= phan_h($char['personality']) ?>"
-                    >
-
-
+                    
                     <label>
                         Alter
 
@@ -3650,17 +3608,6 @@ require_once __DIR__ . '/../navbar.php';
                             value="<?= phan_h($char['age_text']) ?>"
                         >
                     </label>
-
-
-                    <label>
-                        Beruf
-
-                        <input
-                            name="occupation"
-                            value="<?= phan_h($char['occupation']) ?>"
-                        >
-                    </label>
-
 
                     <label>
                         Körpergröße
@@ -3680,25 +3627,37 @@ require_once __DIR__ . '/../navbar.php';
                         >
                     </label>
 
-
                     <label>
-                        Gewicht
+                        Art / Spezies
 
                         <input
-                            type="number"
-                            name="weight_kg"
-                            min="0"
-                            step="1"
-                            inputmode="numeric"
-                            placeholder="kg"
-                            value="<?= phan_h(
-                                $char['weight_kg'] !== null && $char['weight_kg'] !== ''
-                                    ? (int)$char['weight_kg']
-                                    : ''
-                            ) ?>"
+                            name="species"
+                            value="<?= phan_h($char['species']) ?>"
                         >
                     </label>
 
+                    <label>
+                        Beruf
+
+                        <input
+                            name="occupation"
+                            value="<?= phan_h($char['occupation']) ?>"
+                        >
+                    </label>
+
+                    <!-- versteckt lassen, damit alte Werte nicht
+                         bei jedem Autosave versehentlich geleert werden -->
+                    <input
+                        type="hidden"
+                        name="accent"
+                        value="<?= phan_h($char['accent']) ?>"
+                    >
+
+                    <input
+                        type="hidden"
+                        name="personality"
+                        value="<?= phan_h($char['personality']) ?>"
+                    >
 
                     <div
                         class="phan-wide phan-prompt-editor"
