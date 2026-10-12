@@ -444,7 +444,7 @@ if ($isAuthed && $rwthJobsCounterEnabled) {
             <!-- Externe Dienste -->
             <li class="nav-item has-submenu">
                 <a
-                    href="https://hub.fidsch.de/audiobookshelf/"
+                    href="https://audiobookshelf.fidsch.de/"
                     target="_blank"
                     rel="noopener"
                 >
@@ -461,7 +461,7 @@ if ($isAuthed && $rwthJobsCounterEnabled) {
                 <ul class="submenu">
                     <li>
                         <a
-                            href="https://hub.fidsch.de/audiobookshelf/"
+                            href="https://audiobookshelf.fidsch.de/"
                             target="_blank"
                             rel="noopener"
                         >

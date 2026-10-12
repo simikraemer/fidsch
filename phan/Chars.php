@@ -1135,20 +1135,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 UPDATE chars
                 SET
                     active_image_id = ?,
-                    image_path = ?,
-                    face_x = ?,
-                    face_y = ?,
-                    face_w = ?,
-                    face_h = ?
+                    image_path = ?
                 WHERE id = ?
                 ',
                 [
                     $imageId,
                     $image['image_path'],
-                    $image['face_x'],
-                    $image['face_y'],
-                    $image['face_w'],
-                    $image['face_h'],
                     $id,
                 ]
             )->close();
@@ -1207,6 +1199,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $title = substr($title, 0, 120);
             }
 
+            $saveImagePrompt = array_key_exists('image_prompt', $_POST) ? 1 : 0;
+            $imagePrompt = (string)($_POST['image_prompt'] ?? '');
+
             $x = phan_crop_value('face_x');
             $y = phan_crop_value('face_y');
             $w = phan_crop_value('face_w');
@@ -1234,6 +1229,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     UPDATE char_images
                     SET
                         title = NULLIF(?, \'\'),
+                        prompt = CASE WHEN ? = 1 THEN NULLIF(?, \'\') ELSE prompt END,
                         face_x = ?,
                         face_y = ?,
                         face_w = ?,
@@ -1243,6 +1239,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ',
                     [
                         $title,
+                        $saveImagePrompt,
+                        $imagePrompt,
                         $x,
                         $y,
                         $w,
@@ -1259,6 +1257,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     UPDATE char_images
                     SET
                         title = NULLIF(?, \'\'),
+                        prompt = CASE WHEN ? = 1 THEN NULLIF(?, \'\') ELSE prompt END,
                         face_x = NULL,
                         face_y = NULL,
                         face_w = NULL,
@@ -1268,40 +1267,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ',
                     [
                         $title,
+                        $saveImagePrompt,
+                        $imagePrompt,
                         $imageId,
                         $id,
                     ]
                 )->close();
             }
 
-            $activeRow = phan_one(
+            phan_exec(
                 $phanconn,
-                'SELECT active_image_id
-                 FROM chars
-                 WHERE id = ?',
+                'UPDATE chars SET updated_at = CURRENT_TIMESTAMP WHERE id = ?',
                 [$id]
-            );
-
-            if (
-                (int)($activeRow['active_image_id'] ?? 0)
-                === $imageId
-            ) {
-                phan_exec(
-                    $phanconn,
-                    '
-                    UPDATE chars
-                    SET
-                        face_x = ?,
-                        face_y = ?,
-                        face_w = ?,
-                        face_h = ?
-                    WHERE id = ?
-                    ',
-                    $validCrop
-                        ? [$x, $y, $w, $h, $id]
-                        : [null, null, null, null, $id]
-                )->close();
-            }
+            )->close();
 
             $savedRow = phan_one(
                 $phanconn,
@@ -1414,20 +1392,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     UPDATE chars
                     SET
                         active_image_id = ?,
-                        image_path = ?,
-                        face_x = ?,
-                        face_y = ?,
-                        face_w = ?,
-                        face_h = ?
+                        image_path = ?
                     WHERE id = ?
                     ',
                     [
                         $nextActiveId,
                         $next['image_path'] ?? null,
-                        $next['face_x'] ?? null,
-                        $next['face_y'] ?? null,
-                        $next['face_w'] ?? null,
-                        $next['face_h'] ?? null,
                         $id,
                     ]
                 )->close();
@@ -1462,15 +1432,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             trim((string)($_POST['last_name'] ?? '')),
             trim((string)($_POST['gender'] ?? '')),
             trim((string)($_POST['species'] ?? '')),
-            trim((string)($_POST['accent'] ?? '')),
             trim((string)($_POST['occupation'] ?? '')),
             max(0, (int)($_POST['region_id'] ?? 0)),
             trim((string)($_POST['age_text'] ?? '')),
             '', // Legacy-Feld; wird nachher aus char_factions synchronisiert.
             trim((string)($_POST['height_cm'] ?? '')),
-            trim((string)($_POST['personality'] ?? '')),
             trim((string)($_POST['notes'] ?? '')),
-            trim((string)($_POST['prompt'] ?? '')),
         ];
 
         $validGenders =
@@ -1501,15 +1468,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         last_name = ?,
                         gender = ?,
                         species = ?,
-                        accent = ?,
                         occupation = ?,
                         region_id = NULLIF(?, 0),
                         age_text = ?,
                         faction = ?,
                         height_cm = NULLIF(?, \'\'),
-                        personality = ?,
-                        notes = ?,
-                        prompt = ?
+                        notes = ?
                     WHERE id = ?
                     ',
                     [...$fields, $id]
@@ -1525,24 +1489,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         last_name,
                         gender,
                         species,
-                        accent,
                         occupation,
                         region_id,
                         age_text,
                         faction,
                         height_cm,
-                        weight_kg,
-                        personality,
-                        notes,
-                        prompt
+                        notes
                     )
                     VALUES (
-                        ?, ?, ?, ?, ?, ?, ?,
+                        ?, ?, ?, ?, ?, ?,
                         NULLIF(?, 0),
                         ?, ?,
                         NULLIF(?, \'\'),
-                        NULL,
-                        ?, ?, ?
+                        ?
                     )
                     ',
                     $fields
@@ -1779,7 +1738,6 @@ $allowedSorts = [
     'occupation' => 'c.occupation',
     'region' => 'r.title',
     'height' => 'c.height_cm',
-    'weight' => 'c.weight_kg',
 ];
 
 $listSort = (string)($_GET['sort'] ?? 'call_name');
@@ -1827,16 +1785,12 @@ if ($detailId > 0 || $isNew) {
                 ? $selectedGender
                 : '',
         'species' => '',
-        'accent' => '',
         'occupation' => '',
         'region_id' => $selectedRegion ?: null,
         'age_text' => '',
         'faction' => '',
         'height_cm' => '',
-        'weight_kg' => '',
-        'personality' => '',
         'notes' => '',
-        'prompt' => '',
         'active_image_id' => null,
         'updated_at' => null,
     ];
@@ -1872,6 +1826,7 @@ if ($detailId > 0 || $isNew) {
                 char_id,
                 image_path,
                 title,
+                prompt,
                 original_filename,
                 face_x,
                 face_y,
@@ -1994,12 +1949,15 @@ if ($detailId > 0 || $isNew) {
                 OR c.faction LIKE ?
                 OR r.title LIKE ?
                 OR c.notes LIKE ?
-                OR c.prompt LIKE ?
+                OR EXISTS (
+                    SELECT 1 FROM char_images ci_search
+                    WHERE ci_search.char_id = c.id
+                      AND ci_search.prompt LIKE ?
+                )
                 OR CAST(c.height_cm AS CHAR) LIKE ?
-                OR CAST(c.weight_kg AS CHAR) LIKE ?
             )';
 
-        for ($i = 0; $i < 15; $i++) {
+        for ($i = 0; $i < 14; $i++) {
             $filterParams[] =
                 $searchLike;
         }
@@ -2065,7 +2023,12 @@ if ($detailId > 0 || $isNew) {
                 SELECT 1
                 FROM char_images ci_check
                 WHERE ci_check.char_id = c.id
-            ) AS has_image
+            ) AS has_image,
+            EXISTS (
+                SELECT 1 FROM char_images ci_prompt
+                WHERE ci_prompt.char_id = c.id
+                  AND TRIM(COALESCE(ci_prompt.prompt, '')) = ''
+            ) AS has_missing_image_prompt
         FROM chars c
         LEFT JOIN regions r
             ON r.id = c.region_id
@@ -2331,6 +2294,30 @@ require_once __DIR__ . '/../navbar.php';
     box-sizing: border-box;
     min-width: 0;
     max-width: 100%;
+}
+
+#charsPage #imageTitleModal .phan-image-title-modal-dialog {
+    width: min(900px, calc(100vw - 32px));
+    max-width: calc(100vw - 32px);
+    max-height: calc(100dvh - 32px);
+    box-sizing: border-box;
+    overflow-y: auto;
+}
+#charsPage #imageTitleModal .chars-image-prompt-label {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 18px;
+}
+#charsPage #imagePromptModalInput {
+    display: block;
+    width: 100%;
+    min-height: 280px;
+    box-sizing: border-box;
+    resize: vertical;
+    font: inherit;
+    font-weight: normal;
+    line-height: 1.4;
 }
 </style>
 
@@ -2931,14 +2918,11 @@ require_once __DIR__ . '/../navbar.php';
                                 </strong>
 
                                 <?php if (
-                                    !empty($c['has_image'])
-                                    && trim(
-                                        (string)($c['prompt'] ?? '')
-                                    ) === ''
+                                    !empty($c['has_missing_image_prompt'])
                                 ): ?>
                                     <span
                                         class="phan-char-warning"
-                                        title="Charakter hat ein Bild, aber keinen Prompt."
+                                        title="Mindestens ein Bild hat keinen Prompt."
                                         aria-label="Bild vorhanden, Prompt fehlt"
                                     >
                                         !
@@ -3384,6 +3368,7 @@ require_once __DIR__ . '/../navbar.php';
                                     data-image-id="<?= $imageId ?>"
                                     data-image-src="/phan/chars?image_id=<?= $imageId ?>"
                                     data-image-title="<?= phan_h($image['title'] ?? '') ?>"
+                                    data-image-prompt="<?= phan_h($image['prompt'] ?? '') ?>"
                                     data-image-display-title="<?= phan_h(
                                         phan_image_display_title($image)
                                     ) ?>"
@@ -3645,36 +3630,6 @@ require_once __DIR__ . '/../navbar.php';
                         >
                     </label>
 
-                    <!-- versteckt lassen, damit alte Werte nicht
-                         bei jedem Autosave versehentlich geleert werden -->
-                    <input
-                        type="hidden"
-                        name="accent"
-                        value="<?= phan_h($char['accent']) ?>"
-                    >
-
-                    <input
-                        type="hidden"
-                        name="personality"
-                        value="<?= phan_h($char['personality']) ?>"
-                    >
-
-                    <div
-                        class="phan-wide phan-prompt-editor"
-                        id="promptEditor"
-                        hidden
-                    >
-                        <label>
-                            Prompt
-
-                            <textarea
-                                name="prompt"
-                                id="promptField"
-                                rows="12"
-                            ><?= phan_h($char['prompt']) ?></textarea>
-                        </label>
-                    </div>
-
                 </div>
 
 
@@ -3704,13 +3659,6 @@ require_once __DIR__ . '/../navbar.php';
                             id="copyPrompt"
                         >
                             Prompt kopieren
-                        </button>
-
-                        <button
-                            type="button"
-                            id="togglePrompt"
-                        >
-                            Prompt bearbeiten
                         </button>
 
                         <span
@@ -3826,7 +3774,7 @@ require_once __DIR__ . '/../navbar.php';
                     </button>
 
                     <h2 id="imageTitleModalHeading">
-                        Bildtitel
+                        Bild bearbeiten
                     </h2>
 
                     <label>
@@ -3838,6 +3786,15 @@ require_once __DIR__ . '/../navbar.php';
                             maxlength="120"
                             autocomplete="off"
                         >
+                    </label>
+
+                    <label class="chars-image-prompt-label">
+                        Prompt
+                        <textarea
+                            id="imagePromptModalInput"
+                            rows="14"
+                            spellcheck="false"
+                        ></textarea>
                     </label>
 
                     <div class="phan-image-title-modal-actions">
@@ -4211,6 +4168,9 @@ require_once __DIR__ . '/../navbar.php';
     const imageTitleModal =
         document.getElementById('imageTitleModal');
 
+    const imagePromptModalInput = document.getElementById('imagePromptModalInput');
+    let editingImageId = 0;
+
     const imageTitleModalInput =
         document.getElementById('imageTitleModalInput');
 
@@ -4425,6 +4385,7 @@ require_once __DIR__ . '/../navbar.php';
             lastSavedValue.textContent =
                 payload.updated_at;
         }
+
 
         setStatus('Gespeichert');
 
@@ -4937,15 +4898,6 @@ require_once __DIR__ . '/../navbar.php';
      * Prompt
      * ===================================================== */
 
-    const promptField =
-        document.getElementById('promptField');
-
-    const promptEditor =
-        document.getElementById('promptEditor');
-
-    const togglePrompt =
-        document.getElementById('togglePrompt');
-
     const copyPrompt =
         document.getElementById('copyPrompt');
 
@@ -4958,31 +4910,6 @@ require_once __DIR__ . '/../navbar.php';
         + "GROBE SKIZZE (mit farbe).\n"
         + "gesamtansicht, also von füßen bis kopf.\n\n";
 
-
-    if (
-        promptEditor
-        && togglePrompt
-    ) {
-        togglePrompt.addEventListener(
-            'click',
-            () => {
-                const opening =
-                    promptEditor.hidden;
-
-                promptEditor.hidden =
-                    !opening;
-
-                togglePrompt.textContent =
-                    opening
-                        ? 'Prompt schließen'
-                        : 'Prompt bearbeiten';
-
-                if (opening) {
-                    promptField?.focus();
-                }
-            }
-        );
-    }
 
 
     async function copyText(text) {
@@ -5016,20 +4943,17 @@ require_once __DIR__ . '/../navbar.php';
 
     if (
         copyPrompt
-        && promptField
         && copyStatus
     ) {
         copyPrompt.addEventListener(
             'click',
             async () => {
                 try {
-                    await copyText(
-                        PROMPT_STYLE_PREFIX
-                        + promptField.value
-                    );
+                    const imagePrompt = currentImageButton()?.dataset.imagePrompt || '';
+                    await copyText(imagePrompt);
 
                     copyStatus.textContent =
-                        promptField.value
+                        imagePrompt.trim()
                             ? 'kopiert'
                             : 'Prompt ist leer';
 
@@ -5625,6 +5549,12 @@ require_once __DIR__ . '/../navbar.php';
             button.dataset.imageTitle
             || '';
 
+        editingImageId = Number(button.dataset.imageId || 0);
+        if (imagePromptModalInput) {
+            const savedPrompt = button.dataset.imagePrompt || '';
+            imagePromptModalInput.value = savedPrompt.trim() !== '' ? savedPrompt : PROMPT_STYLE_PREFIX;
+        }
+
         imageTitleModal.hidden = false;
         document.body.classList.add(
             'phan-image-title-modal-open'
@@ -5725,7 +5655,7 @@ require_once __DIR__ . '/../navbar.php';
     imageTitleSaveButton?.addEventListener(
         'click',
         async () => {
-            const imageId = currentImageId();
+            const imageId = editingImageId;
 
             if (
                 imageId <= 0
@@ -5734,6 +5664,9 @@ require_once __DIR__ . '/../navbar.php';
                 return;
             }
 
+            const savedTitle = imageTitleModalInput.value;
+            const savedPrompt = imagePromptModalInput?.value || '';
+            imageTitleSaveButton.disabled = true;
             try {
                 await queueRequest(
                     'save_image',
@@ -5741,18 +5674,25 @@ require_once __DIR__ . '/../navbar.php';
                     {
                         image_id: imageId,
                         image_title:
-                            imageTitleModalInput.value,
+                            savedTitle,
+                        image_prompt: savedPrompt,
                     }
                 );
 
                 updateImageTitles(
                     imageId,
-                    imageTitleModalInput.value
+                    savedTitle
                 );
 
+                const savedButton = document.querySelector('.phan-image-gallery-item[data-image-id="' + imageId + '"]');
+                if (savedButton) savedButton.dataset.imagePrompt = savedPrompt;
                 closeImageTitleModal();
 
-            } catch (_) {}
+            } catch (_) {
+                // Dialog mit den Eingaben für einen erneuten Versuch offen lassen.
+            } finally {
+                imageTitleSaveButton.disabled = false;
+            }
         }
     );
 
