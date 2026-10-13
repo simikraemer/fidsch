@@ -2302,982 +2302,832 @@ button.chart-back:focus-visible {
 }
 
 /* =========================================================
- * SCI / YOLO-Auswertung
- * Diesen gesamten Block anstelle des bisherigen YOLO-Blocks
- * in FIJI.css verwenden.
+ * SCI / YOLO-Auswertung (YOLO26 Semantic)
+ * Einheitliches FIJI-Design für alle sechs Reiter.
+ * Alle Selektoren sind auf #yoloPage begrenzt.
+ * Die mobilen Anpassungen stehen in FIJI_Mobile.css.
  * ========================================================= */
 
-.yolo-page {
+/* Grundfarben / Layout -------------------------------------- */
+
+#yoloPage.yolo-page {
+    --y-border: rgba(0, 0, 0, 0.11);
+    --y-border-light: rgba(0, 0, 0, 0.075);
+    --y-muted: rgba(34, 34, 34, 0.68);
+    --y-soft: var(--bg-light, #f7f7f7);
+    --y-tint: color-mix(in srgb, var(--primary) 7%, #fff);
+    --y-tint-strong: color-mix(in srgb, var(--primary) 13%, #fff);
+    --y-accent: var(--primary);
+    --y-accent-dark: var(--primary-dark);
+    --y-series-0: var(--primary);
+    --y-series-1: #39804f;
+    --y-series-2: #b5593c;
+    --y-series-3: #8c659d;
+    --y-series-4: #bc4d65;
+    --y-series-5: #998322;
+
+    width: 100%;
     max-width: 1500px;
-    margin-top: 24px;
+    margin: 24px auto 80px;
+    padding: 0 16px 40px;
+    color: var(--text);
+    font-family: var(--font);
+    box-sizing: border-box;
 }
 
-.yolo-topbar {
-    margin-bottom: 14px;
+#yoloPage *,
+#yoloPage *::before,
+#yoloPage *::after {
+    box-sizing: border-box;
 }
 
-/* ---------------------------------------------------------
- * Tabs
- * --------------------------------------------------------- */
+#yoloPage [hidden] {
+    display: none !important;
+}
 
-.yolo-tabs {
+#yoloPage .yolo-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 0 0 18px;
+}
+
+#yoloPage .yolo-head h1 {
+    margin: 0;
+    color: var(--text);
+    font-size: clamp(1.5rem, 2.4vw, 2rem);
+    line-height: 1.25;
+}
+
+#yoloPage .yolo-head small {
+    margin-left: 6px;
+    color: var(--y-muted);
+    font-size: 0.82rem;
+    font-weight: 500;
+}
+
+/* Reiter ---------------------------------------------------- */
+
+#yoloPage .yolo-tabs {
     position: sticky;
     top: 70px;
     z-index: 450;
     display: flex;
     align-items: stretch;
-    gap: 8px;
+    gap: 7px;
     margin: 0 0 18px;
-    padding: 8px;
+    padding: 7px;
+    overflow-x: auto;
     border-radius: var(--border-radius);
     background: #fff;
     box-shadow: var(--shadow);
-    overflow-x: auto;
     scrollbar-width: thin;
 }
 
-.yolo-tab {
-    flex: 1 1 0;
-    min-width: 145px;
-    padding: 10px 14px;
-    border: 2px solid transparent;
+#yoloPage .yolo-tab {
+    flex: 1 0 auto;
+    min-width: max-content;
+    margin: 0;
+    padding: 10px 13px;
+    border: 1px solid transparent;
     border-radius: var(--border-radius);
     background: transparent;
-    color: var(--text);
     box-shadow: none;
-    font-weight: 800;
+    color: var(--text);
+    font: inherit;
+    font-size: 0.87rem;
+    font-weight: 750;
     white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
-.yolo-tab:hover {
-    background: var(--bg-light);
+#yoloPage .yolo-tab:hover {
+    border-color: var(--y-border-light);
+    background: var(--y-soft);
     color: var(--text);
 }
 
-.yolo-tab.is-active {
-    border-color: var(--primary);
-    background: var(--primary);
-    color: var(--text-light);
+#yoloPage .yolo-tab.is-active,
+#yoloPage .yolo-tab.is-active:hover {
+    border-color: var(--y-accent);
+    background: var(--y-accent);
+    color: var(--text-light, #fff);
 }
 
-.yolo-tab-panel[hidden] {
-    display: none !important;
+#yoloPage .yolo-tab:focus-visible,
+#yoloPage .yolo-button:focus-visible,
+#yoloPage .yolo-ba-toggle:focus-visible,
+#yoloPage .yolo-detail > summary:focus-visible {
+    outline: 2px solid var(--y-accent);
+    outline-offset: 2px;
 }
 
-.yolo-tab-panel.is-active {
-    display: block;
+/* Abschnitte / Meldungen ----------------------------------- */
+
+#yoloPage .yolo-section {
+    min-width: 0;
+    margin: 0 0 18px;
+    padding: 19px 20px 21px;
+    border: 1px solid var(--y-border-light);
+    border-radius: var(--border-radius);
+    background: #fff;
+    box-shadow: var(--shadow);
 }
 
-.yolo-tab-panels {
+#yoloPage .yolo-section-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px 18px;
+    margin: 0 0 17px;
+}
+
+#yoloPage .yolo-section-head > div:first-child {
+    min-width: 0;
+    flex: 1 1 320px;
+}
+
+#yoloPage .yolo-section h2 {
+    margin: 0 0 5px;
+    color: var(--text);
+    font-size: 1.18rem;
+    line-height: 1.3;
+}
+
+#yoloPage .yolo-section h3 {
+    margin: 0 0 9px;
+    color: var(--text);
+    font-size: 1rem;
+}
+
+#yoloPage .yolo-section p {
+    margin: 0;
+    color: var(--y-muted);
+    font-size: 0.89rem;
+    line-height: 1.5;
+}
+
+#yoloPage .yolo-muted {
+    color: var(--y-muted);
+}
+
+#yoloPage .yolo-selection-feedback {
+    margin-top: 12px;
+    min-height: 1.25em;
+}
+
+#yoloPage .yolo-notice {
+    margin: 0 0 15px;
+    padding: 12px 14px;
+    border: 1px solid var(--y-border);
+    border-left: 4px solid var(--y-accent);
+    border-radius: var(--border-radius);
+    background: var(--y-tint);
+    color: var(--text);
+    font-size: 0.9rem;
+    line-height: 1.5;
+    box-shadow: none;
+}
+
+#yoloPage .yolo-notice.error {
+    border-color: rgba(192, 57, 43, 0.35);
+    border-left-color: #c0392b;
+    background: #fff5f4;
+    color: #922b21;
+}
+
+#yoloPage .yolo-notice.warn {
+    border-color: rgba(183, 117, 20, 0.30);
+    border-left-color: #ba790c;
+    background: #fff8eb;
+    color: #6b470e;
+}
+
+/* Bedienelemente ------------------------------------------- */
+
+#yoloPage .yolo-flex {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 9px;
     min-width: 0;
 }
 
-.yolo-tab-empty {
-    padding: 28px 18px;
-    border: 1px dashed rgba(0, 0, 0, .15);
-    border-radius: var(--border-radius);
-    background: var(--bg-light);
-    color: rgba(0, 0, 0, .62);
-    text-align: center;
-    font-weight: 650;
-}
-
-/* ---------------------------------------------------------
- * Gemeinsame Bereiche
- * --------------------------------------------------------- */
-
-.yolo-section {
-    margin: 0 0 18px;
-    padding: 16px 18px 18px;
-    border-radius: var(--border-radius);
-    background: #fff;
-    box-shadow: var(--shadow);
-}
-
-.yolo-section-head {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 14px 20px;
-    flex-wrap: wrap;
-    margin-bottom: 14px;
-}
-
-.yolo-section-head h2 {
-    margin: 0;
-    font-size: 1.18rem;
-}
-
-.yolo-section-head p {
-    margin: 4px 0 0;
-    opacity: .72;
-    font-size: .9rem;
-    line-height: 1.45;
-}
-
-.yolo-section-head--metrics {
-    align-items: flex-start;
-}
-
-.yolo-notice {
-    margin: 0 0 16px;
-    padding: 12px 14px;
-    border: 1px solid rgba(0, 0, 0, .08);
-    border-radius: var(--border-radius);
-    background: #fff;
-    box-shadow: var(--shadow);
-}
-
-.yolo-notice--error {
-    border-color: rgba(192, 57, 43, .35);
-    color: #922b21;
-    background: #fffafa;
-}
-
-/* ---------------------------------------------------------
- * Run-Auswahl
- * --------------------------------------------------------- */
-
-.yolo-selector-tools {
-    display: flex;
+#yoloPage .yolo-button {
+    display: inline-flex;
     align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
+    justify-content: center;
+    gap: 7px;
+    width: auto;
+    min-height: 37px;
+    margin: 0;
+    padding: 8px 12px;
+    border: 1px solid var(--y-border);
+    border-radius: var(--border-radius);
+    background: #fff;
+    box-shadow: none;
+    color: var(--text);
+    font: inherit;
+    font-size: 0.84rem;
+    font-weight: 750;
+    line-height: 1.25;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
-.yolo-selector-tools .kategorie-select {
-    min-width: 170px;
+#yoloPage .yolo-button:hover {
+    border-color: var(--y-accent);
+    background: var(--y-tint);
+    color: var(--text);
 }
 
-.yolo-run-list {
+#yoloPage .yolo-button.primary {
+    border-color: var(--y-accent);
+    background: var(--y-accent);
+    color: var(--text-light, #fff);
+}
+
+#yoloPage .yolo-button.primary:hover {
+    border-color: var(--y-accent-dark);
+    background: var(--y-accent-dark);
+    color: var(--text-light, #fff);
+}
+
+/* Suchfeld und Filter bleiben auf breiten Ansichten in einer Zeile. */
+#yoloPage .yolo-section-head > .yolo-flex {
+    flex: 0 1 auto;
+    flex-wrap: nowrap;
+}
+
+#yoloPage .yolo-section-head > .yolo-flex .yolo-search {
+    width: 245px;
+    min-width: 160px;
+}
+
+#yoloPage .yolo-select,
+#yoloPage .yolo-search {
+    width: auto;
+    min-width: 145px;
+    max-width: 100%;
+    min-height: 38px;
+    margin: 0;
+    padding: 8px 11px;
+    border: 1px solid #ccc;
+    border-radius: var(--border-radius);
+    background: #fff;
+    box-shadow: none;
+    color: var(--text);
+    font: inherit;
+    font-size: 0.9rem;
+}
+
+#yoloPage .yolo-search {
+    width: min(300px, 100%);
+}
+
+#yoloPage .yolo-select:focus,
+#yoloPage .yolo-search:focus {
+    border-color: var(--y-accent);
+    outline: 2px solid var(--y-tint-strong);
+    outline-offset: 1px;
+}
+
+/* Run-Auswahl ---------------------------------------------- */
+
+#yoloPage .yolo-run-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(285px, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr));
+    gap: 11px;
 }
 
-.yolo-run-option {
+#yoloPage .yolo-run-item {
     display: flex;
     align-items: flex-start;
     gap: 11px;
     min-width: 0;
-    padding: 11px 12px;
-    border: 2px solid rgba(0, 0, 0, .09);
+    padding: 12px;
+    border: 2px solid var(--y-border-light);
     border-radius: var(--border-radius);
-    background: var(--bg-light);
+    background: var(--y-soft);
+    color: var(--text);
     cursor: pointer;
-    transition:
-        border-color .15s ease,
-        background-color .15s ease,
-        transform .08s ease;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
-.yolo-run-option:hover {
-    border-color: rgba(255, 107, 0, .48);
+#yoloPage .yolo-run-item:hover {
+    border-color: var(--y-accent);
+    background: var(--y-tint);
 }
 
-.yolo-run-option.is-selected {
-    border-color: var(--primary);
-    background: rgba(255, 107, 0, .06);
+#yoloPage .yolo-run-item.is-selected {
+    border-color: var(--y-accent);
+    background: var(--y-tint);
 }
 
-.yolo-run-option:active {
-    transform: scale(.998);
-}
-
-.yolo-run-option input[type="checkbox"] {
+#yoloPage .yolo-run-item input[type="checkbox"] {
+    flex: 0 0 18px;
     width: 18px;
     height: 18px;
     margin: 2px 0 0;
-    flex: 0 0 auto;
-    accent-color: var(--primary);
+    padding: 0;
+    accent-color: var(--y-accent);
+    cursor: pointer;
 }
 
-.yolo-run-option-body {
-    display: flex;
-    flex-direction: column;
-    gap: 7px;
-    min-width: 0;
-}
-
-.yolo-run-option-title {
+#yoloPage .yolo-run-item strong {
     display: block;
-    font-weight: 800;
-    line-height: 1.25;
+    font-size: 0.93rem;
+    line-height: 1.35;
     overflow-wrap: anywhere;
 }
 
-.yolo-run-option-badges,
-.yolo-file-badges {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    flex-wrap: wrap;
+#yoloPage .yolo-run-item small {
+    display: block;
+    margin: 4px 0 0;
+    color: var(--y-muted);
+    font-size: 0.78rem;
+    line-height: 1.35;
 }
 
-.yolo-mini-badge {
+#yoloPage .yolo-tag {
     display: inline-flex;
     align-items: center;
-    min-height: 20px;
+    margin: 7px 5px 0 0;
     padding: 2px 7px;
+    border: 1px solid var(--y-border-light);
     border-radius: 999px;
-    background: rgba(255, 107, 0, .12);
-    color: var(--primary-dark);
-    font-size: .70rem;
-    font-weight: 800;
-    line-height: 1.15;
-}
-
-.yolo-mini-badge--muted {
-    background: rgba(0, 0, 0, .07);
-    color: rgba(0, 0, 0, .65);
-}
-
-.yolo-mini-badge--ok {
-    background: rgba(22, 163, 74, .10);
-    color: #166534;
-}
-
-.yolo-mini-badge--warn {
-    background: rgba(217, 119, 6, .12);
-    color: #92400e;
-}
-
-.yolo-run-list-empty,
-.yolo-chart-empty,
-.yolo-no-final {
-    color: rgba(0, 0, 0, .58);
-    font-size: .9rem;
-}
-
-.yolo-run-list-empty {
-    grid-column: 1 / -1;
-    padding: 14px 4px;
-}
-
-.yolo-selection-message {
-    min-height: 1.2em;
-    margin-top: 8px;
-    color: #b45309;
-    font-size: .86rem;
-    font-weight: 700;
-}
-
-/* ---------------------------------------------------------
- * Run-Übersicht
- * --------------------------------------------------------- */
-
-.yolo-summary-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
-    gap: 14px;
-}
-
-.yolo-summary-card {
-    position: relative;
-    min-width: 0;
-    padding: 14px 15px;
-    border: 1px solid rgba(0, 0, 0, .08);
-    border-left: 5px solid var(--run-color, var(--primary));
-    border-radius: var(--border-radius);
-    background: var(--bg-light);
-}
-
-.yolo-summary-card-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 12px;
-}
-
-.yolo-summary-run {
-    font-size: 1.05rem;
-    font-weight: 900;
-    line-height: 1.25;
-    overflow-wrap: anywhere;
-}
-
-.yolo-summary-sub {
-    margin-top: 4px;
-    font-size: .82rem;
-    opacity: .68;
-}
-
-.yolo-run-color,
-.yolo-table-run-dot {
-    display: inline-block;
-    width: 11px;
-    height: 11px;
-    border-radius: 999px;
-    background: var(--run-color, var(--primary));
-    flex: 0 0 auto;
-}
-
-.yolo-table-run-dot {
-    margin-right: 7px;
-}
-
-.yolo-summary-dl {
-    display: grid;
-    gap: 6px;
-    margin: 0 0 13px;
-}
-
-.yolo-summary-dl > div {
-    display: grid;
-    grid-template-columns: minmax(95px, .65fr) minmax(0, 1.35fr);
-    gap: 10px;
-    align-items: baseline;
-}
-
-.yolo-summary-dl dt {
-    font-size: .78rem;
-    font-weight: 800;
-    opacity: .66;
-}
-
-.yolo-summary-dl dd {
-    min-width: 0;
-    margin: 0;
-    text-align: right;
-    font-size: .84rem;
-    overflow-wrap: anywhere;
-}
-
-.yolo-final-title {
-    margin: 13px 0 7px;
-    padding-top: 10px;
-    border-top: 1px solid rgba(0, 0, 0, .08);
-    font-size: .8rem;
-    font-weight: 900;
-    text-transform: uppercase;
-    letter-spacing: .04em;
-    opacity: .62;
-}
-
-.yolo-kpi-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 7px;
-}
-
-.yolo-kpi {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0;
-    padding: 7px 8px;
-    border: 1px solid rgba(0, 0, 0, .07);
-    border-radius: calc(var(--border-radius) * .72);
     background: #fff;
+    color: var(--y-muted);
+    font-size: 0.72rem;
+    font-weight: 650;
+    line-height: 1.25;
 }
 
-.yolo-kpi-labelrow {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 6px;
+/* Tabellen ------------------------------------------------- */
+
+#yoloPage .yolo-table-scroll {
+    width: 100%;
     min-width: 0;
+    overflow-x: auto;
+    border: 1px solid var(--y-border);
+    border-radius: var(--border-radius);
+    background: #fff;
+    scrollbar-width: thin;
 }
 
-.yolo-kpi-label {
-    min-width: 0;
-    font-size: .68rem;
-    line-height: 1.2;
-    opacity: .65;
-    overflow-wrap: anywhere;
-}
-
-.yolo-kpi strong {
-    font-size: .95rem;
+#yoloPage table {
+    width: 100%;
+    margin: 0;
+    border-collapse: collapse;
+    background: #fff;
+    color: var(--text);
+    font-size: 0.85rem;
     font-variant-numeric: tabular-nums;
 }
 
-.yolo-no-final {
-    grid-column: 1 / -1;
-    padding: 5px 0;
-}
-
-.yolo-final-report-info {
-    grid-column: 1 / -1;
-    display: grid;
-    gap: 7px;
-    width: 100%;
-}
-
-.yolo-final-no-metrics {
-    grid-column: 1 / -1;
-    padding: 6px 0 0;
-    color: rgba(0, 0, 0, .62);
-    font-size: .82rem;
-    line-height: 1.45;
-}
-
-.yolo-final-report-row {
-    display: grid;
-    grid-template-columns: minmax(90px, auto) minmax(90px, 1fr) auto;
-    align-items: center;
-    gap: 8px 12px;
-    padding: 7px 9px;
-    border: 1px solid rgba(0, 0, 0, .07);
-    border-radius: var(--border-radius);
-    background: #fff;
-    font-size: .82rem;
-}
-
-.yolo-final-report-row > span:nth-child(2) {
-    color: rgba(0, 0, 0, .65);
-}
-
-.yolo-final-report-state {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 3px 7px;
-    border-radius: 999px;
-    font-size: .72rem;
-    font-weight: 850;
-    white-space: nowrap;
-}
-
-.yolo-final-report-state.has-gt {
-    background: rgba(76, 175, 80, .13);
-    color: #247a28;
-}
-
-.yolo-final-report-state.no-gt {
-    background: rgba(255, 152, 0, .15);
-    color: #9a5700;
-}
-
-.yolo-final-report-note {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    margin-top: 2px;
-    padding: 9px 10px;
-    border-left: 4px solid var(--warning);
-    border-radius: 0 var(--border-radius) var(--border-radius) 0;
-    background: rgba(255, 152, 0, .08);
-    color: rgba(0, 0, 0, .72);
-    font-size: .82rem;
-    line-height: 1.45;
-}
-
-.yolo-final-report-note .yolo-help-btn {
-    flex: 0 0 auto;
-    margin-top: -1px;
-}
-
-.yolo-file-badges {
-    margin-top: 12px;
-}
-
-/* ---------------------------------------------------------
- * Konfigurationsvergleich
- * --------------------------------------------------------- */
-
-.yolo-meta-table-wrap {
-    overflow-x: auto;
-    border: 1px solid rgba(0, 0, 0, .08);
-    border-radius: var(--border-radius);
-}
-
-.yolo-meta-table {
-    width: 100%;
-    min-width: 760px;
-    border-collapse: collapse;
-    background: #fff;
-    font-size: .84rem;
-}
-
-.yolo-meta-table th,
-.yolo-meta-table td {
-    padding: 9px 11px;
-    border-bottom: 1px solid rgba(0, 0, 0, .065);
-    border-right: 1px solid rgba(0, 0, 0, .055);
+#yoloPage table th,
+#yoloPage table td {
+    padding: 10px 12px;
+    border-right: 1px solid var(--y-border-light);
+    border-bottom: 1px solid var(--y-border-light);
     vertical-align: top;
     text-align: left;
+    line-height: 1.4;
     overflow-wrap: anywhere;
 }
 
-.yolo-meta-table thead th {
-    position: sticky;
-    top: 0;
-    z-index: 2;
-    background: var(--accent);
-    font-weight: 900;
-}
-
-.yolo-meta-table tbody th {
-    width: 210px;
-    min-width: 210px;
-    background: var(--bg-light);
-    font-weight: 800;
-}
-
-.yolo-meta-table tbody th[scope="row"] {
-    display: table-cell;
-}
-
-.yolo-meta-table tbody th[scope="row"] > .yolo-meta-label {
-    display: inline;
-    vertical-align: middle;
-}
-
-.yolo-meta-table tbody th[scope="row"] > .yolo-help-btn {
-    margin-left: 6px;
-    vertical-align: middle;
-}
-
-.yolo-meta-table tr:last-child th,
-.yolo-meta-table tr:last-child td {
-    border-bottom: 0;
-}
-
-.yolo-meta-table th:last-child,
-.yolo-meta-table td:last-child {
+#yoloPage table th:last-child,
+#yoloPage table td:last-child {
     border-right: 0;
 }
 
-/* ---------------------------------------------------------
- * Fragezeichen-Hilfe
- * --------------------------------------------------------- */
-
-.yolo-help-btn {
-    appearance: none;
-    width: 22px;
-    height: 22px;
-    min-width: 22px;
-    padding: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border: 2px solid var(--primary);
-    border-radius: 999px;
-    background: #fff;
-    color: var(--primary);
-    box-shadow: none;
-    font-size: .78rem;
-    font-weight: 900;
-    line-height: 1;
-    cursor: pointer;
+#yoloPage table tbody:last-child tr:last-child td {
+    border-bottom: 0;
 }
 
-.yolo-help-btn:hover,
-.yolo-help-btn:focus-visible {
-    border-color: var(--primary);
-    background: var(--primary);
-    color: #fff;
-    outline: none;
+#yoloPage table thead th {
+    border-bottom: 2px solid var(--y-accent);
+    background: var(--y-soft);
+    color: var(--text);
+    font-size: 0.83rem;
+    font-weight: 850;
 }
 
-.yolo-help-btn--chip {
-    width: 24px;
-    height: 24px;
-    min-width: 24px;
+#yoloPage table tbody tr:not(.yolo-ba-group):hover > td {
+    background: var(--y-tint);
 }
 
-.yolo-help-modal {
-    z-index: 12000;
-}
-
-.yolo-help-modal-content {
-    width: min(720px, calc(100vw - 32px));
-    max-width: 720px;
-    max-height: min(78vh, 760px);
-    overflow-y: auto;
-    padding: 28px 30px 26px;
-    border-top: 6px solid var(--primary);
-}
-
-.yolo-help-category {
-    margin: 0 34px 5px 0;
-    color: var(--primary-dark);
-    font-size: .78rem;
-    font-weight: 900;
-    letter-spacing: .06em;
-    text-transform: uppercase;
-}
-
-.yolo-help-title {
-    margin: 0 34px 12px 0;
-    font-size: 1.35rem;
-    line-height: 1.25;
-}
-
-.yolo-help-raw {
-    margin: 0 0 14px;
-    padding: 7px 9px;
-    border-radius: var(--border-radius);
-    background: var(--bg-light);
-    color: rgba(0, 0, 0, .72);
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: .78rem;
-    overflow-wrap: anywhere;
-}
-
-.yolo-help-body {
-    display: grid;
-    gap: 10px;
-}
-
-.yolo-help-body p {
-    margin: 0;
-    line-height: 1.55;
-}
-
-/* ---------------------------------------------------------
- * Metrikauswahl und Graphen
- * --------------------------------------------------------- */
-
-.yolo-metric-picker {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(203px, max-content));
-    /* justify-content: end; */
-    gap: 7px;
-    width: min(100%);
-}
-
-/*
- * Jede Metrik ist EIN eigener Zweiteiler:
- * links Auswahl, rechts genau das zugehörige Fragezeichen.
- * Dadurch kann das ? optisch nicht mehr zwischen zwei Metriken hängen.
- */
-.yolo-metric-chip-wrap {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 34px;
-    align-items: stretch;
-    min-height: 34px;
-    overflow: hidden;
-    border: 1px solid rgba(0, 0, 0, .14);
-    border-radius: var(--border-radius);
-    background: #fff;
-    transition:
-        border-color .15s ease,
-        background-color .15s ease,
-        box-shadow .15s ease;
-}
-
-.yolo-metric-chip-wrap:has(.yolo-metric-chip.is-active) {
-    border-color: var(--primary);
-    background: rgba(255, 107, 0, .06);
-}
-
-.yolo-metric-chip-wrap:hover {
-    border-color: rgba(255, 107, 0, .55);
-}
-
-.yolo-metric-chip {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    min-width: 0;
-    margin: 0;
-    padding: 7px 9px;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    font-size: .76rem;
+#yoloPage .yolo-table-scroll .yolo-field {
+    min-width: 210px;
+    max-width: 335px;
     font-weight: 750;
-    line-height: 1.15;
-    cursor: pointer;
-    user-select: none;
 }
 
-.yolo-metric-chip:hover {
-    background: rgba(255, 107, 0, .045);
+#yoloPage .yolo-table-scroll td:not(:first-child) {
+    min-width: 140px;
 }
 
-.yolo-metric-chip.is-active {
-    background: rgba(255, 107, 0, .07);
+#yoloPage .yolo-config-key {
+    width: 34%;
+    font-weight: 750;
 }
 
-.yolo-metric-chip span {
+#yoloPage .yolo-empty {
+    padding: 17px;
+    color: var(--y-muted);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+/* Übersicht / KPI-Karten ----------------------------------- */
+
+#yoloPage .yolo-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 155px), 1fr));
+    gap: 10px;
+    margin: 0 0 15px;
+}
+
+#yoloPage .yolo-kpi {
     min-width: 0;
+    padding: 11px 12px;
+    border: 1px solid var(--y-border-light);
+    border-radius: var(--border-radius);
+    background: var(--y-soft);
+}
+
+#yoloPage .yolo-kpi small {
+    display: block;
+    color: var(--y-muted);
+    font-size: 0.77rem;
+    font-weight: 650;
+    line-height: 1.35;
+}
+
+#yoloPage .yolo-kpi strong {
+    display: block;
+    margin-top: 6px;
+    color: var(--text);
+    font-size: 1.15rem;
+    font-weight: 850;
+    line-height: 1.28;
+    font-variant-numeric: tabular-nums;
     overflow-wrap: anywhere;
 }
 
-.yolo-metric-chip input {
-    width: 14px;
-    height: 14px;
-    margin: 0;
-    flex: 0 0 auto;
-    accent-color: var(--primary);
+#yoloPage .yolo-summary-kpi-card {
+    margin: 0 0 13px;
+    padding: 14px;
 }
 
-.yolo-metric-chip-wrap > .yolo-help-btn--chip {
-    width: 34px;
-    height: 100%;
-    min-width: 34px;
-    min-height: 32px;
-    border: 0;
-    border-left: 1px solid rgba(0, 0, 0, .12);
-    border-radius: 0;
-    background: var(--bg-light);
-    color: var(--primary);
+#yoloPage .yolo-summary-kpi-grid {
+    margin-top: 10px;
+    margin-bottom: 0;
 }
 
-.yolo-metric-chip-wrap > .yolo-help-btn--chip:hover,
-.yolo-metric-chip-wrap > .yolo-help-btn--chip:focus-visible {
-    border-color: rgba(0, 0, 0, .12);
-    background: var(--primary);
-    color: #fff;
-}
+/* BA-Ergebnisse / Konfiguration ----------------------------- */
 
-.yolo-chart-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
-}
-
-.yolo-chart-card {
+#yoloPage .yolo-model-card {
     min-width: 0;
-    padding: 12px 12px 10px;
-    border: 1px solid rgba(0, 0, 0, .08);
+    margin: 0 0 17px;
+    overflow: hidden;
+    border: 1px solid var(--y-border);
     border-radius: var(--border-radius);
-    background: var(--bg-light);
+    background: #fff;
 }
 
-.yolo-chart-card-head {
+#yoloPage .yolo-model-card:last-child {
+    margin-bottom: 0;
+}
+
+#yoloPage .yolo-model-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
-    margin: 0 0 8px;
+    flex-wrap: wrap;
+    gap: 12px 16px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--y-border-light);
+    background: var(--y-soft);
 }
 
-.yolo-chart-card h3 {
+#yoloPage .yolo-model-head > div:first-child {
+    flex: 1 1 280px;
     min-width: 0;
+}
+
+#yoloPage .yolo-model-head h3 {
     margin: 0;
-    font-size: .92rem;
+    font-size: 1.03rem;
+    font-weight: 850;
+    overflow-wrap: anywhere;
+}
+
+#yoloPage .yolo-model-head p {
+    margin-top: 5px;
+    color: var(--y-muted);
+    font-size: 0.82rem;
+}
+
+#yoloPage .yolo-ba-core {
+    padding: 15px 16px;
+    background: #fff;
+}
+
+#yoloPage .yolo-ba-table {
+    min-width: 620px;
+    table-layout: auto;
+}
+
+#yoloPage .yolo-ba-table th:first-child,
+#yoloPage .yolo-ba-table td:first-child {
+    min-width: 215px;
+    width: 38%;
+}
+
+#yoloPage .yolo-ba-table th:not(:first-child),
+#yoloPage .yolo-ba-table td:not(:first-child) {
+    min-width: 160px;
+    width: 31%;
+    text-align: right;
+}
+
+#yoloPage .yolo-ba-table td.yolo-na {
+    color: var(--y-muted);
+}
+
+#yoloPage .yolo-ba-table .yolo-ba-group td {
+    padding: 6px 9px;
+    border-top: 1px solid var(--y-border);
+    border-bottom: 1px solid var(--y-border);
+    background: var(--y-tint);
+    text-align: left;
+}
+
+#yoloPage .yolo-ba-tbody.is-collapsed tr:not(.yolo-ba-group) {
+    display: none;
+}
+
+#yoloPage .yolo-ba-toggle {
+    display: block;
+    width: 100%;
+    margin: 0;
+    padding: 6px 8px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    box-shadow: none;
+    color: var(--text);
+    font: inherit;
+    font-size: 0.88rem;
+    font-weight: 850;
+    line-height: 1.35;
+    text-align: left;
+    cursor: pointer;
+}
+
+#yoloPage .yolo-ba-toggle:hover {
+    background: var(--y-tint-strong);
+    color: var(--text);
+}
+
+#yoloPage .yolo-detail {
+    margin: 12px 0 0;
+    overflow: hidden;
+    border: 1px solid var(--y-border);
+    border-radius: var(--border-radius);
+    background: #fff;
+}
+
+#yoloPage .yolo-detail > summary {
+    padding: 11px 13px;
+    background: var(--y-soft);
+    color: var(--text);
+    font-size: 0.92rem;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+#yoloPage .yolo-detail > summary:hover,
+#yoloPage .yolo-detail[open] > summary {
+    background: var(--y-tint);
+}
+
+#yoloPage .yolo-detail > .yolo-detail-inner {
+    padding: 12px;
+    border-top: 1px solid var(--y-border-light);
+}
+
+#yoloPage .yolo-detail-inner h3:not(:first-child) {
+    margin-top: 18px;
+}
+
+/* Diagramme / Metrikauswahl -------------------------------- */
+
+#yoloPage .yolo-chart-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 450px), 1fr));
+    gap: 14px;
+}
+
+#yoloPage .yolo-chart-card {
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid var(--y-border);
+    border-radius: var(--border-radius);
+    background: #fff;
+}
+
+#yoloPage .yolo-chart-card h3 {
+    margin: 0 0 11px;
+    color: var(--text);
+    font-size: 0.9rem;
+    font-weight: 800;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+
+#yoloPage .yolo-canvas-wrap {
+    position: relative;
+    width: 100%;
+    height: 285px;
+}
+
+#yoloPage .yolo-metric-list {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 7px;
+    max-height: 190px;
+    margin: 0 0 16px;
+    padding: 1px;
+    overflow-y: auto;
+}
+
+#yoloPage .yolo-metric-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    max-width: 100%;
+    min-height: 34px;
+    padding: 7px 9px;
+    border: 1px solid var(--y-border);
+    border-radius: var(--border-radius);
+    background: #fff;
+    color: var(--text);
+    font-size: 0.78rem;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+}
+
+#yoloPage .yolo-metric-label:hover {
+    border-color: var(--y-accent);
+    background: var(--y-tint);
+}
+
+#yoloPage .yolo-metric-label:has(input:checked) {
+    border-color: var(--y-accent);
+    background: var(--y-tint);
+}
+
+#yoloPage .yolo-metric-label input[type="checkbox"] {
+    flex: 0 0 16px;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    padding: 0;
+    accent-color: var(--y-accent);
+}
+
+/* Vergleichsbilder ----------------------------------------- */
+
+#yoloPage .yolo-image-group {
+    margin: 0 0 16px;
+    overflow: hidden;
+    border: 1px solid var(--y-border);
+    border-radius: var(--border-radius);
+    background: #fff;
+}
+
+#yoloPage .yolo-image-group-head {
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--y-border);
+    background: var(--y-soft);
+    color: var(--text);
+    font-size: 0.92rem;
+    font-weight: 850;
+}
+
+#yoloPage .yolo-image-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+}
+
+#yoloPage .yolo-image-cols-1 {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+
+#yoloPage .yolo-image-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+#yoloPage .yolo-image-cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+#yoloPage .yolo-image-cols-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+#yoloPage .yolo-image-cols-5 {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+#yoloPage .yolo-image-cols-6 {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+#yoloPage .yolo-image-item {
+    min-width: 0;
+    padding: 12px;
+    border-right: 1px solid var(--y-border-light);
+    border-bottom: 1px solid var(--y-border-light);
+    background: #fff;
+}
+
+#yoloPage .yolo-image-item:last-child {
+    border-right: 0;
+}
+
+#yoloPage .yolo-image-item strong {
+    display: block;
+    margin: 0 0 8px;
+    font-size: 0.83rem;
     line-height: 1.3;
     overflow-wrap: anywhere;
 }
 
-.yolo-chart-canvas {
-    position: relative;
-    height: 310px;
-    min-width: 0;
-    padding: 7px;
-    border-radius: calc(var(--border-radius) * .75);
-    background: #fff;
-}
-
-.yolo-chart-card.is-empty .yolo-chart-canvas,
-.yolo-chart-empty {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 100px;
-}
-
-/* ---------------------------------------------------------
- * Begriffslexikon
- * --------------------------------------------------------- */
-
-.yolo-glossary-head {
-    align-items: flex-end;
-}
-
-.yolo-glossary-search-wrap {
-    width: min(380px, 100%);
-}
-
-.yolo-glossary-search-wrap label {
-    display: block;
-    margin-bottom: 4px;
-    font-size: .8rem;
-    font-weight: 800;
-}
-
-.yolo-glossary-search {
-    width: 100%;
-    max-width: none;
-    margin: 0;
-}
-
-.yolo-glossary-meta {
-    margin: -4px 0 12px;
-    color: rgba(0, 0, 0, .55);
-    font-size: .8rem;
-    font-weight: 700;
-}
-
-.yolo-glossary-list {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-}
-
-.yolo-glossary-card {
-    min-width: 0;
-    padding: 14px 15px;
-    border: 1px solid rgba(0, 0, 0, .08);
-    border-left: 4px solid var(--primary);
-    border-radius: var(--border-radius);
-    background: var(--bg-light);
-}
-
-.yolo-glossary-card-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 9px;
-}
-
-.yolo-glossary-card h3 {
-    margin: 2px 0 0;
-    font-size: 1rem;
-    line-height: 1.25;
-}
-
-.yolo-glossary-category {
-    color: var(--primary-dark);
-    font-size: .68rem;
-    font-weight: 900;
-    letter-spacing: .05em;
-    text-transform: uppercase;
-}
-
-.yolo-glossary-raw {
-    max-width: 44%;
-    padding: 4px 6px;
-    border-radius: 5px;
-    background: #fff;
-    color: rgba(0, 0, 0, .6);
-    font-size: .68rem;
-    line-height: 1.25;
-    overflow-wrap: anywhere;
-}
-
-.yolo-glossary-card p {
-    margin: 7px 0 0;
-    color: rgba(0, 0, 0, .78);
-    font-size: .86rem;
-    line-height: 1.5;
-}
-
-.yolo-glossary-empty {
-    grid-column: 1 / -1;
-    padding: 24px 14px;
-    border: 1px dashed rgba(0, 0, 0, .15);
-    border-radius: var(--border-radius);
-    text-align: center;
-    color: rgba(0, 0, 0, .58);
-}
-
-.yolo-images-section {
-    min-width: 0;
-}
-
-.yolo-image-comparison {
-    display: grid;
-    gap: 18px;
-    min-width: 0;
-}
-
-.yolo-image-row {
-    min-width: 0;
-    padding: 12px;
-    border: 1px solid rgba(0, 0, 0, .08);
-    border-radius: var(--border-radius);
-    background: var(--bg-light);
-}
-
-.yolo-image-row-head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 10px;
-}
-
-.yolo-image-row-head h3 {
-    margin: 0;
-    font-size: 1rem;
-    line-height: 1.25;
-}
-
-.yolo-image-row-head > span {
-    color: rgba(0, 0, 0, .55);
-    font-size: .78rem;
-    font-weight: 700;
-    white-space: nowrap;
-}
-
-.yolo-image-run-grid {
-    display: grid;
-    grid-template-columns: repeat(var(--yolo-image-cols, 1), minmax(280px, 1fr));
-    gap: 10px;
-    min-width: calc(var(--yolo-image-cols, 1) * 280px);
-    overflow-x: auto;
-    padding-bottom: 3px;
-    scrollbar-width: thin;
-}
-
-.yolo-image-card {
-    min-width: 0;
-    overflow: hidden;
-    border: 1px solid rgba(0, 0, 0, .08);
-    border-top: 4px solid var(--run-color, var(--primary));
-    border-radius: var(--border-radius);
-    background: #fff;
-}
-
-.yolo-image-card-head {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    min-height: 34px;
-    padding: 7px 9px;
-    border-bottom: 1px solid rgba(0, 0, 0, .07);
-    font-size: .78rem;
-}
-
-.yolo-image-card-head strong {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.yolo-image-card-head .yolo-run-color {
-    width: 9px;
-    height: 9px;
-}
-
-.yolo-image-link {
-    display: block;
-    background: #fff;
-    line-height: 0;
-}
-
-.yolo-comparison-image {
+#yoloPage .yolo-image-item img {
     display: block;
     width: 100%;
     height: auto;
-    object-fit: contain;
-    background: #fff;
+    border: 1px solid var(--y-border-light);
+    border-radius: var(--border-radius);
+    cursor: zoom-in;
 }
 
-.yolo-image-card.is-missing {
-    display: flex;
-    flex-direction: column;
+#yoloPage .yolo-image-item a:hover img {
+    border-color: var(--y-accent);
 }
 
-.yolo-image-missing {
-    flex: 1 1 auto;
-    min-height: 180px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 18px;
-    color: rgba(0, 0, 0, .52);
-    text-align: center;
-    font-size: .82rem;
-    font-weight: 650;
+/* Glossar -------------------------------------------------- */
+
+#yoloPage .yolo-glossary-row {
+    padding: 13px 3px;
+    border-bottom: 1px solid var(--y-border-light);
+}
+
+#yoloPage .yolo-glossary-row:last-child {
+    border-bottom: 0;
+}
+
+#yoloPage .yolo-glossary-row strong {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--text);
+    font-size: 0.93rem;
+}
+
+#yoloPage .yolo-glossary-row p {
+    margin: 0;
+    font-size: 0.88rem;
+    line-height: 1.5;
+}
+
+/* Klassen für dynamisch erzeugte Elemente ------------------ */
+
+#yoloPage .yolo-series-0 { color: var(--y-series-0); }
+#yoloPage .yolo-series-1 { color: var(--y-series-1); }
+#yoloPage .yolo-series-2 { color: var(--y-series-2); }
+#yoloPage .yolo-series-3 { color: var(--y-series-3); }
+#yoloPage .yolo-series-4 { color: var(--y-series-4); }
+#yoloPage .yolo-series-5 { color: var(--y-series-5); }
+
+#yoloPage .yolo-clipboard-fallback {
+    position: fixed;
+    top: 0;
+    left: -10000px;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
 }
 
 /* =========================================================
