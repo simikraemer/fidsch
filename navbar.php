@@ -326,7 +326,7 @@ if ($isAuthed && $rwthJobsCounterEnabled) {
             <li class="nav-item has-submenu">
                 <a href="/phan/alben">
                     <img
-                        src="/img/phan.png"
+                        src="/img/sonne.png"
                         alt="PHAN"
                         class="nav-icon"
                         loading="eager"
@@ -425,7 +425,7 @@ if ($isAuthed && $rwthJobsCounterEnabled) {
             
             <!-- Tools -->
             <li class="nav-item has-submenu">
-                <a href="/tools/files"><img src="/img/settings.png" alt="Tool" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"></a>
+                <a href="/tools/files"><img src="/img/tool.png" alt="Tool" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"></a>
                 <ul class="submenu">       
                     <li><a href="/tools/files"><img src="/img/upload.png" alt="Files" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Files</span></a></li>
                     <li><a href="/tools/log"><img src="/img/log.png" alt="MAC" class="nav-icon" loading="eager" decoding="sync" fetchpriority="high"><span class="submenu-text">Login-Logs</span></a></li>

@@ -95,6 +95,8 @@ if (!isset($page_title) || $page_title === '') {
     <link rel="preload" href="/img/todo.png" as="image">
     <link rel="preload" href="/img/spotify.png" as="image">
     <link rel="preload" href="/img/phan.png" as="image">
+    <link rel="preload" href="/img/tool.png" as="image">
+    <link rel="preload" href="/img/sonne.png" as="image">
     <link rel="preload" href="/img/blog.png" as="image">
     <link rel="preload" href="/img/char.png" as="image">
     <link rel="preload" href="/img/region.png" as="image">
