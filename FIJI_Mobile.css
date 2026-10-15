@@ -13308,3 +13308,40 @@
         font-size: 0.82rem;
     }
 }
+
+/* YOLO / Bilder: ausschließlich die neue Sortierleiste auf Smartphones */
+@media (max-width: 650px) {
+    #yoloPage .yolo-image-controls {
+        width: 100%;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 11px;
+        margin-bottom: 14px;
+        padding: 12px;
+    }
+
+    #yoloPage .yolo-image-controls .yolo-select {
+        width: 100%;
+        min-width: 0;
+        height: 44px;
+        font-size: 0.88rem;
+    }
+}
+
+
+/* YOLO / Bilder: lange Titel und Kennzahlen mobil lesbar umbrechen */
+@media (max-width: 650px) {
+    #yoloPage .yolo-image-group-head {
+        gap: 4px 8px;
+        padding: 10px 12px;
+    }
+
+    #yoloPage .yolo-image-head-main,
+    #yoloPage .yolo-image-head-classes {
+        flex: 1 1 100%;
+        text-align: left;
+    }
+
+    #yoloPage .yolo-image-head-classes {
+        font-size: 0.78rem;
+    }
+}

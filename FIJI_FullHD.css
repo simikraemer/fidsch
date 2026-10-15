@@ -13484,3 +13484,88 @@ body.faction-gallery-open { overflow: hidden; }
     justify-content: center;
     text-align: center;
 }
+
+/* YOLO / Bilder: kompakte Sortierleiste (nur diese beiden Dropdowns) */
+#yoloPage .yolo-image-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr);
+    align-items: end;
+    gap: 14px;
+    width: min(100%, 660px);
+    margin: 0 0 18px;
+    padding: 14px 16px;
+    border: 1px solid var(--y-border, rgba(0, 0, 0, 0.12));
+    border-left: 4px solid var(--primary);
+    border-radius: var(--border-radius, 12px);
+    background: var(--y-soft, #f7f7f7);
+}
+
+#yoloPage .yolo-image-controls .yolo-image-control {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+#yoloPage .yolo-image-controls .yolo-image-control > label {
+    display: block;
+    margin: 0;
+    color: var(--text);
+    font-size: 0.79rem;
+    font-weight: 750;
+    line-height: 1.2;
+}
+
+#yoloPage .yolo-image-controls .yolo-select {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    height: 42px;
+    margin: 0;
+    padding: 8px 11px;
+    border: 1px solid rgba(0, 0, 0, 0.17);
+    border-radius: var(--border-radius, 10px);
+    background-color: #fff;
+    color: var(--text);
+    font: inherit;
+    font-size: 0.86rem;
+    box-shadow: none;
+    cursor: pointer;
+}
+
+#yoloPage .yolo-image-controls .yolo-select:hover {
+    border-color: var(--primary);
+}
+
+#yoloPage .yolo-image-controls .yolo-select:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    border-color: var(--primary);
+}
+
+
+/* YOLO / Bilder: Kennzahlen ausschließlich in der Bildtitelzeile */
+#yoloPage .yolo-image-group-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 5px 16px;
+}
+
+#yoloPage .yolo-image-head-main {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-weight: 850;
+    font-variant-numeric: tabular-nums;
+}
+
+#yoloPage .yolo-image-head-classes {
+    flex: 0 1 auto;
+    color: var(--y-muted);
+    font-size: 0.83rem;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}

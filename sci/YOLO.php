@@ -465,7 +465,85 @@ function yolo_image_identity(string $relative): array {
     return ['id' => strtolower($id), 'label' => $stem];
 }
 
-function yolo_images(string $runRoot, bool $includePath = false): array {
+/**
+ * Einzelbild-Metriken der finalen Realtest-Auswertung laden.
+ * v9.3 schreibt die Werte bereits in Auswertung_Test/auswertung.csv.
+ * Fallback fuer alte Runs: eingebettete Datensaetze in auswertung.json.
+ * Fehlende Bewertungen bleiben null und werden nie als 0 ausgegeben.
+ */
+function yolo_image_scores(string $dir): array {
+    $scores = [];
+    $csvPath = $dir . '/auswertung.csv';
+    if (is_file($csvPath) && is_readable($csvPath)) {
+        $handle = @fopen($csvPath, 'rb');
+        if ($handle) {
+            $header = fgetcsv($handle, 0, ';', '"', '');
+            if (is_array($header)) {
+                $header = array_map(static function ($field): string {
+                    $field = trim((string)$field);
+                    return preg_replace('/^\\xEF\\xBB\\xBF/', '', $field) ?? $field;
+                }, $header);
+                $indexes = array_flip($header);
+                $col = static function (array $row, string $key) use ($indexes): mixed {
+                    return isset($indexes[$key]) ? ($row[$indexes[$key]] ?? null) : null;
+                };
+                while (($row = fgetcsv($handle, 0, ';', '"', '')) !== false) {
+                    $file = (string)($col($row, 'file') ?? '');
+                    if ($file === '')
+                        $file = (string)($col($row, 'output') ?? '');
+                    if ($file === '')
+                        continue;
+                    $stem = pathinfo(str_replace('\\', '/', $file), PATHINFO_FILENAME);
+                    $stem = preg_replace('/_2x2$/i', '', $stem) ?? $stem;
+                    $key = strtolower($stem);
+                    $values = [
+                        'miou_boundary' => yolo_number($col($row, 'miou_boundary')),
+                        'miou_strict' => yolo_number($col($row, 'miou_strict')),
+                        'defect_boundary' => yolo_number($col($row, 'defect_iou_boundary')),
+                        'defect_strict' => yolo_number($col($row, 'defect_iou_strict') ?? $col($row, 'defect_iou')),
+                        'text_boundary' => yolo_number($col($row, 'text_iou_boundary')),
+                        'text_strict' => yolo_number($col($row, 'text_iou_strict') ?? $col($row, 'text_iou')),
+                        'gt_defect_pixels' => yolo_number($col($row, 'defect_ground_truth_pixels')),
+                        'gt_text_pixels' => yolo_number($col($row, 'text_ground_truth_pixels')),
+                    ];
+                    if ($values['miou_boundary'] !== null || $values['miou_strict'] !== null)
+                        $scores[$key] = $values;
+                }
+            }
+            fclose($handle);
+        }
+    }
+    if ($scores)
+        return $scores;
+
+    // Historische v9.3-Daten koennen dieselben Ergebnisse nur in JSON enthalten.
+    $report = yolo_json_file($dir . '/auswertung.json');
+    foreach (yolo_arr($report['images'] ?? []) as $record) {
+        if (!is_array($record))
+            continue;
+        $file = (string)($record['file'] ?? $record['output'] ?? '');
+        if ($file === '')
+            continue;
+        $stem = pathinfo(str_replace('\\', '/', $file), PATHINFO_FILENAME);
+        $stem = preg_replace('/_2x2$/i', '', $stem) ?? $stem;
+        $key = strtolower($stem);
+        $boundary = yolo_arr(yolo_path($record, 'evaluation.boundary', []));
+        $strict = yolo_arr(yolo_path($record, 'evaluation.strict', []));
+        $scores[$key] = [
+            'miou_boundary' => yolo_number(yolo_path($record, 'miou.boundary')),
+            'miou_strict' => yolo_number(yolo_path($record, 'miou.strict')),
+            'defect_boundary' => yolo_number(yolo_path($boundary, 'defect.metrics.iou')),
+            'defect_strict' => yolo_number(yolo_path($strict, 'defect.metrics.iou')),
+            'text_boundary' => yolo_number(yolo_path($boundary, 'text.metrics.iou')),
+            'text_strict' => yolo_number(yolo_path($strict, 'text.metrics.iou')),
+            'gt_defect_pixels' => yolo_number(yolo_path($strict, 'defect.counts.ground_truth')),
+            'gt_text_pixels' => yolo_number(yolo_path($strict, 'text.counts.ground_truth')),
+        ];
+    }
+    return $scores;
+}
+
+function yolo_images(string $runRoot, bool $includePath = false, bool $includeScores = false): array {
     $dir = null;
     foreach (['Auswertung_Test', 'Auswertung_Real_Test', 'Auswertung_Realtest'] as $base)
         if (is_dir($runRoot . '/' . $base)) {
@@ -475,6 +553,7 @@ function yolo_images(string $runRoot, bool $includePath = false): array {
     if (!$dir || !is_readable($dir))
         return [];
     $out = [];
+    $scores = $includeScores ? yolo_image_scores($dir) : [];
     try {
         $iter = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS));
         foreach ($iter as $f) {
@@ -487,6 +566,10 @@ function yolo_images(string $runRoot, bool $includePath = false): array {
             if (isset($out[$key]) && $out[$key]['mtime'] >= (@filemtime($full) ?: 0))
                 continue;
             $out[$key] = ['id' => $key, 'label' => $ident['label'], 'mtime' => @filemtime($full) ?: 0];
+            if ($includeScores) {
+                $scoreKey = strtolower($ident['label']);
+                $out[$key]['scores'] = $scores[$key] ?? $scores[$scoreKey] ?? null;
+            }
             if ($includePath)
                 $out[$key]['path'] = $full;
             if (count($out) >= YOLO_MAX_IMAGES_PER_RUN)
@@ -661,8 +744,8 @@ function yolo_load(array $entry): array {
         'evaluations' => $evals,
         'test_images' => $entry['kind'] === 'detail'
             ? array_map(
-                static fn($x) => ['id' => $x['id'], 'label' => $x['label']],
-                yolo_images($entry['runRoot'])
+                static fn($x) => ['id' => $x['id'], 'label' => $x['label'], 'scores' => $x['scores'] ?? null],
+                yolo_images($entry['runRoot'], false, true)
             )
             : [],
         'configuration' => [
@@ -903,6 +986,22 @@ require_once __DIR__ . '/../navbar.php';
                             werden runübergreifend nebeneinander angezeigt.
                             Klick öffnet das Bild in Originalgröße.
                         </p>
+                    </div>
+                </div>
+                <div class="yolo-image-controls" role="group" aria-label="Sortierung der Testbilder">
+                    <div class="yolo-image-control">
+                        <label for="yoloImageSort">Sortieren nach</label>
+                        <select id="yoloImageSort" class="yolo-select">
+                            <option value="miou_boundary">Boundary-mIoU: beste zuerst</option>
+                            <option value="miou_strict">Strict-mIoU: beste zuerst</option>
+                            <option value="defect_boundary">Boundary-Fehler-IoU: beste zuerst</option>
+                            <option value="text_boundary">Boundary-Schrift-IoU: beste zuerst</option>
+                            <option value="filename">Dateiname (A–Z)</option>
+                        </select>
+                    </div>
+                    <div class="yolo-image-control">
+                        <label for="yoloImageReference">Referenzlauf</label>
+                        <select id="yoloImageReference" class="yolo-select" aria-label="Referenzlauf für die Bildsortierung"></select>
                     </div>
                 </div>
                 <div id="yoloImages"></div>
@@ -1728,31 +1827,55 @@ require_once __DIR__ . '/../navbar.php';
     }
     function renderImages() {
         const runs = state.loaded.filter(run => run.kind === 'detail');
+        const sortKey = $('yoloImageSort').value;
+        const referenceSelect = $('yoloImageReference');
+        const previousReference = referenceSelect.value;
+        referenceSelect.innerHTML = runs.map(run => `
+            <option value="${escapeAttr(run.key)}">${esc(run.name)}</option>
+        `).join('');
+        referenceSelect.value = runs.some(run => run.key === previousReference)
+            ? previousReference : (runs[0]?.key ?? '');
+        referenceSelect.disabled = runs.length < 2;
+        const referenceRun = runs.find(run => run.key === referenceSelect.value) || runs[0] || null;
+        const byRun = new Map(runs.map(run => [run.key,
+            new Map((run.test_images || []).map(image => [image.id, image]))
+        ]));
         const imagesById = new Map();
-
         runs.forEach(run => {
             (run.test_images || []).forEach(image => {
-                if (!imagesById.has(image.id)) {
+                if (!imagesById.has(image.id))
                     imagesById.set(image.id, image.label);
-                }
             });
         });
-
+        const referenceImages = referenceRun ? byRun.get(referenceRun.key) : null;
+        const referenceScore = id => referenceImages?.get(id)?.scores?.[sortKey] ?? null;
+        const hasScores = sortKey !== 'filename'
+            && [...imagesById.keys()].some(id => isNum(referenceScore(id)));
+        const byName = (a, b) => a[1].localeCompare(b[1], 'de', { numeric: true });
         const groups = [...imagesById.entries()].sort((a, b) => {
-            return a[1].localeCompare(b[1], 'de', { numeric: true });
+            if (!hasScores)
+                return byName(a, b);
+            const left = referenceScore(a[0]), right = referenceScore(b[0]);
+            if (isNum(left) && isNum(right) && left !== right)
+                return right - left;
+            if (isNum(left) !== isNum(right))
+                return isNum(left) ? -1 : 1;
+            return byName(a, b);
         });
+        const fallbackNotice = sortKey !== 'filename' && groups.length && !hasScores
+            ? `<div class="yolo-notice warn">Für den Referenzlauf ${esc(referenceRun?.name ?? '')} liegen keine Einzelbild-Metriken für diese Sortierung vor. Die Bilder werden nach Dateiname angezeigt.</div>`
+            : '';
+        const formatScore = value => isNum(value) ? nice(value, true) : '—';
 
-        $('yoloImages').innerHTML = groups.map(([imageId, label]) => {
+        $('yoloImages').innerHTML = fallbackNotice + groups.map(([imageId, label], index) => {
             const imageCells = runs.map(run => {
-                const available = (run.test_images || []).some(image => {
-                    return image.id === imageId;
-                });
-
-                const content = available ? `
+                const image = byRun.get(run.key)?.get(imageId);
+                const content = image ? `
                     <a
                         href="${escapeAttr(imageUrl(run.key, imageId))}"
                         target="_blank"
                         rel="noopener"
+                        title="${escapeAttr(run.name)}"
                     >
                         <img
                             loading="lazy"
@@ -1761,18 +1884,26 @@ require_once __DIR__ . '/../navbar.php';
                         >
                     </a>
                 ` : '<div class="yolo-empty">Keine entsprechende Ausgabe vorhanden.</div>';
-
-                return `
-                    <div class="yolo-image-item">
-                        <strong>${esc(run.name)}</strong>
-                        ${content}
-                    </div>
-                `;
+                return `<div class="yolo-image-item">${content}</div>`;
             }).join('');
 
+            // Alle angezeigten Kennzahlen beziehen sich auf den gewählten Referenzlauf.
+            // Die Sortierreihenfolge kann unabhängig davon auf Strict/Einzelklassen beruhen.
+            const refScores = referenceImages?.get(imageId)?.scores;
+            const rank = hasScores ? `${index + 1}. ` : '';
+            const boundary = isNum(refScores?.miou_boundary)
+                ? ` · ${esc(formatScore(refScores.miou_boundary))} (${esc(referenceRun?.name ?? '')})`
+                : '';
+            const classIoUs = [
+                isNum(refScores?.defect_boundary) ? `Fehler ${esc(formatScore(refScores.defect_boundary))}` : '',
+                isNum(refScores?.text_boundary) ? `Schrift ${esc(formatScore(refScores.text_boundary))}` : ''
+            ].filter(Boolean).join(' · ');
             return `
                 <article class="yolo-image-group">
-                    <div class="yolo-image-group-head">${esc(label)}</div>
+                    <div class="yolo-image-group-head">
+                        <span class="yolo-image-head-main">${rank}${esc(label)}${boundary}</span>
+                        ${classIoUs ? `<span class="yolo-image-head-classes">${classIoUs}</span>` : ''}
+                    </div>
                     <div class="yolo-image-grid yolo-image-cols-${Math.min(6, runs.length)}">
                         ${imageCells}
                     </div>
@@ -1849,6 +1980,8 @@ require_once __DIR__ . '/../navbar.php';
     $('yoloKindFilter').addEventListener('change', renderRunList);
     $('yoloRunSearch').addEventListener('input', renderRunList);
     $('yoloGlossarySearch').addEventListener('input', renderGlossary);
+    $('yoloImageSort').addEventListener('change', renderImages);
+    $('yoloImageReference').addEventListener('change', renderImages);
     renderRunList();
     renderGlossary();
     selectionChanged();
