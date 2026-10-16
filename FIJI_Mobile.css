@@ -2931,13 +2931,13 @@
         height: 100% !important;
     }
 
-    /* Fächer: eine horizontale Scrollzeile + Plus rechts.
-       Kein mehrzeiliges Pill-Chaos auf kleinen Displays. */
+    /* Fächer: Scrollzeile und zwei Aktions-Icons rechts. */
     #ltPage .lt-subject-row {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 42px;
+        grid-template-columns: minmax(0, 1fr) 90px;
         align-items: center;
         gap: 8px;
+        padding: 0;
         width: 100%;
         max-width: none;
         min-height: 42px;
@@ -2971,12 +2971,18 @@
         white-space: nowrap;
     }
 
-    #ltPage .lt-add-btn {
+    #ltPage .lt-subject-actions {
         position: static;
+        transform: none;
+        display: flex;
+        gap: 6px;
+        width: 90px;
+    }
+
+    #ltPage .lt-subject-actions .lt-add-btn {
         width: 42px;
         height: 42px;
-        transform: none;
-        font-size: 24px;
+        flex: 0 0 42px;
         box-shadow: var(--shadow);
     }
 
@@ -3084,7 +3090,8 @@
     }
 
     /* Modal */
-    #ltModal .lt-modal-content {
+    #ltModal .lt-modal-content,
+    #ltExamModal .lt-modal-content {
         width: calc(100vw - 20px);
         max-width: 520px;
         max-height: calc(100dvh - 24px);
@@ -3095,7 +3102,8 @@
         border-radius: 16px;
     }
 
-    #ltModal .lt-modal-title {
+    #ltModal .lt-modal-title,
+    #ltExamModal .lt-modal-title {
         margin: 0 34px 12px 0;
         font-size: 1.25rem;
     }
@@ -3127,7 +3135,8 @@
         text-align: center;
     }
 
-    #ltModal .lt-modal-actions {
+    #ltModal .lt-modal-actions,
+    #ltExamModal .lt-modal-actions {
         display: flex;
         gap: 8px;
         width: 100%;
@@ -3142,6 +3151,25 @@
     #ltModal .lt-delete-btn {
         flex: 0 0 auto;
         min-width: 92px;
+    }
+
+    #ltExamModal .lt-exam-row {
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 5px 8px;
+    }
+
+    #ltExamModal .lt-exam-index {
+        grid-column: 1 / -1;
+        font-size: 0.84rem;
+    }
+
+    #ltExamModal .lt-exam-row .lt-delete-btn {
+        min-width: 86px;
+        padding: 8px;
+    }
+
+    #ltExamModal .lt-exam-add {
+        align-self: stretch;
     }
 }
 

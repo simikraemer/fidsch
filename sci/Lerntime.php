@@ -7,6 +7,11 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
 
+// CSRF-Schutz für Änderungen an Klausurterminen.
+if (empty($_SESSION['lerntime_exam_csrf'])) {
+    $_SESSION['lerntime_exam_csrf'] = bin2hex(random_bytes(32));
+}
+
 $SUBJECTS = []; // name => ['id'=>int,'abkuerzung'=>string,'color'=>string,'legend_hidden_default'=>int,'sort_order'=>int]
 $resF = $sciconn->query("
     SELECT id, name, abkuerzung, color, legend_hidden_default, sort_order
@@ -73,6 +78,85 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         }
         $_SESSION['lerntime_fach'] = $fach;
         json_out(['ok' => true]);
+    }
+    if ($action === 'save_exams') {
+        $fach = (string)($_POST['fach'] ?? '');
+        $token = (string)($_POST['csrf_token'] ?? '');
+        if (!hash_equals((string)$_SESSION['lerntime_exam_csrf'], $token)) {
+            json_out(['ok' => false, 'error' => 'Sicherheitsprüfung fehlgeschlagen. Bitte Seite neu laden.'], 403);
+        }
+        if (!isset($SUBJECTS[$fach])) {
+            json_out(['ok' => false, 'error' => 'Ungültiges Fach.'], 400);
+        }
+
+        $rawDates = (string)($_POST['dates'] ?? '');
+        $dates = json_decode($rawDates, true);
+        if (!is_array($dates) || array_values($dates) !== $dates || count($dates) > 100) {
+            json_out(['ok' => false, 'error' => 'Ungültige Terminliste.'], 400);
+        }
+        $requested = [];
+        foreach ($dates as $datum) {
+            if (!is_string($datum)
+                || !preg_match('/^\d{4}-\d{2}-\d{2}$/D', $datum)
+                || (int)substr($datum, 0, 4) < 1000
+                || !checkdate((int)substr($datum, 5, 2), (int)substr($datum, 8, 2), (int)substr($datum, 0, 4))) {
+                json_out(['ok' => false, 'error' => 'Mindestens ein Datum ist ungültig.'], 400);
+            }
+            if (isset($requested[$datum])) {
+                json_out(['ok' => false, 'error' => 'Ein Klausurtermin wurde doppelt angegeben.'], 400);
+            }
+            $requested[$datum] = true;
+        }
+
+        try {
+            $sciconn->begin_transaction();
+            $stmt = $sciconn->prepare('SELECT datum FROM klausurtermine WHERE fach = ? FOR UPDATE');
+            $stmt->bind_param('s', $fach);
+            $stmt->execute();
+            $existing = [];
+            $result = $stmt->get_result();
+            while ($result && ($entry = $result->fetch_assoc())) {
+                $existing[(string)$entry['datum']] = true;
+            }
+            $stmt->close();
+
+            // Nur geänderte Termine löschen/anlegen; bestehende IDs bleiben erhalten.
+            $toDelete = array_diff_key($existing, $requested);
+            $toInsert = array_diff_key($requested, $existing);
+            if ($toDelete) {
+                $stmt = $sciconn->prepare('DELETE FROM klausurtermine WHERE fach = ? AND datum = ?');
+                $datum = '';
+                $stmt->bind_param('ss', $fach, $datum);
+                foreach ($toDelete as $datum => $_unused) {
+                    $stmt->execute();
+                }
+                $stmt->close();
+            }
+            if ($toInsert) {
+                $stmt = $sciconn->prepare('INSERT INTO klausurtermine (fach, datum) VALUES (?, ?)');
+                $datum = '';
+                $stmt->bind_param('ss', $fach, $datum);
+                foreach ($toInsert as $datum => $_unused) {
+                    $stmt->execute();
+                }
+                $stmt->close();
+            }
+            $sciconn->commit();
+        } catch (Throwable $e) {
+            $sciconn->rollback();
+            json_out(['ok' => false, 'error' => 'Klausurtermine konnten nicht gespeichert werden. Bitte erneut versuchen.'], 500);
+        }
+
+        $stmt = $sciconn->prepare('SELECT id, fach, datum FROM klausurtermine WHERE fach = ? ORDER BY datum ASC, id ASC');
+        $stmt->bind_param('s', $fach);
+        $stmt->execute();
+        $rows = [];
+        $result = $stmt->get_result();
+        while ($result && ($entry = $result->fetch_assoc())) {
+            $rows[] = $entry;
+        }
+        $stmt->close();
+        json_out(['ok' => true, 'exams' => $rows]);
     }
     if ($action === 'toggle_done') {
         $id = (int)($_POST['id'] ?? 0);
@@ -319,9 +403,14 @@ require_once __DIR__ . '/../navbar.php';
 
     <div class="lt-subject-row">
         <div id="ltTabs" class="lt-tabs" role="tablist" aria-label="Fächer"></div>
-        <button id="ltAddBtn" class="lt-add-btn" type="button" title="Eintrag hinzufügen" aria-label="Eintrag hinzufügen">
-            <span class="lt-add-plus">+</span>
-        </button>
+        <div class="lt-subject-actions">
+            <button id="ltExamBtn" class="lt-add-btn lt-exam-btn" type="button" title="Klausurtermine des ausgewählten Fachs bearbeiten" aria-label="Klausurtermine bearbeiten" aria-haspopup="dialog" aria-controls="ltExamModal">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3.5" y="5.5" width="17" height="15" rx="2"/><path d="M7.5 3.5v4M16.5 3.5v4M3.5 10h17M8 14.5h3M8 17.5h3"/></svg>
+            </button>
+            <button id="ltAddBtn" class="lt-add-btn" type="button" title="Eintrag hinzufügen" aria-label="Eintrag hinzufügen" aria-haspopup="dialog" aria-controls="ltModal">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+        </div>
     </div>
 
     <div class="lt-table-wrap">
@@ -391,6 +480,24 @@ require_once __DIR__ . '/../navbar.php';
     </div>
 </div>
 
+<!-- Modal: Klausurtermine für das aktuell ausgewählte Fach -->
+<div id="ltExamModal" class="modal lt-exam-modal hidden" aria-hidden="true">
+    <div class="modal-content lt-modal-content" role="dialog" aria-modal="true" aria-labelledby="ltExamTitle" aria-describedby="ltExamHint">
+        <button class="close-button" id="ltExamClose" type="button" title="Schließen" aria-label="Schließen">&times;</button>
+        <h2 id="ltExamTitle" class="lt-modal-title">Klausurtermine</h2>
+        <p id="ltExamHint" class="subtle">Termine für <strong id="ltExamSubject"></strong>. Mehrere Termine sind möglich. Änderungen werden erst mit „Speichern“ übernommen.</p>
+        <div class="form-block">
+            <div id="ltExamList" class="lt-exam-list"></div>
+            <button id="ltExamAdd" type="button" class="btn-secondary lt-exam-add">Weiteren Termin hinzufügen</button>
+            <div id="ltExamError" class="lt-exam-error hidden" role="alert" aria-live="polite"></div>
+            <div class="lt-modal-actions">
+                <button id="ltExamSave" class="lt-save-btn" type="button">Speichern</button>
+                <button id="ltExamCancel" class="btn-secondary" type="button">Abbrechen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Chart libs -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.3/build/global/luxon.min.js"></script>
@@ -402,7 +509,8 @@ require_once __DIR__ . '/../navbar.php';
     const DateTime = luxon.DateTime;
     const SUBJECTS = <?= json_encode($SUBJECTS, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
     const TASKS = <?= json_encode($tasks, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
-    const EXAMS = <?= json_encode($klausuren, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+    const EXAMS = <?= json_encode($klausuren, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    const EXAM_CSRF = <?= json_encode($_SESSION['lerntime_exam_csrf'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
     const phpDefaultFach = <?= json_encode($sessionFach, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
     const CHART_START_DATE = <?= json_encode($chartStartDate, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
     const CHART_END_EXCLUSIVE_DATE = <?= json_encode($chartEndExclusiveDate, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
@@ -412,6 +520,16 @@ require_once __DIR__ . '/../navbar.php';
     const elModal = document.getElementById('ltModal');
     const elModalClose = document.getElementById('ltModalClose');
     const elAddBtn = document.getElementById('ltAddBtn');
+    const elExamBtn = document.getElementById('ltExamBtn');
+    const elExamModal = document.getElementById('ltExamModal');
+    const elExamClose = document.getElementById('ltExamClose');
+    const elExamCancel = document.getElementById('ltExamCancel');
+    const elExamTitle = document.getElementById('ltExamTitle');
+    const elExamSubject = document.getElementById('ltExamSubject');
+    const elExamList = document.getElementById('ltExamList');
+    const elExamAdd = document.getElementById('ltExamAdd');
+    const elExamSave = document.getElementById('ltExamSave');
+    const elExamError = document.getElementById('ltExamError');
     const elNewFach = document.getElementById('ltNewFach');
     const elNewEinheit = document.getElementById('ltNewEinheit');
     const elNewTitel = document.getElementById('ltNewTitel');
@@ -991,7 +1109,9 @@ require_once __DIR__ . '/../navbar.php';
         if (e.target === elModal) closeModal();
     });
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && !elModal.classList.contains('hidden')) closeModal();
+        if (e.key !== 'Escape') return;
+        if (!elExamModal.classList.contains('hidden')) closeExamModal();
+        else if (!elModal.classList.contains('hidden')) closeModal();
     });
     elSaveNew.addEventListener('click', async () => {
         const editId = (elEditId.value || '').trim();
@@ -1035,6 +1155,152 @@ require_once __DIR__ . '/../navbar.php';
             elSaveNew.disabled = false;
         }
     });
+
+    /* ---------------------- Klausurtermine ---------------------- */
+    let examModalFach = '';
+    let examSaving = false;
+
+    function showExamError(message) {
+        elExamError.textContent = message;
+        elExamError.classList.toggle('hidden', !message);
+    }
+
+    function refreshExamRowLabels() {
+        const rows = [...elExamList.querySelectorAll('.lt-exam-row')];
+        rows.forEach((row, i) => {
+            row.querySelector('.lt-exam-index').textContent = `Termin ${i + 1}`;
+            row.querySelector('input[type="date"]').setAttribute('aria-label', `Klausurtermin ${i + 1}`);
+        });
+        const empty = elExamList.querySelector('.lt-exam-empty');
+        if (rows.length === 0 && !empty) {
+            const hint = document.createElement('p');
+            hint.className = 'lt-exam-empty subtle';
+            hint.textContent = 'Für dieses Fach sind noch keine Klausurtermine eingetragen.';
+            elExamList.appendChild(hint);
+        } else if (rows.length > 0 && empty) {
+            empty.remove();
+        }
+    }
+
+    function addExamRow(date = '') {
+        const row = document.createElement('div');
+        row.className = 'lt-exam-row';
+        const label = document.createElement('span');
+        label.className = 'lt-exam-index';
+        const input = document.createElement('input');
+        input.type = 'date';
+        input.required = true;
+        input.value = date;
+        input.addEventListener('input', () => showExamError(''));
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'lt-delete-btn';
+        remove.textContent = 'Entfernen';
+        remove.setAttribute('aria-label', 'Klausurtermin entfernen');
+        remove.addEventListener('click', () => {
+            row.remove();
+            refreshExamRowLabels();
+            showExamError('');
+        });
+        row.append(label, input, remove);
+        elExamList.appendChild(row);
+        refreshExamRowLabels();
+        return input;
+    }
+
+    function openExamModal() {
+        examModalFach = selectedFach;
+        elExamTitle.textContent = 'Klausurtermine bearbeiten';
+        elExamSubject.textContent = examModalFach;
+        elExamModal.style.setProperty('--lt-accent', subjectColor(examModalFach));
+        elExamList.replaceChildren();
+        showExamError('');
+        const dates = EXAMS
+            .filter(e => String(e.fach) === examModalFach)
+            .map(e => String(e.datum))
+            .sort();
+        dates.forEach(date => addExamRow(date));
+        refreshExamRowLabels();
+        elExamModal.classList.remove('hidden');
+        elExamModal.setAttribute('aria-hidden', 'false');
+        const first = elExamList.querySelector('input[type="date"]');
+        (first || elExamAdd).focus();
+    }
+
+    function closeExamModal() {
+        if (examSaving) return;
+        elExamModal.classList.add('hidden');
+        elExamModal.setAttribute('aria-hidden', 'true');
+        examModalFach = '';
+        showExamError('');
+        elExamBtn.focus();
+    }
+
+    elExamBtn.addEventListener('click', openExamModal);
+    elExamClose.addEventListener('click', closeExamModal);
+    elExamCancel.addEventListener('click', closeExamModal);
+    elExamModal.addEventListener('click', (e) => {
+        if (e.target === elExamModal) closeExamModal();
+    });
+    elExamAdd.addEventListener('click', () => {
+        if (examSaving) return;
+        if (elExamList.querySelectorAll('.lt-exam-row').length >= 100) {
+            showExamError('Maximal 100 Klausurtermine pro Fach möglich.');
+            return;
+        }
+        addExamRow().focus();
+        showExamError('');
+    });
+    elExamSave.addEventListener('click', async () => {
+        if (examSaving || !examModalFach) return;
+        const inputs = [...elExamList.querySelectorAll('input[type="date"]')];
+        const dates = inputs.map(input => input.value.trim());
+        const invalidIndex = dates.findIndex(date => !/^\d{4}-\d{2}-\d{2}$/.test(date));
+        if (invalidIndex !== -1) {
+            showExamError('Bitte für jeden Termin ein gültiges Datum auswählen.');
+            inputs[invalidIndex].focus();
+            return;
+        }
+        if (new Set(dates).size !== dates.length) {
+            showExamError('Ein Datum ist mehrfach eingetragen. Pro Fach und Tag ist nur ein Termin möglich.');
+            return;
+        }
+        if (dates.length === 0 && EXAMS.some(e => String(e.fach) === examModalFach)
+            && !confirm(`Alle Klausurtermine für „${examModalFach}“ löschen?`)) return;
+
+        examSaving = true;
+        elExamSave.disabled = true;
+        elExamAdd.disabled = true;
+        elExamList.querySelectorAll('input, button').forEach(el => el.disabled = true);
+        showExamError('');
+        try {
+            const fach = examModalFach;
+            const res = await post('save_exams', {
+                fach, dates: JSON.stringify(dates), csrf_token: EXAM_CSRF
+            });
+            if (!res || !res.ok || !Array.isArray(res.exams)) {
+                throw new Error(res?.error || 'Klausurtermine konnten nicht gespeichert werden.');
+            }
+            const updated = EXAMS.filter(e => String(e.fach) !== fach).concat(res.exams);
+            EXAMS.splice(0, EXAMS.length, ...updated);
+            rebuildChart();
+            closeExamModalAfterSave();
+        } catch (e) {
+            showExamError(e?.message || 'Klausurtermine konnten nicht gespeichert werden.');
+        } finally {
+            examSaving = false;
+            elExamSave.disabled = false;
+            elExamAdd.disabled = false;
+            elExamList.querySelectorAll('input, button').forEach(el => el.disabled = false);
+        }
+    });
+
+    function closeExamModalAfterSave() {
+        elExamModal.classList.add('hidden');
+        elExamModal.setAttribute('aria-hidden', 'true');
+        examModalFach = '';
+        elExamBtn.focus();
+    }
 
     // Monats-Labels in Monatsmitte (Labels), Gridlines bleiben Monatsanfang (Ticks)
 

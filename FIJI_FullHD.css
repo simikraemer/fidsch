@@ -765,6 +765,127 @@ input[type="radio"] {
     line-height: 1;
 }
 
+/* sci/Lerntime.php: Fächer-Aktionen und Klausurterminverwaltung.
+   Bestehende lt-/modal-/Button-Klassen bleiben die Grundlage. */
+#ltPage .lt-subject-row {
+    padding-inline: 110px;
+    box-sizing: border-box;
+}
+
+#ltPage .lt-subject-actions {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#ltPage .lt-subject-actions .lt-add-btn {
+    position: static;
+    top: auto;
+    right: auto;
+    transform: none;
+    flex: 0 0 44px;
+    font-size: inherit;
+}
+
+#ltPage .lt-subject-actions .lt-add-btn svg {
+    display: block;
+    width: 23px;
+    height: 23px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+#ltPage .lt-subject-actions .lt-exam-btn {
+    color: var(--lt-accent);
+    background: #fff;
+    border: 2px solid var(--lt-accent);
+    box-sizing: border-box;
+}
+
+#ltPage .lt-subject-actions .lt-exam-btn:hover {
+    background: var(--bg-light);
+}
+
+#ltPage .lt-subject-actions .lt-add-btn:focus-visible {
+    outline: 3px solid var(--lt-accent);
+    outline-offset: 3px;
+}
+
+#ltExamModal .lt-modal-content {
+    width: 570px;
+    box-sizing: border-box;
+    max-height: calc(100dvh - 40px);
+    overflow-y: auto;
+}
+
+#ltExamModal .close-button {
+    appearance: none;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    line-height: 1;
+}
+
+#ltExamModal .close-button:hover {
+    color: var(--primary);
+    background: transparent;
+}
+
+#ltExamModal .lt-exam-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 44dvh;
+    overflow-y: auto;
+}
+
+#ltExamModal .lt-exam-row {
+    display: grid;
+    grid-template-columns: 78px minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+}
+
+#ltExamModal .lt-exam-index {
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+#ltExamModal .lt-exam-row input[type="date"] {
+    min-width: 0;
+    margin: 0;
+}
+
+#ltExamModal .lt-exam-row .lt-delete-btn {
+    min-width: 94px;
+    padding: 8px 10px;
+}
+
+#ltExamModal .lt-exam-empty {
+    margin: 2px 0;
+}
+
+#ltExamModal .lt-exam-add {
+    align-self: flex-start;
+}
+
+#ltExamModal .lt-exam-error {
+    color: #b42318;
+    font-weight: 600;
+}
+
+#ltExamModal .lt-modal-actions .lt-save-btn {
+    min-width: 0;
+}
+
 .lt-table-wrap {
     background: #fff;
     border-radius: var(--border-radius);
