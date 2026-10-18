@@ -461,6 +461,24 @@ if ($isAuthed && $rwthJobsCounterEnabled) {
                 <ul class="submenu">
                     <li>
                         <a
+                            href="https://wiki.fidsch.de/"
+                            target="_blank"
+                            rel="noopener"
+                        >
+                            <img
+                                src="/img/wiki.png"
+                                alt="wiki"
+                                class="nav-icon"
+                                loading="eager"
+                                decoding="sync"
+                                fetchpriority="high"
+                            >
+                            <span class="submenu-text">Wiki</span>
+                        </a>
+                    </li>
+
+                    <li>
+                        <a
                             href="https://audiobookshelf.fidsch.de/"
                             target="_blank"
                             rel="noopener"

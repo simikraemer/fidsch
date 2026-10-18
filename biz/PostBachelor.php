@@ -483,20 +483,24 @@ require_once __DIR__ . '/../navbar.php';
         <section class="pb-card">
             <h2>TV-L Einkommen</h2>
 
-            <label for="salaryPreset">Entgeltgruppe / Stufe</label>
-            <select id="salaryPreset" class="kategorie-select">
-                <?php foreach ($tvlGrossTable as $group => $stages): ?>
-                    <optgroup label="TV-L <?= htmlspecialchars($group, ENT_QUOTES, 'UTF-8') ?>">
-                        <?php foreach ($stages as $stage => $gross): ?>
-                            <?php $key = strtolower($group) . '_s' . $stage; ?>
-                            <option
-                                value="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>"
-                                <?= $key === 'e9b_s1' ? 'selected' : '' ?>
-                            >TV-L <?= htmlspecialchars($group, ENT_QUOTES, 'UTF-8') ?> S<?= (int)$stage ?> (<?= htmlspecialchars(number_format((float)$gross, 0, ',', ''), ENT_QUOTES, 'UTF-8') ?>€)</option>
+            <div class="pb-inline-grid">
+                <div>
+                    <label for="salaryGroup">Entgeltgruppe</label>
+                    <select id="salaryGroup" class="kategorie-select">
+                        <?php foreach ($tvlGrossTable as $group => $stages): ?>
+                            <option value="<?= htmlspecialchars($group, ENT_QUOTES, 'UTF-8') ?>" <?= $group === 'E9b' ? 'selected' : '' ?>><?= htmlspecialchars($group, ENT_QUOTES, 'UTF-8') ?></option>
                         <?php endforeach; ?>
-                    </optgroup>
-                <?php endforeach; ?>
-            </select>
+                    </select>
+                </div>
+                <div>
+                    <label for="salaryStage">Stufe</label>
+                    <select id="salaryStage" class="kategorie-select">
+                        <?php for ($stage = 1; $stage <= 6; $stage++): ?>
+                            <option value="<?= $stage ?>" <?= $stage === 1 ? 'selected' : '' ?>>S<?= $stage ?></option>
+                        <?php endfor; ?>
+                    </select>
+                </div>
+            </div>
         </section>
 
         <section class="pb-card">
@@ -720,7 +724,9 @@ function pbNumber(id) {
 }
 
 function pbSelectedPreset() {
-    const key = document.getElementById('salaryPreset')?.value || 'e9b_s1';
+    const group = document.getElementById('salaryGroup')?.value || 'E9b';
+    const stage = document.getElementById('salaryStage')?.value || '1';
+    const key = `${group.toLowerCase()}_s${stage}`;
     return PB_TVL_PRESETS[key] || PB_TVL_PRESETS.e9b_s1;
 }
 
@@ -736,8 +742,9 @@ function pbSetResultClass(el, value) {
 }
 
 function pbSaveSettings() {
+    const selectedPreset = pbSelectedPreset();
     const state = {
-        preset: document.getElementById('salaryPreset')?.value || 'e9b_s1',
+        preset: `${selectedPreset.group.toLowerCase()}_s${selectedPreset.stage}`,
         ftePercent: pbNumber('ftePercent') || 100,
         warmRent: pbNumber('warmRent'),
         commuteDistance: pbNumber('commuteDistance'),
@@ -764,7 +771,8 @@ function pbLoadSettings() {
         if (!raw) return;
 
         const state = JSON.parse(raw);
-        const preset = document.getElementById('salaryPreset');
+        const salaryGroup = document.getElementById('salaryGroup');
+        const salaryStage = document.getElementById('salaryStage');
         const fte = document.getElementById('ftePercent');
         const rent = document.getElementById('warmRent');
         const distance = document.getElementById('commuteDistance');
@@ -784,7 +792,9 @@ function pbLoadSettings() {
         presetValue = oldPresetMap[presetValue] || presetValue;
 
         if (!PB_TVL_PRESETS[presetValue]) presetValue = 'e9b_s1';
-        if (preset) preset.value = presetValue;
+        const storedPreset = PB_TVL_PRESETS[presetValue];
+        if (salaryGroup) salaryGroup.value = storedPreset.group;
+        if (salaryStage) salaryStage.value = String(storedPreset.stage);
 
         const fteValue = Number(state.ftePercent);
         if (fte && [50, 60, 70, 80, 90, 100].includes(fteValue)) {
@@ -1018,14 +1028,16 @@ function pbRecalculate(save = true) {
 
 pbLoadSettings();
 
-const preset = document.getElementById('salaryPreset');
+const salaryGroup = document.getElementById('salaryGroup');
+const salaryStage = document.getElementById('salaryStage');
 const fte = document.getElementById('ftePercent');
 const rent = document.getElementById('warmRent');
 const commuteDistance = document.getElementById('commuteDistance');
 const officeDays = document.getElementById('officeDays');
 const rwthParking = document.getElementById('rwthParking');
 
-if (preset) preset.addEventListener('change', () => pbRecalculate());
+if (salaryGroup) salaryGroup.addEventListener('change', () => pbRecalculate());
+if (salaryStage) salaryStage.addEventListener('change', () => pbRecalculate());
 if (fte) fte.addEventListener('change', () => pbRecalculate());
 if (rent) rent.addEventListener('input', () => pbRecalculate());
 if (commuteDistance) commuteDistance.addEventListener('input', () => pbRecalculate());

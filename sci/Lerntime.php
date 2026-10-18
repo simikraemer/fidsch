@@ -55,9 +55,9 @@ function parse_int($v, int $default = 0): int {
 
 /* ---------------------- Fester Diagrammzeitraum ---------------------- */
 // Start inklusiv, Ende exklusiv.
-// Dargestellt wird damit Januar 2026 bis einschließlich März 2027.
+// Dargestellt wird damit Januar 2026 bis einschließlich September 2027.
 $chartStartDate        = '2026-01-01';
-$chartEndExclusiveDate = '2027-04-01';
+$chartEndExclusiveDate = '2027-10-01';
 
 $chartStartSql        = $chartStartDate . ' 00:00:00';
 $chartEndExclusiveSql = $chartEndExclusiveDate . ' 00:00:00';
