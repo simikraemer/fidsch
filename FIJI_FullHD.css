@@ -13690,3 +13690,137 @@ body.faction-gallery-open { overflow: hidden; }
     font-variant-numeric: tabular-nums;
     text-align: right;
 }
+
+/* =======================================================================
+   YOLO v10.0 – Dual-Validation, BA-Übersicht und lazy 3er-Bildvergleich.
+   Nur auf der YOLO-Seite aktiv; bestehende FIJI-Komponenten bleiben erhalten.
+   ======================================================================= */
+#yoloPage .yolo-ba-summary {
+    margin-top: 12px;
+    border-color: var(--y-border);
+}
+#yoloPage .yolo-ba-summary > summary {
+    font-size: 1rem;
+    padding: 13px 15px;
+    background: var(--y-tint);
+}
+#yoloPage .yolo-ba-summary[open] > summary {
+    border-bottom: 1px solid var(--y-border);
+}
+#yoloPage .yolo-ba-five {
+    min-width: 990px;
+    width: 100%;
+    table-layout: fixed;
+}
+#yoloPage .yolo-ba-five th:first-child,
+#yoloPage .yolo-ba-five td:first-child {
+    width: 32%;
+    min-width: 270px;
+    font-weight: 650;
+    text-align: left;
+}
+#yoloPage .yolo-ba-five th:not(:first-child),
+#yoloPage .yolo-ba-five td:not(:first-child) {
+    width: 17%;
+    min-width: 160px;
+    text-align: right;
+}
+#yoloPage .yolo-ba-five thead tr:first-child th {
+    text-align: center;
+    font-size: 0.88rem;
+}
+#yoloPage .yolo-ba-five thead tr:nth-child(2) th {
+    text-align: right;
+}
+#yoloPage .yolo-ba-five thead tr:first-child th:first-child {
+    text-align: left;
+    vertical-align: middle;
+}
+#yoloPage .yolo-ba-five thead tr:first-child th:nth-child(2) {
+    background: color-mix(in srgb, var(--primary) 9%, white);
+}
+#yoloPage .yolo-ba-five thead tr:first-child th:nth-child(3) {
+    background: color-mix(in srgb, var(--y-series-1) 9%, white);
+}
+#yoloPage .yolo-ba-extra {
+    margin-top: 12px;
+}
+#yoloPage .yolo-ba-extra .yolo-detail {
+    margin-top: 8px;
+}
+#yoloPage .yolo-ba-legacy-detail > .yolo-table-scroll {
+    padding: 8px 10px 12px;
+}
+#yoloPage .yolo-graph-controls {
+    margin: 0 0 18px;
+    padding: 12px 14px 2px;
+    border: 1px solid var(--y-border);
+    border-radius: var(--border-radius);
+    background: var(--y-soft);
+}
+#yoloPage .yolo-graph-options-group {
+    padding: 4px 0 10px;
+    border-bottom: 1px solid var(--y-border-light);
+}
+#yoloPage .yolo-graph-options-group:last-child {
+    border-bottom: 0;
+}
+#yoloPage .yolo-graph-options-group h3 {
+    margin: 3px 0 9px;
+    font-size: 0.88rem;
+}
+#yoloPage .yolo-graph-controls .yolo-metric-list {
+    max-height: 155px;
+    margin: 0;
+    padding: 0 0 2px;
+}
+#yoloPage .yolo-image-controls {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    width: min(100%, 850px);
+}
+#yoloPage .yolo-image-triptych {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch;
+}
+#yoloPage .yolo-image-triptych .yolo-image-item {
+    padding: 10px;
+    min-width: 0;
+    border-bottom: none;
+}
+#yoloPage .yolo-image-triptych .yolo-image-item strong {
+    text-align: center;
+    margin: 0 0 8px;
+    color: var(--text);
+}
+#yoloPage .yolo-image-triptych .yolo-image-item img {
+    display: block;
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+    aspect-ratio: 4 / 3;
+    background: var(--y-soft);
+}
+#yoloPage .yolo-image-triptych .yolo-empty {
+    display: grid;
+    min-height: 160px;
+    place-items: center;
+    text-align: center;
+    font-size: .84rem;
+}
+#yoloPage .yolo-gallery-footer {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 12px 8px;
+    font-size: .88rem;
+}
+#yoloPage .yolo-gallery-footer > .yolo-button {
+    flex: 0 0 auto;
+}
+#yoloPage #yoloGallerySentinel {
+    height: 1px;
+    pointer-events: none;
+}

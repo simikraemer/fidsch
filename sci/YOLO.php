@@ -1,7 +1,7 @@
 <?php
 
 /**
- * sci/YOLO.php – YOLO-Semantic Auswertung (v9.3 + ältere zentrale Läufe)
+ * sci/YOLO.php – YOLO-Semantic Auswertung (v10.3 + historische Läufe)
  * Read-only: liest Run-Metadaten, CSVs, JSON-Berichte und finale Vergleichsbilder.
  * Kein Zugriff auf frei übergebene Dateipfade: AJAX verwendet ausschließlich
  * im serverseitigen Katalog aufgelöste Run-Keys und Bildkennungen.
@@ -11,6 +11,9 @@ require_once __DIR__ . '/../auth.php';
 const YOLO_META_ROOT = '/storage/Dokumente/RWTH/Bachelorarbeit/Schaekel/YOLO';
 const YOLO_MAX_SELECTED_RUNS = 6;
 const YOLO_MAX_IMAGES_PER_RUN = 300;
+const YOLO_IMAGE_PAGE_SIZE = 12;
+const YOLO_GT_ROOT = '/storage/Dokumente/RWTH/Bachelorarbeit/Schaekel/Realaufnahmen_Nachbearbeitet/_Pruefung/Kontrollansichten';
+const YOLO_V10_VARIANTS = ['val_synth', 'val_mixed'];
 function yolo_json(array $data, int $status = 200): never {
     http_response_code($status);
     header('Content-Type: application/json; charset=utf-8');
@@ -456,6 +459,153 @@ function yolo_milestones(string $dir): array {
     return ['points' => array_values($out), 'metric_keys' => array_values($labels)];
 }
 
+/** v10: Beide Selektionsvarianten sind eigene Modelle, nicht eigene Trainingsläufe. */
+function yolo_dual_info(string $root): array {
+    $data = yolo_json_file($root . '/validation_dual_v10_0.json');
+    $models = [];
+    foreach (YOLO_V10_VARIANTS as $variant) {
+        $raw = yolo_arr(yolo_path($data, 'models.' . $variant, []));
+        $models[$variant] = [
+            'available' => isset($raw['best_epoch']),
+            'best_epoch' => yolo_number($raw['best_epoch'] ?? null),
+            'best_metric' => yolo_number($raw['best_metric'] ?? null),
+            'updates' => yolo_number($raw['updates'] ?? null),
+            'validation_metric_key' => $raw['validation_metric_key'] ?? null,
+            'last_updated' => $raw['updated_at'] ?? null,
+        ];
+    }
+    $epochs = [];
+    foreach (yolo_arr($data['epochs'] ?? []) as $row) {
+        if (!is_array($row)) continue;
+        $ep = yolo_number($row['epoch'] ?? null);
+        if ($ep === null) continue;
+        $epochs[] = [
+            'epoch' => (int)$ep,
+            'val_synth_miou' => yolo_number($row['val_synth_miou'] ?? null),
+            'val_mixed_miou' => yolo_number($row['val_mixed_miou'] ?? null),
+            'val_synth_new_best' => yolo_bool($row['val_synth_new_best'] ?? null),
+            'val_mixed_new_best' => yolo_bool($row['val_mixed_new_best'] ?? null),
+            'val_synth_best_epoch_after' => yolo_number($row['val_synth_best_epoch_after'] ?? null),
+            'val_mixed_best_epoch_after' => yolo_number($row['val_mixed_best_epoch_after'] ?? null),
+        ];
+    }
+    $variantReports = [];
+    foreach (YOLO_V10_VARIANTS as $variant) {
+        $modelRoot = $root . '/Modelle/' . $variant;
+        $variantReports[$variant] = yolo_final_reports($modelRoot);
+        $variantReports[$variant]['selection'] = $models[$variant];
+        $variantReports[$variant]['model_report'] = yolo_json_file($modelRoot . '/modellbericht_v10_0.json');
+        $common = yolo_json_file($modelRoot . '/realtest_gemeinsam_alle_v10_3.json');
+        if (!$common) // Historische v10.0–v10.2-Dateien weiterhin lesen.
+            $common = yolo_json_file($modelRoot . '/realtest_gemeinsame_50_v10_0.json');
+        $variantReports[$variant]['common_real'] = [
+            'available' => (bool)$common,
+            'image_count' => yolo_number($common['image_count'] ?? null),
+            'miou_strict' => yolo_number(yolo_path($common, 'modes.strict.miou_micro')),
+            'miou_boundary' => yolo_number(yolo_path($common, 'modes.boundary.miou_micro')),
+        ];
+    }
+    return [
+        'available' => (bool)$epochs || (bool)array_filter($models, static fn($m) => $m['available']),
+        'models' => $models,
+        'epochs' => $epochs,
+        'variants' => $variantReports,
+        'selection_policy' => $data['selection_policy'] ?? null,
+        'training_data' => $data['training_data'] ?? null,
+        'mixed_validation' => $data['mixed_validation'] ?? null,
+        'real_val_unique_images' => yolo_number($data['real_val_unique_images'] ?? null),
+        'mixed_real_test_images' => yolo_number($data['mixed_real_test_images'] ?? null),
+        'synth_only_real_test_images' => yolo_number($data['synth_only_real_test_images'] ?? null),
+        'same_real_images_for_validation_and_test' => yolo_bool($data['same_real_images_for_validation_and_test'] ?? null),
+        'real_test_independent' => yolo_bool($data['real_test_independent'] ?? null),
+        'last_epoch' => yolo_number($data['last_epoch'] ?? null),
+    ];
+}
+
+/**
+ * Read-only, server-controlled image catalog. A file basename identifies a
+ * single image; there are no user-supplied file paths, paths are fixed by run.
+ */
+function yolo_variant_test_dir(array $entry, string $variant): ?string {
+    if (!in_array($variant, YOLO_V10_VARIANTS, true)) return null;
+    $newDir = $entry['runRoot'] . '/Modelle/' . $variant . '/Auswertung_Test';
+    if (is_dir($newDir)) return $newDir;
+    if ($variant !== 'val_synth') return null;
+    foreach (['Auswertung_Test', 'Auswertung_Real_Test', 'Auswertung_Realtest'] as $old) {
+        if (is_dir($entry['runRoot'] . '/' . $old)) return $entry['runRoot'] . '/' . $old;
+    }
+    return null;
+}
+function yolo_gallery_catalog(array $entry): array {
+    $map = [];
+    foreach (YOLO_V10_VARIANTS as $variant) {
+        $dir = yolo_variant_test_dir($entry, $variant);
+        if ($dir === null) continue;
+        $scores = yolo_image_scores($dir);
+        foreach (scandir($dir) ?: [] as $filename) {
+            if (!preg_match('/^(.+)_2x2\.(?:jpe?g|png|webp)$/i', $filename, $m)) continue;
+            $full = $dir . '/' . $filename;
+            if (!is_file($full) || !is_readable($full)) continue;
+            $stem = $m[1];
+            $id = strtolower($stem);
+            if (!preg_match('/^[a-z0-9][a-z0-9_\- .()]*$/i', $stem)) continue;
+            if (!isset($map[$id])) $map[$id] = ['id' => $id, 'label' => $stem, 'images' => [], 'scores' => []];
+            $map[$id]['images'][$variant] = true;
+            $map[$id]['scores'][$variant] = $scores[$id] ?? null;
+            if (is_file(YOLO_GT_ROOT . '/' . $stem . '_Kontrolle.png')) $map[$id]['images']['gt'] = true;
+        }
+    }
+    return array_values($map);
+}
+function yolo_gallery_image_path(array $entry, string $stem, string $variant): ?string {
+    if (!preg_match('/^[a-z0-9][a-z0-9_\- .()]*$/i', $stem)) return null;
+    if ($variant === 'gt') {
+        $file = YOLO_GT_ROOT . '/' . $stem . '_Kontrolle.png';
+        return is_file($file) && is_readable($file) ? $file : null;
+    }
+    $dir = yolo_variant_test_dir($entry, $variant);
+    if ($dir === null) return null;
+    foreach (['.jpg', '.jpeg', '.png', '.webp'] as $ext) {
+        $file = $dir . '/' . $stem . '_2x2' . $ext;
+        if (is_file($file) && is_readable($file)) return $file;
+    }
+    return null;
+}
+/** Resolve an image stem without parsing any score CSV/JSON during image transfer. */
+function yolo_gallery_resolve_stem(array $entry, string $id): ?string {
+    if (!preg_match('/^[a-z0-9][a-z0-9_\- .()]*$/i', $id)) return null;
+    foreach (YOLO_V10_VARIANTS as $variant) {
+        $dir = yolo_variant_test_dir($entry, $variant);
+        if ($dir === null) continue;
+        foreach (scandir($dir) ?: [] as $filename) {
+            if (!preg_match('/^(.+)_2x2\.(?:jpe?g|png|webp)$/i', $filename, $matches)) continue;
+            if (strtolower($matches[1]) !== strtolower($id)) continue;
+            if (is_file($dir . '/' . $filename)) return $matches[1];
+        }
+    }
+    return null;
+}
+function yolo_gallery_page(array $entry, string $sort, int $offset): array {
+    $allowed = ['miou_boundary', 'miou_strict', 'defect_boundary', 'text_boundary', 'filename'];
+    if (!in_array($sort, $allowed, true)) $sort = 'miou_boundary';
+    $items = yolo_gallery_catalog($entry);
+    usort($items, static function(array $a, array $b) use ($sort): int {
+        if ($sort !== 'filename') {
+            // Consistent reference: use val_synth wherever available; fallback
+            // to val_mixed only for a run without val_synth output.
+            $sa = yolo_number(($a['scores']['val_synth'] ?? $a['scores']['val_mixed'] ?? [])[$sort] ?? null);
+            $sb = yolo_number(($b['scores']['val_synth'] ?? $b['scores']['val_mixed'] ?? [])[$sort] ?? null);
+            if ($sa !== null && $sb !== null && $sa !== $sb) return $sb <=> $sa;
+            if (($sa !== null) !== ($sb !== null)) return $sa === null ? 1 : -1;
+        }
+        return strnatcasecmp($a['label'], $b['label']);
+    });
+    $total = count($items);
+    $slice = array_slice($items, $offset, YOLO_IMAGE_PAGE_SIZE);
+    return ['items' => $slice, 'total' => $total, 'offset' => $offset,
+            'next_offset' => $offset + count($slice) < $total ? $offset + count($slice) : null];
+}
+
 function yolo_image_identity(string $relative): array {
     $relative = str_replace('\\', '/', trim($relative, '/'));
     $stem = pathinfo($relative, PATHINFO_FILENAME);
@@ -501,8 +651,12 @@ function yolo_image_scores(string $dir): array {
                         'miou_strict' => yolo_number($col($row, 'miou_strict')),
                         'defect_boundary' => yolo_number($col($row, 'defect_iou_boundary')),
                         'defect_strict' => yolo_number($col($row, 'defect_iou_strict') ?? $col($row, 'defect_iou')),
+                        'defect_recall_boundary' => yolo_number($col($row, 'defect_recall_boundary') ?? $col($row, 'defect_boundary_recall')),
+                        'defect_recall_strict' => yolo_number($col($row, 'defect_recall_strict') ?? $col($row, 'defect_recall')), 
                         'text_boundary' => yolo_number($col($row, 'text_iou_boundary')),
                         'text_strict' => yolo_number($col($row, 'text_iou_strict') ?? $col($row, 'text_iou')),
+                        'text_recall_boundary' => yolo_number($col($row, 'text_recall_boundary') ?? $col($row, 'text_boundary_recall')),
+                        'text_recall_strict' => yolo_number($col($row, 'text_recall_strict') ?? $col($row, 'text_recall')),
                         'gt_defect_pixels' => yolo_number($col($row, 'defect_ground_truth_pixels')),
                         'gt_text_pixels' => yolo_number($col($row, 'text_ground_truth_pixels')),
                     ];
@@ -534,8 +688,12 @@ function yolo_image_scores(string $dir): array {
             'miou_strict' => yolo_number(yolo_path($record, 'miou.strict')),
             'defect_boundary' => yolo_number(yolo_path($boundary, 'defect.metrics.iou')),
             'defect_strict' => yolo_number(yolo_path($strict, 'defect.metrics.iou')),
+            'defect_recall_boundary' => yolo_number(yolo_path($boundary, 'defect.metrics.recall')),
+            'defect_recall_strict' => yolo_number(yolo_path($strict, 'defect.metrics.recall')),
             'text_boundary' => yolo_number(yolo_path($boundary, 'text.metrics.iou')),
             'text_strict' => yolo_number(yolo_path($strict, 'text.metrics.iou')),
+            'text_recall_boundary' => yolo_number(yolo_path($boundary, 'text.metrics.recall')),
+            'text_recall_strict' => yolo_number(yolo_path($strict, 'text.metrics.recall')),
             'gt_defect_pixels' => yolo_number(yolo_path($strict, 'defect.counts.ground_truth')),
             'gt_text_pixels' => yolo_number(yolo_path($strict, 'text.counts.ground_truth')),
         ];
@@ -701,8 +859,36 @@ function yolo_load(array $entry): array {
     foreach ($p as $kind => $path)
         $filesPresent[$kind] = $path !== null;
     $filesPresent['milestones'] = is_dir($entry['trainDir'] . '/milestones/snapshots');
+
     $evals = $entry['kind'] === 'detail' ? yolo_final_reports($entry['runRoot']): [];
     $realVal = yolo_arr($dataset['real_validation'] ?? []);
+    $dual = $entry['kind'] === 'detail' ? yolo_dual_info($entry['runRoot']) : [];
+    $realSplit = $entry['kind'] === 'detail'
+        ? yolo_json_file($entry['runRoot'] . '/real_split_v10_0.json') : [];
+    $realPolicy = yolo_arr($realSplit['policy'] ?? []);
+    $realInputCheck = $entry['kind'] === 'detail'
+        ? yolo_json_file($entry['runRoot'] . '/real_input_preflight_v10_0.json') : [];
+    $realTotal = yolo_number(yolo_choose(
+        $realSplit['image_count'] ?? null,
+        $manifest['real_images_total'] ?? null,
+        $realInputCheck['valid_images'] ?? null
+    ));
+    $realValCount = yolo_number(yolo_choose(
+        $realPolicy['validation_unique_count'] ?? null,
+        $manifest['mixed_real_validation_count'] ?? null,
+        $realVal['unique_images'] ?? null,
+        $dual['real_val_unique_images'] ?? null
+    ));
+    $realTestCount = yolo_number(yolo_choose(
+        $realPolicy['mixed_test_image_count'] ?? null,
+        $manifest['mixed_real_test_count'] ?? null,
+        $dual['mixed_real_test_images'] ?? null
+    ));
+    $sameRealInputs = yolo_bool(yolo_choose(
+        $realSplit['identical_images_in_real_validation_and_real_test'] ?? null,
+        $manifest['real_validation_and_test_share_images'] ?? null,
+        $dual['same_real_images_for_validation_and_test'] ?? null
+    ));
     $summary = [
         'run' => $entry['name'],
         'typ' => $entry['kind'] === 'component' ? 'Bauteil' : 'Detail',
@@ -723,7 +909,10 @@ function yolo_load(array $entry): array {
         'bildgroesse' => yolo_choose($state['image_size'] ?? null, $args['imgsz'] ?? null),
         'batch' => $args['batch'] ?? null,
         'worker' => $args['workers'] ?? null,
-        'real_val_bilder' => $realVal['unique_images'] ?? null,
+        'real_bilder_gesamt' => $realTotal,
+        'real_val_bilder' => $realValCount,
+        'real_test_bilder' => $realTestCount,
+        'real_val_test_identisch' => $sameRealInputs,
         'real_val_gewichtete_samples' => $realVal['weighted_samples'] ?? null,
         'real_val_anteil' => $realVal['actual_fraction'] ?? null,
         'semantic_val_miou' => yolo_number(yolo_choose($sem['miou'] ?? null, $sem['results_dict']['metrics/mIoU'] ?? null)),
@@ -742,17 +931,30 @@ function yolo_load(array $entry): array {
         'results' => $res,
         'milestones' => yolo_milestones($entry['trainDir']),
         'evaluations' => $evals,
-        'test_images' => $entry['kind'] === 'detail'
-            ? array_map(
-                static fn($x) => ['id' => $x['id'], 'label' => $x['label'], 'scores' => $x['scores'] ?? null],
-                yolo_images($entry['runRoot'], false, true)
-            )
-            : [],
+        'dual' => $dual,
+        'real_data_inventory' => [
+            'image_count' => $realTotal,
+            'validation_count' => $realValCount,
+            'test_count' => $realTestCount,
+            'validation_and_test_same_images' => $sameRealInputs,
+            'test_independent_for_val_mixed' => yolo_bool($realPolicy['independent_real_test_for_val_mixed'] ?? null),
+            'policy' => $realPolicy,
+            'image_filenames' => array_values(array_map(
+                static fn($r) => (string)($r['image'] ?? ''),
+                array_filter(yolo_arr($realSplit['inventory'] ?? []), 'is_array')
+            )),
+            'input_preflight_count' => yolo_number($realInputCheck['valid_images'] ?? null),
+        ],
+        // Images are requested page-by-page only when the Bilder tab opens.
+        'test_images' => [],
         'configuration' => [
             'training_args' => $args,
             'mask_configuration' => $mask,
             'loss_configuration' => $loss,
             'dataset_real_validation' => $realVal,
+            'real_split_full' => $realSplit,
+            'manifest_full' => $manifest,
+            'dataset_summary' => $dataset,
             'manifest_summary' => array_intersect_key($manifest, array_flip([
                 'script_version',
                 'base_model',
@@ -780,20 +982,37 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'run_data') {
         yolo_json(['ok' => false, 'message' => 'Keine gültigen Runs gefunden.'], 404);
     yolo_json(['ok' => true, 'runs' => $out, 'generated_at' => date(DATE_ATOM)]);
 }
+if (isset($_GET['ajax']) && $_GET['ajax'] === 'image_page') {
+    $key = $_GET['run'] ?? null;
+    $sort = $_GET['sort'] ?? 'miou_boundary';
+    $offset = filter_var($_GET['offset'] ?? 0, FILTER_VALIDATE_INT);
+    if (!is_string($key) || !isset($catalog[$key]) || $catalog[$key]['kind'] !== 'detail'
+        || !is_string($sort) || $offset === false || $offset < 0 || $offset > 200000) {
+        yolo_json(['ok' => false, 'message' => 'Ungültige Galerie-Anfrage.'], 400);
+    }
+    yolo_json(['ok' => true] + yolo_gallery_page($catalog[$key], $sort, $offset));
+}
 if (isset($_GET['ajax']) && $_GET['ajax'] === 'test_image') {
     $key = $_GET['run'] ?? null;
-    $image = $_GET['image'] ?? null;
-    if (!is_string($key) || !is_string($image) || !isset($catalog[$key]) || $catalog[$key]['kind'] !== 'detail') {
+    $stem = $_GET['image'] ?? null;
+    $variant = $_GET['variant'] ?? 'val_synth';
+    if (!is_string($key) || !is_string($stem) || !is_string($variant)
+        || !isset($catalog[$key]) || $catalog[$key]['kind'] !== 'detail'
+        || !in_array($variant, ['val_synth', 'val_mixed', 'gt'], true)) {
         http_response_code(404);
         exit;
     }
-    foreach (yolo_images($catalog[$key]['runRoot'], true) as $i) {
-        if (hash_equals($i['id'], strtolower(trim($image))))
-            yolo_image_send($i['path']);
+    // Filename is only accepted if the current run actually produced it.
+    // Avoid loading a score report on every image request.
+    $trustedStem = yolo_gallery_resolve_stem($catalog[$key], trim($stem));
+    if ($trustedStem !== null) {
+        $file = yolo_gallery_image_path($catalog[$key], $trustedStem, $variant);
+        if ($file !== null) yolo_image_send($file);
     }
     http_response_code(404);
     exit;
 }
+
 $publicCatalog = [];
 $defaults = [];
 foreach ($catalog as $run) {
@@ -807,7 +1026,7 @@ foreach ($catalog as $run) {
         'has_milestones' => is_dir($run['trainDir'] . '/milestones/snapshots'),
         'mtime' => $run['stamp']
     ];
-    if (count($defaults) < 2 && $run['kind'] === 'detail' && $run['files']['results'] !== null)
+    if (count($defaults) < 1 && $run['kind'] === 'detail' && $run['files']['results'] !== null)
         $defaults[] = $run['key'];
 }
 if (!$defaults && $publicCatalog)
@@ -837,19 +1056,16 @@ require_once __DIR__ . '/../navbar.php';
                 1. Runs
             </button>
             <button type="button" class="yolo-tab" data-tab="overview" role="tab" aria-selected="false">
-                2. Übersicht &amp; Konfiguration
-            </button>
-            <button type="button" class="yolo-tab" data-tab="ba" role="tab" aria-selected="false">
-                3. BA-Ergebnisse
+                2. Übersicht &amp; Ergebnisse
             </button>
             <button type="button" class="yolo-tab" data-tab="graphs" role="tab" aria-selected="false">
-                4. Graphen
+                3. Graphen
             </button>
             <button type="button" class="yolo-tab" data-tab="images" role="tab" aria-selected="false">
-                5. Bilder
+                4. Bilder
             </button>
             <button type="button" class="yolo-tab" data-tab="glossary" role="tab" aria-selected="false">
-                6. Begriffe
+                5. Begriffe
             </button>
         </nav>
 
@@ -903,10 +1119,12 @@ require_once __DIR__ . '/../navbar.php';
                         </p>
                     </div>
                 </div>
-                <div id="yoloSummaryKpis"></div>
-                <div class="yolo-table-scroll">
-                    <table id="yoloOverviewTable"></table>
-                </div>
+                <details class="yolo-detail"><summary>Run-Überblick und Konfiguration im Vergleich</summary>
+                    <div class="yolo-detail-inner">
+                        <div id="yoloSummaryKpis"></div>
+                        <div class="yolo-table-scroll"><table id="yoloOverviewTable"></table></div>
+                    </div>
+                </details>
             </div>
 
             <div class="yolo-section">
@@ -921,26 +1139,12 @@ require_once __DIR__ . '/../navbar.php';
                 </div>
                 <div id="yoloConfigDetails"></div>
             </div>
-        </section>
-
-        <section data-panel="ba" role="tabpanel" hidden>
             <div class="yolo-section">
                 <div class="yolo-section-head">
                     <div>
-                        <h2>BA-Ergebnisse – Real- und Synthetiktest</h2>
-                        <p>
-                            Je Modell stehen Real-Test und synthetischer Test wertweise
-                            nebeneinander. Micro-Metriken entstehen aus aggregierten
-                            Pixelzahlen. Strict ist die unveränderte Maskenauswertung,
-                            Boundary die separat dokumentierte Randtoleranz.
-                        </p>
+                        <h2>Ergebnisse – Real- und Synthetiktest</h2>
+
                     </div>
-                </div>
-                <div class="yolo-notice warn">
-                    Ein Test ohne Ground Truth liefert keine verlässlichen IoU-,
-                    Dice-, Precision- oder Recall-Werte. Fehlende Daten werden
-                    mit „—“ gekennzeichnet; reale Validierung wird nicht als
-                    realer Test ausgegeben.
                 </div>
                 <div id="yoloBaCards"></div>
             </div>
@@ -949,43 +1153,24 @@ require_once __DIR__ . '/../navbar.php';
         <section data-panel="graphs" role="tabpanel" hidden>
             <div class="yolo-section">
                 <div class="yolo-section-head">
-                    <div>
-                        <h2>Trainingsverlauf</h2>
-                        <p>
-                            Metrikspalten aus results.csv; fehlende Messwerte
-                            erzeugen keine künstlichen Nullpunkte.
-                        </p>
-                    </div>
+                    <div><h2>Trainingsverlauf, Validierung und Milestones</h2></div>
                 </div>
-                <div id="yoloTrainMetrics" class="yolo-metric-list"></div>
-                <div id="yoloTrainCharts" class="yolo-chart-grid"></div>
-            </div>
-
-            <div class="yolo-section">
-                <div class="yolo-section-head">
-                    <div>
-                        <h2>Milestone-Auswertungen</h2>
-                        <p>
-                            Gespeicherte Zwischenprüfungen getrennt nach
-                            Datendomäne und Klasse.
-                        </p>
-                    </div>
+                <div id="yoloGraphControls" class="yolo-graph-controls">
+                    <div class="yolo-graph-options-group"><h3>Modellselektion (v10.0)</h3><div id="yoloDualMetrics" class="yolo-metric-list"></div></div>
+                    <div class="yolo-graph-options-group"><h3>Trainingsverlauf</h3><div id="yoloTrainMetrics" class="yolo-metric-list"></div></div>
+                    <div class="yolo-graph-options-group"><h3>Milestone-Auswertung</h3><div id="yoloMilestoneMetrics" class="yolo-metric-list"></div></div>
                 </div>
-                <div id="yoloMilestoneMetrics" class="yolo-metric-list"></div>
-                <div id="yoloMilestoneCharts" class="yolo-chart-grid"></div>
+                <div id="yoloAllCharts" class="yolo-chart-grid"></div>
             </div>
         </section>
+
 
         <section data-panel="images" role="tabpanel" hidden>
             <div class="yolo-section">
                 <div class="yolo-section-head">
                     <div>
                         <h2>Reale Testbilder vergleichen</h2>
-                        <p>
-                            Gleiche 2×2-Testbilder aus den finalen Auswertungsordnern
-                            werden runübergreifend nebeneinander angezeigt.
-                            Klick öffnet das Bild in Originalgröße.
-                        </p>
+                        <p>Vorhersage ohne reale Validierung · Ground Truth (Randzone abhängig vom Run) · Vorhersage mit realer Validierung.</p>
                     </div>
                 </div>
                 <div class="yolo-image-controls" role="group" aria-label="Sortierung der Testbilder">
@@ -1000,11 +1185,16 @@ require_once __DIR__ . '/../navbar.php';
                         </select>
                     </div>
                     <div class="yolo-image-control">
-                        <label for="yoloImageReference">Referenzlauf</label>
-                        <select id="yoloImageReference" class="yolo-select" aria-label="Referenzlauf für die Bildsortierung"></select>
+                        <label for="yoloImageReference">Ausgewählter Run</label>
+                        <select id="yoloImageReference" class="yolo-select" aria-label="Run für die Bildgalerie"></select>
                     </div>
                 </div>
                 <div id="yoloImages"></div>
+                <div class="yolo-gallery-footer" id="yoloGalleryFooter" hidden>
+                    <span id="yoloGalleryProgress" aria-live="polite"></span>
+                    <button type="button" class="yolo-button" id="yoloLoadMoreImages">Weitere Bilder laden</button>
+                </div>
+                <div id="yoloGallerySentinel" aria-hidden="true"></div>
             </div>
         </section>
 
@@ -1091,6 +1281,13 @@ require_once __DIR__ . '/../navbar.php';
         request: 0,
         trainMetrics: new Set(),
         milestoneMetrics: new Set(),
+        dualMetrics: new Set(),
+        metricInitialized: new Set(),
+        activeTab: 'runs',
+        galleryRequest: 0,
+        galleryPage: 0,
+        galleryLoading: false,
+        galleryObserver: null,
         charts: new Map()
     };
     const metaLabels = {
@@ -1108,7 +1305,10 @@ require_once __DIR__ . '/../navbar.php';
         bildgroesse: 'Eingangsauflösung',
         batch: 'Batchgröße',
         worker: 'DataLoader-Worker',
+        real_bilder_gesamt: 'Reale Bilder gesamt (vorbereitet)',
         real_val_bilder: 'Reale Val-Bilder (einzigartig)',
+        real_test_bilder: 'Reale Testbilder',
+        real_val_test_identisch: 'Real-Val und Real-Test identischer Bestand',
         real_val_gewichtete_samples: 'Reale Val-Samples (gewichtet)',
         real_val_anteil: 'Anteil reale Samples an Val',
         semantic_val_miou: 'mIoU (Training-Validierung)',
@@ -1247,15 +1447,15 @@ require_once __DIR__ . '/../navbar.php';
     function renderAll() {
         renderOverview();
         renderBa();
-        rebuildGraphs();
-        renderImages();
+        if(state.activeTab==='graphs')rebuildGraphs();
+        if(state.activeTab==='images')renderImages();
     }
     function renderOverview() {
         const runs = state.loaded;
 
         $('yoloSummaryKpis').innerHTML = runs.map((run, index) => {
-            const real = baEval(run, 'real_test');
-            const synthetic = baEval(run, 'synthetic_test');
+            const real = run.dual?.variants?.val_synth?.real_test?.available ? run.dual.variants.val_synth.real_test : baEval(run, 'real_test');
+            const synthetic = run.dual?.variants?.val_synth?.synthetic_test?.available ? run.dual.variants.val_synth.synthetic_test : baEval(run, 'synthetic_test');
 
             return `
                 <article class="yolo-model-card yolo-summary-kpi-card">
@@ -1272,12 +1472,12 @@ require_once __DIR__ . '/../navbar.php';
                             <strong>${esc(nice(run.summary?.epoche_letzte))}</strong>
                         </div>
                         <div class="yolo-kpi">
-                            <small>Real Test – mIoU Strict</small>
-                            <strong>${esc(nice(real.strict?.miou, true))}</strong>
+                            <small>Real-Test – Boundary-mIoU</small>
+                            <strong>${esc(nice(real.boundary?.miou, true))}</strong>
                         </div>
                         <div class="yolo-kpi">
-                            <small>Synthetisch Test – mIoU Strict</small>
-                            <strong>${esc(nice(synthetic.strict?.miou, true))}</strong>
+                            <small>Synth-Test – Boundary-mIoU</small>
+                            <strong>${esc(nice(synthetic.boundary?.miou, true))}</strong>
                         </div>
                     </div>
                 </article>
@@ -1305,7 +1505,7 @@ require_once __DIR__ . '/../navbar.php';
             'state',
             'dataset',
             'semantic',
-            'milestones'
+            'milestones',
         ];
 
         const fileRows = fileKeys.map(key => {
@@ -1351,159 +1551,118 @@ require_once __DIR__ . '/../navbar.php';
         }).join('') || '<div class="yolo-empty">Keine Runs ausgewählt.</div>';
     }
 
+    function variantReport(run, variant, domain) {
+        const rep = run.dual?.variants?.[variant]?.[domain];
+        return rep?.available ? rep : { available: false };
+    }
+    function baLegacy(run) { return !(run.dual?.available); }
     function getBaGroups(run) {
-        const r = baEval(run, 'real_test'), s = baEval(run, 'synthetic_test');
-        const rows = [];
-        const put = (section, label, rr, ss, kind = 'value') => rows.push({
-            section,
-            label,
-            real: rr ?? null,
-            synth: ss ?? null,
-            kind
-        });
-        put('Datengrundlage', 'Bericht verfügbar', r.available === true, s.available === true, 'bool');
-        put('Datengrundlage', 'Quellordner', r.source_dir, s.source_dir);
-        put('Datengrundlage', 'Ground Truth vorhanden', r.ground_truth_enabled, s.ground_truth_enabled, 'bool');
-        put('Datengrundlage', 'Auswertung vollständig', r.complete, s.complete, 'bool');
-        put('Datengrundlage', 'Erfolgreich ausgewertete Bilder', r.successful_images, s.successful_images, 'count');
-        put('Datengrundlage', 'Erwartete Bilder', r.expected_images, s.expected_images, 'count');
-        put('Datengrundlage', 'Fehlgeschlagene Bilder', r.failed_images, s.failed_images, 'count');
-        put(
-            'Datengrundlage',
-            'Boundary-Randbreite (Originalpixel)',
-            r.boundary_band?.total_width_original_px,
-            s.boundary_band?.total_width_original_px,
-            'count'
-        );
-        for (const mode of ['strict', 'boundary']) {
-            const group = mode === 'strict' ? 'Strict – Micro (Pixel aggregiert)' : 'Boundary – Micro (Randtoleranz)';
-            put(group, 'mIoU (Fehler/Schrift)', r[mode]?.miou, s[mode]?.miou, 'ratio');
-            for (const cls of classKeys(run)) {
-                for (const [key, label] of metrics)
-                    put(group, `${classLabel(cls)} – ${label}`, metric(r, mode, cls, key), metric(s, mode, cls, key), 'ratio');
+        const variants = ['val_synth', 'val_mixed'];
+        const pairs = variants.flatMap(variant => ['real_test','synthetic_test'].map(domain =>
+            variantReport(run, variant, domain)));
+        const put = (section, label, values, kind='value') => ({section, label, values: values.map(v => v ?? null), kind});
+        const result = [];
+        const model = run.dual?.models || {};
+        result.push(put('Modellselektion', 'Beste Epoche',
+            [model.val_synth?.best_epoch,model.val_synth?.best_epoch,model.val_mixed?.best_epoch,model.val_mixed?.best_epoch], 'count'));
+        result.push(put('Modellselektion', 'Validierungs-mIoU bei Best-Epoche',
+            [model.val_synth?.best_metric,model.val_synth?.best_metric,model.val_mixed?.best_metric,model.val_mixed?.best_metric], 'ratio'));
+        result.push(put('Modellselektion', 'Checkpoint-Aktualisierungen',
+            [model.val_synth?.updates,model.val_synth?.updates,model.val_mixed?.updates,model.val_mixed?.updates], 'count'));
+        result.push(put('Modellselektion', 'Reale Validierungsbilder (zur Checkpoint-Auswahl)',
+            [0,0,run.real_data_inventory?.validation_count ?? run.dual?.real_val_unique_images,
+             run.real_data_inventory?.validation_count ?? run.dual?.real_val_unique_images], 'count'));
+        result.push(put('Modellselektion', 'Gemeinsamer Real-Test (identische Bildmenge) – Boundary-mIoU',
+            [run.dual?.variants?.val_synth?.common_real?.miou_boundary,null,
+             run.dual?.variants?.val_mixed?.common_real?.miou_boundary,null], 'ratio'));
+        result.push(put('Datengrundlage', 'Reale Bilder im Eingangsordner',
+            [run.real_data_inventory?.image_count,null,run.real_data_inventory?.image_count,null], 'count'));
+        result.push(put('Datengrundlage', 'Real-Val und Real-Test gleiche Bildmenge',
+            [run.real_data_inventory?.validation_and_test_same_images,null,
+             run.real_data_inventory?.validation_and_test_same_images,null], 'bool'));
+        result.push(put('Datengrundlage', 'Testbilder', pairs.map(r => r.successful_images), 'count'));
+        result.push(put('Datengrundlage', 'Vollständig ausgewertet', pairs.map(r => r.complete), 'bool'));
+        result.push(put('Datengrundlage', 'Fehler-Rand ± px', pairs.map(r => r.boundary_band?.per_class?.defect?.inner_px ?? (r.boundary_band?.inner_px ?? null)), 'count'));
+        result.push(put('Datengrundlage', 'Schrift-Rand ± px', pairs.map(r => r.boundary_band?.per_class?.text?.inner_px ?? (r.boundary_band?.inner_px ?? null)), 'count'));
+        const classes = ['defect','text'];
+        for (const mode of ['boundary','strict']) {
+            const group = mode === 'boundary' ? 'Boundary – Pixelaggregiert (klassenspezifisch)' : 'Strict – Pixelaggregiert';
+            result.push(put(group, 'mIoU', pairs.map(r=>r[mode]?.miou), 'ratio'));
+            for (const cls of classes) {
+                for (const [key,label] of metrics)
+                    result.push(put(group, `${classLabel(cls)} – ${label}`, pairs.map(r=>metric(r,mode,cls,key)), 'ratio'));
             }
-        }
-        for (const mode of ['strict', 'boundary']) {
-            const section = `${mode === 'strict' ? 'Strict' : 'Boundary'} – Konfusionszahlen (Micro)`;
-            for (const cls of classKeys(run)) {
-                for (const [key, label] of [
-                    ['true_positive', 'TP'],
-                    ['false_positive', 'FP'],
-                    ['false_negative', 'FN'],
-                    ['true_negative', 'TN'],
-                    ['ground_truth', 'GT-Pixel'],
-                    ['prediction', 'Vorhersagepixel'],
-                    ['total', 'Gesamtpixel'],
-                    ['ignored_pixels', 'Ignorierte Pixel']
-                ]) {
-                    const rr = r[mode]?.classes?.[cls]?.counts || {}, ss = s[mode]?.classes?.[cls]?.counts || {};
-                    const x = key === 'true_positive' ? (rr[key] ?? rr.intersection) : rr[key];
-                    const y = key === 'true_positive' ? (ss[key] ?? ss.intersection) : ss[key];
-                    put(section, `${classLabel(cls)} – ${label}`, x, y, 'count');
+            const conf = mode === 'boundary' ? 'Boundary – Konfusionszahlen' : 'Strict – Konfusionszahlen';
+            for (const cls of classes) {
+                for (const [key,label] of [
+                    ['true_positive','TP'], ['false_positive','FP'], ['false_negative','FN'],
+                    ['true_negative','TN'], ['ground_truth','GT-Pixel'], ['prediction','Vorhersagepixel'],
+                    ['ignored_pixels','Ignorierte Pixel'], ['total','Bewertete Pixel'],
+                    ['boundary_band_pixels','Toleranzpixel'], ['neutralized_false_positive','Neutralisierte FP'],
+                    ['neutralized_false_negative','Neutralisierte FN']]) {
+                    result.push(put(conf, `${classLabel(cls)} – ${label}`, pairs.map(r=>
+                        r[mode]?.classes?.[cls]?.counts?.[key] ?? null), 'count'));
                 }
             }
-        }
-        for (const mode of ['strict', 'boundary']) {
-            const section = `${mode === 'strict' ? 'Strict' : 'Boundary'} – Statistik je Einzelbild`;
-            for (const cls of classKeys(run)) {
-                for (const key of [
-                    'iou',
-                    'dice',
-                    'precision',
-                    'recall',
-                    'f2',
-                    'pixel_accuracy'
-                ]) {
-                    for (const stat of [
-                        'mean',
-                        'median',
-                        'std',
-                        'min',
-                        'max',
-                        'n'
-                    ]) {
-                        const x = r[mode]?.classes?.[cls]?.image_statistics?.[key]?.[stat];
-                        const y = s[mode]?.classes?.[cls]?.image_statistics?.[key]?.[stat];
-                        put(section, `${classLabel(cls)} – ${metricNames[key]} ${stat}`, x, y, stat === 'n' ? 'count' : 'ratio');
-                    }
+            const stats = mode === 'boundary' ? 'Boundary – Statistik je Bild' : 'Strict – Statistik je Bild';
+            for (const cls of classes) for (const key of ['iou','dice','precision','recall','f2','pixel_accuracy'])
+                for (const stat of ['mean','median','std','min','max','n']) {
+                    result.push(put(stats, `${classLabel(cls)} – ${metricNames[key]} ${stat}`,
+                        pairs.map(r=>r[mode]?.classes?.[cls]?.image_statistics?.[key]?.[stat] ?? null),
+                        stat==='n'?'count':'ratio'));
                 }
-            }
         }
-        return rows;
+        return result;
     }
     function cell(v, kind) {
         const valid = v !== null && v !== undefined;
-        const txt = nice(v, kind === 'ratio');
-        return `<td class="${valid ? '' : 'yolo-na'}">${esc(txt)}</td>`;
+        return `<td class="${valid?'':'yolo-na'}">${esc(nice(v,kind==='ratio'))}</td>`;
     }
-    function displayGroup(rows, section) {
-        const items = rows.filter(row => row.section === section);
-        const dataRows = items.map(row => `
-            <tr>
-                <td>${esc(row.label)}</td>
-                ${cell(row.real, row.kind)}
-                ${cell(row.synth, row.kind)}
-            </tr>
-        `).join('');
-
-        return `
-            <div class="yolo-table-scroll">
-                <table class="yolo-ba-table">
-                    <thead>
-                        <tr>
-                            <th>Kennzahl</th>
-                            <th>Real-Test</th>
-                            <th>Synthetischer Test</th>
-                        </tr>
-                    </thead>
-                    <tbody>${dataRows}</tbody>
-                </table>
-            </div>
-        `;
+    function fiveCells(row) { return row.values.map(v => cell(v,row.kind)).join(''); }
+    function baTableHead() {
+        return `<thead><tr><th rowspan="2">Kennzahl</th><th colspan="2">Val ohne Realbilder</th><th colspan="2">Val mit Realbildern (50/50)</th></tr>
+        <tr><th>Real-Test</th><th>Synth-Test</th><th>Real-Test</th><th>Synth-Test</th></tr></thead>`;
     }
-    function exportBaText(run, withJson = true) {
-        const r = baEval(run, 'real_test'), s = baEval(run, 'synthetic_test');
-        const lines = [
-            'YOLO – Bachelorarbeit Kapitel 5 / vollständiger Modellbericht',
-            `Run: ${run.name}`,
-            `Modell: ${nice(run.summary?.modell)}`,
-            `Pipeline: ${nice(run.summary?.script)}`,
-            `Epochen: ${nice(run.summary?.epoche_letzte)} / ${nice(run.summary?.epochen_soll)}`,
-            `Training: ${nice(run.summary?.bildgroesse)} Pixel; Batch ${nice(run.summary?.batch)}`,
-            `Klassen: ${nice(run.summary?.klassen)}`,
-            `Renderer-Quellen: ${nice(run.summary?.quell_render_runs)}`,
-            'Micro = aus aufsummierten Pixelzählwerten; bildweise Statistik = ungewichtete Einzelbildwerte.',
-            'Strict = normale GT-Pixelbewertung; Boundary = Auswertung mit dokumentierter Randtoleranz.',
-            'Fehlende Kennzahl = nicht berichtet/nicht berechenbar (keine künstliche Null).',
-            `Quellen: Real=${sourceLabel(r)}; Synthetisch=${sourceLabel(s)}`,
-            '',
-            'Kennzahl\tReal-Test\tSynthetischer Test'
-        ];
-        let prev = '';
-        for (const row of getBaGroups(run)) {
-            if (row.section !== prev) {
-                lines.push('', `[${row.section}]`);
-                prev = row.section;
+    function completeExport(run) {
+        // Die Werte sind die berichteten Originalwerte; fehlende Daten bleiben null.
+        return {
+            run: run.name,
+            summary: run.summary,
+            configuration: run.configuration,
+            files_present: run.files,
+            real_data_inventory: run.real_data_inventory,
+            evaluation_policy: {
+                v10_3_threshold: 0.50,
+                v10_3_boundary_radius_px: {defect: 4, text: 8},
+                note: 'Gilt nur für v10.3 und neuere Läufe; historische Runs behalten ihre dokumentierten Regeln.'
+            },
+            checkpoint_selection_and_validation: run.dual,
+            final_test_reports: run.evaluations,
+            training_history: run.results,
+            milestones: run.milestones
+        };
+    }
+    function exportBaText(run) {
+        const lines = ['YOLO – vollständiger Laufbericht', `Run: ${run.name}`, '',
+            '[KONFIGURATION UND LAUF]', JSON.stringify({summary:run.summary, configuration:run.configuration, files:run.files},null,2),
+            '', '[REALBILDER – ANZAHL, VERWENDUNG UND ÜBERLAPPUNG]',
+            JSON.stringify(run.real_data_inventory ?? {},null,2),
+            'Achtung: Falls Real-Val und Real-Test identisch sind, ist der Test für den mit Realbildern selektierten Checkpoint nicht unabhängig.',
+            '', '[ERGEBNISSE: ALLE TESTKENNZAHLEN]'];
+        if (run.dual?.available) {
+            lines.push('Kennzahl\tReal-Test ohne Real-Val\tSynth-Test ohne Real-Val\tReal-Test mit Real-Val\tSynth-Test mit Real-Val');
+            let last = '';
+            for (const row of getBaGroups(run)) {
+                if (row.section!==last) { last=row.section; lines.push('', `[${last}]`); }
+                lines.push([row.label,...row.values.map(v=>nice(v,row.kind==='ratio'))].join('\t'));
             }
-            lines.push(`${row.label}\t${nice(row.real, row.kind === 'ratio')}\t${nice(row.synth, row.kind === 'ratio')}`);
+        } else {
+            lines.push('Historischer Run ohne Dual-Validation:', JSON.stringify(run.evaluations,null,2));
         }
-        if (withJson) {
-            lines.push('', 'MASCHINENLESBARE ORIGINALWERTE (NORMALISIERT)', JSON.stringify({
-                run: run.name,
-                summary: run.summary,
-                configuration: run.configuration,
-                evaluations: {
-                    real_test: r,
-                    synthetic_test: s,
-                    real_val: baEval(run, 'real_val'),
-                    synthetic_val: baEval(run, 'synthetic_val')
-                },
-                results_last_epoch: run.results?.last,
-                available_files: run.files
-            }, null, 2));
-        }
+        lines.push('', '[VOLLSTÄNDIGE STRUKTURIERTE DATEN]', JSON.stringify(completeExport(run),null,2));
         return lines.join('\n');
     }
+
     async function copyText(value) {
         if (navigator.clipboard?.writeText) {
             try {
@@ -1523,149 +1682,78 @@ require_once __DIR__ . '/../navbar.php';
             throw new Error('Zwischenablage wurde vom Browser blockiert.');
     }
     function renderBa() {
-        const runs = state.loaded;
-
-        $('yoloBaCards').innerHTML = runs.map((run, index) => {
-            const real = baEval(run, 'real_test');
-            const synthetic = baEval(run, 'synthetic_test');
-            const rows = getBaGroups(run);
-            const sections = [...new Set(rows.map(row => row.section))];
-
-            const groupTables = sections.map((section, groupIndex) => {
-                const groupRows = rows.filter(row => row.section === section);
-                const collapsed = groupIndex > 1;
-                const arrow = collapsed ? '▸' : '▾';
-                const dataRows = groupRows.map(row => `
-                    <tr>
-                        <td>${esc(row.label)}</td>
-                        ${cell(row.real, row.kind)}
-                        ${cell(row.synth, row.kind)}
-                    </tr>
-                `).join('');
-
-                return `
-                    <tbody class="yolo-ba-tbody ${collapsed ? 'is-collapsed' : ''}">
-                        <tr class="yolo-ba-group">
-                            <td colspan="3">
-                                <button
-                                    type="button"
-                                    class="yolo-ba-toggle"
-                                    aria-expanded="${String(!collapsed)}"
-                                >${arrow} ${esc(section)}</button>
-                            </td>
-                        </tr>
-                        ${dataRows}
-                    </tbody>
-                `;
+        $('yoloBaCards').innerHTML = state.loaded.map((run,index) => {
+            const dual=run.dual?.available;
+            const rows=dual?getBaGroups(run):[];
+            const summary=rows.filter(x=>x.section==='Modellselektion'||x.section==='Datengrundlage'||x.section.startsWith('Boundary'));
+            const boundarySummary=summary.filter(x=>x.section==='Modellselektion'||x.section==='Datengrundlage'||x.section==='Boundary – Pixelaggregiert (klassenspezifisch)');
+            const detailSections=dual?[...new Set(rows.map(r=>r.section))].filter(x=>!['Modellselektion','Datengrundlage','Boundary – Pixelaggregiert (klassenspezifisch)'].includes(x)):[];
+            const detailHTML=detailSections.map(section=>{
+                const body=rows.filter(r=>r.section===section).map(row=>`<tr><td>${esc(row.label)}</td>${fiveCells(row)}</tr>`).join('');
+                return `<details class="yolo-detail yolo-ba-legacy-detail"><summary>${esc(section)}</summary><div class="yolo-table-scroll"><table class="yolo-ba-table yolo-ba-five">${baTableHead()}<tbody>${body}</tbody></table></div></details>`;
             }).join('');
-
-            const hasCompleteReports = [real, synthetic].every(report => {
-                return report.available
-                    && report.ground_truth_enabled !== false
-                    && report.has_metrics;
-            });
-
-            const warning = hasCompleteReports ? '' : `
-                <div class="yolo-notice warn">
-                    ${!real.available ? 'Kein realer Testbericht. ' : ''}
-                    ${!synthetic.available ? 'Kein synthetischer Testbericht. ' : ''}
-                    Nicht alle Metriken sind für beide Testdomänen vorhanden;
-                    vorhandene Daten bleiben sichtbar.
-                </div>
-            `;
-
-            return `
-                <article class="yolo-model-card" data-ba-key="${escapeAttr(run.key)}">
-                    <div class="yolo-model-head">
-                        <div>
-                            <h3>
-                                <span class="yolo-series-${index % colors.length}">●</span>
-                                ${esc(run.name)}
-                            </h3>
-                            <p>
-                                Modell: ${esc(nice(run.summary?.modell))} ·
-                                Skript: ${esc(nice(run.summary?.script))} ·
-                                letzter Epoch: ${esc(nice(run.summary?.epoche_letzte))}
-                            </p>
-                        </div>
-                        <div class="yolo-flex">
-                            <button type="button" class="yolo-button" data-ba-expand>
-                                Alle Kennzahlen zeigen
-                            </button>
-                            <button
-                                type="button"
-                                class="yolo-button primary"
-                                data-ba-copy="${escapeAttr(run.key)}"
-                            >Alle BA-Werte kopieren</button>
-                            <button
-                                type="button"
-                                class="yolo-button"
-                                data-ba-copy-json="${escapeAttr(run.key)}"
-                            >Nur JSON</button>
-                        </div>
-                    </div>
-                    <div class="yolo-ba-core">
-                        ${warning}
-                        <div class="yolo-table-scroll">
-                            <table class="yolo-ba-table">
-                                <thead>
-                                    <tr>
-                                        <th>Kennzahl</th>
-                                        <th>Real-Test</th>
-                                        <th>Synthetischer Test</th>
-                                    </tr>
-                                </thead>
-                                ${groupTables}
-                            </table>
-                        </div>
-                    </div>
-                </article>
-            `;
-        }).join('') || '<div class="yolo-empty">Bitte mindestens einen Detail-Run auswählen.</div>';
-
-        $('yoloBaCards').querySelectorAll('.yolo-ba-toggle').forEach(btn => btn.addEventListener('click', () => {
-            const section = btn.closest('.yolo-ba-tbody');
-            section.classList.toggle('is-collapsed');
-            const expanded = !section.classList.contains('is-collapsed');
-            btn.setAttribute('aria-expanded', String(expanded));
-            btn.textContent = (expanded ? '▾' : '▸') + ' ' + btn.textContent.slice(2);
-        }));
-        $('yoloBaCards').querySelectorAll('[data-ba-expand]').forEach(btn => btn.addEventListener('click', () => {
-            const groups = btn.closest('.yolo-model-card').querySelectorAll('.yolo-ba-tbody');
-            const allOpen = [...groups].every(g => !g.classList.contains('is-collapsed'));
-            groups.forEach(group => {
-                group.classList.toggle('is-collapsed', allOpen);
-                const toggle = group.querySelector('.yolo-ba-toggle');
-                toggle.textContent = (allOpen ? '▸' : '▾') + ' ' + toggle.textContent.slice(2);
-                toggle.setAttribute('aria-expanded', String(!allOpen));
-            });
-            btn.textContent = allOpen ? 'Alle Kennzahlen zeigen' : 'Details einklappen';
-        }));
-        $('yoloBaCards').querySelectorAll('[data-ba-copy],[data-ba-copy-json]').forEach(btn => btn.addEventListener('click', async () => {
-            const key = btn.dataset.baCopy || btn.dataset.baCopyJson;
-            const run = state.loaded.find(x => x.key === key);
-            if (!run)
-                return;
-            const jsonOnly = !!btn.dataset.baCopyJson;
-            const content = jsonOnly ? JSON.stringify({
-                run: run.name,
-                summary: run.summary,
-                configuration: run.configuration,
-                evaluations: run.evaluations,
-                results_last_epoch: run.results?.last
-            }, null, 2) : exportBaText(run);
-            const before = btn.textContent;
-            try {
-                await copyText(content);
-                btn.textContent = 'Kopiert';
-            }
-            catch (err) {
-                btn.textContent = 'Kopieren fehlgeschlagen';
-                renderError(String(err.message || err));
-            }
-            window.setTimeout(() => { btn.textContent = before; }, 1700);
+            const legacy=dual?'':`<details class="yolo-detail"><summary>Historische Einzelmodell-Auswertung (Strict / Boundary / Datengrundlage)</summary>
+                <div class="yolo-detail-inner"><div class="yolo-table-scroll"><table class="yolo-ba-table"><thead><tr><th>Kennzahl</th><th>Real-Test</th><th>Synth-Test</th></tr></thead>
+                <tbody>${['strict','boundary'].map(mode=>{
+                    const real=baEval(run,'real_test'),synth=baEval(run,'synthetic_test');
+                    return `<tr class="yolo-ba-group"><td colspan="3">${mode==='strict'?'Strict':'Boundary'}</td></tr>`+
+                    [`<tr><td>mIoU</td>${cell(real[mode]?.miou,'ratio')}${cell(synth[mode]?.miou,'ratio')}</tr>`]
+                    .concat(['defect','text'].flatMap(cls=>metrics.map(([key,label])=>`<tr><td>${esc(classLabel(cls)+' – '+label)}</td>${cell(metric(real,mode,cls,key),'ratio')}${cell(metric(synth,mode,cls,key),'ratio')}</tr>`))).join('');
+                }).join('')}</tbody></table></div></div></details>`;
+            const summaryBody=boundarySummary.map(row=>`<tr><td>${esc(row.label)}</td>${fiveCells(row)}</tr>`).join('');
+            const epochs=run.dual?.epochs||[];
+            const validationPairs=['val_synth','val_mixed'].flatMap(variant=>['real_val','synthetic_val'].map(domain=>variantReport(run,variant,domain)));
+            const validationRows=dual?[
+                ['Bilder',validationPairs.map(r=>r.successful_images),'count'],
+                ['Boundary-mIoU',validationPairs.map(r=>r.boundary?.miou),'ratio'],
+                ...['defect','text'].flatMap(cls=>metrics.map(([key,label])=>[
+                    classLabel(cls)+' – '+label,validationPairs.map(r=>metric(r,'boundary',cls,key)),'ratio'
+                ]))
+            ]:[];
+            const validationDetails=dual?`<details class="yolo-detail"><summary>Validierungsberichte (nicht als unabhängiger Test gewertet)</summary>
+                <div class="yolo-table-scroll"><table class="yolo-ba-table yolo-ba-five">
+                <thead><tr><th rowspan="2">Kennzahl</th><th colspan="2">Modell ohne Real-Val</th><th colspan="2">Modell mit Real-Val</th></tr>
+                <tr><th>Real-Val-Auswertung</th><th>Synth-Val</th><th>Real-Val</th><th>Synth-Val</th></tr></thead>
+                <tbody>${validationRows.map(([label,values,kind])=>`<tr><td>${esc(label)}</td>${values.map(v=>cell(v,kind)).join('')}</tr>`).join('')}</tbody>
+                </table></div></details>`:'';
+            const modelDetails=dual?`<details class="yolo-detail"><summary>Modellberichte · Selektions- und Testkonfiguration</summary>
+                <div class="yolo-detail-inner"><div class="yolo-table-scroll"><table><thead><tr><th>Parameter</th><th>Val ohne Realbilder</th><th>Val mit Realbildern</th></tr></thead><tbody>
+                ${['validation_policy','real_validation_count','real_test_count','real_test_policy','real_test_independent',
+                   'real_test_same_images_as_mixed_validation','shared_real_test_count',
+                   'synthetic_test_count','training_shared','selection_metric','timestamp_policy'].map(key=>{
+                       const a=run.dual?.variants?.val_synth?.model_report?.[key];
+                       const b=run.dual?.variants?.val_mixed?.model_report?.[key];
+                       return `<tr><td>${esc(key)}</td><td>${esc(nice(a))}</td><td>${esc(nice(b))}</td></tr>`;
+                   }).join('')}
+                </tbody></table></div></div></details>`:'';
+            const epochHistory=dual?`<details class="yolo-detail yolo-ba-history-detail"><summary>Modellselektion · vollständiger Epochenverlauf (${epochs.length} Epochen)</summary>
+                <div class="yolo-table-scroll"><table class="yolo-ba-history-table"><thead><tr><th>Epoche</th><th>Val ohne Real: mIoU</th><th>Neues Best</th><th>Val mit Real: mIoU</th><th>Neues Best</th><th>Beste Epoche nach diesem Schritt (ohne / mit)</th></tr></thead><tbody>
+                ${epochs.map(ep=>`<tr><td>${esc(nice(ep.epoch))}</td><td>${esc(nice(ep.val_synth_miou,true))}</td><td>${ep.val_synth_new_best?'Ja':'—'}</td>
+                <td>${esc(nice(ep.val_mixed_miou,true))}</td><td>${ep.val_mixed_new_best?'Ja':'—'}</td>
+                <td>${esc(nice(ep.val_synth_best_epoch_after))} / ${esc(nice(ep.val_mixed_best_epoch_after))}</td></tr>`).join('')}
+                </tbody></table></div></details>`:'';
+            return `<article class="yolo-model-card" data-ba-key="${escapeAttr(run.key)}">
+                <div class="yolo-model-head"><div><h3><span class="yolo-series-${index%colors.length}">●</span> ${esc(run.name)}</h3>
+                <p>${esc(nice(run.summary?.modell))} · ${esc(nice(run.summary?.epoche_letzte))} Epochen</p></div>
+                <div class="yolo-flex"><button type="button" class="yolo-button primary" data-ba-copy="${escapeAttr(run.key)}">Alles für KI kopieren</button>
+                <button type="button" class="yolo-button" data-ba-copy-json="${escapeAttr(run.key)}">JSON kopieren</button></div></div>
+                ${dual?`<details class="yolo-detail yolo-ba-summary"><summary>Zusammenfassung · Boundary-Metriken &amp; Checkpoint-Auswahl</summary>
+                    <div class="yolo-table-scroll"><table class="yolo-ba-table yolo-ba-five">${baTableHead()}<tbody>${summaryBody}</tbody></table></div></details>
+                    <div class="yolo-ba-extra">${epochHistory}${validationDetails}${modelDetails}${detailHTML}</div>`:
+                    `<div class="yolo-notice">Für diesen historischen Run ist keine getrennte v10-Validierung vorhanden.</div>${legacy}`}
+                </article>`;
+        }).join('')||'<div class="yolo-empty">Bitte einen Run auswählen.</div>';
+        $('yoloBaCards').querySelectorAll('[data-ba-copy],[data-ba-copy-json]').forEach(btn=>btn.addEventListener('click',async()=>{
+            const key=btn.dataset.baCopy||btn.dataset.baCopyJson;
+            const run=state.loaded.find(x=>x.key===key);
+            if(!run)return;
+            const content=btn.dataset.baCopyJson?JSON.stringify(completeExport(run),null,2):exportBaText(run);
+            const old=btn.textContent;
+            try{await copyText(content);btn.textContent='Kopiert';}catch(e){renderError(String(e));btn.textContent='Fehler';}
+            window.setTimeout(()=>btn.textContent=old,1500);
         }));
     }
+
     function destroyCharts(prefix = '') {
         for (const [key, chart] of state.charts)
             if (!prefix || key.startsWith(prefix)) {
@@ -1673,247 +1761,173 @@ require_once __DIR__ . '/../navbar.php';
                 state.charts.delete(key);
             }
     }
+    const DUAL_GRAPH_OPTIONS=[
+        ['val_synth_miou','Val-mIoU ohne Realbilder'],
+        ['val_mixed_miou','Val-mIoU mit Realbildern (50/50)'],
+        ['val_synth_best_epoch_after','Best-Epoche ohne Realbilder'],
+        ['val_mixed_best_epoch_after','Best-Epoche mit Realbildern']
+    ];
     function allKeys(type) {
-        const keys = new Set();
-        for (const r of state.loaded) {
-            const items = type === 'train' ? r.results?.numeric_columns : r.milestones?.metric_keys;
-            (items || []).forEach(v => keys.add(v));
-        }
-        return [...keys].sort((a, b) => a.localeCompare(b, 'de', { numeric: true }));
+        if(type==='dual')return state.loaded.some(r=>r.dual?.epochs?.length)?DUAL_GRAPH_OPTIONS.map(x=>x[0]):[];
+        const keys=new Set();
+        for(const r of state.loaded){const values=type==='train'?(r.results?.numeric_columns||[]):(r.milestones?.metric_keys||[]);values.forEach(k=>keys.add(k));}
+        return [...keys].sort((a,b)=>a.localeCompare(b,'de',{numeric:true}));
     }
-    function defaultsFor(type, keys) {
-        const first = type === 'train'
-            ? [
-                /metrics\/.*miou/i,
-                /metrics\/.*iou.*defect/i,
-                /metrics\/.*iou.*text/i,
-                /train\/.*loss/i,
-                /val\/.*loss/i
-            ]
-            : [/render_test.*defect.*iou/i, /render_test.*text.*iou/i, /real_test.*defect.*iou/i, /real_test.*text.*iou/i];
-        const result = [];
-        for (const re of first) {
-            const key = keys.find(k => re.test(k) && !result.includes(k));
-            if (key)
-                result.push(key);
-        }
-        return (result.length ? result : keys.slice(0, 3)).slice(0, 5);
+    function defaultsFor(type,keys) {
+        const patterns=type==='dual'?[/^val_synth_miou$/,/^val_mixed_miou$/]:type==='train'?
+            [/metrics\/.*miou/i,/metrics\/.*recall.*defect/i,/metrics\/.*iou.*defect/i,/metrics\/.*iou.*text/i]:
+            [/real.*recall.*defect/i,/real.*iou.*defect/i,/real.*miou/i,/render.*miou/i];
+        const selected=[];
+        for(const regex of patterns){const key=keys.find(k=>regex.test(k)&&!selected.includes(k));if(key)selected.push(key);}
+        return selected.length?selected:keys.filter(k=>/miou|recall|iou/i.test(k)).slice(0,3);
     }
     function rebuildGraphs() {
-        for (const type of ['train', 'milestone']) {
-            const keys = allKeys(type);
-            const set = type === 'train' ? state.trainMetrics : state.milestoneMetrics;
-            for (const k of [...set])
-                if (!keys.includes(k))
-                    set.delete(k);
-            if (!set.size)
-                defaultsFor(type, keys).forEach(k => set.add(k));
-            const holder = $(type === 'train' ? 'yoloTrainMetrics' : 'yoloMilestoneMetrics');
-            holder.innerHTML = keys.map(key => `
-                <label class="yolo-metric-label">
-                    <input
-                        type="checkbox"
-                        data-metric="${escapeAttr(key)}"
-                        ${set.has(key) ? 'checked' : ''}
-                    >
-                    <span>${esc(key)}</span>
-                </label>
-            `).join('') || `
-                <div class="yolo-empty">
-                    Keine Metriken für die ausgewählten Runs vorhanden.
-                </div>
-            `;
-            holder.querySelectorAll('input').forEach(input => input.addEventListener('change', () => {
-                if (input.checked)
-                    set.add(input.dataset.metric);
-                else
-                    set.delete(input.dataset.metric);
-                drawCharts(type);
+        for(const type of ['dual','train','milestone']) {
+            const keys=allKeys(type);
+            const set=type==='dual'?state.dualMetrics:type==='train'?state.trainMetrics:state.milestoneMetrics;
+            for(const key of [...set])if(!keys.includes(key))set.delete(key);
+            if(!state.metricInitialized.has(type)){
+                defaultsFor(type,keys).forEach(key=>set.add(key));
+                if(keys.length)state.metricInitialized.add(type);
+            }
+            const holder=$(type==='dual'?'yoloDualMetrics':type==='train'?'yoloTrainMetrics':'yoloMilestoneMetrics');
+            holder.innerHTML=keys.map(key=>{
+                const title=type==='dual'?DUAL_GRAPH_OPTIONS.find(x=>x[0]===key)?.[1]||key:key;
+                return `<label class="yolo-metric-label"><input type="checkbox" data-metric="${escapeAttr(key)}" ${set.has(key)?'checked':''}><span>${esc(title)}</span></label>`;
+            }).join('')||'<div class="yolo-muted">Keine Messwerte</div>';
+            holder.querySelectorAll('input').forEach(input=>input.addEventListener('change',()=>{
+                input.checked?set.add(input.dataset.metric):set.delete(input.dataset.metric);
+                drawCharts();
             }));
-            drawCharts(type);
         }
+        drawCharts();
     }
-    function points(run, type, key) {
-        if (type === 'milestone')
-            return (run.milestones?.points || []).flatMap(item => {
-                const y = item.metrics?.[key];
-                return isNum(y) ? [{ x: Number(item.epoch), y }] : [];
-            }).filter(p => isNum(p.x));
-        const res = run.results || {}, rows = res.rows || [], epochKey = res.epoch_key;
-        return rows.flatMap((row, i) => {
-            const y = row[key], x = epochKey ? (row[epochKey] ?? null) : i + 1;
-            if (!isNum(y) || !isNum(x))
-                return [];
-            return [{ x: Number(x) + Number(res.epoch_offset || 0), y }];
+    function points(run,type,key) {
+        if(type==='dual')return (run.dual?.epochs||[]).flatMap(row=>isNum(row[key])?[{x:Number(row.epoch),y:row[key]}]:[]);
+        if(type==='milestone')return (run.milestones?.points||[]).flatMap(row=>isNum(row.metrics?.[key])?[{x:Number(row.epoch),y:row.metrics[key]}]:[]);
+        const res=run.results||{};
+        return (res.rows||[]).flatMap((row,i)=>{
+            const y=row[key],x=res.epoch_key?row[res.epoch_key]:i+1;
+            return isNum(x)&&isNum(y)?[{x:Number(x)+Number(res.epoch_offset||0),y}]:[];
         });
     }
-    function isRatioMetric(name) {
-        return /(?:iou|dice|f1|f2|precision|recall|pix(?:el)?[_/ ]?acc|accuracy)/i.test(name)
-            && !/loss|learning.rate|lr[0-9]/i.test(name);
+    function isRatioMetric(key){return /(?:iou|dice|f1|f2|precision|recall|pix(?:el)?[_/ ]?acc|accuracy)/i.test(key)&&!/loss|lr[0-9]/i.test(key);}
+    function drawCharts(){
+        destroyCharts();
+        const holder=$('yoloAllCharts');holder.innerHTML='';
+        const chosen=[['dual',state.dualMetrics],['train',state.trainMetrics],['milestone',state.milestoneMetrics]].flatMap(([type,set])=>[...set].map(key=>({type,key})));
+        if(!chosen.length){holder.innerHTML='<div class="yolo-empty">Keine Metriken ausgewählt.</div>';return;}
+        if(typeof Chart==='undefined'){holder.innerHTML='<div class="yolo-notice warn">Chart.js nicht verfügbar.</div>';return;}
+        for(const {type,key} of chosen){
+            const datasets=state.loaded.map((run,i)=>({label:run.name,data:points(run,type,key),borderColor:colors[i%colors.length],
+                backgroundColor:colors[i%colors.length],borderWidth:2,pointRadius:type==='milestone'?3:0,
+                pointHoverRadius:4,tension:0.08,spanGaps:false})).filter(ds=>ds.data.length);
+            if(!datasets.length)continue;
+            const article=document.createElement('article');article.className='yolo-chart-card';
+            const label=type==='dual'?DUAL_GRAPH_OPTIONS.find(x=>x[0]===key)?.[1]||key:key;
+            const h=document.createElement('h3');h.textContent=label;article.appendChild(h);
+            const wrap=document.createElement('div');wrap.className='yolo-canvas-wrap';
+            const canvas=document.createElement('canvas');wrap.appendChild(canvas);article.appendChild(wrap);holder.appendChild(article);
+            const ratio=isRatioMetric(key);
+            const chart=new Chart(canvas,{type:'line',data:{datasets},options:{responsive:true,maintainAspectRatio:false,parsing:false,animation:false,normalized:true,
+                interaction:{mode:'nearest',axis:'x',intersect:false},plugins:{legend:{position:'top'},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${nice(c.parsed.y,ratio)}`}}},
+                scales:{x:{type:'linear',title:{display:true,text:'Epoche'},ticks:{precision:0}},y:{beginAtZero:false,ticks:ratio?{callback:x=>`${Math.round(Number(x)*100)} %`}:{}}}}});
+            state.charts.set(type+':'+key,chart);
+        }
+        if(!holder.children.length)holder.innerHTML='<div class="yolo-empty">Für diese Auswahl keine Diagrammdaten.</div>';
     }
-    function drawCharts(type) {
-        destroyCharts(type + ':');
-        const set = type === 'train' ? state.trainMetrics : state.milestoneMetrics;
-        const holder = $(type === 'train' ? 'yoloTrainCharts' : 'yoloMilestoneCharts');
-        if (!set.size) {
-            holder.innerHTML = '<div class="yolo-empty">Keine Metriken ausgewählt.</div>';
-            return;
-        }
-        if (typeof Chart === 'undefined') {
-            holder.innerHTML = `
-                <div class="yolo-notice warn">
-                    Chart.js konnte nicht geladen werden.
-                    Die tabellarischen Ergebnisse sind unabhängig davon verfügbar.
-                </div>
-            `;
-            return;
-        }
-        holder.innerHTML = '';
-        for (const key of set) {
-            const datasets = state.loaded.map((r, i) => ({
-                label: r.name,
-                data: points(r, type, key),
-                borderColor: colors[i % colors.length],
-                backgroundColor: colors[i % colors.length],
-                borderWidth: 2,
-                pointRadius: type === 'train' ? 0 : 3,
-                pointHoverRadius: 4,
-                tension: .08,
-                spanGaps: false
-            })).filter(ds => ds.data.length);
-            const article = document.createElement('article');
-            article.className = 'yolo-chart-card';
-            const title = document.createElement('h3');
-            title.textContent = key;
-            article.appendChild(title);
-            if (!datasets.length) {
-                article.insertAdjacentHTML('beforeend', '<div class="yolo-empty">Für diese Auswahl keine Messwerte.</div>');
-                holder.appendChild(article);
-                continue;
-            }
-            const wrap = document.createElement('div');
-            wrap.className = 'yolo-canvas-wrap';
-            const canvas = document.createElement('canvas');
-            wrap.appendChild(canvas);
-            article.appendChild(wrap);
-            holder.appendChild(article);
-            const ratio = isRatioMetric(key);
-            const chart = new Chart(canvas, {
-                type: 'line',
-                data: { datasets },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    parsing: false,
-                    animation: false,
-                    normalized: true,
-                    interaction: { mode: 'nearest', axis: 'x', intersect: false },
-                    plugins: { legend: { position: 'top' }, tooltip: { callbacks: { label: c => `${c.dataset.label}: ${nice(c.parsed.y, ratio)}` } } },
-                    scales: {
-                        x: { type: 'linear', title: { display: true, text: 'Epoche' }, ticks: { precision: 0 } },
-                        y: { beginAtZero: false, ticks: ratio ? { callback: x => `${Math.round(Number(x) * 100)} %` } : {} }
-                    }
-                }
-            });
-            state.charts.set(type + ':' + key, chart);
-        }
-    }
-    function imageUrl(key, id) {
-        const url = new URL(window.location.href);
-        url.searchParams.set('ajax', 'test_image');
-        url.searchParams.set('run', key);
-        url.searchParams.set('image', id);
+
+    function imageUrl(key,id,variant) {
+        const url=new URL(window.location.href);
+        url.searchParams.set('ajax','test_image');url.searchParams.set('run',key);
+        url.searchParams.set('image',id);url.searchParams.set('variant',variant);
         return url.toString();
     }
-    function renderImages() {
-        const runs = state.loaded.filter(run => run.kind === 'detail');
-        const sortKey = $('yoloImageSort').value;
-        const referenceSelect = $('yoloImageReference');
-        const previousReference = referenceSelect.value;
-        referenceSelect.innerHTML = runs.map(run => `
-            <option value="${escapeAttr(run.key)}">${esc(run.name)}</option>
-        `).join('');
-        referenceSelect.value = runs.some(run => run.key === previousReference)
-            ? previousReference : (runs[0]?.key ?? '');
-        referenceSelect.disabled = runs.length < 2;
-        const referenceRun = runs.find(run => run.key === referenceSelect.value) || runs[0] || null;
-        const byRun = new Map(runs.map(run => [run.key,
-            new Map((run.test_images || []).map(image => [image.id, image]))
-        ]));
-        const imagesById = new Map();
-        runs.forEach(run => {
-            (run.test_images || []).forEach(image => {
-                if (!imagesById.has(image.id))
-                    imagesById.set(image.id, image.label);
-            });
-        });
-        const referenceImages = referenceRun ? byRun.get(referenceRun.key) : null;
-        const referenceScore = id => referenceImages?.get(id)?.scores?.[sortKey] ?? null;
-        const hasScores = sortKey !== 'filename'
-            && [...imagesById.keys()].some(id => isNum(referenceScore(id)));
-        const byName = (a, b) => a[1].localeCompare(b[1], 'de', { numeric: true });
-        const groups = [...imagesById.entries()].sort((a, b) => {
-            if (!hasScores)
-                return byName(a, b);
-            const left = referenceScore(a[0]), right = referenceScore(b[0]);
-            if (isNum(left) && isNum(right) && left !== right)
-                return right - left;
-            if (isNum(left) !== isNum(right))
-                return isNum(left) ? -1 : 1;
-            return byName(a, b);
-        });
-        const fallbackNotice = sortKey !== 'filename' && groups.length && !hasScores
-            ? `<div class="yolo-notice warn">Für den Referenzlauf ${esc(referenceRun?.name ?? '')} liegen keine Einzelbild-Metriken für diese Sortierung vor. Die Bilder werden nach Dateiname angezeigt.</div>`
-            : '';
-        const formatScore = value => isNum(value) ? nice(value, true) : '—';
-
-        $('yoloImages').innerHTML = fallbackNotice + groups.map(([imageId, label], index) => {
-            const imageCells = runs.map(run => {
-                const image = byRun.get(run.key)?.get(imageId);
-                const content = image ? `
-                    <a
-                        href="${escapeAttr(imageUrl(run.key, imageId))}"
-                        target="_blank"
-                        rel="noopener"
-                        title="${escapeAttr(run.name)}"
-                    >
-                        <img
-                            loading="lazy"
-                            src="${escapeAttr(imageUrl(run.key, imageId))}"
-                            alt="${escapeAttr(label + ' – ' + run.name)}"
-                        >
-                    </a>
-                ` : '<div class="yolo-empty">Keine entsprechende Ausgabe vorhanden.</div>';
-                return `<div class="yolo-image-item">${content}</div>`;
+    function imagePageUrl(key,sort,offset){
+        const url=new URL(window.location.href);
+        url.searchParams.set('ajax','image_page');url.searchParams.set('run',key);
+        url.searchParams.set('sort',sort);url.searchParams.set('offset',String(offset));
+        return url.toString();
+    }
+    function stopGallery() {
+        ++state.galleryRequest;
+        state.galleryObserver?.disconnect();state.galleryObserver=null;
+        state.galleryPage=0;state.galleryLoading=false;
+    }
+    function imageScoreDetails(scores) {
+        const fmt = value => isNum(value) ? nice(value, true) : '—';
+        const items = [
+            ['Recall Fehler', scores?.defect_recall_boundary ?? scores?.defect_recall_strict],
+            ['IoU Fehler', scores?.defect_boundary ?? scores?.defect_strict],
+            ['Recall Schrift', scores?.text_recall_boundary ?? scores?.text_recall_strict],
+            ['IoU Schrift', scores?.text_boundary ?? scores?.text_strict]
+        ];
+        return `<div class="yolo-image-metrics" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 12px;padding:10px 8px;font-size:0.85rem;">
+            ${items.map(([label,value])=>`<div><span class="yolo-muted">${esc(label)}:</span> <b>${esc(fmt(value))}</b></div>`).join('')}
+        </div>`;
+    }
+    function imageSlot(image,key,variant,title) {
+        const available=!!image.images?.[variant];
+        return `<div class="yolo-image-item"><strong>${esc(title)}</strong>${available?
+            `<a href="${escapeAttr(imageUrl(key,image.id,variant))}" target="_blank" rel="noopener" title="${escapeAttr(title)}">
+             <img loading="lazy" decoding="async" src="${escapeAttr(imageUrl(key,image.id,variant))}" alt="${escapeAttr(image.label+' – '+title)}"></a>`:
+            '<div class="yolo-empty">Für dieses Testbild nicht vorhanden.</div>'}
+            ${variant==='gt' ? '' : imageScoreDetails(image.scores?.[variant])}</div>`;
+    }
+    async function loadGalleryPage(expectedRequest) {
+        if(expectedRequest!==state.galleryRequest || state.galleryLoading || state.galleryPage===null)return;
+        const key=$('yoloImageReference').value;
+        if(!key)return;
+        const sort=$('yoloImageSort').value;
+        const offset=state.galleryPage;
+        state.galleryLoading=true;
+        $('yoloLoadMoreImages').disabled=true;
+        try{
+            const response=await fetch(imagePageUrl(key,sort,offset),{credentials:'same-origin',cache:'no-store'});
+            const data=await response.json();
+            if(expectedRequest!==state.galleryRequest)return;
+            if(!response.ok||!data.ok)throw Error(data.message||`HTTP ${response.status}`);
+            const html=(data.items||[]).map((image,i)=>{
+                const title=image.label;
+                return `<article class="yolo-image-group"><div class="yolo-image-group-head"><span class="yolo-image-head-main">${esc(title)}</span></div>
+                    <div class="yolo-image-triptych">
+                    ${imageSlot(image,key,'val_synth',state.loaded.find(r=>r.key===key)?.dual?.available?'Val ohne Realbilder':'Historisches Modell')}
+                    ${imageSlot(image,key,'gt','Ground Truth (Randzone)')}
+                    ${imageSlot(image,key,'val_mixed','Val mit Realbildern')}
+                    </div></article>`;
             }).join('');
-
-            // Alle angezeigten Kennzahlen beziehen sich auf den gewählten Referenzlauf.
-            // Die Sortierreihenfolge kann unabhängig davon auf Strict/Einzelklassen beruhen.
-            const refScores = referenceImages?.get(imageId)?.scores;
-            const rank = hasScores ? `${index + 1}. ` : '';
-            const boundary = isNum(refScores?.miou_boundary)
-                ? ` · ${esc(formatScore(refScores.miou_boundary))} (${esc(referenceRun?.name ?? '')})`
-                : '';
-            const classIoUs = [
-                isNum(refScores?.defect_boundary) ? `Fehler ${esc(formatScore(refScores.defect_boundary))}` : '',
-                isNum(refScores?.text_boundary) ? `Schrift ${esc(formatScore(refScores.text_boundary))}` : ''
-            ].filter(Boolean).join(' · ');
-            return `
-                <article class="yolo-image-group">
-                    <div class="yolo-image-group-head">
-                        <span class="yolo-image-head-main">${rank}${esc(label)}${boundary}</span>
-                        ${classIoUs ? `<span class="yolo-image-head-classes">${classIoUs}</span>` : ''}
-                    </div>
-                    <div class="yolo-image-grid yolo-image-cols-${Math.min(6, runs.length)}">
-                        ${imageCells}
-                    </div>
-                </article>
-            `;
-        }).join('') || `
-            <div class="yolo-empty">
-                Keine finalen 2×2-Testbilder in den ausgewählten Runs gefunden.
-            </div>
-        `;
+            $('yoloImages').insertAdjacentHTML('beforeend',html);
+            state.galleryPage=data.next_offset;
+            const footer=$('yoloGalleryFooter');footer.hidden=!data.total || data.next_offset===null;
+            $('yoloGalleryProgress').textContent=`${Math.min(offset+(data.items||[]).length,data.total)} von ${data.total} Bildern geladen`;
+            if(!data.total && !offset)$('yoloImages').innerHTML='<div class="yolo-empty">Keine Real-Testbilder für diesen Run vorhanden.</div>';
+        }catch(err){
+            if(expectedRequest===state.galleryRequest){
+                $('yoloImages').insertAdjacentHTML('beforeend',`<div class="yolo-notice error">${esc(err.message||err)}</div>`);
+                $('yoloGalleryFooter').hidden=false;
+            }
+        }finally{
+            if(expectedRequest===state.galleryRequest){state.galleryLoading=false;$('yoloLoadMoreImages').disabled=false;}
+        }
+    }
+    function renderImages() {
+        stopGallery();
+        const runs=state.loaded.filter(run=>run.kind==='detail');
+        const select=$('yoloImageReference'),previous=select.value;
+        select.innerHTML=runs.map(run=>`<option value="${escapeAttr(run.key)}">${esc(run.name)}</option>`).join('');
+        select.value=runs.some(run=>run.key===previous)?previous:runs[0]?.key||'';
+        select.disabled=!runs.length;
+        $('yoloImages').innerHTML='';$('yoloGalleryFooter').hidden=true;
+        if(!runs.length){$('yoloImages').innerHTML='<div class="yolo-empty">Keinen Detail-Run ausgewählt.</div>';return;}
+        const request=state.galleryRequest;
+        loadGalleryPage(request);
+        if(typeof IntersectionObserver==='function'){
+            state.galleryObserver=new IntersectionObserver(entries=>{
+                if(entries.some(x=>x.isIntersecting)&&state.activeTab==='images'&&state.galleryPage!==null)
+                    loadGalleryPage(request);
+            },{rootMargin:'180px'});
+            state.galleryObserver.observe($('yoloGallerySentinel'));
+        }
     }
 
     const GLOSSARY = [
@@ -1944,7 +1958,7 @@ require_once __DIR__ . '/../navbar.php';
         ['Synthetischer Test', 'Reservierte Renderer-Testbilder, getrennt von Trainings- und Validierungsdaten.'],
         ['Reale Validierung', 'Wird bei der Modellauswahl verwendet. Deshalb nicht als unabhängiger Real-Test ausgeben.'],
         ['results.csv', 'Epochenweise Trainings- und Validierungsmetriken aus Ultralytics. Die Graphen übernehmen Spalten und Messwerte aus der Datei.'],
-        ['best.pt', 'Checkpoint, der gemäß definiertem Validierungskriterium ausgewählt wurde; nicht zwangsläufig der letzte Trainingszustand.'],
+        ['best.pt', 'Checkpoint mit dem besten Validierungs-mIoU. v10.0 wählt einen eigenen Checkpoint je Validierungsstrategie.'],
         ['Milestones', 'Zwischenprüfungen gesicherter Trainingszustände zur Untersuchung des Verlaufes der Generalisierung.'],
         ['Sim-to-Real-Gap', 'Abstand der Modellleistung zwischen synthetischen und realen Testdaten unter vergleichbarer Auswertungsmethodik.'],
         ['Leere Masken', 'Für GT und Prediction beide leer sind IoU/Dice/F2 im aktuellen v9.3-Bericht als 1 definiert; Precision/Recall ohne Nenner als null.'],
@@ -1973,15 +1987,19 @@ require_once __DIR__ . '/../navbar.php';
             tab.setAttribute('aria-selected', active ? 'true' : 'false');
         });
         root.querySelectorAll('[data-panel]').forEach(panel => panel.hidden = panel.dataset.panel !== active);
-        if (active === 'graphs')
-            for (const chart of state.charts.values())
-                chart.resize?.();
+        state.activeTab=active;
+        if (active === 'graphs') {
+            rebuildGraphs();
+            for (const chart of state.charts.values()) chart.resize?.();
+        }
+        if (active === 'images') renderImages();
     }));
     $('yoloKindFilter').addEventListener('change', renderRunList);
     $('yoloRunSearch').addEventListener('input', renderRunList);
     $('yoloGlossarySearch').addEventListener('input', renderGlossary);
-    $('yoloImageSort').addEventListener('change', renderImages);
-    $('yoloImageReference').addEventListener('change', renderImages);
+    $('yoloImageSort').addEventListener('change', () => { if(state.activeTab==='images') renderImages(); });
+    $('yoloImageReference').addEventListener('change', () => { if(state.activeTab==='images') renderImages(); });
+    $('yoloLoadMoreImages').addEventListener('click', () => loadGalleryPage(state.galleryRequest));
     renderRunList();
     renderGlossary();
     selectionChanged();
