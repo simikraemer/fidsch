@@ -1735,7 +1735,7 @@ require_once __DIR__ . '/../navbar.php';
             return `<article class="yolo-model-card" data-ba-key="${escapeAttr(run.key)}">
                 <div class="yolo-model-head"><div><h3><span class="yolo-series-${index%colors.length}">●</span> ${esc(run.name)}</h3>
                 <p>${esc(nice(run.summary?.modell))} · ${esc(nice(run.summary?.epoche_letzte))} Epochen</p></div>
-                <div class="yolo-flex"><button type="button" class="yolo-button primary" data-ba-copy="${escapeAttr(run.key)}">Alles für KI kopieren</button>
+                <div class="yolo-flex"><button type="button" class="yolo-button primary" data-ba-copy="${escapeAttr(run.key)}">Alles kopieren</button>
                 <button type="button" class="yolo-button" data-ba-copy-json="${escapeAttr(run.key)}">JSON kopieren</button></div></div>
                 ${dual?`<details class="yolo-detail yolo-ba-summary"><summary>Zusammenfassung · Boundary-Metriken &amp; Checkpoint-Auswahl</summary>
                     <div class="yolo-table-scroll"><table class="yolo-ba-table yolo-ba-five">${baTableHead()}<tbody>${summaryBody}</tbody></table></div></details>
