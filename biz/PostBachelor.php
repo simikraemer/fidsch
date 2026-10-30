@@ -1,6 +1,6 @@
 <?php
-// biz/PostBachelor_v6.php
-// Kompakte Budgetplanung für eine spätere TV-L-Stelle an der RWTH.
+// biz/PostBachelor_v8.php
+// Kompakte Budgetplanung für TV-L- und HiWi-Beschäftigung an der RWTH.
 
 require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../db.php';
@@ -21,27 +21,42 @@ $periodStartSql = $periodStart->format('Y-m-d H:i:s');
 $periodEndSql = $periodEnd->format('Y-m-d H:i:s');
 
 /* =========================================================
- * Sonstige Ausgaben
+ * Sonstige Ausgaben: letzte 6 abgeschlossene Kalendermonate
  *
- * Semantik wie im Finanzdashboard:
- * - je Kategorie zunächst ALLE Buchungen im Zeitraum saldieren
- * - Miete und TK ausschließen
- * - nur Kategorien mit negativer Nettosumme als Ausgaben werten
- * - anschließend auf 6 Monate mitteln
+ * - Negative Buchungen sind Ausgaben (+ in der Ausgabensumme).
+ * - Positive Buchungen mindern die Ausgabensumme (Erstattungen etc.),
+ *   auch wenn sie in einer ANDEREN Kategorie verbucht wurden.
+ * - Ausnahme: Positive Buchungen mit kategorie_id 1 (IT Center)
+ *   oder 25 (Familie) bleiben außen vor (Gehalt/Kindergeld werden
+ *   separat als Einnahmen angesetzt). Negative Buchungen aus diesen
+ *   Kategorien bleiben dagegen als Ausgaben enthalten.
+ * - Miete grundsätzlich ausnehmen, weil die neue Miete separat steht.
+ * - TK bei HiWi einbeziehen, bei TV-L ausnehmen (bereits im Netto).
+ * - Alle Kategoriesalden addieren, auch positive Salden! Kein HAVING
+ *   und kein abs(): sonst würden Gutschriften wieder verloren gehen.
+ * - Danach jeweils durch 6 teilen.
  * ========================================================= */
-$otherSixMonthTotal = 0.0;
+$otherSixMonthTotalTvl = 0.0;
+$otherSixMonthTotalHiwi = 0.0;
 $stmtOther = $bizconn->prepare("
     SELECT
         COALESCE(k.name, 'Unkategorisiert') AS category_name,
-        SUM(t.betrag) AS category_sum
+        COALESCE(SUM(
+            CASE
+                WHEN t.betrag < 0 THEN -t.betrag
+                WHEN t.betrag > 0
+                     AND (t.kategorie_id IS NULL OR t.kategorie_id NOT IN (1, 25))
+                    THEN -t.betrag
+                ELSE 0
+            END
+        ), 0) AS net_expenses
     FROM transfers t
     LEFT JOIN kategorien k ON k.id = t.kategorie_id
     WHERE t.valutadatum IS NOT NULL
       AND t.valutadatum >= ?
       AND t.valutadatum < ?
-      AND (k.name IS NULL OR k.name NOT IN ('Miete', 'TK'))
+      AND (k.name IS NULL OR k.name <> 'Miete')
     GROUP BY COALESCE(k.name, 'Unkategorisiert')
-    HAVING SUM(t.betrag) < 0
 ");
 
 if ($stmtOther !== false) {
@@ -50,13 +65,22 @@ if ($stmtOther !== false) {
     $resOther = $stmtOther->get_result();
 
     while ($row = $resOther->fetch_assoc()) {
-        $otherSixMonthTotal += abs((float)$row['category_sum']);
+        $categoryName = (string)$row['category_name'];
+        // Nicht absolut setzen: ein Ueberschuss an Erstattungen muss
+        // die Ausgabensumme anderer Kategorien ebenfalls senken.
+        $categoryExpenses = (float)$row['net_expenses'];
+
+        $otherSixMonthTotalHiwi += $categoryExpenses;
+        if ($categoryName !== 'TK') {
+            $otherSixMonthTotalTvl += $categoryExpenses;
+        }
     }
 
     $stmtOther->close();
 }
 
-$otherMonthlyAverage = $otherSixMonthTotal / 6.0;
+$otherMonthlyAverageTvl = $otherSixMonthTotalTvl / 6.0;
+$otherMonthlyAverageHiwi = $otherSixMonthTotalHiwi / 6.0;
 
 /* =========================================================
  * TV-L Entgelttabelle ab 01.03.2027
@@ -282,6 +306,16 @@ require_once __DIR__ . '/../navbar.php';
     min-width: 0;
 }
 
+/* HiWi verwendet die gesamte Breite des Entgeltgruppen-Dropdowns. */
+.pb-salary-controls.is-hiwi {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+/* Auch in vorhandenen Layouts/CSS-Regeln versteckte Blöcke ausblenden. */
+.postbachelor-page [hidden] {
+    display: none !important;
+}
+
 .pb-card-head {
     display: flex;
     align-items: center;
@@ -481,18 +515,19 @@ require_once __DIR__ . '/../navbar.php';
 
     <div class="pb-grid">
         <section class="pb-card">
-            <h2>TV-L Einkommen</h2>
+            <h2 id="incomeCardTitle">TV-L Einkommen</h2>
 
-            <div class="pb-inline-grid">
+            <div class="pb-inline-grid pb-salary-controls" id="salaryControls">
                 <div>
                     <label for="salaryGroup">Entgeltgruppe</label>
                     <select id="salaryGroup" class="kategorie-select">
+                        <option value="HiWi">HiWi</option>
                         <?php foreach ($tvlGrossTable as $group => $stages): ?>
                             <option value="<?= htmlspecialchars($group, ENT_QUOTES, 'UTF-8') ?>" <?= $group === 'E9b' ? 'selected' : '' ?>><?= htmlspecialchars($group, ENT_QUOTES, 'UTF-8') ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div>
+                <div id="salaryStageWrap">
                     <label for="salaryStage">Stufe</label>
                     <select id="salaryStage" class="kategorie-select">
                         <?php for ($stage = 1; $stage <= 6; $stage++): ?>
@@ -504,14 +539,27 @@ require_once __DIR__ . '/../navbar.php';
         </section>
 
         <section class="pb-card">
-            <h2>Teilzeit</h2>
+            <h2 id="incomeOptionsTitle">Teilzeit</h2>
 
-            <label for="ftePercent">Beschäftigungsumfang</label>
-            <select id="ftePercent" class="kategorie-select">
-                <?php foreach ([50, 60, 70, 80, 90, 100] as $fte): ?>
-                    <option value="<?= (int)$fte ?>" <?= $fte === 100 ? 'selected' : '' ?>><?= (int)$fte ?> % FTE</option>
-                <?php endforeach; ?>
-            </select>
+            <div id="tvlIncomeControls">
+                <label for="ftePercent">Beschäftigungsumfang</label>
+                <select id="ftePercent" class="kategorie-select">
+                    <?php foreach ([50, 60, 70, 80, 90, 100] as $fte): ?>
+                        <option value="<?= (int)$fte ?>" <?= $fte === 100 ? 'selected' : '' ?>><?= (int)$fte ?> % FTE</option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div class="pb-inline-grid" id="hiwiIncomeControls" hidden>
+                <div>
+                    <label for="hiwiSalary">HiWi-Gehalt</label>
+                    <input id="hiwiSalary" type="number" min="0" step="0.01" value="1099.07">
+                </div>
+                <div>
+                    <label for="childBenefit">Kindergeld</label>
+                    <input id="childBenefit" type="number" min="0" step="0.01" value="360">
+                </div>
+            </div>
         </section>
 
         <section class="pb-card">
@@ -566,48 +614,54 @@ require_once __DIR__ . '/../navbar.php';
                 </thead>
                 <tbody>
                     <tr>
-                        <td>Bruttoeinkommen</td>
+                        <td id="calcIncomeHeading">Bruttoeinkommen</td>
                         <td class="pb-sign">+</td>
                         <td class="pb-money" id="calcGrossIncome">—</td>
                         <td id="calcSalaryLabel">—</td>
                     </tr>
-                    <tr class="pb-subrow">
+                    <tr id="calcChildBenefitRow" hidden>
+                        <td>Kindergeld</td>
+                        <td class="pb-sign">+</td>
+                        <td class="pb-money" id="calcChildBenefit">—</td>
+                        <td>manuell</td>
+                    </tr>
+                    <tr class="pb-subrow pb-payroll-row">
                         <td>Rentenversicherung</td>
                         <td class="pb-sign">−</td>
                         <td class="pb-money" id="calcPension">—</td>
                         <td>Arbeitnehmeranteil</td>
                     </tr>
-                    <tr class="pb-subrow">
+                    <tr class="pb-subrow pb-payroll-row">
                         <td>Arbeitslosenversicherung</td>
                         <td class="pb-sign">−</td>
                         <td class="pb-money" id="calcUnemployment">—</td>
                         <td>Arbeitnehmeranteil</td>
                     </tr>
-                    <tr class="pb-subrow">
+                    <tr class="pb-subrow pb-payroll-row">
                         <td>Krankenversicherung (TK)</td>
                         <td class="pb-sign">−</td>
                         <td class="pb-money" id="calcHealth">—</td>
                         <td>inkl. Zusatzbeitrag</td>
                     </tr>
-                    <tr class="pb-subrow">
+                    <tr class="pb-subrow pb-payroll-row">
                         <td>Pflegeversicherung</td>
                         <td class="pb-sign">−</td>
                         <td class="pb-money" id="calcCare">—</td>
                         <td>kinderlos, NRW</td>
                     </tr>
-                    <tr class="pb-subrow">
+                    <tr class="pb-subrow pb-payroll-row">
                         <td>Lohnsteuer (BMF 2026)</td>
                         <td class="pb-sign">−</td>
                         <td class="pb-money" id="calcWageTax">—</td>
                         <td>Steuerklasse I</td>
                     </tr>
-                    <tr class="pb-subrow">
+                    <tr class="pb-subrow pb-payroll-row">
                         <td>Solidaritätszuschlag</td>
                         <td class="pb-sign">−</td>
                         <td class="pb-money" id="calcSoli">—</td>
                         <td>BMF-Berechnung</td>
                     </tr>
-                    <tr class="pb-subrow">
+                    <tr class="pb-subrow pb-payroll-row">
                         <td>VBLklassik</td>
                         <td class="pb-sign">−</td>
                         <td class="pb-money" id="calcVbl">—</td>
@@ -628,8 +682,8 @@ require_once __DIR__ . '/../navbar.php';
                     <tr>
                         <td>Sonstige bisherige Ausgaben</td>
                         <td class="pb-sign">−</td>
-                        <td class="pb-money" id="calcOtherExpenses"><?= pbEuro($otherMonthlyAverage) ?></td>
-                        <td>Ø der letzten 6 Monate</td>
+                        <td class="pb-money" id="calcOtherExpenses"><?= pbEuro($otherMonthlyAverageTvl) ?></td>
+                        <td id="calcOtherExpensesBasis" title="Gutschriften werden gegengerechnet. Positive Buchungen aus IT Center (ID 1) und Familie (ID 25) sind ausgeschlossen.">Ø 6 Monate · saldiert, ohne TK</td>
                     </tr>
                     <tr>
                         <td>Pendelkosten</td>
@@ -700,10 +754,11 @@ import { calculate as calculateLohnsteuer } from 'https://cdn.jsdelivr.net/npm/l
 
 const PB_TVL_PRESETS = <?= json_encode($tvlPresets, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 const PB_PAYROLL = <?= json_encode($payrollParameters, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
-const PB_OTHER_MONTHLY = <?= json_encode(round($otherMonthlyAverage, 2)) ?>;
+const PB_OTHER_MONTHLY_TVL = <?= json_encode(round($otherMonthlyAverageTvl, 2)) ?>;
+const PB_OTHER_MONTHLY_HIWI = <?= json_encode(round($otherMonthlyAverageHiwi, 2)) ?>;
 const PB_COMMUTING = <?= json_encode($commutingParameters, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
-const PB_STORAGE_KEY = 'postBachelorBudget:v6';
-const PB_OLD_STORAGE_KEYS = ['postBachelorBudget:v5', 'postBachelorBudget:v4', 'postBachelorBudget:v3', 'postBachelorBudget:v2', 'postBachelorBudget:v1'];
+const PB_STORAGE_KEY = 'postBachelorBudget:v8';
+const PB_OLD_STORAGE_KEYS = ['postBachelorBudget:v7', 'postBachelorBudget:v6', 'postBachelorBudget:v5', 'postBachelorBudget:v4', 'postBachelorBudget:v3', 'postBachelorBudget:v2', 'postBachelorBudget:v1'];
 
 const pbEuro = (value) => new Intl.NumberFormat('de-DE', {
     style: 'currency',
@@ -723,11 +778,39 @@ function pbNumber(id) {
     return Number.isFinite(value) ? value : 0;
 }
 
+function pbIsHiwi() {
+    return document.getElementById('salaryGroup')?.value === 'HiWi';
+}
+
 function pbSelectedPreset() {
     const group = document.getElementById('salaryGroup')?.value || 'E9b';
     const stage = document.getElementById('salaryStage')?.value || '1';
     const key = `${group.toLowerCase()}_s${stage}`;
     return PB_TVL_PRESETS[key] || PB_TVL_PRESETS.e9b_s1;
+}
+
+function pbApplyIncomeMode(isHiwi) {
+    document.getElementById('salaryControls')?.classList.toggle('is-hiwi', isHiwi);
+
+    const stageWrap = document.getElementById('salaryStageWrap');
+    const tvlControls = document.getElementById('tvlIncomeControls');
+    const hiwiControls = document.getElementById('hiwiIncomeControls');
+    const childBenefitRow = document.getElementById('calcChildBenefitRow');
+
+    if (stageWrap) stageWrap.hidden = isHiwi;
+    if (tvlControls) tvlControls.hidden = isHiwi;
+    if (hiwiControls) hiwiControls.hidden = !isHiwi;
+    if (childBenefitRow) childBenefitRow.hidden = !isHiwi;
+
+    document.querySelectorAll('.pb-payroll-row').forEach(row => {
+        row.hidden = isHiwi;
+    });
+
+    pbSetText('incomeCardTitle', isHiwi ? 'HiWi Einkommen' : 'TV-L Einkommen');
+    pbSetText('incomeOptionsTitle', isHiwi ? 'Einnahmen' : 'Teilzeit');
+    pbSetText('calcIncomeHeading', isHiwi ? 'HiWi-Gehalt (netto)' : 'Bruttoeinkommen');
+    pbSetText('calcOtherExpensesBasis',
+        isHiwi ? 'Ø 6 Monate · saldiert, inkl. TK' : 'Ø 6 Monate · saldiert, ohne TK');
 }
 
 function pbSetText(id, value) {
@@ -744,8 +827,11 @@ function pbSetResultClass(el, value) {
 function pbSaveSettings() {
     const selectedPreset = pbSelectedPreset();
     const state = {
-        preset: `${selectedPreset.group.toLowerCase()}_s${selectedPreset.stage}`,
-        ftePercent: pbNumber('ftePercent') || 100,
+        preset: pbIsHiwi() ? 'hiwi' : `${selectedPreset.group.toLowerCase()}_s${selectedPreset.stage}`,
+        salaryStage: pbNumber('salaryStage'),
+        hiwiSalary: Math.max(0, pbNumber('hiwiSalary')),
+        childBenefit: Math.max(0, pbNumber('childBenefit')),
+        ftePercent: pbNumber('ftePercent'),
         warmRent: pbNumber('warmRent'),
         commuteDistance: pbNumber('commuteDistance'),
         officeDays: pbNumber('officeDays'),
@@ -774,6 +860,8 @@ function pbLoadSettings() {
         const salaryGroup = document.getElementById('salaryGroup');
         const salaryStage = document.getElementById('salaryStage');
         const fte = document.getElementById('ftePercent');
+        const hiwiSalary = document.getElementById('hiwiSalary');
+        const childBenefit = document.getElementById('childBenefit');
         const rent = document.getElementById('warmRent');
         const distance = document.getElementById('commuteDistance');
         const officeDays = document.getElementById('officeDays');
@@ -791,10 +879,24 @@ function pbLoadSettings() {
         let presetValue = typeof state.preset === 'string' ? state.preset : 'e9b_s1';
         presetValue = oldPresetMap[presetValue] || presetValue;
 
-        if (!PB_TVL_PRESETS[presetValue]) presetValue = 'e9b_s1';
-        const storedPreset = PB_TVL_PRESETS[presetValue];
-        if (salaryGroup) salaryGroup.value = storedPreset.group;
-        if (salaryStage) salaryStage.value = String(storedPreset.stage);
+        const isHiwi = presetValue === 'hiwi';
+        if (!isHiwi && !PB_TVL_PRESETS[presetValue]) presetValue = 'e9b_s1';
+        const storedPreset = PB_TVL_PRESETS[isHiwi ? 'e9b_s1' : presetValue];
+        if (salaryGroup) salaryGroup.value = isHiwi ? 'HiWi' : storedPreset.group;
+
+        const stageValue = Number(state.salaryStage ?? storedPreset.stage);
+        if (salaryStage) {
+            salaryStage.value = String(Number.isInteger(stageValue) && stageValue >= 1 && stageValue <= 6
+                ? stageValue
+                : storedPreset.stage);
+        }
+
+        if (hiwiSalary && Number.isFinite(Number(state.hiwiSalary)) && Number(state.hiwiSalary) >= 0 && state.hiwiSalary != null) {
+            hiwiSalary.value = String(state.hiwiSalary);
+        }
+        if (childBenefit && Number.isFinite(Number(state.childBenefit)) && Number(state.childBenefit) >= 0 && state.childBenefit != null) {
+            childBenefit.value = String(state.childBenefit);
+        }
 
         const fteValue = Number(state.ftePercent);
         if (fte && [50, 60, 70, 80, 90, 100].includes(fteValue)) {
@@ -967,47 +1069,65 @@ function pbCommutingCalculation() {
 }
 
 function pbRecalculate(save = true) {
-    const preset = pbSelectedPreset();
-    const fullTimeGross = Number(preset.gross || 0);
-    const ftePercent = Math.max(50, Math.min(100, pbNumber('ftePercent') || 100));
-    const gross = pbRound2(fullTimeGross * ftePercent / 100);
-    const warmRent = pbNumber('warmRent');
+    const isHiwi = pbIsHiwi();
+    pbApplyIncomeMode(isHiwi);
+
+    const warmRent = Math.max(0, pbNumber('warmRent'));
     const commuting = pbCommutingCalculation();
+    const otherMonthly = isHiwi ? PB_OTHER_MONTHLY_HIWI : PB_OTHER_MONTHLY_TVL;
 
     try {
-        const social = pbSocialContributions(gross);
-        const taxes = pbTaxes(gross);
+        let net;
 
-        const net = pbRound2(
-            gross
-            - social.pension
-            - social.unemployment
-            - social.health
-            - social.care
-            - taxes.wageTax
-            - taxes.soli
-            - social.vbl
-        );
+        if (isHiwi) {
+            // HiWi-Eingabe ist der bereits ausgezahlte Nettobetrag.
+            // Die separat gezahlte TK wird über die historischen Ausgaben erfasst.
+            const hiwiSalary = pbRound2(Math.max(0, pbNumber('hiwiSalary')));
+            const childBenefit = pbRound2(Math.max(0, pbNumber('childBenefit')));
+            net = pbRound2(hiwiSalary + childBenefit);
+
+            pbSetText('calcGrossIncome', pbEuro(hiwiSalary));
+            pbSetText('calcSalaryLabel', 'HiWi · ausgezahltes Nettogehalt');
+            pbSetText('calcChildBenefit', pbEuro(childBenefit));
+        } else {
+            // Bestehende TV-L-Abgabenrechnung bleibt unverändert.
+            const preset = pbSelectedPreset();
+            const fullTimeGross = Number(preset.gross || 0);
+            const ftePercent = Math.max(50, Math.min(100, pbNumber('ftePercent') || 100));
+            const gross = pbRound2(fullTimeGross * ftePercent / 100);
+            const social = pbSocialContributions(gross);
+            const taxes = pbTaxes(gross);
+
+            net = pbRound2(
+                gross
+                - social.pension
+                - social.unemployment
+                - social.health
+                - social.care
+                - taxes.wageTax
+                - taxes.soli
+                - social.vbl
+            );
+
+            pbSetText('calcGrossIncome', pbEuro(gross));
+            pbSetText('calcSalaryLabel', `${preset.label || 'TV-L'} · ${ftePercent} % FTE`);
+            pbSetText('calcPension', pbEuro(social.pension));
+            pbSetText('calcUnemployment', pbEuro(social.unemployment));
+            pbSetText('calcHealth', pbEuro(social.health));
+            pbSetText('calcCare', pbEuro(social.care));
+            pbSetText('calcWageTax', pbEuro(taxes.wageTax));
+            pbSetText('calcSoli', pbEuro(taxes.soli));
+            pbSetText('calcVbl', pbEuro(social.vbl));
+        }
 
         const remaining = pbRound2(
-            net - warmRent - PB_OTHER_MONTHLY - commuting.cost
+            net - warmRent - otherMonthly - commuting.cost
         );
 
-        pbSetText('calcGrossIncome', pbEuro(gross));
-        pbSetText(
-            'calcSalaryLabel',
-            `${preset.label || 'TV-L'} · ${ftePercent} % FTE`
-        );
-        pbSetText('calcPension', pbEuro(social.pension));
-        pbSetText('calcUnemployment', pbEuro(social.unemployment));
-        pbSetText('calcHealth', pbEuro(social.health));
-        pbSetText('calcCare', pbEuro(social.care));
-        pbSetText('calcWageTax', pbEuro(taxes.wageTax));
-        pbSetText('calcSoli', pbEuro(taxes.soli));
-        pbSetText('calcVbl', pbEuro(social.vbl));
         pbSetText('calcNetIncome', pbEuro(net));
         pbSetText('calcWarmRent', pbEuro(warmRent));
-                pbSetText('calcCommuting', pbEuro(commuting.cost));
+        pbSetText('calcOtherExpenses', pbEuro(otherMonthly));
+        pbSetText('calcCommuting', pbEuro(commuting.cost));
         pbSetText(
             'calcCommutingBasis',
             `${commuting.monthlyKm.toFixed(0)} km/Monat · VW Polo ${commuting.consumption.toFixed(1).replace('.', ',')} l/100 km · Super ${pbEuro(commuting.fuelPrice)}/l`
@@ -1019,7 +1139,7 @@ function pbRecalculate(save = true) {
 
         document.getElementById('taxCalcError')?.classList.remove('is-visible');
     } catch (error) {
-        console.error('PostBachelor payroll calculation failed:', error);
+        console.error('PostBachelor income calculation failed:', error);
         document.getElementById('taxCalcError')?.classList.add('is-visible');
     }
 
@@ -1031,6 +1151,8 @@ pbLoadSettings();
 const salaryGroup = document.getElementById('salaryGroup');
 const salaryStage = document.getElementById('salaryStage');
 const fte = document.getElementById('ftePercent');
+const hiwiSalary = document.getElementById('hiwiSalary');
+const childBenefit = document.getElementById('childBenefit');
 const rent = document.getElementById('warmRent');
 const commuteDistance = document.getElementById('commuteDistance');
 const officeDays = document.getElementById('officeDays');
@@ -1039,6 +1161,8 @@ const rwthParking = document.getElementById('rwthParking');
 if (salaryGroup) salaryGroup.addEventListener('change', () => pbRecalculate());
 if (salaryStage) salaryStage.addEventListener('change', () => pbRecalculate());
 if (fte) fte.addEventListener('change', () => pbRecalculate());
+if (hiwiSalary) hiwiSalary.addEventListener('input', () => pbRecalculate());
+if (childBenefit) childBenefit.addEventListener('input', () => pbRecalculate());
 if (rent) rent.addEventListener('input', () => pbRecalculate());
 if (commuteDistance) commuteDistance.addEventListener('input', () => pbRecalculate());
 if (officeDays) officeDays.addEventListener('change', () => pbRecalculate());
