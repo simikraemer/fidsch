@@ -495,6 +495,12 @@ function yolo_dual_info(string $root): array {
         $variantReports[$variant] = yolo_final_reports($modelRoot);
         $variantReports[$variant]['selection'] = $models[$variant];
         $variantReports[$variant]['model_report'] = yolo_json_file($modelRoot . '/modellbericht_v10_0.json');
+        $zividRaw = yolo_json_file($modelRoot . '/Auswertung_Zivid/auswertung.json');
+        // Neue Zivid-GT-Auswertung nutzt dieselbe v10.3-Berichtstruktur wie Real-Test.
+        // Historische Zivid-Inferenzen ohne GT bleiben lesbar, aber ohne erfundene Metriken.
+        $variantReports[$variant]['zivid'] = yolo_report($modelRoot . '/Auswertung_Zivid/auswertung.json');
+        $variantReports[$variant]['zivid']['prediction_statistics'] =
+            yolo_arr($zividRaw['prediction_statistics'] ?? []);
         $common = yolo_json_file($modelRoot . '/realtest_gemeinsam_alle_v10_3.json');
         if (!$common) // Historische v10.0–v10.2-Dateien weiterhin lesen.
             $common = yolo_json_file($modelRoot . '/realtest_gemeinsame_50_v10_0.json');
@@ -526,8 +532,13 @@ function yolo_dual_info(string $root): array {
  * Read-only, server-controlled image catalog. A file basename identifies a
  * single image; there are no user-supplied file paths, paths are fixed by run.
  */
-function yolo_variant_test_dir(array $entry, string $variant): ?string {
+function yolo_variant_test_dir(array $entry, string $variant, string $dataset = 'real'): ?string {
     if (!in_array($variant, YOLO_V10_VARIANTS, true)) return null;
+    if ($dataset === 'zivid') {
+        $dir = $entry['runRoot'] . '/Modelle/' . $variant . '/Auswertung_Zivid';
+        return is_dir($dir) && is_readable($dir) ? $dir : null;
+    }
+    if ($dataset !== 'real') return null;
     $newDir = $entry['runRoot'] . '/Modelle/' . $variant . '/Auswertung_Test';
     if (is_dir($newDir)) return $newDir;
     if ($variant !== 'val_synth') return null;
@@ -536,10 +547,10 @@ function yolo_variant_test_dir(array $entry, string $variant): ?string {
     }
     return null;
 }
-function yolo_gallery_catalog(array $entry): array {
+function yolo_gallery_catalog(array $entry, string $dataset = 'real'): array {
     $map = [];
     foreach (YOLO_V10_VARIANTS as $variant) {
-        $dir = yolo_variant_test_dir($entry, $variant);
+        $dir = yolo_variant_test_dir($entry, $variant, $dataset);
         if ($dir === null) continue;
         $scores = yolo_image_scores($dir);
         foreach (scandir($dir) ?: [] as $filename) {
@@ -552,18 +563,42 @@ function yolo_gallery_catalog(array $entry): array {
             if (!isset($map[$id])) $map[$id] = ['id' => $id, 'label' => $stem, 'images' => [], 'scores' => []];
             $map[$id]['images'][$variant] = true;
             $map[$id]['scores'][$variant] = $scores[$id] ?? null;
-            if (is_file(YOLO_GT_ROOT . '/' . $stem . '_Kontrolle.png')) $map[$id]['images']['gt'] = true;
+            if ($dataset === 'real' && is_file(YOLO_GT_ROOT . '/' . $stem . '_Kontrolle.png'))
+                $map[$id]['images']['gt'] = true;
+            if ($dataset === 'zivid') {
+                $assetRoot = $entry['runRoot'] . '/Zivid_Quellen';
+                foreach (['source' => '/Vorbereitet/' . $stem . '.jpg',
+                          'gt' => '/GT/' . $stem . '.jpg',
+                          'gt_f' => '/Masken/' . $stem . 'F.png',
+                          'gt_s' => '/Masken/' . $stem . 'S.png',
+                          'gt_t' => '/Masken/' . $stem . 'T.png'] as $role => $file) {
+                    $map[$id]['images'][$role] = is_file($assetRoot . $file) && is_readable($assetRoot . $file);
+                }
+            }
         }
     }
     return array_values($map);
 }
-function yolo_gallery_image_path(array $entry, string $stem, string $variant): ?string {
+function yolo_gallery_image_path(array $entry, string $stem, string $variant, string $dataset = 'real'): ?string {
     if (!preg_match('/^[a-z0-9][a-z0-9_\- .()]*$/i', $stem)) return null;
+    if ($dataset === 'zivid' && in_array($variant, ['source', 'gt', 'gt_f', 'gt_s', 'gt_t'], true)) {
+        $root = $entry['runRoot'] . '/Zivid_Quellen';
+        $relative = match ($variant) {
+            'source' => '/Vorbereitet/' . $stem . '.jpg',
+            'gt' => '/GT/' . $stem . '.jpg',
+            'gt_f' => '/Masken/' . $stem . 'F.png',
+            'gt_s' => '/Masken/' . $stem . 'S.png',
+            'gt_t' => '/Masken/' . $stem . 'T.png'
+        };
+        $file = $root . $relative;
+        return is_file($file) && is_readable($file) ? $file : null;
+    }
     if ($variant === 'gt') {
+        if ($dataset !== 'real') return null;
         $file = YOLO_GT_ROOT . '/' . $stem . '_Kontrolle.png';
         return is_file($file) && is_readable($file) ? $file : null;
     }
-    $dir = yolo_variant_test_dir($entry, $variant);
+    $dir = yolo_variant_test_dir($entry, $variant, $dataset);
     if ($dir === null) return null;
     foreach (['.jpg', '.jpeg', '.png', '.webp'] as $ext) {
         $file = $dir . '/' . $stem . '_2x2' . $ext;
@@ -572,10 +607,10 @@ function yolo_gallery_image_path(array $entry, string $stem, string $variant): ?
     return null;
 }
 /** Resolve an image stem without parsing any score CSV/JSON during image transfer. */
-function yolo_gallery_resolve_stem(array $entry, string $id): ?string {
+function yolo_gallery_resolve_stem(array $entry, string $id, string $dataset = 'real'): ?string {
     if (!preg_match('/^[a-z0-9][a-z0-9_\- .()]*$/i', $id)) return null;
     foreach (YOLO_V10_VARIANTS as $variant) {
-        $dir = yolo_variant_test_dir($entry, $variant);
+        $dir = yolo_variant_test_dir($entry, $variant, $dataset);
         if ($dir === null) continue;
         foreach (scandir($dir) ?: [] as $filename) {
             if (!preg_match('/^(.+)_2x2\.(?:jpe?g|png|webp)$/i', $filename, $matches)) continue;
@@ -585,10 +620,11 @@ function yolo_gallery_resolve_stem(array $entry, string $id): ?string {
     }
     return null;
 }
-function yolo_gallery_page(array $entry, string $sort, int $offset): array {
+function yolo_gallery_page(array $entry, string $sort, int $offset, string $dataset = 'real'): array {
     $allowed = ['miou_boundary', 'miou_strict', 'defect_boundary', 'text_boundary', 'filename'];
     if (!in_array($sort, $allowed, true)) $sort = 'miou_boundary';
-    $items = yolo_gallery_catalog($entry);
+    // Zivid hat jetzt GT; Sortierung nach mIoU/IoU wie beim bisherigen Real-Test.
+    $items = yolo_gallery_catalog($entry, $dataset);
     usort($items, static function(array $a, array $b) use ($sort): int {
         if ($sort !== 'filename') {
             // Consistent reference: use val_synth wherever available; fallback
@@ -638,9 +674,9 @@ function yolo_image_scores(string $dir): array {
                     return isset($indexes[$key]) ? ($row[$indexes[$key]] ?? null) : null;
                 };
                 while (($row = fgetcsv($handle, 0, ';', '"', '')) !== false) {
-                    $file = (string)($col($row, 'file') ?? '');
+                    $file = (string)($col($row, 'output') ?? '');
                     if ($file === '')
-                        $file = (string)($col($row, 'output') ?? '');
+                        $file = (string)($col($row, 'file') ?? '');
                     if ($file === '')
                         continue;
                     $stem = pathinfo(str_replace('\\', '/', $file), PATHINFO_FILENAME);
@@ -675,7 +711,7 @@ function yolo_image_scores(string $dir): array {
     foreach (yolo_arr($report['images'] ?? []) as $record) {
         if (!is_array($record))
             continue;
-        $file = (string)($record['file'] ?? $record['output'] ?? '');
+        $file = (string)($record['output'] ?? $record['file'] ?? '');
         if ($file === '')
             continue;
         $stem = pathinfo(str_replace('\\', '/', $file), PATHINFO_FILENAME);
@@ -783,7 +819,7 @@ function yolo_catalog(string $root): array {
         return [];
     $out = [];
     foreach (scandir($root) ?: [] as $name) {
-        if (!preg_match('/^v\d+(?:_[A-Za-z0-9]+)+$/i', $name))
+        if (!preg_match('/^[vz]\d+(?:_[A-Za-z0-9]+)+$/i', $name))
             continue;
         $folder = $root . '/' . $name;
         if (!is_dir($folder))
@@ -986,27 +1022,31 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'image_page') {
     $key = $_GET['run'] ?? null;
     $sort = $_GET['sort'] ?? 'miou_boundary';
     $offset = filter_var($_GET['offset'] ?? 0, FILTER_VALIDATE_INT);
+    $dataset = $_GET['dataset'] ?? 'real';
     if (!is_string($key) || !isset($catalog[$key]) || $catalog[$key]['kind'] !== 'detail'
-        || !is_string($sort) || $offset === false || $offset < 0 || $offset > 200000) {
+        || !is_string($sort) || !is_string($dataset) || !in_array($dataset, ['real', 'zivid'], true)
+        || $offset === false || $offset < 0 || $offset > 200000) {
         yolo_json(['ok' => false, 'message' => 'Ungültige Galerie-Anfrage.'], 400);
     }
-    yolo_json(['ok' => true] + yolo_gallery_page($catalog[$key], $sort, $offset));
+    yolo_json(['ok' => true] + yolo_gallery_page($catalog[$key], $sort, $offset, $dataset));
 }
 if (isset($_GET['ajax']) && $_GET['ajax'] === 'test_image') {
     $key = $_GET['run'] ?? null;
     $stem = $_GET['image'] ?? null;
     $variant = $_GET['variant'] ?? 'val_synth';
+    $dataset = $_GET['dataset'] ?? 'real';
     if (!is_string($key) || !is_string($stem) || !is_string($variant)
         || !isset($catalog[$key]) || $catalog[$key]['kind'] !== 'detail'
-        || !in_array($variant, ['val_synth', 'val_mixed', 'gt'], true)) {
+        || !in_array($variant, ['val_synth', 'val_mixed', 'gt', 'source', 'gt_f', 'gt_s', 'gt_t'], true)
+        || !is_string($dataset) || !in_array($dataset, ['real', 'zivid'], true)) {
         http_response_code(404);
         exit;
     }
     // Filename is only accepted if the current run actually produced it.
     // Avoid loading a score report on every image request.
-    $trustedStem = yolo_gallery_resolve_stem($catalog[$key], trim($stem));
+    $trustedStem = yolo_gallery_resolve_stem($catalog[$key], trim($stem), $dataset);
     if ($trustedStem !== null) {
-        $file = yolo_gallery_image_path($catalog[$key], $trustedStem, $variant);
+        $file = yolo_gallery_image_path($catalog[$key], $trustedStem, $variant, $dataset);
         if ($file !== null) yolo_image_send($file);
     }
     http_response_code(404);
@@ -1021,6 +1061,8 @@ foreach ($catalog as $run) {
         'name' => $run['name'],
         'kind' => $run['kind'],
         'layout' => $run['layout'],
+        'has_zivid' => is_dir($run['runRoot'] . '/Modelle/val_synth/Auswertung_Zivid')
+                     || is_dir($run['runRoot'] . '/Modelle/val_mixed/Auswertung_Zivid'),
         'has_results' => $run['files']['results'] !== null,
         'has_manifest' => $run['files']['manifest'] !== null,
         'has_milestones' => is_dir($run['trainDir'] . '/milestones/snapshots'),
@@ -1170,10 +1212,17 @@ require_once __DIR__ . '/../navbar.php';
                 <div class="yolo-section-head">
                     <div>
                         <h2>Reale Testbilder vergleichen</h2>
-                        <p>Vorhersage ohne reale Validierung · Ground Truth (Randzone abhängig vom Run) · Vorhersage mit realer Validierung.</p>
+                        <p id="yoloImageDescription">Vorhersage ohne reale Validierung · Ground Truth (Randzone abhängig vom Run) · Vorhersage mit realer Validierung.</p>
                     </div>
                 </div>
                 <div class="yolo-image-controls" role="group" aria-label="Sortierung der Testbilder">
+                    <div class="yolo-image-control">
+                        <label for="yoloImageDataset">Bildbestand</label>
+                        <select id="yoloImageDataset" class="yolo-select">
+                            <option value="real">Real-Test mit GT (bisherige Aufnahmen)</option>
+                            <option value="zivid">Zivid-Aufnahmen mit GT (F/S/T)</option>
+                        </select>
+                    </div>
                     <div class="yolo-image-control">
                         <label for="yoloImageSort">Sortieren nach</label>
                         <select id="yoloImageSort" class="yolo-select">
@@ -1288,6 +1337,7 @@ require_once __DIR__ . '/../navbar.php';
         galleryPage: 0,
         galleryLoading: false,
         galleryObserver: null,
+        galleryDatasetInitialized: false,
         charts: new Map()
     };
     const metaLabels = {
@@ -1726,6 +1776,25 @@ require_once __DIR__ . '/../navbar.php';
                        return `<tr><td>${esc(key)}</td><td>${esc(nice(a))}</td><td>${esc(nice(b))}</td></tr>`;
                    }).join('')}
                 </tbody></table></div></div></details>`:'';
+            const zvA=run.dual?.variants?.val_synth?.zivid;
+            const zvB=run.dual?.variants?.val_mixed?.zivid;
+            const zividDetails=zvA?.available||zvB?.available ? `<details class="yolo-detail">
+                <summary>Zivid-Test · GT-Metriken (Fehler ±4 px, Schrift ±8 px)</summary>
+                <div class="yolo-detail-inner"><p>Alle Zivid-Farbprofilvarianten mit zugehöriger picXX-GT. F/S werden pixelweise verglichen; T-Bereiche bleiben ausgeschlossen. Die 2 Best-Checkpoints wurden nicht neu trainiert.</p>
+                <div class="yolo-table-scroll"><table class="yolo-ba-table"><thead><tr><th>Kennzahl</th><th>Val ohne Realbilder</th><th>Val mit Realbildern</th></tr></thead><tbody>
+                ${[
+                  ['Ausgewertete Zivid-Bilder',zvA?.successful_images,zvB?.successful_images,'count'],
+                  ['GT vorhanden',zvA?.ground_truth_enabled,zvB?.ground_truth_enabled,'bool'],
+                  ['mIoU strikt (Micro)',zvA?.strict?.miou,zvB?.strict?.miou,'ratio'],
+                  ['mIoU randtolerant (Micro)',zvA?.boundary?.miou,zvB?.boundary?.miou,'ratio'],
+                  ['Fehler-IoU strikt',zvA?.strict?.classes?.defect?.micro?.iou,zvB?.strict?.classes?.defect?.micro?.iou,'ratio'],
+                  ['Fehler-IoU randtolerant',zvA?.boundary?.classes?.defect?.micro?.iou,zvB?.boundary?.classes?.defect?.micro?.iou,'ratio'],
+                  ['Fehler-Recall randtolerant',zvA?.boundary?.classes?.defect?.micro?.recall,zvB?.boundary?.classes?.defect?.micro?.recall,'ratio'],
+                  ['Schrift-IoU strikt',zvA?.strict?.classes?.text?.micro?.iou,zvB?.strict?.classes?.text?.micro?.iou,'ratio'],
+                  ['Schrift-IoU randtolerant',zvA?.boundary?.classes?.text?.micro?.iou,zvB?.boundary?.classes?.text?.micro?.iou,'ratio'],
+                  ['Schrift-Recall randtolerant',zvA?.boundary?.classes?.text?.micro?.recall,zvB?.boundary?.classes?.text?.micro?.recall,'ratio']
+                ].map(([label,x,y,kind])=>`<tr><td>${esc(label)}</td>${cell(x,kind)}${cell(y,kind)}</tr>`).join('')}
+                </tbody></table></div></div></details>` : '';
             const epochHistory=dual?`<details class="yolo-detail yolo-ba-history-detail"><summary>Modellselektion · vollständiger Epochenverlauf (${epochs.length} Epochen)</summary>
                 <div class="yolo-table-scroll"><table class="yolo-ba-history-table"><thead><tr><th>Epoche</th><th>Val ohne Real: mIoU</th><th>Neues Best</th><th>Val mit Real: mIoU</th><th>Neues Best</th><th>Beste Epoche nach diesem Schritt (ohne / mit)</th></tr></thead><tbody>
                 ${epochs.map(ep=>`<tr><td>${esc(nice(ep.epoch))}</td><td>${esc(nice(ep.val_synth_miou,true))}</td><td>${ep.val_synth_new_best?'Ja':'—'}</td>
@@ -1739,7 +1808,7 @@ require_once __DIR__ . '/../navbar.php';
                 <button type="button" class="yolo-button" data-ba-copy-json="${escapeAttr(run.key)}">JSON kopieren</button></div></div>
                 ${dual?`<details class="yolo-detail yolo-ba-summary"><summary>Zusammenfassung · Boundary-Metriken &amp; Checkpoint-Auswahl</summary>
                     <div class="yolo-table-scroll"><table class="yolo-ba-table yolo-ba-five">${baTableHead()}<tbody>${summaryBody}</tbody></table></div></details>
-                    <div class="yolo-ba-extra">${epochHistory}${validationDetails}${modelDetails}${detailHTML}</div>`:
+                    <div class="yolo-ba-extra">${zividDetails}${epochHistory}${validationDetails}${modelDetails}${detailHTML}</div>`:
                     `<div class="yolo-notice">Für diesen historischen Run ist keine getrennte v10-Validierung vorhanden.</div>${legacy}`}
                 </article>`;
         }).join('')||'<div class="yolo-empty">Bitte einen Run auswählen.</div>';
@@ -1841,12 +1910,14 @@ require_once __DIR__ . '/../navbar.php';
         const url=new URL(window.location.href);
         url.searchParams.set('ajax','test_image');url.searchParams.set('run',key);
         url.searchParams.set('image',id);url.searchParams.set('variant',variant);
+        url.searchParams.set('dataset',$('yoloImageDataset').value);
         return url.toString();
     }
     function imagePageUrl(key,sort,offset){
         const url=new URL(window.location.href);
         url.searchParams.set('ajax','image_page');url.searchParams.set('run',key);
         url.searchParams.set('sort',sort);url.searchParams.set('offset',String(offset));
+        url.searchParams.set('dataset',$('yoloImageDataset').value);
         return url.toString();
     }
     function stopGallery() {
@@ -1866,18 +1937,20 @@ require_once __DIR__ . '/../navbar.php';
             ${items.map(([label,value])=>`<div><span class="yolo-muted">${esc(label)}:</span> <b>${esc(fmt(value))}</b></div>`).join('')}
         </div>`;
     }
-    function imageSlot(image,key,variant,title) {
+    function imageSlot(image,key,variant,title,dataset) {
         const available=!!image.images?.[variant];
         return `<div class="yolo-image-item"><strong>${esc(title)}</strong>${available?
             `<a href="${escapeAttr(imageUrl(key,image.id,variant))}" target="_blank" rel="noopener" title="${escapeAttr(title)}">
              <img loading="lazy" decoding="async" src="${escapeAttr(imageUrl(key,image.id,variant))}" alt="${escapeAttr(image.label+' – '+title)}"></a>`:
             '<div class="yolo-empty">Für dieses Testbild nicht vorhanden.</div>'}
-            ${variant==='gt' ? '' : imageScoreDetails(image.scores?.[variant])}</div>`;
+            ${dataset==='zivid' && variant==='gt' ? `<div class="yolo-flex" style="padding:8px;gap:10px;flex-wrap:wrap">${[['gt_f','Fehler F'],['gt_s','Schrift S'],['gt_t','Ignorieren T']].map(([v,label])=>image.images?.[v] ? `<a href="${escapeAttr(imageUrl(key,image.id,v))}" target="_blank" rel="noopener">${esc(label)}</a>` : '').join('')}</div>` : ''}
+            ${['val_synth','val_mixed'].includes(variant) ? imageScoreDetails(image.scores?.[variant]) : ''}</div>`;
     }
     async function loadGalleryPage(expectedRequest) {
         if(expectedRequest!==state.galleryRequest || state.galleryLoading || state.galleryPage===null)return;
         const key=$('yoloImageReference').value;
         if(!key)return;
+        const dataset=$('yoloImageDataset').value;
         const sort=$('yoloImageSort').value;
         const offset=state.galleryPage;
         state.galleryLoading=true;
@@ -1890,17 +1963,18 @@ require_once __DIR__ . '/../navbar.php';
             const html=(data.items||[]).map((image,i)=>{
                 const title=image.label;
                 return `<article class="yolo-image-group"><div class="yolo-image-group-head"><span class="yolo-image-head-main">${esc(title)}</span></div>
-                    <div class="yolo-image-triptych">
-                    ${imageSlot(image,key,'val_synth',state.loaded.find(r=>r.key===key)?.dual?.available?'Val ohne Realbilder':'Historisches Modell')}
-                    ${imageSlot(image,key,'gt','Ground Truth (Randzone)')}
-                    ${imageSlot(image,key,'val_mixed','Val mit Realbildern')}
+                    <div class="yolo-image-triptych" ${dataset==='zivid'?'style="grid-template-columns:repeat(auto-fit,minmax(215px,1fr))"':''}>
+                    ${dataset==='zivid'?imageSlot(image,key,'source','Zivid-Quellbild',dataset):''}
+                    ${imageSlot(image,key,'gt','Ground Truth'+(dataset==='zivid'?' (F/S; T ignoriert)':' (Randzone)'),dataset)}
+                    ${imageSlot(image,key,'val_synth',state.loaded.find(r=>r.key===key)?.dual?.available?'Val ohne Realbilder':'Historisches Modell',dataset)}
+                    ${imageSlot(image,key,'val_mixed','Val mit Realbildern',dataset)}
                     </div></article>`;
             }).join('');
             $('yoloImages').insertAdjacentHTML('beforeend',html);
             state.galleryPage=data.next_offset;
             const footer=$('yoloGalleryFooter');footer.hidden=!data.total || data.next_offset===null;
             $('yoloGalleryProgress').textContent=`${Math.min(offset+(data.items||[]).length,data.total)} von ${data.total} Bildern geladen`;
-            if(!data.total && !offset)$('yoloImages').innerHTML='<div class="yolo-empty">Keine Real-Testbilder für diesen Run vorhanden.</div>';
+            if(!data.total && !offset)$('yoloImages').innerHTML='<div class="yolo-empty">Keine '+(dataset==='zivid'?'Zivid-Vorhersagen':'Real-Testbilder')+' für diesen Run vorhanden.</div>';
         }catch(err){
             if(expectedRequest===state.galleryRequest){
                 $('yoloImages').insertAdjacentHTML('beforeend',`<div class="yolo-notice error">${esc(err.message||err)}</div>`);
@@ -1917,6 +1991,16 @@ require_once __DIR__ . '/../navbar.php';
         select.innerHTML=runs.map(run=>`<option value="${escapeAttr(run.key)}">${esc(run.name)}</option>`).join('');
         select.value=runs.some(run=>run.key===previous)?previous:runs[0]?.key||'';
         select.disabled=!runs.length;
+        if(!state.galleryDatasetInitialized){
+            const first=runs[0];
+            if(first?.has_zivid && /^z\d/i.test(first.name)) $('yoloImageDataset').value='zivid';
+            state.galleryDatasetInitialized=true;
+        }
+        const zividSelected=$('yoloImageDataset').value==='zivid';
+        $('yoloImageDescription').textContent=zividSelected
+            ? 'Zivid: Quellbild · GT aus picXX (F/S/T) · Vorhersagen beider bestehender Modelle, inklusive IoU, Recall und Randtoleranz.'
+            : 'Bisheriger Real-Test: Vorhersage ohne reale Validierung · GT · Vorhersage mit realer Validierung.';
+        $('yoloImageSort').disabled=false;
         $('yoloImages').innerHTML='';$('yoloGalleryFooter').hidden=true;
         if(!runs.length){$('yoloImages').innerHTML='<div class="yolo-empty">Keinen Detail-Run ausgewählt.</div>';return;}
         const request=state.galleryRequest;
@@ -1998,6 +2082,7 @@ require_once __DIR__ . '/../navbar.php';
     $('yoloRunSearch').addEventListener('input', renderRunList);
     $('yoloGlossarySearch').addEventListener('input', renderGlossary);
     $('yoloImageSort').addEventListener('change', () => { if(state.activeTab==='images') renderImages(); });
+    $('yoloImageDataset').addEventListener('change', () => { if(state.activeTab==='images') renderImages(); });
     $('yoloImageReference').addEventListener('change', () => { if(state.activeTab==='images') renderImages(); });
     $('yoloLoadMoreImages').addEventListener('click', () => loadGalleryPage(state.galleryRequest));
     renderRunList();

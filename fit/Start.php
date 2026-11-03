@@ -698,11 +698,19 @@ require_once __DIR__ . '/../navbar.php';
       >—</span>
     </div>
 
-    <div class="dashboard-sober-counter">
+    <!-- <div class="dashboard-sober-counter">
       <span class="dashboard-sober-label">Amammotarier</span>
       <span
         class="dashboard-sober-value js-sober-counter"
         data-start="2026-01-01"
+      >—</span>
+    </div> -->
+
+    <div class="dashboard-sober-counter">
+      <span class="dashboard-sober-label">Vegetarier</span>
+      <span
+        class="dashboard-sober-value js-sober-counter"
+        data-start="2026-11-01"
       >—</span>
     </div>
 
