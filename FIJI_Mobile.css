@@ -2610,6 +2610,28 @@
         white-space: nowrap;
     }
 
+    /* Kalorien-Legende bleibt bis auf sehr schmale Geräte in der Kopfzeile. */
+    #healthPage .dashboard-kalorien-kpi {
+        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+        align-items: center;
+        gap: 5px;
+    }
+
+    #healthPage .dashboard-calorie-legend {
+        gap: 6px;
+    }
+
+    #healthPage .dashboard-calorie-legend-item {
+        gap: 3px;
+        font-size: 0.67rem;
+    }
+
+    #healthPage .dashboard-calorie-legend-swatch {
+        flex-basis: 9px;
+        width: 9px;
+        height: 9px;
+    }
+
     #healthPage .dashboard-pie-wrap,
     #healthPage .dashboard-sport-wrap {
         width: 100%;
@@ -2620,6 +2642,20 @@
 
     #healthPage .dashboard-sport-card .dashboard-pie-wrap {
         height: 275px;
+    }
+}
+
+/* Sehr schmale Displays: zuerst Titel und KPI, danach die Legende. */
+@media (max-width: 390px) {
+    #healthPage .dashboard-kalorien-kpi {
+        grid-template-columns: minmax(0, 1fr) auto;
+        row-gap: 6px;
+    }
+
+    #healthPage .dashboard-calorie-legend {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        justify-self: center;
     }
 }
 

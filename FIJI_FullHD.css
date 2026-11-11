@@ -1254,6 +1254,61 @@ tr.lt-dragging .lt-grip {
     opacity: 0.9;
 }
 
+/* fit/Start_v15.php – statische Legende im Kalorien-Kartenkopf (Jahr / Alle). */
+#healthPage .dashboard-kalorien-kpi {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: 12px;
+}
+
+#healthPage .dashboard-kalorien-kpi .dashboard-pie-kpi-label {
+    justify-self: start;
+}
+
+#healthPage .dashboard-kalorien-kpi .dashboard-pie-kpi-value {
+    justify-self: end;
+    white-space: nowrap;
+}
+
+#healthPage .dashboard-calorie-legend {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    white-space: nowrap;
+}
+
+#healthPage .dashboard-calorie-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text);
+    font-size: 0.84rem;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+#healthPage .dashboard-calorie-legend-swatch {
+    display: inline-block;
+    flex: 0 0 12px;
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+}
+
+#healthPage .dashboard-calorie-legend-swatch--netto {
+    background: #111;
+}
+
+#healthPage .dashboard-calorie-legend-swatch--verbrauch {
+    background: #d60303;
+}
+
+#healthPage .dashboard-calorie-legend-swatch--brutto {
+    background: #008f07;
+}
+
 .dashboard-pie-kpi-valuewrap {
     margin-left: auto;
     display: flex;

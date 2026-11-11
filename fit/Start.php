@@ -1,5 +1,5 @@
 <?php
-// fit/Start_v12.php (Übersicht)
+// fit/Start_v15.php (Übersicht)
 
 // 1) Auth (diese Seite ist geschützt)
 require_once __DIR__ . '/../auth.php';
@@ -260,6 +260,19 @@ $stmt->close();
 $nettoSumme         = array_sum($nettoTage);
 $tageMitNettoWerten = count($nettoTage);
 $nettoDurchschnitt  = $tageMitNettoWerten > 0 ? round($nettoSumme / $tageMitNettoWerten) : 0;
+
+// Sportverbrauch täglich (positiv): gleiche Trainingsquellen wie die Netto-Berechnung.
+// Netto = Brutto - Training - abgeschlossene Gym-Sessions.
+// So bleiben beide Kurven fachlich konsistent, ohne eine weitere SQL-Abfrage.
+$verbrauchTage = [];
+if ($isAllYears && !$isWochentageMode && !$isSportMode) {
+    foreach ($nettoTage as $tag => $nettoKalorien) {
+        $verbrauch = max(0.0, (float)($bruttoTage[$tag] ?? 0.0) - (float)$nettoKalorien);
+        if ($verbrauch > 0) {
+            $verbrauchTage[$tag] = $verbrauch;
+        }
+    }
+}
 
 // 5b) Sportdaten aus dem neuen Gym-System.
 //
@@ -523,7 +536,65 @@ function monthAvgSerie(array $alleTage, array $tageMap, int $precision = 2): arr
     return $out;
 }
 
+// 9d) Sportverbrauch im Modus Jahr / Alle als kcal pro Kalendertag des Monats.
+// Beispiel: 6.000 kcal Training im 30-Tage-Monat ergeben Ø 200 kcal/Tag.
+// Tage ohne Training zählen als 0. Im laufenden Monat zählen nur Tage bis heute.
+// Monate ohne jegliche Ernährungs- oder Sportdaten bleiben als Datenlücke leer.
+function sportMonatsTagesdurchschnitt(
+    array $alleTage,
+    array $verbrauchTage,
+    array $bruttoTage,
+    string $heute
+): array {
+    $serie = array_fill(0, count($alleTage), null);
+    $monate = [];
+
+    foreach ($alleTage as $index => $tag) {
+        if ($tag > $heute) {
+            continue;
+        }
+
+        $monat = substr($tag, 0, 7);
+        if (!isset($monate[$monat])) {
+            $monate[$monat] = [
+                'indices'   => [],
+                'verbrauch' => 0.0,
+                'hatDaten'  => false,
+            ];
+        }
+
+        $monate[$monat]['indices'][] = $index;
+        $monate[$monat]['verbrauch'] += (float)($verbrauchTage[$tag] ?? 0.0);
+        if (array_key_exists($tag, $bruttoTage) || array_key_exists($tag, $verbrauchTage)) {
+            $monate[$monat]['hatDaten'] = true;
+        }
+    }
+
+    foreach ($monate as $monat) {
+        if (!$monat['hatDaten'] || !$monat['indices']) {
+            continue;
+        }
+
+        $durchschnitt = round($monat['verbrauch'] / count($monat['indices']));
+        foreach ($monat['indices'] as $index) {
+            $serie[$index] = $durchschnitt;
+        }
+    }
+
+    return $serie;
+}
+
+$verbrauchMonatsavg = $isAllYears && !$isWochentageMode && !$isSportMode
+    ? sportMonatsTagesdurchschnitt(
+        $alleTage,
+        $verbrauchTage,
+        $bruttoTage,
+        (new DateTime('today', new DateTimeZone('Europe/Berlin')))->format('Y-m-d')
+    )
+    : [];
+
 $nettoMonatsavg   = monthAvgSerie($alleTage, $nettoTage, 0);
+$bruttoMonatsavg  = monthAvgSerie($alleTage, $bruttoTage, 0);
 $eiweissMonatsavg = monthAvgSerie($alleTage, $eiweissTage, 2);
 $fettMonatsavg    = monthAvgSerie($alleTage, $fettTage, 2);
 $khMonatsavg      = monthAvgSerie($alleTage, $khTage, 2);
@@ -644,6 +715,8 @@ $bruttoJson     = json_encode($anzeigeBrutto);
 $gewichtJson    = json_encode($anzeigeGewicht);
 $trendJson      = json_encode($trendWerte);
 $nettoKWJson    = json_encode($anzeigeNettoKW);
+$verbrauchMonatsJson = json_encode($verbrauchMonatsavg);
+$bruttoMonatsJson   = json_encode($bruttoMonatsavg);
 
 $eiweissJson = json_encode($anzeigeEiweiss);
 $fettJson    = json_encode($anzeigeFett);
@@ -768,8 +841,24 @@ require_once __DIR__ . '/../navbar.php';
     <?php else: ?>
       <div class="dashboard-pies<?= $isWochentageMode ? ' dashboard-pies--single' : '' ?>">
         <div class="dashboard-pie-card<?= $isWochentageMode ? ' dashboard-pie-card--full' : '' ?>">
-          <div class="dashboard-pie-kpi">
+          <div class="dashboard-pie-kpi<?= $isAllYears && !$isWochentageMode ? ' dashboard-kalorien-kpi' : '' ?>">
             <span class="dashboard-pie-kpi-label">Kalorien</span>
+            <?php if ($isAllYears && !$isWochentageMode): ?>
+              <div class="dashboard-calorie-legend" aria-label="Netto schwarz, Brutto grün, Verbrauch rot">
+                <span class="dashboard-calorie-legend-item">
+                  <span class="dashboard-calorie-legend-swatch dashboard-calorie-legend-swatch--netto" aria-hidden="true"></span>
+                  Netto
+                </span>
+                <span class="dashboard-calorie-legend-item">
+                  <span class="dashboard-calorie-legend-swatch dashboard-calorie-legend-swatch--brutto" aria-hidden="true"></span>
+                  Brutto
+                </span>
+                <span class="dashboard-calorie-legend-item">
+                  <span class="dashboard-calorie-legend-swatch dashboard-calorie-legend-swatch--verbrauch" aria-hidden="true"></span>
+                  Verbrauch
+                </span>
+              </div>
+            <?php endif; ?>
             <span class="dashboard-pie-kpi-value">Ø<?= (int)$nettoDurchschnitt ?> kcal/Tag</span>
           </div>
           <div class="dashboard-pie-wrap">
@@ -847,6 +936,8 @@ const kalorienziel   = <?= (int)$kalorienziel ?>;
 const nettoData      = <?= $nettoJson ?>;
 const bruttoData     = <?= $bruttoJson ?>;
 const nettoKWData    = <?= $nettoKWJson ?>;
+const verbrauchMonatsData = <?= $verbrauchMonatsJson ?>;
+const bruttoMonatsData   = <?= $bruttoMonatsJson ?>;
 const gewichtData    = <?= $gewichtJson ?>;
 const gewichtTrend   = <?= $trendJson ?>;
 
@@ -1211,7 +1302,33 @@ const kalorienDatasets = isWeekdayMode
         pointRadius: 0,
         spanGaps: true,
         yAxisID: 'y'
-      }
+      },
+      ...(isAllYears ? [
+        {
+          label: 'Brutto',
+          data: bruttoMonatsData,
+          fill: false,
+          stepped: 'after',
+          tension: 0,
+          borderWidth: 3,
+          borderColor: 'rgba(0, 143, 7, 0.5)',
+          pointRadius: 0,
+          spanGaps: true,
+          yAxisID: 'y'
+        },
+        {
+          label: 'Verbrauch',
+          data: verbrauchMonatsData,
+          fill: false,
+          stepped: 'after',
+          tension: 0,
+          borderWidth: 3,
+          borderColor: 'rgba(214, 3, 3, 0.5)',
+          pointRadius: 0,
+          spanGaps: false,
+          yAxisID: 'y'
+        }
+      ] : [])
     ];
 
 new Chart(document.getElementById('kalorienChart').getContext('2d'), {
