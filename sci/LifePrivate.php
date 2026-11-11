@@ -184,6 +184,10 @@ final class LifePrivateEditor
         $parentId = $parentRaw > 0 ? $parentRaw : null;
         $sortOrder = max(0, (int)($_POST['group_sort_order'] ?? 0));
         $color = self::nullableString($_POST['group_color'] ?? null);
+        $visibility = strtolower(trim((string)($_POST['group_visibility'] ?? 'public')));
+        if (!in_array($visibility, ['public', 'private'], true)) {
+            throw new RuntimeException('Ungültige Gruppensichtbarkeit.');
+        }
 
         if ($color !== null && !preg_match('/^#[0-9A-Fa-f]{6}$/', $color)) {
             throw new RuntimeException('Farbe muss im Format #RRGGBB vorliegen.');
@@ -204,15 +208,15 @@ final class LifePrivateEditor
             }
             self::assertNoGroupCycle($conn, $id, $parentId);
 
-            $stmt = $conn->prepare('UPDATE timeline_groups SET parent_group_id = ?, name = ?, sort_order = ?, color = ? WHERE id = ?');
-            $stmt->bind_param('isisi', $parentId, $name, $sortOrder, $color, $id);
+            $stmt = $conn->prepare('UPDATE timeline_groups SET parent_group_id = ?, name = ?, sort_order = ?, color = ?, visibility = ? WHERE id = ?');
+            $stmt->bind_param('isissi', $parentId, $name, $sortOrder, $color, $visibility, $id);
             $stmt->execute();
             $stmt->close();
             return;
         }
 
-        $stmt = $conn->prepare('INSERT INTO timeline_groups (parent_group_id, name, sort_order, color) VALUES (?, ?, ?, ?)');
-        $stmt->bind_param('isis', $parentId, $name, $sortOrder, $color);
+        $stmt = $conn->prepare('INSERT INTO timeline_groups (parent_group_id, name, sort_order, color, visibility) VALUES (?, ?, ?, ?, ?)');
+        $stmt->bind_param('isiss', $parentId, $name, $sortOrder, $color, $visibility);
         $stmt->execute();
         $stmt->close();
     }
@@ -449,7 +453,7 @@ final class LifePrivateEditor
 
     public static function fetchEditorData(mysqli $conn): array
     {
-        $groups = self::fetchAll($conn, 'SELECT id, parent_group_id, name, sort_order, color FROM timeline_groups ORDER BY sort_order, id');
+        $groups = self::fetchAll($conn, 'SELECT id, parent_group_id, name, sort_order, color, visibility FROM timeline_groups ORDER BY sort_order, id');
         $paths = self::groupPaths($groups);
 
         $entries = self::fetchAll($conn, 'SELECT id, group_id, title, creditpoints, sort_order FROM timeline_entries ORDER BY group_id, sort_order, id');
@@ -544,6 +548,15 @@ final class LifePrivateEditor
                     <label>Farbe der Root-Gruppe</label>
                     <input type="color" name="group_color" data-field="group_color" value="#64748b">
                     <small>Nur Root-Gruppen besitzen eine eigene Farbe.</small>
+                </div>
+
+                <div class="life-edit-field">
+                    <label>Sichtbarkeit</label>
+                    <select name="group_visibility" data-field="group_visibility" required>
+                        <option value="public" selected>Public</option>
+                        <option value="private">Privat</option>
+                    </select>
+                    <small>Private Gruppen und deren Inhalte sind nur in LifePrivate sichtbar.</small>
                 </div>
 
                 <div class="life-edit-actions life-edit-field--wide">
@@ -753,6 +766,7 @@ final class LifePrivateEditor
             setValue(form, 'group_parent_id', '0');
             setValue(form, 'group_sort_order', '9999');
             setValue(form, 'group_color', '#64748b');
+            setValue(form, 'group_visibility', 'public');
         } else if (kind === 'entry') {
             setValue(form, 'entry_id', '');
             setValue(form, 'entry_sort_order', '9999');
@@ -776,6 +790,7 @@ final class LifePrivateEditor
             setValue(form, 'group_parent_id', record.parent_group_id ?? '0');
             setValue(form, 'group_sort_order', record.sort_order ?? 0);
             setValue(form, 'group_color', record.color || '#64748b');
+            setValue(form, 'group_visibility', record.visibility || 'public');
         } else if (kind === 'entry') {
             setValue(form, 'entry_id', record.id);
             setValue(form, 'entry_title', record.title);

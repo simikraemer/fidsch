@@ -2326,6 +2326,98 @@ button.chart-back:focus-visible {
     min-width: 160px;
 }
 
+/* SCI / Life CP: Modulnamen direkt unter der jeweiligen Achsenposition.
+   Alle Zeiträume werden immer auf die verfügbare Diagrammbreite verteilt. */
+.life-page--cp .life-sidewrap--cp-view {
+    width: 160px;
+    min-width: 140px;
+}
+
+.life-page--cp .life-cp-chart-scroll {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    overflow: visible;
+}
+
+.life-page--cp .dashboard-pie-wrap.life-cp-chart-stack {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    height: auto;
+    max-height: none;
+    aspect-ratio: auto;
+}
+
+.life-page--cp .life-cp-plot {
+    width: 100%;
+    height: 255px;
+    position: relative;
+}
+
+.life-page--cp .life-cp-plot > canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.life-page--cp .life-cp-module-grid {
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: repeat(var(--life-cp-periods, 1), minmax(0, 1fr));
+    width: 100%;
+    padding: 3px var(--life-cp-axis-right, 8px) 5px var(--life-cp-axis-left, 45px);
+    align-items: start;
+}
+
+.life-page--cp .life-cp-module-column {
+    box-sizing: border-box;
+    min-width: 0;
+    padding: 4px 4px 0 5px;
+}
+
+.life-page--cp .life-cp-module-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.life-page--cp .life-cp-module-list li {
+    min-width: 0;
+    padding: 1px 0 1px 4px;
+    border-left: 2px solid rgba(0, 0, 0, 0.22);
+    font-size: 0.72rem;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--text);
+    overflow-wrap: anywhere;
+    word-break: normal;
+    hyphens: auto;
+}
+
+.life-page--cp .life-cp-module-points {
+    font-weight: 800;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.life-page--cp .life-cp-chart-stack--dense .life-cp-module-column {
+    padding-inline: 3px;
+}
+
+.life-page--cp .life-cp-chart-stack--dense .life-cp-module-list {
+    gap: 7px;
+}
+
+.life-page--cp .life-cp-chart-stack--dense .life-cp-module-list li {
+    font-size: 0.67rem;
+    line-height: 1.17;
+}
+
 .life-interactive {
     cursor: pointer;
 }

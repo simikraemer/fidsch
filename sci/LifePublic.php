@@ -267,8 +267,12 @@ if (empty($_SESSION['life_public_authed'])) {
     lifePublicRenderLogin();
 }
 
+// Private Inhalte duerfen auch nicht aus einem Browser-Cache erneut erscheinen.
+header('Cache-Control: private, no-store');
+
 $conn = LifeTimelinePage::requireLifeConnection(['sciconn', 'conn', 'mysqli']);
-$view = LifeTimelinePage::buildViewData($conn);
+// Ausschließlich öffentliche Root-Gruppen und öffentliche Nachfahren laden.
+$view = LifeTimelinePage::buildViewData($conn, true);
 
 LifeTimelinePage::renderStandaloneDocument($view, [
     'title' => 'Studienplan',

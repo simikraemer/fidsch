@@ -6075,10 +6075,14 @@
         margin: 0 !important;
     }
 
-    .life-page[data-life-mode="gesamt"] .life-controls,
+    .life-page[data-life-mode="gesamt"] .life-controls {
+        grid-template-columns: minmax(0, 180px) !important;
+        justify-content: center;
+    }
+
     .life-page[data-life-mode="cp_jahr"] .life-controls,
     .life-page[data-life-mode="cp_semester"] .life-controls {
-        grid-template-columns: minmax(0, 180px) !important;
+        grid-template-columns: repeat(2, minmax(0, 180px)) !important;
         justify-content: center;
     }
 
@@ -13464,3 +13468,20 @@
         font-size: .9rem;
     }
 }
+
+/* SCI / Life CP: Das komplette Diagramm bleibt auch auf mobilen
+   Viewports sichtbar. Der Modulbereich darf vertikal wachsen. */
+@media (max-width: 650px) {
+    .life-page--cp .dashboard-pie-wrap.life-cp-chart-stack {
+        height: auto !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+    .life-page--cp .life-cp-plot {
+        height: 245px;
+    }
+    .life-page--cp .life-cp-module-list li {
+        font-size: 0.71rem;
+    }
+}
+

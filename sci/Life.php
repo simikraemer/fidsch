@@ -110,28 +110,60 @@ final class LifeTimelinePage
 <?php
     }
 
-    public static function buildViewData(mysqli $conn): array
+    /**
+     * Nur öffentliche Root-Gruppen und deren durchgehend öffentliche Nachfahren.
+     * Der Filter läuft in SQL: Private Datensätze werden für LifePublic nicht abgefragt.
+     */
+    private static function publicGroupsCte(): string
+    {
+        return "WITH RECURSIVE visible_groups AS (
+            SELECT id
+            FROM timeline_groups
+            WHERE parent_group_id IS NULL AND visibility = 'public'
+            UNION ALL
+            SELECT child.id
+            FROM timeline_groups child
+            INNER JOIN visible_groups parent ON parent.id = child.parent_group_id
+            WHERE child.visibility = 'public'
+        )";
+    }
+
+    public static function buildViewData(mysqli $conn, bool $publicOnly = false): array
     {
         $minDate = null;
         $maxDate = null;
 
-        $res = $conn->query("
-            SELECT
-                MIN(start_date) AS min_start,
-                MAX(end_date)   AS max_end
-            FROM timeline_entry_segments
-        ");
+        $res = $conn->query($publicOnly
+            ? self::publicGroupsCte() . "
+                SELECT MIN(s.start_date) AS min_start,
+                       MAX(s.end_date) AS max_end
+                FROM timeline_entry_segments s
+                INNER JOIN timeline_entries e ON e.id = s.entry_id
+                INNER JOIN visible_groups g ON g.id = e.group_id
+            "
+            : "
+                SELECT MIN(start_date) AS min_start,
+                       MAX(end_date) AS max_end
+                FROM timeline_entry_segments
+            ");
         if ($res && ($row = $res->fetch_assoc())) {
             $minDate = $row['min_start'] ?: null;
             $maxDate = $row['max_end'] ?: null;
         }
 
-        $res = $conn->query("
-            SELECT
-                MIN(event_date) AS min_event,
-                MAX(event_date) AS max_event
-            FROM timeline_events
-        ");
+        $res = $conn->query($publicOnly
+            ? self::publicGroupsCte() . "
+                SELECT MIN(ev.event_date) AS min_event,
+                       MAX(ev.event_date) AS max_event
+                FROM timeline_events ev
+                INNER JOIN timeline_entries e ON e.id = ev.entry_id
+                INNER JOIN visible_groups g ON g.id = e.group_id
+            "
+            : "
+                SELECT MIN(event_date) AS min_event,
+                       MAX(event_date) AS max_event
+                FROM timeline_events
+            ");
         if ($res && ($row = $res->fetch_assoc())) {
             if (!empty($row['min_event']) && ($minDate === null || $row['min_event'] < $minDate)) {
                 $minDate = $row['min_event'];
@@ -186,10 +218,15 @@ final class LifeTimelinePage
         }
 
         if (self::isCpMode($mode)) {
-            $cpChart = self::buildCreditpointsChartData($conn, $mode, $currentYear);
+            $cpChart = self::buildCreditpointsChartData($conn, $mode, $currentYear, $publicOnly);
+            $cpView = isset($_GET['cp_ansicht']) ? strtolower(trim((string)$_GET['cp_ansicht'])) : 'standard';
+            if (!in_array($cpView, ['standard', 'module'], true)) {
+                $cpView = 'standard';
+            }
 
             return [
                 'mode' => $mode,
+                'cpView' => $cpView,
                 'jahr' => $jahr,
                 'startjahr' => $startjahr,
                 'endjahr' => $endjahr,
@@ -272,10 +309,16 @@ final class LifeTimelinePage
         $orphanEvents = [];
         $segmentsByEntry = [];
 
-        $resG = $conn->query("
-            SELECT id, parent_group_id, name, sort_order, color
-            FROM timeline_groups
-        ");
+        $resG = $conn->query($publicOnly
+            ? self::publicGroupsCte() . "
+                SELECT g.id, g.parent_group_id, g.name, g.sort_order, g.color
+                FROM timeline_groups g
+                INNER JOIN visible_groups vg ON vg.id = g.id
+            "
+            : "
+                SELECT id, parent_group_id, name, sort_order, color
+                FROM timeline_groups
+            ");
         if (!$resG) {
             http_response_code(500);
             die('timeline_groups konnten nicht geladen werden.');
@@ -289,10 +332,16 @@ final class LifeTimelinePage
             $groupChildren[$g['parent_group_id'] ?? 0][] = $g;
         }
 
-        $resE = $conn->query("
-            SELECT id, group_id, title, creditpoints, sort_order
-            FROM timeline_entries
-        ");
+        $resE = $conn->query($publicOnly
+            ? self::publicGroupsCte() . "
+                SELECT e.id, e.group_id, e.title, e.creditpoints, e.sort_order
+                FROM timeline_entries e
+                INNER JOIN visible_groups vg ON vg.id = e.group_id
+            "
+            : "
+                SELECT id, group_id, title, creditpoints, sort_order
+                FROM timeline_entries
+            ");
         if (!$resE) {
             http_response_code(500);
             die('timeline_entries konnten nicht geladen werden.');
@@ -307,11 +356,19 @@ final class LifeTimelinePage
             $entriesByGroup[$e['group_id']][] = $e;
         }
 
-        $resS = $conn->query("
-            SELECT id, entry_id, start_date, end_date
-            FROM timeline_entry_segments
-            ORDER BY entry_id ASC, start_date ASC, end_date ASC, id ASC
-        ");
+        $resS = $conn->query($publicOnly
+            ? self::publicGroupsCte() . "
+                SELECT s.id, s.entry_id, s.start_date, s.end_date
+                FROM timeline_entry_segments s
+                INNER JOIN timeline_entries e ON e.id = s.entry_id
+                INNER JOIN visible_groups vg ON vg.id = e.group_id
+                ORDER BY s.entry_id ASC, s.start_date ASC, s.end_date ASC, s.id ASC
+            "
+            : "
+                SELECT id, entry_id, start_date, end_date
+                FROM timeline_entry_segments
+                ORDER BY entry_id ASC, start_date ASC, end_date ASC, id ASC
+            ");
         if (!$resS) {
             http_response_code(500);
             die('timeline_entry_segments konnten nicht geladen werden.');
@@ -322,7 +379,7 @@ final class LifeTimelinePage
             $segmentsByEntry[$s['entry_id']][] = $s;
         }
 
-        $stmtEv = $conn->prepare("
+        $eventSelectSql = "
             SELECT
                 ev.id,
                 ev.entry_id,
@@ -338,9 +395,16 @@ final class LifeTimelinePage
                 te.creditpoints
             FROM timeline_events ev
             INNER JOIN timeline_entries te ON te.id = ev.entry_id
+        ";
+        if ($publicOnly) {
+            $eventSelectSql = self::publicGroupsCte() . $eventSelectSql
+                . " INNER JOIN visible_groups vg ON vg.id = te.group_id ";
+        }
+        $eventSelectSql .= "
             WHERE ev.event_date >= ? AND ev.event_date < ?
             ORDER BY ev.event_date ASC, ev.id ASC
-        ");
+        ";
+        $stmtEv = $conn->prepare($eventSelectSql);
         $rangeStartSql = $rangeStart->format('Y-m-d');
         $rangeEndExclusiveSql = $rangeEndExclusive->format('Y-m-d');
         $stmtEv->bind_param('ss', $rangeStartSql, $rangeEndExclusiveSql);
@@ -1306,6 +1370,9 @@ final class LifeTimelinePage
         $mode = $view['mode'];
         $titleSuffix = $view['titleSuffix'];
         $cpChart = $view['cpChart'];
+        $cpView = $view['cpView'] ?? 'standard';
+        $showModules = ($cpView === 'module');
+        $denseModules = count($cpChart['labels']) > 14;
         $avgPeriodLabel = $mode === 'cp_jahr' ? 'Jahr' : 'Semester';
 
         $labelsJson = json_encode($cpChart['labels'], JSON_UNESCAPED_UNICODE);
@@ -1328,6 +1395,13 @@ final class LifeTimelinePage
         <?php endif; ?>
 
         <div class="life-controls">
+            <div class="life-sidewrap life-sidewrap--cp-view">
+                <label for="lifeCpView" class="lt-label">Ansicht</label>
+                <select id="lifeCpView" class="kategorie-select">
+                    <option value="standard" <?= $cpView === 'standard' ? 'selected' : '' ?>>Standard</option>
+                    <option value="module" <?= $cpView === 'module' ? 'selected' : '' ?>>Module</option>
+                </select>
+            </div>
             <div class="life-modewrap">
                 <label for="lifeMode" class="lt-label">Modus</label>
                 <select id="lifeMode" class="kategorie-select">
@@ -1351,9 +1425,34 @@ final class LifeTimelinePage
                         Ø <?= self::fmtCp((float)$cpChart['avg_value']) ?> CP pro <?= self::esc($avgPeriodLabel) ?>
                     </span>
                 </div>
-                <div class="dashboard-pie-wrap">
-                    <canvas id="lifeCpChart"></canvas>
-                </div>
+                <?php if ($showModules): ?>
+                    <div class="life-cp-chart-scroll" id="lifeCpChartScroll">
+                        <div class="dashboard-pie-wrap life-cp-chart-stack <?= $denseModules ? 'life-cp-chart-stack--dense' : '' ?>" style="--life-cp-periods: <?= count($cpChart['labels']) ?>;">
+                            <div class="life-cp-plot">
+                                <canvas id="lifeCpChart"></canvas>
+                            </div>
+                            <!-- Die Beschriftung gehört zur selben Diagrammachse:
+                                 exakt eine Spalte je x-Achsenposition, keine zweite Übersicht. -->
+                            <div class="life-cp-module-grid" id="lifeCpModules" aria-label="Bestandene Prüfungen unter dem jeweiligen <?= self::esc($avgPeriodLabel) ?>">
+                                <?php foreach ($cpChart['labels'] as $index => $periodLabel): ?>
+                                    <div class="life-cp-module-column" lang="de" aria-label="<?= self::esc($periodLabel) ?>">
+                                        <?php if (!empty($cpChart['modules'][$index])): ?>
+                                            <ul class="life-cp-module-list">
+                                                <?php foreach ($cpChart['modules'][$index] as $module): ?>
+                                                    <li><strong class="life-cp-module-points"><?= self::esc(self::fmtCp((float)$module['creditpoints'])) ?>CP</strong> <?= self::esc($module['title']) ?></li>
+                                                <?php endforeach; ?>
+                                            </ul>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    </div>
+                <?php else: ?>
+                    <div class="dashboard-pie-wrap">
+                        <canvas id="lifeCpChart"></canvas>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -1363,6 +1462,7 @@ final class LifeTimelinePage
 <script>
 (() => {
     const elMode = document.getElementById('lifeMode');
+    const elCpView = document.getElementById('lifeCpView');
 
     function navigateWithCurrentState() {
         const u = new URL(window.location.href);
@@ -1374,11 +1474,20 @@ final class LifeTimelinePage
         u.searchParams.delete('endjahr');
         u.searchParams.delete('semester');
 
+        if (mode === 'cp_jahr' || mode === 'cp_semester') {
+            u.searchParams.set('cp_ansicht', elCpView ? elCpView.value : 'standard');
+        } else {
+            u.searchParams.delete('cp_ansicht');
+        }
+
         window.location.href = u.toString();
     }
 
     if (elMode) {
         elMode.addEventListener('change', navigateWithCurrentState);
+    }
+    if (elCpView) {
+        elCpView.addEventListener('change', navigateWithCurrentState);
     }
 
     const labels = <?= $labelsJson ?>;
@@ -1407,8 +1516,23 @@ final class LifeTimelinePage
         return String(num.toFixed(2)).replace(/\.?0+$/, '').replace('.', ',');
     }
 
+    const modules = document.getElementById('lifeCpModules');
+    const moduleChartAlign = {
+        id: 'lifeCpModuleAlign',
+        afterLayout(chart) {
+            if (!modules) return;
+            // x.offset=true: Der Abstand eines Punktes zur Plotkante entspricht
+            // der halben Spaltenbreite. Plotbreite und Modul-Raster sind identisch.
+            const scale = chart.scales.x;
+            if (!scale) return;
+            modules.style.setProperty('--life-cp-axis-left', Math.max(0, scale.left).toFixed(2) + 'px');
+            modules.style.setProperty('--life-cp-axis-right', Math.max(0, chart.width - scale.right).toFixed(2) + 'px');
+        }
+    };
+
     new Chart(canvas.getContext('2d'), {
         type: 'line',
+        plugins: [moduleChartAlign],
         data: {
             labels: labels,
             datasets: [
@@ -1452,8 +1576,8 @@ final class LifeTimelinePage
                         offset: true
                     },
                     ticks: {
-                        autoSkip: isPhoneChart ? true : (isSemesterMode ? false : (labels.length > 18)),
-                        maxTicksLimit: isPhoneChart ? 8 : (isSemesterMode ? undefined : 18),
+                        autoSkip: modules ? false : (isPhoneChart ? true : (isSemesterMode ? false : (labels.length > 18))),
+                        maxTicksLimit: modules ? undefined : (isPhoneChart ? 8 : (isSemesterMode ? undefined : 18)),
                         maxRotation: 0,
                         minRotation: 0,
                         padding: 8,
@@ -1494,9 +1618,9 @@ final class LifeTimelinePage
         return in_array($mode, ['cp_jahr', 'cp_semester'], true);
     }
 
-    private static function buildCreditpointsChartData(mysqli $conn, string $mode, int $fallbackYear): array
+    private static function buildCreditpointsChartData(mysqli $conn, string $mode, int $fallbackYear, bool $publicOnly = false): array
     {
-        $events = self::fetchPassedCreditEvents($conn);
+        $events = self::fetchPassedCreditEvents($conn, $publicOnly);
 
         if ($mode === 'cp_semester') {
             return self::buildCpSemesterSeriesFromEvents($events, $fallbackYear);
@@ -1505,10 +1629,16 @@ final class LifeTimelinePage
         return self::buildCpYearSeriesFromEvents($events, $fallbackYear);
     }
 
-    private static function fetchPassedCreditEvents(mysqli $conn): array
+    private static function fetchPassedCreditEvents(mysqli $conn, bool $publicOnly = false): array
     {
         $events = [];
-        $res = $conn->query("
+        $publicScope = $publicOnly
+            ? self::publicGroupsCte()
+            : '';
+        $publicJoin = $publicOnly
+            ? 'INNER JOIN visible_groups vg ON vg.id = te.group_id'
+            : '';
+        $res = $conn->query($publicScope . "
             SELECT
                 ev.event_date,
                 COALESCE(NULLIF(ev.title_override, ''), te.title) AS title,
@@ -1517,6 +1647,7 @@ final class LifeTimelinePage
                 te.creditpoints
             FROM timeline_events ev
             INNER JOIN timeline_entries te ON te.id = ev.entry_id
+            $publicJoin
             WHERE te.creditpoints IS NOT NULL
               AND ev.event_type = 'klausur'
               AND UPPER(TRIM(COALESCE(ev.status_code, ''))) = 'BE'
@@ -1556,6 +1687,7 @@ final class LifeTimelinePage
             return [
                 'labels' => [(string)$fallbackYear],
                 'values' => [0.0],
+                'modules' => [[]],
                 'total' => 0.0,
                 'avg_value' => 0.0,
                 'max_value' => 0.0,
@@ -1573,6 +1705,7 @@ final class LifeTimelinePage
         $lastYear  = max($effectiveYears);
 
         $sumByYear = [];
+        $modulesByYear = [];
         foreach ($events as $event) {
             $year = $event['year_override'] !== null
                 ? (int)$event['year_override']
@@ -1581,10 +1714,15 @@ final class LifeTimelinePage
                 $sumByYear[$year] = 0.0;
             }
             $sumByYear[$year] += (float)$event['creditpoints'];
+            $modulesByYear[$year][] = [
+                'title' => (string)$event['title'],
+                'creditpoints' => (float)$event['creditpoints'],
+            ];
         }
 
         $labels = [];
         $values = [];
+        $modules = [];
         $total = 0.0;
         $maxValue = 0.0;
         $maxLabel = '';
@@ -1593,6 +1731,7 @@ final class LifeTimelinePage
             $value = (float)($sumByYear[$year] ?? 0.0);
             $labels[] = (string)$year;
             $values[] = $value;
+            $modules[] = $modulesByYear[$year] ?? [];
             $total += $value;
 
             if ($value > $maxValue) {
@@ -1606,6 +1745,7 @@ final class LifeTimelinePage
         return [
             'labels' => $labels,
             'values' => $values,
+            'modules' => $modules,
             'total' => $total,
             'avg_value' => $avgValue,
             'max_value' => $maxValue,
@@ -1622,6 +1762,7 @@ final class LifeTimelinePage
             return [
                 'labels' => [$fallbackLabel],
                 'values' => [0.0],
+                'modules' => [[]],
                 'total' => 0.0,
                 'avg_value' => 0.0,
                 'max_value' => 0.0,
@@ -1629,11 +1770,17 @@ final class LifeTimelinePage
             ];
         }
 
-        $firstSemesterValue = self::semesterValueFromLabel((string)$events[0]['semester_label']);
-        $lastSemesterValue  = self::semesterValueFromLabel((string)$events[count($events) - 1]['semester_label']);
-
-        $minDate = $firstSemesterValue['start'] ?? $events[0]['date'];
-        $maxDate = $lastSemesterValue['end'] ?? $events[count($events) - 1]['date'];
+        // Semester-Overrides können außerhalb des Zeitraums der Prüfungsdaten liegen.
+        // Deshalb die Grenzen anhand aller effektiv zugeordneten Semester bilden.
+        $semesterStarts = [];
+        $semesterEnds = [];
+        foreach ($events as $event) {
+            $effective = self::semesterValueFromLabel((string)$event['semester_label']);
+            $semesterStarts[] = $effective['start'] ?? $event['date'];
+            $semesterEnds[] = $effective['end'] ?? $event['date'];
+        }
+        $minDate = min($semesterStarts);
+        $maxDate = max($semesterEnds);
 
         $semesterItems = self::buildSemesterOptions($minDate, $maxDate);
         usort($semesterItems, static function ($a, $b) {
@@ -1641,16 +1788,22 @@ final class LifeTimelinePage
         });
 
         $sumBySemester = [];
+        $modulesBySemester = [];
         foreach ($events as $event) {
             $label = (string)$event['semester_label'];
             if (!isset($sumBySemester[$label])) {
                 $sumBySemester[$label] = 0.0;
             }
             $sumBySemester[$label] += (float)$event['creditpoints'];
+            $modulesBySemester[$label][] = [
+                'title' => (string)$event['title'],
+                'creditpoints' => (float)$event['creditpoints'],
+            ];
         }
 
         $labels = [];
         $values = [];
+        $modules = [];
         $total = 0.0;
         $maxValue = 0.0;
         $maxLabel = '';
@@ -1661,6 +1814,7 @@ final class LifeTimelinePage
 
             $labels[] = $label;
             $values[] = $value;
+            $modules[] = $modulesBySemester[$label] ?? [];
             $total += $value;
 
             if ($value > $maxValue) {
@@ -1674,6 +1828,7 @@ final class LifeTimelinePage
         return [
             'labels' => $labels,
             'values' => $values,
+            'modules' => $modules,
             'total' => $total,
             'avg_value' => $avgValue,
             'max_value' => $maxValue,
