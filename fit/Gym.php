@@ -29,6 +29,17 @@ const GYM_WEEKDAYS = [
     7 => 'Sonntag',
 ];
 
+// Fest definierte Schnelleinträge. Neue Optionen hier ergänzen; die Werte
+// werden ausschließlich serverseitig in abgeschlossene Einzelübungs-Logs übernommen.
+const GYM_QUICK_PRESETS = [
+    'arbeitsweg_fahrrad' => [
+        'label' => 'Arbeitsweg Fahrrad',
+        'exercise_id' => 2, // gym_exercises.id = Fahrrad
+        'minutes' => 12,
+        'calories' => 100,
+    ],
+];
+
 // Tracking-Heuristik für Krafttraining: 1 kcal pro protokollierter Wiederholung.
 // Der Wert wird pro Satz aus den tatsächlich gespeicherten Reps berechnet.
 const GYM_STRENGTH_KCAL_PER_REP = 1;
@@ -1504,14 +1515,35 @@ if ($api !== '') {
             gymJson(['ok' => true]);
         }
 
-        if ($api === 'quick_entry_save') {
+        if ($api === 'quick_entry_save' || $api === 'quick_preset_save') {
             $data = gymRequestData();
             gymRequirePostCsrf($data);
+
+            // Quick-Presets werden nicht aus frei änderbaren Browserwerten erstellt.
+            // Nur der Schlüssel kommt vom Client; Übung, Dauer und kcal sind fix.
+            if ($api === 'quick_preset_save') {
+                $presetKey = (string)($data['preset'] ?? '');
+                $preset = GYM_QUICK_PRESETS[$presetKey] ?? null;
+                if ($preset === null) {
+                    gymError('Unbekannter Quick-Eintrag.', 404);
+                }
+
+                $data = [
+                    'exercise_id' => (int)$preset['exercise_id'],
+                    'cardio_minutes' => (int)$preset['minutes'],
+                    'calories_manual' => true,
+                    'manual_calories' => (int)$preset['calories'],
+                ];
+            }
 
             $exerciseId = (int)($data['exercise_id'] ?? 0);
             $exercise = $exerciseId > 0 ? gymGetExercise($fitconn, $exerciseId) : null;
             if (!$exercise) {
                 gymError('Übung nicht gefunden.', 404);
+            }
+            if ($api === 'quick_preset_save' &&
+                ($exercise['type'] !== 'kardio' || ($exercise['cardio_mode'] ?? 'zeit') !== 'zeit')) {
+                gymError('Der Quick-Eintrag benötigt eine aktive Kardioübung mit Zeiterfassung.', 409);
             }
 
             // Der Direkteintrag erzeugt KEIN laufendes Training. Die Daten werden in
@@ -2127,7 +2159,21 @@ require_once __DIR__ . '/../navbar.php';
 
             <div id="gymHeaderActions" class="gym-header-actions">
                 <button type="button" id="gymAddExerciseButton" class="gym-button gym-button-secondary">+ Übung</button>
-                <button type="button" id="gymAddPlanButton" class="gym-button">+ Training</button>
+                <button type="button" id="gymAddPlanButton" class="gym-button gym-button-secondary">+ Training</button>
+                <div id="gymQuickMenu" class="gym-quick-menu">
+                    <button type="button" id="gymQuickButton" class="gym-button gym-quick-trigger"
+                            aria-expanded="false" aria-controls="gymQuickDropdown" aria-haspopup="true">+ Quick</button>
+                    <div id="gymQuickDropdown" class="gym-quick-dropdown" style="left: auto; right: 0;" role="group" aria-label="Quick-Einträge">
+                        <?php foreach (GYM_QUICK_PRESETS as $key => $preset): ?>
+                            <button type="button" class="gym-quick-option"
+                                    data-quick-preset="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>"
+                                    data-quick-label="<?= htmlspecialchars($preset['label'], ENT_QUOTES, 'UTF-8') ?>">
+                                <span class="gym-quick-option-title"><?= htmlspecialchars($preset['label'], ENT_QUOTES, 'UTF-8') ?></span>
+                                <span class="gym-quick-option-meta"><?= (int)$preset['minutes'] ?> Min. · <?= (int)$preset['calories'] ?> kcal</span>
+                            </button>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
             </div>
         </header>
 
@@ -2164,6 +2210,8 @@ require_once __DIR__ . '/../navbar.php';
     const tabs = document.getElementById('gymTabs');
     const backButton = document.getElementById('gymBackButton');
     const headerActions = document.getElementById('gymHeaderActions');
+    const quickMenu = document.getElementById('gymQuickMenu');
+    const quickButton = document.getElementById('gymQuickButton');
     const addExerciseButton = document.getElementById('gymAddExerciseButton');
     const addPlanButton = document.getElementById('gymAddPlanButton');
     const activeSessionBanner = document.getElementById('gymActiveSessionBanner');
@@ -2186,6 +2234,8 @@ require_once __DIR__ . '/../navbar.php';
         planDraft: null,
         planDragIndex: null,
     };
+
+    let quickPresetSaving = false;
 
     const weekdayShort = {
         1: 'Mo', 2: 'Di', 3: 'Mi', 4: 'Do', 5: 'Fr', 6: 'Sa', 7: 'So'
@@ -3880,6 +3930,46 @@ require_once __DIR__ . '/../navbar.php';
         }
     }
 
+    function setQuickMenuOpen(open) {
+        quickMenu.classList.toggle('is-open', Boolean(open));
+        quickButton.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+
+    async function saveQuickPreset(button) {
+        if (quickPresetSaving) return;
+
+        const preset = button.dataset.quickPreset;
+        if (!preset) return;
+
+        quickPresetSaving = true;
+        quickMenu.querySelectorAll('[data-quick-preset]').forEach(item => {
+            item.disabled = true;
+        });
+        setQuickMenuOpen(false);
+
+        try {
+            showToast('Speichere Quick-Eintrag …', 'info', 0);
+            const result = await apiPost('quick_preset_save', { preset });
+            state.logs = null;
+
+            // Die Log-Liste bei Bedarf direkt aktualisieren; ansonsten bleibt
+            // die aktuelle Ansicht ohne Seitenreload unverändert.
+            if (state.route?.name === 'overview' && state.route.tab === 'logs') {
+                await renderOverview();
+            }
+
+            showToast(`${button.dataset.quickLabel || 'Quick-Eintrag'} eingetragen · ${formatNumber(result.calories, 0)} kcal.`, 'success');
+        } catch (error) {
+            console.error('Gym quick preset failed:', error);
+            showToast(error.message || 'Quick-Eintrag konnte nicht gespeichert werden.', 'error', 12000);
+        } finally {
+            quickPresetSaving = false;
+            quickMenu.querySelectorAll('[data-quick-preset]').forEach(item => {
+                item.disabled = false;
+            });
+        }
+    }
+
     async function resumeActive() {
         const active = state.bootstrap?.active_session;
         if (!active) return;
@@ -4063,6 +4153,34 @@ require_once __DIR__ . '/../navbar.php';
     });
 
     backButton.addEventListener('click', goBack);
+
+    // Desktop: Hover via CSS; auf Touchscreens öffnet der Trigger per Klick.
+    // Klick auf die Option speichert direkt, ohne zusätzliches Formular.
+    quickButton.addEventListener('click', event => {
+        event.stopPropagation();
+        setQuickMenuOpen(!quickMenu.classList.contains('is-open'));
+    });
+    quickMenu.addEventListener('mouseenter', () => {
+        if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+            quickButton.setAttribute('aria-expanded', 'true');
+        }
+    });
+    quickMenu.addEventListener('mouseleave', () => {
+        if (!quickMenu.classList.contains('is-open')) {
+            quickButton.setAttribute('aria-expanded', 'false');
+        }
+    });
+    quickMenu.addEventListener('click', event => {
+        const option = event.target.closest('[data-quick-preset]');
+        if (!option || option.disabled) return;
+        event.stopPropagation();
+        option.blur();
+        void saveQuickPreset(option);
+    });
+    document.addEventListener('click', event => {
+        if (!quickMenu.contains(event.target)) setQuickMenuOpen(false);
+    });
+
     addExerciseButton.addEventListener('click', () => openExerciseModal());
     addPlanButton.addEventListener('click', () => openPlanModal());
     modalClose.addEventListener('click', closeModal);
@@ -4072,8 +4190,12 @@ require_once __DIR__ . '/../navbar.php';
     });
 
     document.addEventListener('keydown', event => {
-        if (event.key === 'Escape' && !modal.classList.contains('hidden')) {
-            closeModal();
+        if (event.key === 'Escape') {
+            if (quickMenu.classList.contains('is-open')) {
+                setQuickMenuOpen(false);
+                if (quickMenu.contains(document.activeElement)) document.activeElement.blur();
+            }
+            if (!modal.classList.contains('hidden')) closeModal();
         }
     });
 

@@ -1,5 +1,5 @@
 <?php
-// fit/Start_v15.php (Übersicht)
+// fit/Start_v17.php (Übersicht)
 
 // 1) Auth (diese Seite ist geschützt)
 require_once __DIR__ . '/../auth.php';
@@ -55,14 +55,7 @@ if (!$verfuegbareJahre) {
 
 $jahrParam = isset($_GET['jahr']) ? trim((string)$_GET['jahr']) : (string)$aktJahr;
 
-// Sport wird immer für genau ein Kalenderjahr dargestellt.
-if ($isSportMode && $jahrParam === 'all') {
-    $jahrParam = (string)(
-        in_array($aktJahr, $verfuegbareJahre, true)
-            ? $aktJahr
-            : $verfuegbareJahre[0]
-    );
-}
+// Auch im Sportmodus darf der Mehrjahreszeitraum "Alle" ausgewählt werden.
 
 $isAllYears = ($jahrParam === 'all');
 
@@ -260,19 +253,6 @@ $stmt->close();
 $nettoSumme         = array_sum($nettoTage);
 $tageMitNettoWerten = count($nettoTage);
 $nettoDurchschnitt  = $tageMitNettoWerten > 0 ? round($nettoSumme / $tageMitNettoWerten) : 0;
-
-// Sportverbrauch täglich (positiv): gleiche Trainingsquellen wie die Netto-Berechnung.
-// Netto = Brutto - Training - abgeschlossene Gym-Sessions.
-// So bleiben beide Kurven fachlich konsistent, ohne eine weitere SQL-Abfrage.
-$verbrauchTage = [];
-if ($isAllYears && !$isWochentageMode && !$isSportMode) {
-    foreach ($nettoTage as $tag => $nettoKalorien) {
-        $verbrauch = max(0.0, (float)($bruttoTage[$tag] ?? 0.0) - (float)$nettoKalorien);
-        if ($verbrauch > 0) {
-            $verbrauchTage[$tag] = $verbrauch;
-        }
-    }
-}
 
 // 5b) Sportdaten aus dem neuen Gym-System.
 //
@@ -536,65 +516,84 @@ function monthAvgSerie(array $alleTage, array $tageMap, int $precision = 2): arr
     return $out;
 }
 
-// 9d) Sportverbrauch im Modus Jahr / Alle als kcal pro Kalendertag des Monats.
-// Beispiel: 6.000 kcal Training im 30-Tage-Monat ergeben Ø 200 kcal/Tag.
-// Tage ohne Training zählen als 0. Im laufenden Monat zählen nur Tage bis heute.
-// Monate ohne jegliche Ernährungs- oder Sportdaten bleiben als Datenlücke leer.
-function sportMonatsTagesdurchschnitt(
+// 9d) Gemeinsame Kalendertage-Basis für die drei Kalorienkurven in "Jahr / Alle".
+// Vergangene Monate: volle Monatslänge; aktueller Monat: vom 1. bis heute (inkl.).
+// Tage ohne Eintrag zählen mit 0, auch bei Fasten oder ohne Training.
+// Monate vollständig ohne Einträge bleiben Datenlücken (nicht als erfasste 0-Werte darstellen).
+// Netto stammt wie bisher aus Zufuhr minus Training minus abgeschlossenen Gym-Sessions.
+function kalorienMonatsdurchschnitte(
     array $alleTage,
-    array $verbrauchTage,
     array $bruttoTage,
+    array $nettoTage,
     string $heute
 ): array {
-    $serie = array_fill(0, count($alleTage), null);
+    $anzahl = count($alleTage);
+    $serien = [
+        'netto'     => array_fill(0, $anzahl, null),
+        'brutto'    => array_fill(0, $anzahl, null),
+        'verbrauch' => array_fill(0, $anzahl, null),
+    ];
     $monate = [];
 
     foreach ($alleTage as $index => $tag) {
+        // Keine zukünftigen Tage oder Monatswerte anzeigen.
         if ($tag > $heute) {
-            continue;
+            break;
         }
 
         $monat = substr($tag, 0, 7);
         if (!isset($monate[$monat])) {
             $monate[$monat] = [
-                'indices'   => [],
-                'verbrauch' => 0.0,
-                'hatDaten'  => false,
+                'indices'     => [],
+                'sumBrutto'   => 0.0,
+                'sumNetto'    => 0.0,
+                'hatEintraege' => false,
             ];
         }
 
         $monate[$monat]['indices'][] = $index;
-        $monate[$monat]['verbrauch'] += (float)($verbrauchTage[$tag] ?? 0.0);
-        if (array_key_exists($tag, $bruttoTage) || array_key_exists($tag, $verbrauchTage)) {
-            $monate[$monat]['hatDaten'] = true;
+        $monate[$monat]['sumBrutto'] += (float)($bruttoTage[$tag] ?? 0.0);
+        $monate[$monat]['sumNetto']  += (float)($nettoTage[$tag] ?? 0.0);
+
+        if (array_key_exists($tag, $bruttoTage) || array_key_exists($tag, $nettoTage)) {
+            $monate[$monat]['hatEintraege'] = true;
         }
     }
 
     foreach ($monate as $monat) {
-        if (!$monat['hatDaten'] || !$monat['indices']) {
+        $tage = count($monat['indices']);
+        if (!$monat['hatEintraege'] || $tage === 0) {
             continue;
         }
 
-        $durchschnitt = round($monat['verbrauch'] / count($monat['indices']));
+        // Rundung so wählen, dass auch die gezeichneten Ganzzahlwerte exakt
+        // Brutto - Verbrauch = Netto erfüllen (kein 1-kcal-Rundungsfehler).
+        $bruttoAvg = (int)round($monat['sumBrutto'] / $tage);
+        $verbrauchAvg = (int)round(($monat['sumBrutto'] - $monat['sumNetto']) / $tage);
+        $nettoAvg = $bruttoAvg - $verbrauchAvg;
+
         foreach ($monat['indices'] as $index) {
-            $serie[$index] = $durchschnitt;
+            $serien['brutto'][$index]    = $bruttoAvg;
+            $serien['verbrauch'][$index] = $verbrauchAvg;
+            $serien['netto'][$index]     = $nettoAvg;
         }
     }
 
-    return $serie;
+    return $serien;
 }
 
-$verbrauchMonatsavg = $isAllYears && !$isWochentageMode && !$isSportMode
-    ? sportMonatsTagesdurchschnitt(
+$kalorienMonatsserien = ($isAllYears && !$isWochentageMode && !$isSportMode)
+    ? kalorienMonatsdurchschnitte(
         $alleTage,
-        $verbrauchTage,
         $bruttoTage,
-        (new DateTime('today', new DateTimeZone('Europe/Berlin')))->format('Y-m-d')
+        $nettoTage,
+        (new DateTimeImmutable('today', new DateTimeZone('Europe/Berlin')))->format('Y-m-d')
     )
-    : [];
+    : ['netto' => [], 'brutto' => [], 'verbrauch' => []];
 
-$nettoMonatsavg   = monthAvgSerie($alleTage, $nettoTage, 0);
-$bruttoMonatsavg  = monthAvgSerie($alleTage, $bruttoTage, 0);
+$nettoMonatsavg    = $kalorienMonatsserien['netto'];
+$bruttoMonatsavg   = $kalorienMonatsserien['brutto'];
+$verbrauchMonatsavg = $kalorienMonatsserien['verbrauch'];
 $eiweissMonatsavg = monthAvgSerie($alleTage, $eiweissTage, 2);
 $fettMonatsavg    = monthAvgSerie($alleTage, $fettTage, 2);
 $khMonatsavg      = monthAvgSerie($alleTage, $khTage, 2);
@@ -692,8 +691,58 @@ foreach ($alleTage as $tag) {
     $sportCardioWerte[] = array_key_exists($tag, $sportCardioTage) ? $sportCardioTage[$tag] : null;
 }
 
-$sportKraftKWavg = sportWeeklyAverageSeries($alleTage, $sportKraftTage, 1);
-$sportCardioKWavg = sportWeeklyAverageSeries($alleTage, $sportCardioTage, 1);
+// In "Sport / Alle" die Wochenlinie durch Monatsdurchschnitte ersetzen.
+// Wie bei den Kalorienkurven zählen sämtliche bisherigen Kalendertage des
+// Monats, einschließlich trainingsfreier Tage; laufender Monat nur bis heute.
+// Ohne ein einziges Training in einem Monat entsteht eine Datenlücke.
+function sportMonthlyCalendarAverageSeries(array $alleTage, array $tageMap, string $heute, int $precision = 1): array
+{
+    $serie = array_fill(0, count($alleTage), null);
+    $monate = [];
+
+    foreach ($alleTage as $index => $tag) {
+        if ($tag > $heute) {
+            break;
+        }
+
+        $monat = substr($tag, 0, 7);
+        if (!isset($monate[$monat])) {
+            $monate[$monat] = [
+                'indices' => [],
+                'summe' => 0.0,
+                'hatTraining' => false,
+            ];
+        }
+
+        $monate[$monat]['indices'][] = $index;
+        $monate[$monat]['summe'] += (float)($tageMap[$tag] ?? 0.0);
+        if (array_key_exists($tag, $tageMap)) {
+            $monate[$monat]['hatTraining'] = true;
+        }
+    }
+
+    foreach ($monate as $monat) {
+        if (!$monat['hatTraining'] || !$monat['indices']) {
+            continue;
+        }
+
+        $durchschnitt = round($monat['summe'] / count($monat['indices']), $precision);
+        foreach ($monat['indices'] as $index) {
+            $serie[$index] = $durchschnitt;
+        }
+    }
+
+    return $serie;
+}
+
+if ($isSportMode && $isAllYears) {
+    $heuteSport = (new DateTimeImmutable('today', new DateTimeZone('Europe/Berlin')))->format('Y-m-d');
+    $sportKraftAvg = sportMonthlyCalendarAverageSeries($alleTage, $sportKraftTage, $heuteSport, 1);
+    $sportCardioAvg = sportMonthlyCalendarAverageSeries($alleTage, $sportCardioTage, $heuteSport, 1);
+} else {
+    $sportKraftAvg = sportWeeklyAverageSeries($alleTage, $sportKraftTage, 1);
+    $sportCardioAvg = sportWeeklyAverageSeries($alleTage, $sportCardioTage, 1);
+}
 
 $sportKraftGesamt = array_sum($sportKraftTage);
 $sportCardioGesamt = array_sum($sportCardioTage);
@@ -729,9 +778,9 @@ $khKWJson      = json_encode($anzeigeKhKW);
 $alkKWJson     = json_encode($anzeigeAlkKW);
 
 $sportKraftJson    = json_encode($sportKraftWerte);
-$sportKraftKWJson  = json_encode($sportKraftKWavg);
+$sportKraftAvgJson  = json_encode($sportKraftAvg);
 $sportCardioJson   = json_encode($sportCardioWerte);
-$sportCardioKWJson = json_encode($sportCardioKWavg);
+$sportCardioAvgJson = json_encode($sportCardioAvg);
 
 // 12) Rendering starten (kein Output davor!)
 $page_title = $isSportMode ? 'Sport' : 'Ernährung';
@@ -802,9 +851,7 @@ require_once __DIR__ . '/../navbar.php';
       <div class="lt-yearwrap">
         <label for="jahr" class="lt-label">Jahr</label>
         <select id="jahr" name="jahr" class="kategorie-select" onchange="this.form.submit()">
-          <?php if (!$isSportMode): ?>
-            <option value="all" <?= $isAllYears ? 'selected' : '' ?>>Alle</option>
-          <?php endif; ?>
+          <option value="all" <?= $isAllYears ? 'selected' : '' ?>>Alle</option>
           <?php foreach ($verfuegbareJahre as $y): ?>
             <option value="<?= (int)$y ?>" <?= (!$isAllYears && (int)$y === (int)$jahr ? 'selected' : '') ?>>
               <?= (int)$y ?>
@@ -818,9 +865,13 @@ require_once __DIR__ . '/../navbar.php';
   <div class="ernährungsdiablock">
     <?php if ($isSportMode): ?>
       <div class="dashboard-pies dashboard-sport-grid">
-        <div class="dashboard-pie-card dashboard-sport-card">
-          <div class="dashboard-pie-kpi">
+        <div class="dashboard-pie-card dashboard-sport-card dashboard-sport-card--kraft">
+          <div class="dashboard-pie-kpi dashboard-sport-kpi">
             <span class="dashboard-pie-kpi-label">Kraft · Trainingsvolumen</span>
+            <div class="dashboard-sport-legend" aria-label="Tageswerte und Durchschnitt">
+              <span class="dashboard-sport-legend-item"><span class="dashboard-sport-legend-dot" aria-hidden="true"></span>Tageswerte</span>
+              <span class="dashboard-sport-legend-item"><span class="dashboard-sport-legend-line" aria-hidden="true"></span>Ø/Tag · <?= $isAllYears ? 'Monat' : 'KW' ?></span>
+            </div>
             <span class="dashboard-pie-kpi-value"><?= htmlspecialchars($sportKraftGesamtText, ENT_QUOTES, 'UTF-8') ?></span>
           </div>
           <div class="dashboard-pie-wrap dashboard-sport-wrap">
@@ -828,9 +879,13 @@ require_once __DIR__ . '/../navbar.php';
           </div>
         </div>
 
-        <div class="dashboard-pie-card dashboard-sport-card">
-          <div class="dashboard-pie-kpi">
+        <div class="dashboard-pie-card dashboard-sport-card dashboard-sport-card--cardio">
+          <div class="dashboard-pie-kpi dashboard-sport-kpi">
             <span class="dashboard-pie-kpi-label">Kardio · Verbrauch</span>
+            <div class="dashboard-sport-legend" aria-label="Tageswerte und Durchschnitt">
+              <span class="dashboard-sport-legend-item"><span class="dashboard-sport-legend-dot" aria-hidden="true"></span>Tageswerte</span>
+              <span class="dashboard-sport-legend-item"><span class="dashboard-sport-legend-line" aria-hidden="true"></span>Ø/Tag · <?= $isAllYears ? 'Monat' : 'KW' ?></span>
+            </div>
             <span class="dashboard-pie-kpi-value"><?= htmlspecialchars($sportCardioGesamtText, ENT_QUOTES, 'UTF-8') ?></span>
           </div>
           <div class="dashboard-pie-wrap dashboard-sport-wrap">
@@ -952,9 +1007,9 @@ const khKW           = <?= $khKWJson ?>;
 const alkKW          = <?= $alkKWJson ?>;
 
 const sportKraftData    = <?= $sportKraftJson ?>;
-const sportKraftKWData  = <?= $sportKraftKWJson ?>;
+const sportKraftAvgData  = <?= $sportKraftAvgJson ?>;
 const sportCardioData   = <?= $sportCardioJson ?>;
-const sportCardioKWData = <?= $sportCardioKWJson ?>;
+const sportCardioAvgData = <?= $sportCardioAvgJson ?>;
 
 const weekdayShortLabels = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
@@ -1590,7 +1645,7 @@ function makeSportChart(canvasId, dailyData, weeklyData, color, dailyLabel, week
           label: dailyLabel,
           data: dailyData,
           showLine: false,
-          pointRadius: 3,
+          pointRadius: isAllYears ? 2 : 3,
           pointHoverRadius: 5,
           pointStyle: 'circle',
           pointBorderWidth: 1.5,
@@ -1620,15 +1675,8 @@ function makeSportChart(canvasId, dailyData, weeklyData, color, dailyLabel, week
         intersect: false
       },
       plugins: {
-        legend: {
-          display: true,
-          position: 'bottom',
-          labels: {
-            usePointStyle: true,
-            boxWidth: 9,
-            boxHeight: 9
-          }
-        },
+        // Statische Legende in der Kopfzeile, nicht unter dem Diagramm.
+        legend: { display: false },
         tooltip: {
           callbacks: {
             label(context) {
@@ -1641,7 +1689,7 @@ function makeSportChart(canvasId, dailyData, weeklyData, color, dailyLabel, week
         }
       },
       scales: {
-        x: monthXAxisScale(),
+        x: isAllYears ? yearXAxisScale() : monthXAxisScale(),
         y: {
           beginAtZero: true,
           title: {
@@ -1663,20 +1711,20 @@ if (isSportMode) {
   makeSportChart(
     'sportKraftChart',
     sportKraftData,
-    sportKraftKWData,
+    sportKraftAvgData,
     '#ff6400',
     'Tagesvolumen',
-    'Ø pro Tag der KW',
+    isAllYears ? 'Ø pro Kalendertag des Monats' : 'Ø pro Tag der KW',
     'kg'
   );
 
   makeSportChart(
     'sportCardioChart',
     sportCardioData,
-    sportCardioKWData,
+    sportCardioAvgData,
     '#007bb4',
     'Tagesverbrauch',
-    'Ø pro Tag der KW',
+    isAllYears ? 'Ø pro Kalendertag des Monats' : 'Ø pro Tag der KW',
     'kcal'
   );
 }

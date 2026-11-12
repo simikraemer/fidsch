@@ -1,5 +1,5 @@
 <?php
-// fit/FoodDashboard_v12.php
+// fit/FoodDashboard_v13.php
 
 // 1) Auth (Seite geschützt)
 require_once __DIR__ . '/../auth.php';
@@ -237,7 +237,7 @@ function foodDashboardNormalizeRows(array $rows): array
         return [
             'name'      => (string)($row['name'] ?? ''),
             'category'  => (string)($row['category'] ?? ''),
-            'entries'   => (int)($row['entries'] ?? 0),
+            'entries'   => (float)($row['entries'] ?? 0),
             'calories'  => (float)($row['calories'] ?? 0),
             'protein'   => (float)($row['protein'] ?? 0),
             'carbs'     => (float)($row['carbs'] ?? 0),
@@ -254,7 +254,7 @@ function foodDashboardNormalizeFrequencyRows(array $rows): array
             'name'      => (string)($row['name'] ?? ''),
             'category'  => (string)($row['category'] ?? ''),
             'bucket'    => (string)($row['bucket'] ?? ''),
-            'entries'   => (int)($row['entries'] ?? 0),
+            'entries'   => (float)($row['entries'] ?? 0),
             'calories'  => (float)($row['calories'] ?? 0),
             'protein'   => (float)($row['protein'] ?? 0),
             'carbs'     => (float)($row['carbs'] ?? 0),
@@ -262,6 +262,136 @@ function foodDashboardNormalizeFrequencyRows(array $rows): array
             'alcohol'   => (float)($row['alcohol'] ?? 0),
         ];
     }, $rows);
+}
+
+// -----------------------------------------------------------------------------
+// Manuelle Kategorie-Aufteilung: Fiji Sandwich
+//
+// Nur die Auswertung dieses Dashboards wird aufgeteilt; die Datenbank und
+// bestehende Log-Einträge bleiben vollständig unverändert.
+//
+// Pro Sandwich laut Rezept:
+//   Brot:   3 x Vollkorn Sandwich Scheibe (je 97 kcal)
+//   Käse:   2 x Müritzer Käse Scheibe (je 97 kcal)
+//   Saucen: Rest bis 600 kcal = 115 kcal Remoulade (30 kcal je Schuss)
+//
+// Da die Einzelzutaten-Makros NICHT exakt mit den gespeicherten Rezept-Makros
+// übereinstimmen, werden Protein/Fett/Carbs jeweils im Verhältnis der
+// Einzelzutaten aufgeteilt. Die tatsächlich gespeicherten Gesamtwerte bleiben
+// dadurch für JEDE Metrik unverändert (auch bei anderen Portionsgrößen).
+// Die Anzahl wird nach dem Kalorienanteil verteilt (Summe weiterhin 1 Eintrag).
+// -----------------------------------------------------------------------------
+function foodDashboardFijiSandwichWeights(): array
+{
+    static $weights = null;
+    if ($weights !== null) {
+        return $weights;
+    }
+
+    $breadSlices = 3.0;
+    $cheeseSlices = 2.0;
+    $sandwichCalories = 600.0;
+    $sauceCalories = $sandwichCalories - ($breadSlices * 97.0 + $cheeseSlices * 97.0);
+    $saucePortions = $sauceCalories / 30.0;
+
+    $ingredients = [
+        'Brot' => [
+            'calories' => $breadSlices * 97.0,
+            'protein' => $breadSlices * 4.0,
+            'fat' => $breadSlices * 1.0,
+            'carbs' => $breadSlices * 17.0,
+        ],
+        'Käse' => [
+            'calories' => $cheeseSlices * 97.0,
+            'protein' => $cheeseSlices * 5.25,
+            'fat' => $cheeseSlices * 8.30,
+            'carbs' => $cheeseSlices * 0.10,
+        ],
+        'Saucen' => [
+            'calories' => $sauceCalories,
+            'protein' => $saucePortions * 0.0,
+            'fat' => $saucePortions * 3.20,
+            'carbs' => $saucePortions * 0.30,
+        ],
+    ];
+
+    $totals = ['calories' => 0.0, 'protein' => 0.0, 'fat' => 0.0, 'carbs' => 0.0];
+    foreach ($ingredients as $component) {
+        foreach ($totals as $metric => $_) {
+            $totals[$metric] += $component[$metric];
+        }
+    }
+
+    $weights = [];
+    foreach ($ingredients as $category => $component) {
+        $calorieShare = $component['calories'] / $totals['calories'];
+        $weights[$category] = [
+            'entries'  => $calorieShare,
+            'calories' => $calorieShare,
+            'protein'  => $totals['protein'] > 0 ? $component['protein'] / $totals['protein'] : $calorieShare,
+            'fat'      => $totals['fat'] > 0 ? $component['fat'] / $totals['fat'] : $calorieShare,
+            'carbs'    => $totals['carbs'] > 0 ? $component['carbs'] / $totals['carbs'] : $calorieShare,
+            'alcohol'  => $calorieShare,
+        ];
+    }
+    return $weights;
+}
+
+// Funktioniert sowohl für die Gerichte-Gesamtsummen als auch pro Zeit-Bucket.
+function foodDashboardSplitFijiSandwichRows(array $rows): array
+{
+    $out = [];
+    $weights = foodDashboardFijiSandwichWeights();
+
+    foreach ($rows as $row) {
+        if (($row['name'] ?? '') !== 'Fiji Sandwich' || ($row['category'] ?? '') !== 'Brot') {
+            $out[] = $row;
+            continue;
+        }
+
+        foreach ($weights as $category => $shares) {
+            $partial = $row;
+            $partial['category'] = $category;
+            // Zutatenanteil im Gerichtenamen kenntlich machen; Kategorie bleibt unverändert.
+            $partial['name'] = 'Fiji Sandwich (' . ($category === 'Saucen' ? 'Sauce' : $category) . ')';
+            foreach ($shares as $metric => $share) {
+                $partial[$metric] = (float)($row[$metric] ?? 0.0) * $share;
+            }
+            $out[] = $partial;
+        }
+    }
+
+    return $out;
+}
+
+// Kategorien nach Aufteilung direkt aus den Gerichtesummen aufbauen, sodass
+// Pie, Tabellen, Gruppenvergleiche und Gerichte-Zeitverlauf dieselben Summen nutzen.
+function foodDashboardCategoryTotalsFromFoods(array $foodRows): array
+{
+    $groups = [];
+    $metrics = ['entries', 'calories', 'protein', 'carbs', 'fat', 'alcohol'];
+
+    foreach ($foodRows as $food) {
+        $category = (string)$food['category'];
+        if (!isset($groups[$category])) {
+            $groups[$category] = [
+                'name' => $category,
+                'category' => '',
+                'entries' => 0.0,
+                'calories' => 0.0,
+                'protein' => 0.0,
+                'carbs' => 0.0,
+                'fat' => 0.0,
+                'alcohol' => 0.0,
+            ];
+        }
+        foreach ($metrics as $metric) {
+            $groups[$category][$metric] += (float)($food[$metric] ?? 0.0);
+        }
+    }
+
+    uksort($groups, 'strnatcasecmp');
+    return array_values($groups);
 }
 
 // -----------------------------------------------------------------------------
@@ -338,6 +468,22 @@ try {
     $foodFrequencyRows = foodDashboardNormalizeFrequencyRows(
         foodDashboardFetchAll($fitconn, $foodFrequencySql, $startDate, $endDate)
     );
+
+    // Nur wenn das konkrete Gericht in der Kategorie Brot vorkommt.
+    // Alle anderen Gerichte und die übrige DB-Auswertung bleiben unverändert.
+    $hasFijiSandwich = false;
+    foreach ($foodRows as $foodRow) {
+        if ($foodRow['name'] === 'Fiji Sandwich' && $foodRow['category'] === 'Brot') {
+            $hasFijiSandwich = true;
+            break;
+        }
+    }
+
+    if ($hasFijiSandwich) {
+        $foodRows = foodDashboardSplitFijiSandwichRows($foodRows);
+        $foodFrequencyRows = foodDashboardSplitFijiSandwichRows($foodFrequencyRows);
+        $categoryRows = foodDashboardCategoryTotalsFromFoods($foodRows);
+    }
 } catch (Throwable $e) {
     $categoryRows = [];
     $foodRows = [];
@@ -683,12 +829,15 @@ require_once __DIR__ . '/../navbar.php';
         return `${formatted} ${meta.unit}`;
     }
 
-    // In den beiden Ranking-Tabellen immer kompakt ohne Nachkommastellen.
+    // Kategorieanteile eines zusammengesetzten Gerichts können bei "Anzahl"
+    // Nachkommastellen haben. Sonst werden Anzahl und Summen wie bisher gerundet.
     function formatTableMetric(value, metric) {
+        const num = numberValue(value);
+        const fractionalEntries = metric === 'entries' && Math.abs(num - Math.round(num)) > 0.000001;
         const formatted = new Intl.NumberFormat('de-DE', {
             minimumFractionDigits: 0,
-            maximumFractionDigits: 0
-        }).format(numberValue(value));
+            maximumFractionDigits: fractionalEntries ? 2 : 0
+        }).format(num);
 
         if (metric === 'entries') {
             return formatted;
@@ -698,9 +847,12 @@ require_once __DIR__ . '/../navbar.php';
     }
 
     function formatEntries(value) {
-        const entries = Math.max(0, Math.round(numberValue(value)));
-        const formatted = new Intl.NumberFormat('de-DE').format(entries);
-        return `${formatted} ${entries === 1 ? 'Eintrag' : 'Einträge'}`;
+        const entries = Math.max(0, numberValue(value));
+        const fractional = Math.abs(entries - Math.round(entries)) > 0.000001;
+        const formatted = new Intl.NumberFormat('de-DE', {
+            maximumFractionDigits: fractional ? 2 : 0
+        }).format(entries);
+        return `${formatted} ${Math.abs(entries - 1) < 0.000001 ? 'Eintrag' : 'Einträge'}`;
     }
 
     function formatShare(value, total) {

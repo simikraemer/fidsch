@@ -1255,18 +1255,21 @@ tr.lt-dragging .lt-grip {
 }
 
 /* fit/Start_v15.php – statische Legende im Kalorien-Kartenkopf (Jahr / Alle). */
-#healthPage .dashboard-kalorien-kpi {
+#healthPage .dashboard-kalorien-kpi,
+#healthPage .dashboard-sport-kpi {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     align-items: center;
     column-gap: 12px;
 }
 
-#healthPage .dashboard-kalorien-kpi .dashboard-pie-kpi-label {
+#healthPage .dashboard-kalorien-kpi .dashboard-pie-kpi-label,
+#healthPage .dashboard-sport-kpi .dashboard-pie-kpi-label {
     justify-self: start;
 }
 
-#healthPage .dashboard-kalorien-kpi .dashboard-pie-kpi-value {
+#healthPage .dashboard-kalorien-kpi .dashboard-pie-kpi-value,
+#healthPage .dashboard-sport-kpi .dashboard-pie-kpi-value {
     justify-self: end;
     white-space: nowrap;
 }
@@ -11390,6 +11393,86 @@ body.anki-page-active {
     flex-wrap: wrap;
 }
 
+/* Gym-Schnelleinträge: Button mit Desktop-Hover- und Touch-Dropdown. */
+.gym-quick-menu {
+    position: relative;
+    display: inline-flex;
+    flex: 0 0 auto;
+}
+
+.gym-quick-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 245px;
+    max-width: calc(100vw - 20px);
+    padding: 8px;
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 120ms ease, visibility 120ms ease;
+}
+
+.gym-quick-menu.is-open .gym-quick-dropdown {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .gym-quick-menu:hover .gym-quick-dropdown,
+    .gym-quick-menu:focus-within .gym-quick-dropdown {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+    }
+}
+
+.gym-quick-option {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+    padding: 10px 12px;
+    border-radius: var(--border-radius);
+    background: #fff;
+    color: var(--text);
+    box-shadow: none;
+    font: inherit;
+    text-align: left;
+    white-space: normal;
+}
+
+.gym-quick-option:hover,
+.gym-quick-option:focus-visible {
+    background: var(--bg-light);
+    color: var(--primary-dark);
+}
+
+.gym-quick-option:disabled {
+    opacity: 0.55;
+    cursor: wait;
+}
+
+.gym-quick-option-title {
+    font-weight: 700;
+}
+
+.gym-quick-option-meta {
+    font-size: 0.84rem;
+    font-weight: 500;
+    color: #666;
+}
+
 .gym-button {
     min-height: 44px;
     display: inline-flex;
@@ -13259,6 +13342,52 @@ body.gym-modal-open {
 
 #healthPage .dashboard-sport-card {
     min-width: 0;
+}
+
+#healthPage .dashboard-sport-card--kraft {
+    --sport-chart-color: #ff6400;
+}
+
+#healthPage .dashboard-sport-card--cardio {
+    --sport-chart-color: #007bb4;
+}
+
+/* Gleicher Aufbau wie die Kalorien-Legende: zentriert zwischen Titel und KPI. */
+#healthPage .dashboard-sport-legend {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+#healthPage .dashboard-sport-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text);
+    font-size: 0.80rem;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+#healthPage .dashboard-sport-legend-dot {
+    display: inline-block;
+    flex: 0 0 10px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--sport-chart-color);
+    opacity: 0.55;
+}
+
+#healthPage .dashboard-sport-legend-line {
+    display: inline-block;
+    flex: 0 0 17px;
+    width: 17px;
+    height: 0;
+    border-top: 3px solid var(--sport-chart-color);
 }
 
 #healthPage .dashboard-sport-wrap {

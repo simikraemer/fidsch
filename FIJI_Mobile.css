@@ -2008,11 +2008,18 @@
     .gym-header-actions {
         width: 100%;
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
-    .gym-header-actions .gym-button {
+    .gym-header-actions > .gym-quick-menu,
+    .gym-header-actions > .gym-quick-menu > .gym-button,
+    .gym-header-actions > .gym-button {
         width: 100%;
+        min-width: 0;
+    }
+
+    .gym-header-actions > .gym-quick-menu > .gym-quick-dropdown {
+        min-width: min(245px, calc(100vw - 20px));
     }
 
     .gym-weekday-selector {
@@ -2611,10 +2618,32 @@
     }
 
     /* Kalorien-Legende bleibt bis auf sehr schmale Geräte in der Kopfzeile. */
-    #healthPage .dashboard-kalorien-kpi {
+    #healthPage .dashboard-kalorien-kpi,
+    #healthPage .dashboard-sport-kpi {
         grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
         align-items: center;
         gap: 5px;
+    }
+
+    #healthPage .dashboard-sport-legend {
+        gap: 6px;
+    }
+
+    #healthPage .dashboard-sport-legend-item {
+        gap: 3px;
+        font-size: 0.65rem;
+    }
+
+    #healthPage .dashboard-sport-legend-dot {
+        flex-basis: 7px;
+        width: 7px;
+        height: 7px;
+    }
+
+    #healthPage .dashboard-sport-legend-line {
+        flex-basis: 11px;
+        width: 11px;
+        border-top-width: 2px;
     }
 
     #healthPage .dashboard-calorie-legend {
@@ -2645,14 +2674,39 @@
     }
 }
 
-/* Sehr schmale Displays: zuerst Titel und KPI, danach die Legende. */
-@media (max-width: 390px) {
-    #healthPage .dashboard-kalorien-kpi {
+/* Sport-Kartenköpfe mit mittiger Legende benötigen mehr horizontale Luft.
+   Auf Tablets die beiden Sportcharts deshalb untereinander darstellen. */
+@media (min-width: 651px) and (max-width: 1100px) {
+    #healthPage .dashboard-sport-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Bei schmalen Phones auch den Sport-Kartenkopf zweizeilig halten,
+   damit Trainingsvolumen, Legende und Summenwert nicht kollidieren. */
+@media (min-width: 391px) and (max-width: 520px) {
+    #healthPage .dashboard-sport-kpi {
         grid-template-columns: minmax(0, 1fr) auto;
         row-gap: 6px;
     }
 
-    #healthPage .dashboard-calorie-legend {
+    #healthPage .dashboard-sport-legend {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        justify-self: center;
+    }
+}
+
+/* Sehr schmale Displays: zuerst Titel und KPI, danach die Legende. */
+@media (max-width: 390px) {
+    #healthPage .dashboard-kalorien-kpi,
+    #healthPage .dashboard-sport-kpi {
+        grid-template-columns: minmax(0, 1fr) auto;
+        row-gap: 6px;
+    }
+
+    #healthPage .dashboard-calorie-legend,
+    #healthPage .dashboard-sport-legend {
         grid-column: 1 / -1;
         grid-row: 2;
         justify-self: center;
