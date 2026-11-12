@@ -13971,3 +13971,95 @@ body.faction-gallery-open { overflow: hidden; }
     height: 1px;
     pointer-events: none;
 }
+
+/* SCI / Life: CP-Ansicht einer Gruppe – Zeitbalken auf derselben X-Achse
+   wie die CP-Kurve, nicht als unabhängig skalierte zweite Timeline. */
+.life-page--cp .life-cp-chart-stack--group .life-cp-group-timeline {
+    --life-cp-axis-left: 225px;
+    --life-cp-axis-right: 8px;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    padding-top: 6px;
+    padding-bottom: 5px;
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.life-page--cp .life-cp-timeline-row {
+    display: grid;
+    grid-template-columns: minmax(0, var(--life-cp-axis-left)) minmax(0, 1fr) var(--life-cp-axis-right);
+    min-width: 0;
+    min-height: 32px;
+    align-items: stretch;
+}
+
+.life-page--cp .life-cp-timeline-row--group {
+    min-height: 30px;
+    background: rgba(0, 0, 0, 0.035);
+}
+
+.life-page--cp .life-cp-timeline-label {
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    min-width: 0;
+    padding: 5px 5px 5px calc(8px + (var(--life-depth, 0) * 11px));
+    border-right: 1px solid rgba(0, 0, 0, 0.11);
+    font-size: 0.77rem;
+    line-height: 1.15;
+    color: var(--text);
+}
+
+.life-page--cp .life-cp-timeline-row--group .life-cp-timeline-label {
+    font-weight: 800;
+}
+
+.life-page--cp .life-cp-timeline-label > span {
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.life-page--cp .life-cp-timeline-label[data-life-edit-kind] {
+    cursor: pointer;
+}
+
+.life-page--cp .life-cp-timeline-track {
+    position: relative;
+    min-width: 0;
+    min-height: 100%;
+}
+
+.life-page--cp .life-cp-timeline-grid {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-columns: repeat(var(--life-cp-periods, 1), minmax(0, 1fr));
+    pointer-events: none;
+}
+
+.life-page--cp .life-cp-timeline-grid > span {
+    min-width: 0;
+    border-left: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.life-page--cp .life-cp-timeline-grid > span:last-child {
+    border-right: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.life-page--cp .life-cp-timeline-track .life-bar {
+    height: 16px;
+    min-width: 2px;
+}
+
+.life-page--cp .life-cp-timeline-track .life-event {
+    width: 10px;
+    height: 10px;
+}
+
+.life-page--cp .life-cp-timeline-empty {
+    padding: 10px 8px;
+    font-size: 0.78rem;
+    color: #666;
+}

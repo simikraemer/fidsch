@@ -13485,3 +13485,21 @@
     }
 }
 
+
+/* SCI / Life CP: kompakter Gruppenverlauf ohne horizontale Mindestbreite. */
+@media (max-width: 650px) {
+    .life-page--cp .life-cp-chart-stack--group {
+        height: auto !important;
+        min-width: 0 !important;
+    }
+
+    .life-page--cp .life-cp-timeline-label {
+        padding-left: calc(3px + (var(--life-depth, 0) * 5px));
+        padding-right: 3px;
+        font-size: 0.65rem;
+    }
+
+    .life-page--cp .life-cp-timeline-row {
+        min-height: 28px;
+    }
+}

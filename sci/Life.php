@@ -219,14 +219,28 @@ final class LifeTimelinePage
 
         if (self::isCpMode($mode)) {
             $cpChart = self::buildCreditpointsChartData($conn, $mode, $currentYear, $publicOnly);
-            $cpView = isset($_GET['cp_ansicht']) ? strtolower(trim((string)$_GET['cp_ansicht'])) : 'standard';
-            if (!in_array($cpView, ['standard', 'module'], true)) {
+            $cpGroupOptions = self::buildCpGroupOptions($conn, $publicOnly);
+            $cpView = isset($_GET['cp_ansicht']) ? trim((string)$_GET['cp_ansicht']) : 'standard';
+            $cpGroupId = null;
+            if (preg_match('/^group:([1-9][0-9]*)$/', $cpView, $match)) {
+                $candidate = (int)$match[1];
+                if (isset($cpGroupOptions[$candidate])) {
+                    $cpGroupId = $candidate;
+                } else {
+                    $cpView = 'standard';
+                }
+            } elseif (!in_array($cpView, ['standard', 'module'], true)) {
                 $cpView = 'standard';
             }
+            $cpGroupTimeline = $cpGroupId !== null
+                ? self::buildCpGroupTimeline($conn, $cpGroupId, $cpGroupOptions, $cpChart['labels'], $mode, $publicOnly)
+                : null;
 
             return [
                 'mode' => $mode,
                 'cpView' => $cpView,
+                'cpGroupOptions' => $cpGroupOptions,
+                'cpGroupTimeline' => $cpGroupTimeline,
                 'jahr' => $jahr,
                 'startjahr' => $startjahr,
                 'endjahr' => $endjahr,
@@ -1372,6 +1386,8 @@ final class LifeTimelinePage
         $cpChart = $view['cpChart'];
         $cpView = $view['cpView'] ?? 'standard';
         $showModules = ($cpView === 'module');
+        $cpGroupTimeline = $view['cpGroupTimeline'] ?? null;
+        $showGroupTimeline = is_array($cpGroupTimeline);
         $denseModules = count($cpChart['labels']) > 14;
         $avgPeriodLabel = $mode === 'cp_jahr' ? 'Jahr' : 'Semester';
 
@@ -1400,6 +1416,9 @@ final class LifeTimelinePage
                 <select id="lifeCpView" class="kategorie-select">
                     <option value="standard" <?= $cpView === 'standard' ? 'selected' : '' ?>>Standard</option>
                     <option value="module" <?= $cpView === 'module' ? 'selected' : '' ?>>Module</option>
+                    <?php foreach (($view['cpGroupOptions'] ?? []) as $groupOption): ?>
+                        <option value="group:<?= (int)$groupOption['id'] ?>" <?= $cpView === 'group:' . $groupOption['id'] ? 'selected' : '' ?>><?= self::esc($groupOption['path']) ?></option>
+                    <?php endforeach; ?>
                 </select>
             </div>
             <div class="life-modewrap">
@@ -1425,12 +1444,13 @@ final class LifeTimelinePage
                         Ø <?= self::fmtCp((float)$cpChart['avg_value']) ?> CP pro <?= self::esc($avgPeriodLabel) ?>
                     </span>
                 </div>
-                <?php if ($showModules): ?>
+                <?php if ($showModules || $showGroupTimeline): ?>
                     <div class="life-cp-chart-scroll" id="lifeCpChartScroll">
-                        <div class="dashboard-pie-wrap life-cp-chart-stack <?= $denseModules ? 'life-cp-chart-stack--dense' : '' ?>" style="--life-cp-periods: <?= count($cpChart['labels']) ?>;">
+                        <div class="dashboard-pie-wrap life-cp-chart-stack <?= $denseModules ? 'life-cp-chart-stack--dense' : '' ?><?= $showGroupTimeline ? ' life-cp-chart-stack--group' : '' ?>" style="--life-cp-periods: <?= count($cpChart['labels']) ?>;">
                             <div class="life-cp-plot">
                                 <canvas id="lifeCpChart"></canvas>
                             </div>
+                            <?php if ($showModules): ?>
                             <!-- Die Beschriftung gehört zur selben Diagrammachse:
                                  exakt eine Spalte je x-Achsenposition, keine zweite Übersicht. -->
                             <div class="life-cp-module-grid" id="lifeCpModules" aria-label="Bestandene Prüfungen unter dem jeweiligen <?= self::esc($avgPeriodLabel) ?>">
@@ -1446,6 +1466,10 @@ final class LifeTimelinePage
                                     </div>
                                 <?php endforeach; ?>
                             </div>
+                            <?php endif; ?>
+                            <?php if ($showGroupTimeline): ?>
+                                <?php self::renderCpGroupTimeline($cpGroupTimeline, $editable, count($cpChart['labels'])); ?>
+                            <?php endif; ?>
                         </div>
                     </div>
                 <?php else: ?>
@@ -1517,16 +1541,26 @@ final class LifeTimelinePage
     }
 
     const modules = document.getElementById('lifeCpModules');
+    const groupTimeline = document.getElementById('lifeCpGroupTimeline');
+    const alignToChart = modules || groupTimeline;
     const moduleChartAlign = {
         id: 'lifeCpModuleAlign',
         afterLayout(chart) {
-            if (!modules) return;
+            if (!alignToChart) return;
             // x.offset=true: Der Abstand eines Punktes zur Plotkante entspricht
             // der halben Spaltenbreite. Plotbreite und Modul-Raster sind identisch.
             const scale = chart.scales.x;
             if (!scale) return;
-            modules.style.setProperty('--life-cp-axis-left', Math.max(0, scale.left).toFixed(2) + 'px');
-            modules.style.setProperty('--life-cp-axis-right', Math.max(0, chart.width - scale.right).toFixed(2) + 'px');
+            const left = Math.max(0, scale.left).toFixed(2) + 'px';
+            const right = Math.max(0, chart.width - scale.right).toFixed(2) + 'px';
+            if (modules) {
+                modules.style.setProperty('--life-cp-axis-left', left);
+                modules.style.setProperty('--life-cp-axis-right', right);
+            }
+            if (groupTimeline) {
+                groupTimeline.style.setProperty('--life-cp-axis-left', left);
+                groupTimeline.style.setProperty('--life-cp-axis-right', right);
+            }
         }
     };
 
@@ -1555,6 +1589,10 @@ final class LifeTimelinePage
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            layout: {
+                // Platz für die Eintragsnamen links von der gemeinsamen Jahresachse.
+                padding: { left: groupTimeline ? (isPhoneChart ? 70 : 180) : 0 }
+            },
             plugins: {
                 legend: { display: false },
                 tooltip: {
@@ -1608,9 +1646,394 @@ final class LifeTimelinePage
             }
         }
     });
+
+    // In der öffentlichen Ansicht dieselben Detail-Popover wie in "Gesamt".
+    // Im privaten Editor übernimmt weiterhin die zentrale Bearbeitungsfunktion.
+    if (groupTimeline && !<?= $editable ? 'true' : 'false' ?>) {
+        const targets = Array.from(groupTimeline.querySelectorAll('.life-bar[data-life-info], .life-event[data-life-info]'));
+        if (targets.length) {
+            const popover = document.createElement('div');
+            popover.className = 'life-info-popover';
+            popover.setAttribute('role', 'dialog');
+            popover.setAttribute('aria-modal', 'false');
+            popover.setAttribute('aria-hidden', 'true');
+            popover.innerHTML = `<div class="life-info-popover-header"><div class="life-info-popover-title"></div><button type="button" class="life-info-popover-close" aria-label="Info schließen">&times;</button></div><div class="life-info-popover-body"></div>`;
+            document.body.appendChild(popover);
+            const title = popover.querySelector('.life-info-popover-title');
+            const body = popover.querySelector('.life-info-popover-body');
+            let active = null;
+            const close = () => {
+                if (active) active.setAttribute('aria-expanded', 'false');
+                active = null;
+                popover.classList.remove('is-open');
+                popover.setAttribute('aria-hidden', 'true');
+            };
+            const position = () => {
+                if (!active) return;
+                const anchor = active.getBoundingClientRect();
+                const size = popover.getBoundingClientRect();
+                const left = Math.max(12, Math.min(anchor.left + anchor.width / 2 - size.width / 2, window.innerWidth - size.width - 12));
+                let top = anchor.bottom + 10;
+                if (top + size.height > window.innerHeight - 12) top = anchor.top - size.height - 10;
+                popover.style.left = `${left}px`;
+                popover.style.top = `${Math.max(12, top)}px`;
+            };
+            const open = (target) => {
+                if (active === target) { close(); return; }
+                let lines = [];
+                try { lines = JSON.parse(target.dataset.lifeInfo || '[]'); } catch (_) {}
+                if (!Array.isArray(lines) || !lines.length) return;
+                close();
+                active = target;
+                target.setAttribute('aria-expanded', 'true');
+                title.textContent = String(lines[0] ?? '');
+                body.replaceChildren();
+                lines.slice(1).forEach((text) => {
+                    const line = document.createElement('div');
+                    line.className = 'life-info-popover-line';
+                    line.textContent = String(text ?? '');
+                    body.appendChild(line);
+                });
+                popover.classList.add('is-open');
+                popover.setAttribute('aria-hidden', 'false');
+                position();
+            };
+            targets.forEach((target) => {
+                target.addEventListener('click', (e) => { e.stopPropagation(); open(target); });
+                target.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(target); }
+                });
+            });
+            popover.querySelector('.life-info-popover-close').addEventListener('click', close);
+            document.addEventListener('click', (e) => {
+                if (!(e.target instanceof Node) || !popover.contains(e.target)) close();
+            });
+            document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+            window.addEventListener('resize', position);
+            window.addEventListener('scroll', position, { passive: true });
+        }
+    }
 })();
 </script>
 <?php
+    }
+
+    /**
+     * Gruppen für das CP-Ansicht-Dropdown, in derselben Hierarchie wie "Gesamt".
+     * In der öffentlichen Ansicht werden private Gruppen (und deren Kinder)
+     * schon in der SQL-Abfrage ausgeschlossen.
+     */
+    private static function buildCpGroupOptions(mysqli $conn, bool $publicOnly): array
+    {
+        $sql = $publicOnly
+            ? self::publicGroupsCte() . "
+                SELECT g.id, g.parent_group_id, g.name, g.sort_order, g.color
+                FROM timeline_groups g
+                INNER JOIN visible_groups vg ON vg.id = g.id
+            "
+            : 'SELECT id, parent_group_id, name, sort_order, color FROM timeline_groups';
+        $result = $conn->query($sql);
+        if (!$result) {
+            throw new RuntimeException('CP-Gruppen konnten nicht geladen werden.');
+        }
+
+        $byId = [];
+        $children = [];
+        while ($group = $result->fetch_assoc()) {
+            $group['id'] = (int)$group['id'];
+            $group['parent_group_id'] = $group['parent_group_id'] !== null ? (int)$group['parent_group_id'] : null;
+            $group['sort_order'] = (int)$group['sort_order'];
+            $byId[$group['id']] = $group;
+            $children[$group['parent_group_id'] ?? 0][] = $group['id'];
+        }
+        foreach ($children as &$ids) {
+            usort($ids, static function ($a, $b) use ($byId) {
+                return ($byId[$a]['sort_order'] <=> $byId[$b]['sort_order']) ?: ($a <=> $b);
+            });
+        }
+        unset($ids);
+
+        $options = [];
+        $walk = function (int $id, string $prefix, int $depth) use (&$walk, &$options, $byId, $children): void {
+            if (!isset($byId[$id]) || $depth > 40 || isset($options[$id])) {
+                return;
+            }
+            $group = $byId[$id];
+            $group['path'] = $prefix . $group['name'];
+            $group['depth'] = $depth;
+            $options[$id] = $group;
+            foreach (($children[$id] ?? []) as $childId) {
+                $walk($childId, $group['path'] . ' › ', $depth + 1);
+            }
+        };
+        foreach (($children[0] ?? []) as $rootId) {
+            $walk($rootId, '', 0);
+        }
+        return $options;
+    }
+
+    /** Ordnet einen konkreten Tag exakt der Kategorie (Jahr/Semester) der CP-Achse zu. */
+    private static function cpGroupDateOffset(DateTimeImmutable $date, array $periods, float $withinDay = 0): ?float
+    {
+        foreach ($periods as $index => $period) {
+            if ($date >= $period['start'] && $date <= $period['end']) {
+                $days = max(1, (int)$period['start']->diff($period['end'])->days + 1);
+                $elapsed = (int)$period['start']->diff($date)->days;
+                return $index + ($elapsed + $withinDay) / $days;
+            }
+        }
+        if ($periods && $date == end($periods)['end']->modify('+1 day')) {
+            return (float)count($periods);
+        }
+        return null;
+    }
+
+    /**
+     * Daten eines einzigen Gruppenteilbaums, einschließlich seiner Untergruppen.
+     * Die Abfrage liest keine privaten Nachfahren in LifePublic.
+     */
+    private static function buildCpGroupTimeline(
+        mysqli $conn,
+        int $groupId,
+        array $options,
+        array $labels,
+        string $mode,
+        bool $publicOnly
+    ): array {
+        $periods = [];
+        foreach ($labels as $label) {
+            if ($mode === 'cp_jahr') {
+                $year = (int)$label;
+                $periods[] = [
+                    'start' => new DateTimeImmutable(sprintf('%04d-01-01', $year)),
+                    'end' => new DateTimeImmutable(sprintf('%04d-12-31', $year)),
+                ];
+            } else {
+                $semester = self::parseSemesterValue((string)$label);
+                if ($semester !== null) {
+                    $periods[] = ['start' => $semester['start'], 'end' => $semester['end']];
+                }
+            }
+        }
+        if (!$periods) {
+            return ['rows' => [], 'name' => $options[$groupId]['path'] ?? '', 'empty' => true];
+        }
+        $rangeStart = $periods[0]['start'];
+        $rangeEnd = end($periods)['end'];
+        $rangeStartSql = $rangeStart->format('Y-m-d');
+        $rangeEndSql = $rangeEnd->format('Y-m-d');
+        $id = (int)$groupId;
+        $privateClauseRoot = $publicOnly ? " AND visibility = 'public'" : '';
+        $privateClauseChild = $publicOnly ? " AND child.visibility = 'public'" : '';
+        $sql = "WITH RECURSIVE cp_group_tree AS (
+            SELECT id, parent_group_id, name, sort_order, color
+            FROM timeline_groups WHERE id = $id $privateClauseRoot
+            UNION ALL
+            SELECT child.id, child.parent_group_id, child.name, child.sort_order, child.color
+            FROM timeline_groups child
+            INNER JOIN cp_group_tree tree ON tree.id = child.parent_group_id
+            WHERE 1 = 1 $privateClauseChild
+        ) SELECT * FROM cp_group_tree";
+        $result = $conn->query($sql);
+        if (!$result) {
+            throw new RuntimeException('CP-Gruppenverlauf konnte nicht geladen werden.');
+        }
+        $byId = [];
+        $children = [];
+        while ($group = $result->fetch_assoc()) {
+            $group['id'] = (int)$group['id'];
+            $group['parent_group_id'] = $group['parent_group_id'] !== null ? (int)$group['parent_group_id'] : null;
+            $group['sort_order'] = (int)$group['sort_order'];
+            $byId[$group['id']] = $group;
+            $children[$group['parent_group_id'] ?? 0][] = $group['id'];
+        }
+        if (!isset($byId[$groupId])) {
+            return ['rows' => [], 'name' => '', 'empty' => true];
+        }
+        foreach ($children as &$ids) {
+            usort($ids, static fn($a, $b) => ($byId[$a]['sort_order'] <=> $byId[$b]['sort_order']) ?: ($a <=> $b));
+        }
+        unset($ids);
+        $ids = implode(',', array_map('intval', array_keys($byId)));
+
+        // Direkte Gruppenzugehörigkeit, ohne Seitenbaum-Daten außerhalb der Auswahl.
+        $entries = [];
+        $entriesByGroup = [];
+        $result = $conn->query("SELECT id, group_id, title, sort_order
+            FROM timeline_entries WHERE group_id IN ($ids)");
+        if (!$result) {
+            throw new RuntimeException('CP-Gruppeneinträge konnten nicht geladen werden.');
+        }
+        while ($entry = $result->fetch_assoc()) {
+            $entry['id'] = (int)$entry['id'];
+            $entry['group_id'] = (int)$entry['group_id'];
+            $entry['sort_order'] = (int)$entry['sort_order'];
+            $entries[$entry['id']] = $entry;
+            $entriesByGroup[$entry['group_id']][] = $entry['id'];
+        }
+
+        $barsByEntry = [];
+        $result = $conn->query("SELECT s.id, s.entry_id, s.start_date, s.end_date
+            FROM timeline_entry_segments s
+            INNER JOIN timeline_entries e ON e.id = s.entry_id
+            WHERE e.group_id IN ($ids)
+              AND s.start_date <= '$rangeEndSql'
+              AND s.end_date >= '$rangeStartSql'
+            ORDER BY s.entry_id, s.start_date, s.id");
+        if (!$result) {
+            throw new RuntimeException('CP-Gruppenzeiträume konnten nicht geladen werden.');
+        }
+        $periodCount = count($periods);
+        while ($segment = $result->fetch_assoc()) {
+            $start = self::dt($segment['start_date']);
+            $end = self::dt($segment['end_date']);
+            if (!$start || !$end || $start > $end) {
+                continue;
+            }
+            $clippedStart = max($start, $rangeStart);
+            $clippedEndExclusive = min($end->modify('+1 day'), $rangeEnd->modify('+1 day'));
+            $startOffset = self::cpGroupDateOffset($clippedStart, $periods);
+            $endOffset = self::cpGroupDateOffset($clippedEndExclusive, $periods);
+            if ($startOffset === null || $endOffset === null || $endOffset <= $startOffset) {
+                continue;
+            }
+            $eid = (int)$segment['entry_id'];
+            $barsByEntry[$eid][] = [
+                'id' => (int)$segment['id'],
+                'left' => $startOffset / $periodCount * 100,
+                'width' => max(0.2, ($endOffset - $startOffset) / $periodCount * 100),
+                'title' => ($entries[$eid]['title'] ?? '') . "\nVon: " . self::fmtDate($start) . "\nBis: " . self::fmtDate($end),
+            ];
+        }
+
+        $eventsByEntry = [];
+        $result = $conn->query("SELECT ev.id, ev.entry_id, ev.event_type, ev.event_date, ev.note,
+                   ev.status_code, ev.color, ev.semester_code, ev.year_override, e.creditpoints,
+                   COALESCE(NULLIF(ev.title_override, ''), e.title) AS title
+            FROM timeline_events ev
+            INNER JOIN timeline_entries e ON e.id = ev.entry_id
+            WHERE e.group_id IN ($ids)
+              AND ev.event_date BETWEEN '$rangeStartSql' AND '$rangeEndSql'
+            ORDER BY ev.event_date, ev.id");
+        if (!$result) {
+            throw new RuntimeException('CP-Gruppenereignisse konnten nicht geladen werden.');
+        }
+        while ($event = $result->fetch_assoc()) {
+            $date = self::dt($event['event_date']);
+            if (!$date) {
+                continue;
+            }
+            $offset = self::cpGroupDateOffset($date, $periods, 0.5);
+            if ($offset === null) {
+                continue;
+            }
+            $type = strtolower((string)$event['event_type']);
+            $isExam = $type === 'klausur';
+            $tooltip = [(string)$event['title'], 'Datum: ' . self::fmtDate($date)];
+            if ((string)$event['note'] !== '') {
+                $tooltip[] = ($isExam ? 'Note: ' : 'Notiz: ') . $event['note'];
+            }
+            if ($isExam && (string)$event['status_code'] !== '') {
+                $status = self::statusLabel($event['status_code']) . ' (' . $event['status_code'] . ')';
+                if (strtoupper(trim((string)$event['status_code'])) === 'BE' && $event['creditpoints'] !== null) {
+                    $status .= ' | ' . self::fmtCp((float)$event['creditpoints']) . ' CP';
+                }
+                $tooltip[] = $status;
+            }
+            if ($isExam && (string)$event['semester_code'] !== '') {
+                $tooltip[] = 'Semester: ' . $event['semester_code'];
+            }
+            if ($isExam && $event['year_override'] !== null) {
+                $tooltip[] = 'CP-Jahr: ' . (int)$event['year_override'];
+            }
+            $eventsByEntry[(int)$event['entry_id']][] = [
+                'id' => (int)$event['id'],
+                'left' => $offset / $periodCount * 100,
+                'title' => implode("\n", $tooltip),
+                'class' => $isExam ? 'life-event--' . self::statusCss($event['status_code']) : 'life-event--default',
+                'color' => !$isExam && preg_match('/^#[0-9a-fA-F]{6}$/', (string)$event['color']) ? $event['color'] : null,
+            ];
+        }
+
+        $rootId = self::rootGroupId($groupId, $options);
+        $color = self::rootColorById($rootId, $options);
+        $rows = [];
+        $walk = function (int $gid, int $depth) use (&$walk, &$rows, $byId, $children, $entries, $entriesByGroup, $barsByEntry, $eventsByEntry, $color): void {
+            if (!isset($byId[$gid]) || $depth > 40) {
+                return;
+            }
+            $group = $byId[$gid];
+            $rows[] = ['type' => 'group', 'id' => $gid, 'depth' => $depth, 'name' => $group['name']];
+            $items = [];
+            foreach (($children[$gid] ?? []) as $childId) {
+                $items[] = ['type' => 'group', 'id' => $childId, 'sort_order' => $byId[$childId]['sort_order']];
+            }
+            foreach (($entriesByGroup[$gid] ?? []) as $entryId) {
+                if (empty($barsByEntry[$entryId]) && empty($eventsByEntry[$entryId])) {
+                    continue;
+                }
+                $items[] = ['type' => 'entry', 'id' => $entryId, 'sort_order' => $entries[$entryId]['sort_order']];
+            }
+            usort($items, static fn($a, $b) => ($a['sort_order'] <=> $b['sort_order']) ?: ($a['id'] <=> $b['id']));
+            foreach ($items as $item) {
+                if ($item['type'] === 'group') {
+                    $walk($item['id'], $depth + 1);
+                } else {
+                    $entry = $entries[$item['id']];
+                    $rows[] = [
+                        'type' => 'entry', 'id' => $entry['id'], 'depth' => $depth + 1,
+                        'name' => $entry['title'], 'bars' => $barsByEntry[$entry['id']] ?? [],
+                        'events' => $eventsByEntry[$entry['id']] ?? [], 'color' => $color,
+                    ];
+                }
+            }
+        };
+        $walk($groupId, 0);
+        return ['rows' => $rows, 'name' => $options[$groupId]['path'], 'empty' => count($rows) <= 1];
+    }
+
+    private static function renderCpGroupTimeline(array $timeline, bool $editable, int $periodCount): void
+    {
+        ?>
+        <div class="life-cp-group-timeline" id="lifeCpGroupTimeline"
+             style="--life-cp-periods: <?= max(1, $periodCount) ?>"
+             aria-label="Zeitbalkenverlauf: <?= self::esc($timeline['name']) ?>">
+            <?php foreach ($timeline['rows'] as $row): ?>
+                <div class="life-cp-timeline-row <?= $row['type'] === 'group' ? 'life-cp-timeline-row--group' : 'life-cp-timeline-row--entry' ?>">
+                    <div class="life-cp-timeline-label" title="<?= self::esc($row['name']) ?>"
+                         style="--life-depth: <?= (int)$row['depth'] ?>"
+                         <?= $editable ? 'data-life-edit-kind="' . ($row['type'] === 'group' ? 'group' : 'entry') . '" data-life-edit-id="' . (int)$row['id'] . '" tabindex="0" role="button"' : '' ?>>
+                        <span><?= self::esc($row['name']) ?></span>
+                    </div>
+                    <div class="life-cp-timeline-track">
+                        <div class="life-cp-timeline-grid" aria-hidden="true">
+                            <?php for ($i = 0; $i < $periodCount; $i++): ?><span></span><?php endfor; ?>
+                        </div>
+                        <?php foreach (($row['bars'] ?? []) as $bar): ?>
+                            <div class="life-bar life-interactive"
+                                 title="<?= self::esc($bar['title']) ?>"
+                                 data-life-info="<?= self::infoPayloadAttr(explode("\n", $bar['title'])) ?>"
+                                 <?= $editable ? 'data-life-edit-kind="segment" data-life-edit-id="' . (int)$bar['id'] . '"' : '' ?>
+                                 tabindex="0" role="button"
+                                 style="left: <?= number_format($bar['left'], 6, '.', '') ?>%; width: <?= number_format($bar['width'], 6, '.', '') ?>%; background-color: <?= self::esc($row['color']) ?>;"></div>
+                        <?php endforeach; ?>
+                        <?php foreach (($row['events'] ?? []) as $event): ?>
+                            <div class="life-event <?= self::esc($event['class']) ?> life-interactive"
+                                 title="<?= self::esc($event['title']) ?>"
+                                 data-life-info="<?= self::infoPayloadAttr(explode("\n", $event['title'])) ?>"
+                                 <?= $editable ? 'data-life-edit-kind="event" data-life-edit-id="' . (int)$event['id'] . '"' : '' ?>
+                                 tabindex="0" role="button"
+                                 style="left: <?= number_format($event['left'], 6, '.', '') ?>%;<?= $event['color'] !== null ? ' color: ' . self::esc($event['color']) . ';' : '' ?>"></div>
+                        <?php endforeach; ?>
+                    </div>
+                    <div class="life-cp-timeline-edge" aria-hidden="true"></div>
+                </div>
+            <?php endforeach; ?>
+            <?php if (!empty($timeline['empty'])): ?>
+                <div class="life-cp-timeline-empty">Im dargestellten Zeitraum keine Zeiträume oder Ereignisse vorhanden.</div>
+            <?php endif; ?>
+        </div>
+        <?php
     }
 
     private static function isCpMode(string $mode): bool
