@@ -1,5 +1,5 @@
 <?php
-// fit/FoodDashboard_v13.php
+// fit/FoodDashboard_v16.php
 
 // 1) Auth (Seite geschützt)
 require_once __DIR__ . '/../auth.php';
@@ -279,7 +279,8 @@ function foodDashboardNormalizeFrequencyRows(array $rows): array
 // übereinstimmen, werden Protein/Fett/Carbs jeweils im Verhältnis der
 // Einzelzutaten aufgeteilt. Die tatsächlich gespeicherten Gesamtwerte bleiben
 // dadurch für JEDE Metrik unverändert (auch bei anderen Portionsgrößen).
-// Die Anzahl wird nach dem Kalorienanteil verteilt (Summe weiterhin 1 Eintrag).
+// Auch "Anzahl" bleibt als ein Log-Eintrag erhalten und wird anteilig
+// auf die drei Zutaten-Gerichte verteilt.
 // -----------------------------------------------------------------------------
 function foodDashboardFijiSandwichWeights(): array
 {
@@ -337,31 +338,56 @@ function foodDashboardFijiSandwichWeights(): array
     return $weights;
 }
 
-// Funktioniert sowohl für die Gerichte-Gesamtsummen als auch pro Zeit-Bucket.
-function foodDashboardSplitFijiSandwichRows(array $rows): array
+// Das zusammengesetzte Fiji Sandwich wird in der Dashboard-Auswertung den
+// vorhandenen Zutaten-Gerichten zugerechnet. Existiert eine Zutat im gewählten
+// Zeitraum noch nicht als eigener Eintrag, wird sie für die Auswertung angelegt.
+// Bei Zeitreihen werden ausschließlich gleiche Zeit-Buckets zusammengeführt.
+// Die Summen aller Metriken bleiben unverändert (einschließlich "Anzahl").
+function foodDashboardMergeFijiSandwichIntoIngredients(array $rows): array
 {
-    $out = [];
     $weights = foodDashboardFijiSandwichWeights();
+    $ingredientNames = [
+        'Brot'   => 'Vollkorn Sandwich Scheibe',
+        'Käse'   => 'Müritzer Käse Scheibe',
+        'Saucen' => 'Schuss Remoulade',
+    ];
+    $metrics = ['entries', 'calories', 'protein', 'carbs', 'fat', 'alcohol'];
+    $merged = [];
+
+    $mergeRow = static function (array $row) use (&$merged, $metrics): void {
+        $key = (string)($row['category'] ?? '') . "\0"
+             . (string)($row['name'] ?? '') . "\0"
+             . (string)($row['bucket'] ?? '');
+
+        if (!isset($merged[$key])) {
+            $merged[$key] = $row;
+            return;
+        }
+
+        foreach ($metrics as $metric) {
+            $merged[$key][$metric] = (float)($merged[$key][$metric] ?? 0.0)
+                                   + (float)($row[$metric] ?? 0.0);
+        }
+    };
 
     foreach ($rows as $row) {
         if (($row['name'] ?? '') !== 'Fiji Sandwich' || ($row['category'] ?? '') !== 'Brot') {
-            $out[] = $row;
+            $mergeRow($row);
             continue;
         }
 
         foreach ($weights as $category => $shares) {
             $partial = $row;
+            $partial['name'] = $ingredientNames[$category];
             $partial['category'] = $category;
-            // Zutatenanteil im Gerichtenamen kenntlich machen; Kategorie bleibt unverändert.
-            $partial['name'] = 'Fiji Sandwich (' . ($category === 'Saucen' ? 'Sauce' : $category) . ')';
-            foreach ($shares as $metric => $share) {
-                $partial[$metric] = (float)($row[$metric] ?? 0.0) * $share;
+            foreach ($metrics as $metric) {
+                $partial[$metric] = (float)($row[$metric] ?? 0.0) * (float)$shares[$metric];
             }
-            $out[] = $partial;
+            $mergeRow($partial);
         }
     }
 
-    return $out;
+    return array_values($merged);
 }
 
 // Kategorien nach Aufteilung direkt aus den Gerichtesummen aufbauen, sodass
@@ -480,8 +506,8 @@ try {
     }
 
     if ($hasFijiSandwich) {
-        $foodRows = foodDashboardSplitFijiSandwichRows($foodRows);
-        $foodFrequencyRows = foodDashboardSplitFijiSandwichRows($foodFrequencyRows);
+        $foodRows = foodDashboardMergeFijiSandwichIntoIngredients($foodRows);
+        $foodFrequencyRows = foodDashboardMergeFijiSandwichIntoIngredients($foodFrequencyRows);
         $categoryRows = foodDashboardCategoryTotalsFromFoods($foodRows);
     }
 } catch (Throwable $e) {
@@ -539,6 +565,23 @@ if ($zeitraum === '1m') {
     }
 
     $frequencyUnit = 'month';
+}
+
+// In den Gruppen- und Gerichte-Zeitverläufen auf Monatsbasis ausschließlich
+// vollständig abgeschlossene Kalendermonate anzeigen. Der laufende Monat ist
+// noch nicht vergleichbar und würde einen irreführenden Rückgang vortäuschen.
+// Die Tagesansicht "Letzter Monat" bleibt davon bewusst unberührt.
+if ($frequencyUnit === 'month') {
+    $currentMonthStart = $now
+        ->modify('first day of this month')
+        ->setTime(0, 0)
+        ->format('Y-m-d');
+
+    // Das Ende ist exklusiv: 01.11. schließt beispielsweise Oktober ein,
+    // blendet aber November sowie alle folgenden Monate aus.
+    if ($chartEndDate > $currentMonthStart) {
+        $chartEndDate = $currentMonthStart;
+    }
 }
 
 $totalEntries = 0;
@@ -631,6 +674,11 @@ require_once __DIR__ . '/../navbar.php';
             <div class="food-dashboard-chart-wrap" id="foodDashboardChartWrap">
                 <div class="food-dashboard-chart-canvas-wrap">
                     <canvas id="foodShareChart"></canvas>
+                    <div
+                        id="foodDashboardNoClosedMonths"
+                        hidden
+                        style="height:100%;box-sizing:border-box;padding:16px;text-align:center;align-items:center;justify-content:center;color:#777;font-weight:600"
+                    >Noch keine vollständig abgeschlossenen Monate im gewählten Zeitraum.</div>
                 </div>
                 <div id="foodDashboardPieLegend" class="food-dashboard-pie-legend" aria-label="Diagrammlegende"></div>
             </div>
@@ -700,6 +748,7 @@ require_once __DIR__ . '/../navbar.php';
     const shareChartBack = document.getElementById('shareChartBack');
     const chartWrap = document.getElementById('foodDashboardChartWrap');
     const chartCard = document.getElementById('foodDashboardChartCard');
+    const noClosedMonthsMessage = document.getElementById('foodDashboardNoClosedMonths');
     const pieLegend = document.getElementById('foodDashboardPieLegend');
     const lineLegend = document.getElementById('foodDashboardLineLegend');
     const tabs = Array.from(document.querySelectorAll('.food-dashboard-metric-tab'));
@@ -1008,6 +1057,15 @@ require_once __DIR__ . '/../navbar.php';
         }
     }
 
+    function showNoClosedMonthsMessage(show) {
+        const canvas = document.getElementById('foodShareChart');
+        if (canvas) canvas.style.display = show ? 'none' : 'block';
+        if (noClosedMonthsMessage) {
+            noClosedMonthsMessage.hidden = !show;
+            noClosedMonthsMessage.style.display = show ? 'flex' : 'none';
+        }
+    }
+
     function setChartModeClass(isFrequencyDetail) {
         chartWrap?.classList.toggle('is-frequency-chart', isFrequencyDetail);
         chartCard?.classList.toggle('is-frequency-detail', isFrequencyDetail);
@@ -1273,6 +1331,7 @@ require_once __DIR__ . '/../navbar.php';
 
     function renderTimelineChart(metric, datasetMeta, titleText, backTitle, backAriaLabel) {
         const meta = metricMeta[metric];
+        const noClosedMonths = frequencyUnit === 'month' && frequencyChartEnd <= frequencyChartStart;
         const total = datasetMeta.reduce(
             (sum, dataset) => sum + dataset.points.reduce(
                 (datasetSum, point) => datasetSum + numberValue(point.y),
@@ -1282,7 +1341,7 @@ require_once __DIR__ . '/../navbar.php';
         );
 
         shareChartTitleText.textContent = titleText;
-        shareChartTotal.textContent = formatMetric(total, metric);
+        shareChartTotal.textContent = noClosedMonths ? '—' : formatMetric(total, metric);
 
         shareChartBack.hidden = false;
         shareChartBack.title = backTitle;
@@ -1292,6 +1351,8 @@ require_once __DIR__ . '/../navbar.php';
         renderLineLegend(datasetMeta);
 
         destroyShareChart();
+        showNoClosedMonthsMessage(noClosedMonths);
+        if (noClosedMonths) return;
 
         const canvas = document.getElementById('foodShareChart');
         if (!canvas) return;
@@ -1448,6 +1509,7 @@ require_once __DIR__ . '/../navbar.php';
         shareChartTotal.textContent = formatMetric(total, metric);
         setChartModeClass(false);
         destroyShareChart();
+        showNoClosedMonthsMessage(false);
 
         const canvas = document.getElementById('foodShareChart');
         if (!canvas || !rows.length) {

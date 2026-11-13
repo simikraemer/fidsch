@@ -10,6 +10,11 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
 
+// Token für die neue, unwiderrufliche Löschaktion.
+if (empty($_SESSION['todo_delete_csrf'])) {
+    $_SESSION['todo_delete_csrf'] = bin2hex(random_bytes(32));
+}
+
 /* ---------------------- Status-Filter (open|done) ---------------------- */
 $status = strtolower(trim((string)($_GET['status'] ?? 'open')));
 if (!in_array($status, ['open', 'done'], true)) $status = 'open';
@@ -207,6 +212,94 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         } catch (Throwable $e) {
             $checkconn->rollback();
             json_out(['ok' => false, 'error' => 'DB-Fehler beim Einfügen.'], 500);
+        }
+    }
+
+    if ($action === 'delete_todo') {
+        $id = (int)($_POST['id'] ?? 0);
+        $csrf = (string)($_POST['csrf'] ?? '');
+
+        if (!hash_equals((string)$_SESSION['todo_delete_csrf'], $csrf)) {
+            json_out(['ok' => false, 'error' => 'Ungültige Sicherheitsprüfung. Bitte Seite neu laden.'], 403);
+        }
+        if ($id <= 0) {
+            json_out(['ok' => false, 'error' => 'Ungültige ID.'], 400);
+        }
+
+        $checkconn->begin_transaction();
+        try {
+            // Ziel sperren und ursprünglichen Parent für dessen Badge ermitteln.
+            $stmt = $checkconn->prepare('SELECT parent_id FROM todo WHERE id = ? FOR UPDATE');
+            $stmt->bind_param('i', $id);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $todo = $result ? $result->fetch_assoc() : null;
+            $stmt->close();
+
+            if (!$todo) {
+                $checkconn->rollback();
+                json_out(['ok' => false, 'error' => 'Eintrag nicht gefunden.'], 404);
+            }
+
+            $parentId = ($todo['parent_id'] === null) ? null : (int)$todo['parent_id'];
+
+            // Auch verschachtelte Unterpunkte erfassen, ohne auf eine
+            // eventuell nicht vorhandene ON-DELETE-CASCADE-Regel angewiesen zu sein.
+            $allIds = [];
+            $seen = [];
+            $queue = [$id];
+            $childrenStmt = $checkconn->prepare('SELECT id FROM todo WHERE parent_id = ? FOR UPDATE');
+
+            for ($index = 0; $index < count($queue); $index++) {
+                $currentId = (int)$queue[$index];
+                if (isset($seen[$currentId])) continue;
+
+                $seen[$currentId] = true;
+                $allIds[] = $currentId;
+
+                $childrenStmt->bind_param('i', $currentId);
+                $childrenStmt->execute();
+                $childResult = $childrenStmt->get_result();
+                while ($child = $childResult->fetch_assoc()) {
+                    $childId = (int)$child['id'];
+                    if (!isset($seen[$childId])) $queue[] = $childId;
+                }
+                $childResult->free();
+            }
+            $childrenStmt->close();
+
+            // Kinder vor Eltern löschen (wichtig bei selbstreferenzierenden FKs).
+            $deleteStmt = $checkconn->prepare('DELETE FROM todo WHERE id = ?');
+            foreach (array_reverse($allIds) as $deleteId) {
+                $deleteStmt->bind_param('i', $deleteId);
+                $deleteStmt->execute();
+            }
+            $deleteStmt->close();
+
+            $parentCounts = null;
+            if ($parentId !== null) {
+                $stmt = $checkconn->prepare('SELECT COUNT(*) AS total_c, COALESCE(SUM(done_at IS NOT NULL), 0) AS done_c FROM todo WHERE parent_id = ?');
+                $stmt->bind_param('i', $parentId);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                $countsRow = $result->fetch_assoc();
+                $stmt->close();
+                $parentCounts = [
+                    'total' => (int)($countsRow['total_c'] ?? 0),
+                    'done'  => (int)($countsRow['done_c'] ?? 0),
+                ];
+            }
+
+            $checkconn->commit();
+            json_out([
+                'ok'            => true,
+                'deleted_ids'   => $allIds,
+                'parent_id'     => $parentId,
+                'parent_counts' => $parentCounts,
+            ]);
+        } catch (Throwable $e) {
+            $checkconn->rollback();
+            json_out(['ok' => false, 'error' => 'DB-Fehler beim Löschen. Es wurde nichts gelöscht.'], 500);
         }
     }
 
@@ -539,7 +632,10 @@ require_once __DIR__ . '/../navbar.php';
                 <textarea id="ltNewDetailNotiz" rows="5" placeholder="optional"></textarea>
             </div>
 
-            <button id="ltSaveNew" type="button">Speichern</button>
+            <div class="lt-modal-actions lt-todo-modal-actions">
+                <button id="ltSaveNew" class="lt-save-btn" type="button">Speichern</button>
+                <button id="ltDeleteTodo" class="lt-delete-btn" type="button" hidden>Löschen</button>
+            </div>
         </div>
     </div>
 </div>
@@ -556,6 +652,20 @@ require_once __DIR__ . '/../navbar.php';
     overflow-y: auto;
     overflow-wrap: anywhere;
     word-break: break-word;
+  }
+  /* Buttons passen auch innerhalb des schmalen Bearbeiten-Modals. */
+  #ltModal .lt-todo-modal-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    margin-top: 0;
+  }
+  #ltModal .lt-todo-modal-actions > button {
+    min-width: 0;
+    width: 100%;
+  }
+  #ltModal .lt-todo-modal-actions > button[hidden] {
+    display: none;
   }
 </style>
 
@@ -589,6 +699,8 @@ require_once __DIR__ . '/../navbar.php';
     const elNewNotiz = document.getElementById('ltNewNotiz');
     const elNewDetailNotiz = document.getElementById('ltNewDetailNotiz');
     const elSaveNew = document.getElementById('ltSaveNew');
+    const elDeleteTodo = document.getElementById('ltDeleteTodo');
+    const deleteCsrfToken = <?= json_encode($_SESSION['todo_delete_csrf'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 
     const validSubjects = new Set(Object.keys(SUBJECTS));
     const DRAG_ENABLED = !!(
@@ -901,6 +1013,7 @@ require_once __DIR__ . '/../navbar.php';
 
     function openNewModal(parentPref = '0') {
         elEditId.value = '';
+        elDeleteTodo.hidden = true;
         document.getElementById('ltModalTitle').textContent = 'Neues Todo';
 
         elNewFach.value = selectedFach;
@@ -915,6 +1028,7 @@ require_once __DIR__ . '/../navbar.php';
 
     function openEditModal(todo) {
         elEditId.value = String(todo.id);
+        elDeleteTodo.hidden = false;
         document.getElementById('ltModalTitle').textContent = 'Todo bearbeiten';
 
         selectedFach = String(todo.fach);
@@ -1472,6 +1586,65 @@ require_once __DIR__ . '/../navbar.php';
         roots.forEach(t => renderOne(t, 0));
         setAccentForSubject(selectedFach);
     }
+
+    elDeleteTodo.addEventListener('click', async () => {
+        const editId = (elEditId.value || '').trim();
+        if (!editId || elDeleteTodo.disabled) return;
+
+        const todo = TASKS.find(t => String(t.id) === editId);
+        if (!todo) return;
+
+        const title = String(todo.title || '').trim() || `#${editId}`;
+        const directChildren = Number(CHILD_COUNTS[editId]?.total || 0);
+        const childLabel = directChildren === 1
+            ? 'der direkte Unterpunkt'
+            : `alle ${directChildren} direkten Unterpunkte`;
+        const warning = directChildren > 0
+            ? `\n\nAchtung: Auch ${childLabel} sowie eventuell weitere verschachtelte Unterpunkte werden gelöscht.`
+            : '';
+
+        if (!window.confirm(`ToDo „${title}“ wirklich endgültig löschen?${warning}\n\nDieser Vorgang kann nicht rückgängig gemacht werden.`)) {
+            return;
+        }
+
+        elDeleteTodo.disabled = true;
+        elSaveNew.disabled = true;
+        try {
+            const res = await post('delete_todo', { id: editId, csrf: deleteCsrfToken });
+            if (!res || !res.ok || !Array.isArray(res.deleted_ids)) {
+                throw new Error(res?.error || 'Löschen fehlgeschlagen.');
+            }
+
+            const deleted = new Set(res.deleted_ids.map(String));
+            for (let i = TASKS.length - 1; i >= 0; i--) {
+                if (deleted.has(String(TASKS[i].id))) TASKS.splice(i, 1);
+            }
+            deleted.forEach(id => {
+                expanded.delete(id);
+                delete CHILD_COUNTS[id];
+            });
+            saveExpanded();
+
+            // Der Parent-Zähler kommt frisch von der Datenbank und umfasst
+            // auch Unterpunkte, die in der aktuellen Offen-/Erledigt-Ansicht fehlen.
+            if (res.parent_id !== null && res.parent_id !== undefined) {
+                const parentId = String(res.parent_id);
+                CHILD_COUNTS[parentId] = {
+                    total: Number(res.parent_counts?.total || 0),
+                    done: Number(res.parent_counts?.done || 0)
+                };
+            }
+
+            closeModal();
+            renderTable();
+            updateCounts();
+        } catch (error) {
+            window.alert(error?.message || 'Löschen fehlgeschlagen.');
+        } finally {
+            elDeleteTodo.disabled = false;
+            elSaveNew.disabled = false;
+        }
+    });
 
     elSaveNew.addEventListener('click', async () => {
         const editId = (elEditId.value || '').trim();
