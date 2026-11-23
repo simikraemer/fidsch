@@ -1758,6 +1758,8 @@ $charImages = [];
 $profileImage = null;
 $displayImage = null;
 $charFactionIds = [];
+$charArtistAlbums = [];
+$charFeatureAlbums = [];
 
 if ($detailId > 0 || $isNew) {
     $char = $detailId > 0
@@ -1815,6 +1817,74 @@ if ($detailId > 0 || $isNew) {
         $charFactionIds = [
             $selectedFaction,
         ];
+    }
+
+    /*
+     * Diskografie für das Charsheet: direkte Album-Artists und
+     * Features auf aktuell enthaltenen Songs getrennt laden.
+     * EXISTS verhindert Dopplungen durch mehrere Feature-Songs.
+     */
+    if ((int)$char['id'] > 0) {
+        $charArtistAlbums = phan_all(
+            $phanconn,
+            '
+            SELECT
+                a.id,
+                a.title,
+                a.cover_path,
+                a.album_year,
+                a.album_month
+            FROM album_chars ac
+            INNER JOIN albums a ON a.id = ac.album_id
+            WHERE ac.char_id = ?
+            ORDER BY
+                CASE
+                    WHEN a.album_year IS NULL THEN 2
+                    WHEN a.album_year >= 1000 THEN 0
+                    ELSE 1
+                END ASC,
+                a.album_year ASC,
+                CASE WHEN a.album_month IS NULL THEN 1 ELSE 0 END ASC,
+                a.album_month ASC,
+                a.title ASC,
+                a.id ASC
+            ',
+            [(int)$char['id']]
+        );
+
+        $charFeatureAlbums = phan_all(
+            $phanconn,
+            '
+            SELECT
+                a.id,
+                a.title,
+                a.cover_path,
+                a.album_year,
+                a.album_month
+            FROM albums a
+            WHERE EXISTS (
+                SELECT 1
+                FROM album_songs alsg
+                INNER JOIN album_song_features asf
+                    ON asf.album_song_id = alsg.id
+                WHERE alsg.album_id = a.id
+                  AND alsg.is_present = 1
+                  AND asf.char_id = ?
+            )
+            ORDER BY
+                CASE
+                    WHEN a.album_year IS NULL THEN 2
+                    WHEN a.album_year >= 1000 THEN 0
+                    ELSE 1
+                END ASC,
+                a.album_year ASC,
+                CASE WHEN a.album_month IS NULL THEN 1 ELSE 0 END ASC,
+                a.album_month ASC,
+                a.title ASC,
+                a.id ASC
+            ',
+            [(int)$char['id']]
+        );
     }
 
     if ((int)$char['id'] > 0) {
@@ -3200,7 +3270,7 @@ require_once __DIR__ . '/../navbar.php';
         <form
             method="post"
             enctype="multipart/form-data"
-            class="phan-detail chars-detail"
+            class="phan-detail chars-detail <?= ($charArtistAlbums || $charFeatureAlbums) ? 'chars-detail--with-albums' : '' ?>"
             id="charForm"
             autocomplete="off"
         >
@@ -3671,6 +3741,53 @@ require_once __DIR__ . '/../navbar.php';
                 </div>
 
             </div>
+
+            <?php if ($charArtistAlbums || $charFeatureAlbums): ?>
+                <aside class="phan-card chars-albums-card" aria-label="Albumübersicht">
+                    <div class="chars-albums-groups">
+                        <?php foreach (
+                            [
+                                'Alben' => $charArtistAlbums,
+                                'Erscheint auf' => $charFeatureAlbums,
+                            ] as $sectionTitle => $sectionAlbums
+                        ): ?>
+                            <?php if (!$sectionAlbums) continue; ?>
+
+                            <section class="chars-albums-section">
+                                <h2 class="chars-albums-heading">
+                                    <?= phan_h($sectionTitle) ?>
+                                </h2>
+
+                                <div class="chars-albums-list">
+                                    <?php foreach ($sectionAlbums as $albumRow): ?>
+                                        <?php $albumRowId = (int)$albumRow['id']; ?>
+
+                                        <a
+                                            class="chars-album-link"
+                                            href="/phan/alben?id=<?= $albumRowId ?>"
+                                            title="<?= phan_h($albumRow['title']) ?>"
+                                            aria-label="<?= phan_h($albumRow['title']) ?>"
+                                        >
+                                            <?php if (!empty($albumRow['cover_path'])): ?>
+                                                <img
+                                                    class="chars-album-cover"
+                                                    src="/phan/alben?thumb=<?= $albumRowId ?>"
+                                                    alt=""
+                                                    loading="lazy"
+                                                    decoding="async"
+                                                >
+                                            <?php else: ?>
+                                                <span class="chars-album-cover chars-album-placeholder" aria-hidden="true">♪</span>
+                                            <?php endif; ?>
+
+                                        </a>
+                                    <?php endforeach; ?>
+                                </div>
+                            </section>
+                        <?php endforeach; ?>
+                    </div>
+                </aside>
+            <?php endif; ?>
 
         </form>
 

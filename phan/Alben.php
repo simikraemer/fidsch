@@ -2087,7 +2087,6 @@ require_once __DIR__ . '/../head.php';
 require_once __DIR__ . '/../navbar.php';
 ?>
 
-
 <main
     id="albumsPage"
     class="phan-page albums-page <?= $album ? 'albums-page--detail' : 'albums-page--list' ?>"
@@ -4332,7 +4331,11 @@ require_once __DIR__ . '/../navbar.php';
                         <?php else: ?>
 
                             <?php foreach ($albumLabels as $label): ?>
-                                <span class="album-entity-chip">
+                                <a
+                                    class="album-entity-chip album-entity-chip--link"
+                                    href="/phan/factions?id=<?= (int)$label['id'] ?>"
+                                    title="Fraktion öffnen: <?= alb_h($label['title']) ?>"
+                                >
                                     <?php if (!empty($label['image_path'])): ?>
                                         <img
                                             src="/phan/factions?thumb=<?= (int)$label['id'] ?>"
@@ -4344,7 +4347,7 @@ require_once __DIR__ . '/../navbar.php';
                                     <span>
                                         <?= alb_h($label['title']) ?>
                                     </span>
-                                </span>
+                                </a>
                             <?php endforeach; ?>
 
                         <?php endif; ?>
@@ -4382,7 +4385,11 @@ require_once __DIR__ . '/../navbar.php';
                         <?php else: ?>
 
                             <?php foreach ($albumArtists as $artist): ?>
-                                <span class="album-entity-chip">
+                                <a
+                                    class="album-entity-chip album-entity-chip--link"
+                                    href="/phan/chars?id=<?= (int)$artist['id'] ?>"
+                                    title="Charakter öffnen: <?= alb_h($artist['call_name']) ?>"
+                                >
                                     <?php if (!empty($artist['image_path'])): ?>
                                         <img
                                             src="/phan/chars?thumb=<?= (int)$artist['id'] ?>"
@@ -4394,7 +4401,7 @@ require_once __DIR__ . '/../navbar.php';
                                     <span>
                                         <?= alb_h($artist['call_name']) ?>
                                     </span>
-                                </span>
+                                </a>
                             <?php endforeach; ?>
 
                         <?php endif; ?>
@@ -4615,7 +4622,11 @@ require_once __DIR__ . '/../navbar.php';
                                     <?php else: ?>
 
                                         <?php foreach ($songFeatures as $feature): ?>
-                                            <span class="album-entity-chip album-entity-chip--small">
+                                            <a
+                                                class="album-entity-chip album-entity-chip--small album-entity-chip--link"
+                                                href="/phan/chars?id=<?= (int)$feature['id'] ?>"
+                                                title="Charakter öffnen: <?= alb_h($feature['call_name']) ?>"
+                                            >
 
                                                 <?php if (!empty($feature['image_path'])): ?>
                                                     <img
@@ -4628,7 +4639,7 @@ require_once __DIR__ . '/../navbar.php';
                                                 <span>
                                                     <?= alb_h($feature['call_name']) ?>
                                                 </span>
-                                            </span>
+                                            </a>
                                         <?php endforeach; ?>
 
                                     <?php endif; ?>
@@ -5507,16 +5518,28 @@ require_once __DIR__ . '/../navbar.php';
                     item => {
                         const chip =
                             document.createElement(
-                                'span'
+                                'a'
                             );
 
                         chip.className =
-                            'album-entity-chip'
+                            'album-entity-chip album-entity-chip--link'
                             + (
                                 small
                                     ? ' album-entity-chip--small'
                                     : ''
                             );
+
+                        chip.href =
+                            (list === FACTIONS
+                                ? '/phan/factions?id='
+                                : '/phan/chars?id=')
+                            + encodeURIComponent(String(item.id));
+
+                        chip.title =
+                            (list === FACTIONS
+                                ? 'Fraktion öffnen: '
+                                : 'Charakter öffnen: ')
+                            + item.name;
 
                         if (item.thumb) {
                             const image =
