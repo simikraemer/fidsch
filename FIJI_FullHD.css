@@ -14316,3 +14316,49 @@ body.faction-gallery-open { overflow: hidden; }
     font-size: 0.78rem;
     color: #666;
 }
+
+
+/* biz/Kategorien.php */
+#bizKategorienPage.biz-kategorien-page { max-width: 1050px; margin: 30px auto 70px; padding: 24px; box-sizing: border-box; }
+#bizKategorienPage .biz-kategorien-toolbar { width: 80%; margin-left: auto; margin-right: auto; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 20px; position: sticky; top: 70px; z-index: 10; padding: 10px 0; }
+#bizKategorienPage .biz-kategorien-create-form { display: flex; align-items: center; gap: 8px; flex: 1; max-width: 460px; min-width: 0; }
+#bizKategorienPage .biz-kategorien-create-form input { min-width: 0; flex: 1; margin: 0; }
+#bizKategorienPage button { white-space: nowrap; }
+#bizKategorienPage button:disabled { background: #ddd; color: #888; box-shadow: none; cursor: not-allowed; }
+#bizKategorienPage .biz-kategorien-table { margin-top: 12px; }
+#bizKategorienPage .biz-kategorien-table th, #bizKategorienPage .biz-kategorien-table td { padding: 7px 12px; vertical-align: middle; }
+#bizKategorienPage .biz-kategorien-table th { padding-top: 12px; padding-bottom: 12px; white-space: nowrap; }
+#bizKategorienPage .biz-kategorien-row { cursor: pointer; }
+#bizKategorienPage .biz-kategorien-name-cell { width: 40%; }
+#bizKategorienPage .biz-kategorien-name-input { margin: 0; padding: 7px 8px; border-color: transparent; background: transparent; cursor: text; }
+#bizKategorienPage .biz-kategorien-name-input:hover, #bizKategorienPage .biz-kategorien-name-input:focus { border-color: var(--primary); background: white; outline: none; }
+#bizKategorienPage .biz-kategorien-name-input.is-dirty { border-color: var(--primary); background: #fff7ee; }
+#bizKategorienPage .biz-kategorien-table th:nth-child(n+2), #bizKategorienPage .biz-kategorien-count, #bizKategorienPage .biz-kategorien-money { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+#bizKategorienPage .biz-kategorien-actions-cell { width: 1%; text-align: right; cursor: default; }
+#bizKategorienPage .biz-kategorien-delete { padding: 7px 12px; }
+#bizKategorienPage .biz-kategorien-delete:not(:disabled) { background: #ba342d; }
+#bizKategorienPage .biz-kategorien-delete:not(:disabled):hover { background: #92251f; }
+#bizKategorienPage .biz-kategorien-count { position: relative; }
+#bizKategorienPage .biz-kategorien-row-link { position: absolute; inset: 0; }
+#bizKategorienPage .biz-kategorien-row-link:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+#bizKategorienPage .biz-kategorien-hint { color: #666; font-size: .82rem; margin: 12px 0 0; }
+#bizKategorienPage .biz-kategorien-notice { color: var(--success); font-weight: bold; margin: 8px 0; }
+#bizKategorienPage .biz-kategorien-notice.is-error { color: var(--error); }
+
+/* biz/Kategorien.php - Tabellensortierung */
+#bizKategorienPage .biz-kategorien-table .biz-kategorien-sort {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    box-shadow: none;
+    white-space: normal;
+    text-align: inherit;
+}
+#bizKategorienPage .biz-kategorien-sort:hover { text-decoration: underline; }
+#bizKategorienPage .biz-kategorien-sort span { opacity: .4; flex-shrink: 0; }
+#bizKategorienPage th[aria-sort] .biz-kategorien-sort span { opacity: 1; }
+#bizKategorienPage .biz-kategorien-sort:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }

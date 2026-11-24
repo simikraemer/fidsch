@@ -36,6 +36,7 @@ $routesBiz = [
     'stats'  => 'Start.php',
     'data'   => 'Data.php',
     'insert' => 'Insert.php',
+    'kategorien' => 'Kategorien.php',
     'konten' => 'Konten.php',
     'postbsc' => 'PostBachelor.php',
 ];

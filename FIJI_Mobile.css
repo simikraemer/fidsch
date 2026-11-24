@@ -13620,3 +13620,18 @@
         width: min(100%, 136px);
     }
 }
+
+/* biz/Kategorien.php – responsive */
+@media (max-width: 700px) {
+    #bizKategorienPage.biz-kategorien-page { width: calc(100% - 16px); margin: 12px auto 48px; padding: 10px; }
+    #bizKategorienPage .biz-kategorien-toolbar { flex-wrap: wrap; gap: 8px; }
+    #bizKategorienPage .biz-kategorien-create-form { flex: 1 1 100%; max-width: none; }
+    #bizKategorienPage #bizKatSave { width: 100%; }
+    #bizKategorienPage .biz-kategorien-table { font-size: .82rem; }
+    #bizKategorienPage .biz-kategorien-table th, #bizKategorienPage .biz-kategorien-table td { padding: 6px 4px; }
+    #bizKategorienPage .biz-kategorien-name-cell { width: auto; }
+    #bizKategorienPage .biz-kategorien-name-input { font-size: inherit; padding: 6px 3px; min-width: 65px; }
+    #bizKategorienPage .biz-kategorien-delete { font-size: .72rem; padding: 7px 5px; }
+    #bizKategorienPage .biz-kategorien-table th { white-space: normal; }
+    #bizKategorienPage .biz-kategorien-money { white-space: normal; }
+}
